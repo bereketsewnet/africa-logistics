@@ -1,0 +1,24 @@
+# ── Environment / Secrets ──────────────────────────────────────
+**/.env
+**/.env.*
+!**/.env.example
+
+# ── Node modules ───────────────────────────────────────────────
+**/node_modules/
+
+# ── Build outputs ──────────────────────────────────────────────
+**/dist/
+**/build/
+
+# ── Uploads (runtime data, not source) ─────────────────────────
+africa-logistic-backend/uploads/
+
+# ── Logs ───────────────────────────────────────────────────────
+**/*.log
+**/logs/
+
+# ── OS / Editor ────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
