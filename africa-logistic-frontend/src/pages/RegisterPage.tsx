@@ -191,13 +191,12 @@ export default function RegisterPage() {
 
           {/* Logo */}
           <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
-            <div className="logo-glow" style={{ display:'flex', justifyContent:'center', marginBottom: '0.6rem' }}>
-              <LuTruck size={44} color="var(--clr-accent)" strokeWidth={1.5} />
-            </div>
-            <h1 style={{ fontSize: '1.5rem', fontWeight: 800, color: '#e2e8f0', letterSpacing: '-0.02em' }}>
-              Create Account
-            </h1>
-            <p style={{ color: 'var(--clr-muted)', marginTop: '0.3rem', fontSize: '0.875rem' }}>
+            <img
+              src="/logo-with-name.jpeg"
+              alt="Africa Logistics"
+              style={{ height: 64, width: 'auto', objectFit: 'contain', marginBottom: '0.5rem', borderRadius: 10 }}
+            />
+            <p style={{ color: 'var(--clr-muted)', marginTop: '0.25rem', fontSize: '0.875rem' }}>
               {stepTitle}
             </p>
           </div>

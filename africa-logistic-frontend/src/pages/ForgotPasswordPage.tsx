@@ -5,7 +5,7 @@ import apiClient from '../lib/apiClient'
 import PhoneField from '../components/PhoneField'
 import { normalisePhone } from '../lib/normalisePhone'
 import {
-  LuKeyRound, LuEye, LuEyeOff, LuTriangleAlert, LuSmartphone,
+  LuEye, LuEyeOff, LuTriangleAlert, LuSmartphone,
   LuShieldCheck,
 } from 'react-icons/lu'
 
@@ -153,14 +153,13 @@ export default function ForgotPasswordPage() {
 
           {/* Logo */}
           <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
-            <div className="logo-glow" style={{ display:'flex', justifyContent:'center', marginBottom: '0.6rem' }}>
-              <LuKeyRound size={44} color="var(--clr-accent)" strokeWidth={1.5} />
-            </div>
-            <h1 style={{ fontSize: '1.5rem', fontWeight: 800, color: '#e2e8f0', letterSpacing: '-0.02em' }}>
-              Reset Password
-            </h1>
-            <p style={{ color: 'var(--clr-muted)', marginTop: '0.3rem', fontSize: '0.875rem' }}>
-              We'll send an OTP to your phone
+            <img
+              src="/logo-with-name.jpeg"
+              alt="Africa Logistics"
+              style={{ height: 64, width: 'auto', objectFit: 'contain', marginBottom: '0.5rem', borderRadius: 10 }}
+            />
+            <p style={{ color: 'var(--clr-muted)', marginTop: '0.25rem', fontSize: '0.875rem' }}>
+              Reset Password — We'll send an OTP to your phone
             </p>
           </div>
 
