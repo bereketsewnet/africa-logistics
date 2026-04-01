@@ -22,7 +22,7 @@ import {
 } from '../services/auth.service.js'
 import { v4 as uuidv4 } from 'uuid'
 import { createEmailVerification, findEmailVerificationByToken, markEmailVerificationUsed, createPhoneChangeRequest, findPhoneChangeRequest, deletePhoneChangeRequest, updateUserProfile, updateUserPassword, updateUserEmail, updateUserPhone } from '../services/auth.service.js'
-import { sendVerificationEmail } from '../services/email.service.js'
+import { sendVerificationEmail, sendPasswordResetEmail } from '../services/email.service.js'
 import fs from 'fs'
 import path from 'path'
 
@@ -31,12 +31,15 @@ import path from 'path'
 interface RequestOtpBody    { phone_number: string }
 interface VerifyOtpBody     { phone_number: string; otp: string; new_password: string; role_id?: number; first_name?: string; last_name?: string }
 interface LoginBody         { phone_number: string; password: string }
+interface LoginEmailBody    { email: string; password: string }
 interface TelegramAuthBody  { initData: string }
 interface ChangePasswordBody { current_password: string; new_password: string }
 interface RequestEmailLinkBody { email: string }
 interface VerifyEmailQuery { token: string }
 interface RequestPhoneChangeBody { new_phone: string }
 interface VerifyPhoneChangeBody { new_phone: string; otp: string }
+interface ForgotPasswordEmailBody { email: string }
+interface ResetPasswordEmailBody { token: string; new_password: string }
 
 // ─── Handlers ─────────────────────────────────────────────────────────────────
 
@@ -485,4 +488,132 @@ export async function deleteProfilePhotoHandler(
     await updateUserProfile(request.server.db, userId, { profilePhotoUrl: null })
   }
   return reply.send({ success: true, message: 'Profile photo removed.' })
+}
+
+/**
+ * POST /api/auth/login-email
+ * Email + password login — email must be verified (is_email_verified = 1).
+ */
+export async function loginEmailHandler(
+  request: FastifyRequest<{ Body: LoginEmailBody }>,
+  reply: FastifyReply
+) {
+  const { email, password } = request.body
+
+  const [rows] = await request.server.db.query(
+    `SELECT u.*, r.role_name AS role_name
+       FROM users u
+       JOIN roles r ON r.id = u.role_id
+      WHERE u.email = ? AND u.is_email_verified = 1
+      LIMIT 1`,
+    [email]
+  ) as any[]
+
+  const user = (rows as any[])[0]
+  if (!user) {
+    return reply.status(401).send({ success: false, message: 'Email not found or not yet verified.' })
+  }
+
+  if (!user.is_active) {
+    return reply.status(403).send({ success: false, message: 'Your account has been suspended.' })
+  }
+
+  if (!user.password_hash) {
+    return reply.status(401).send({ success: false, message: 'This account uses Telegram login. No password set.' })
+  }
+
+  const passwordMatch = await bcrypt.compare(password, user.password_hash)
+  if (!passwordMatch) {
+    return reply.status(401).send({ success: false, message: 'Invalid credentials.' })
+  }
+
+  const token = request.server.jwt.sign(
+    { id: user.id, phone_number: user.phone_number, role_id: user.role_id },
+    { expiresIn: process.env.JWT_EXPIRES_IN || '1d' }
+  )
+
+  return reply.send({
+    success: true,
+    message: 'Login successful.',
+    token,
+    user: {
+      id:           user.id,
+      phone_number: user.phone_number,
+      role_id:      user.role_id,
+      role_name:    user.role_name,
+      first_name:   user.first_name,
+      last_name:    user.last_name,
+    },
+  })
+}
+
+/**
+ * POST /api/auth/forgot-password-email
+ * Request a password reset link sent to a verified email.
+ */
+export async function forgotPasswordEmailHandler(
+  request: FastifyRequest<{ Body: ForgotPasswordEmailBody }>,
+  reply: FastifyReply
+) {
+  const { email } = request.body
+
+  const [rows] = await request.server.db.query(
+    'SELECT id, email FROM users WHERE email = ? AND is_email_verified = 1 LIMIT 1',
+    [email]
+  ) as any[]
+
+  // Always return success to avoid leaking whether email is registered
+  if (!(rows as any[])[0]) {
+    return reply.send({ success: true, message: 'If that email is registered and verified, a reset link has been sent.' })
+  }
+
+  const user = (rows as any[])[0]
+
+  // Use a short-lived JWT as the reset token (no extra DB column needed)
+  const resetToken = request.server.jwt.sign(
+    { id: user.id, purpose: 'email-password-reset' },
+    { expiresIn: '1h' }
+  )
+
+  const frontendBase = (process.env.FRONTEND_BASE_URL || process.env.FRONTEND_URL?.split(',')[0] || 'https://afri-logistics.lula.com.et').replace(/\/$/, '')
+  const resetUrl = `${frontendBase}/forgot-password?email_reset_token=${encodeURIComponent(resetToken)}`
+
+  try {
+    await sendPasswordResetEmail(email, resetUrl)
+  } catch (err) {
+    request.server.log.error({ err }, 'Failed to send password reset email')
+    return reply.status(500).send({ success: false, message: 'Failed to send reset email.' })
+  }
+
+  return reply.send({ success: true, message: 'If that email is registered and verified, a reset link has been sent.' })
+}
+
+/**
+ * POST /api/auth/reset-password-email
+ * Validate the JWT reset token and update the password.
+ */
+export async function resetPasswordEmailHandler(
+  request: FastifyRequest<{ Body: ResetPasswordEmailBody }>,
+  reply: FastifyReply
+) {
+  const { token, new_password } = request.body
+
+  let payload: any
+  try {
+    payload = request.server.jwt.verify(token)
+  } catch {
+    return reply.status(400).send({ success: false, message: 'Reset link is invalid or has expired.' })
+  }
+
+  if (payload?.purpose !== 'email-password-reset') {
+    return reply.status(400).send({ success: false, message: 'Invalid reset token.' })
+  }
+
+  const user = await findUserById(request.server.db, payload.id)
+  if (!user) return reply.status(404).send({ success: false, message: 'User not found.' })
+
+  const newHash = await bcrypt.hash(new_password, 12)
+  await updateUserPassword(request.server.db, payload.id, newHash)
+
+  return reply.send({ success: true, message: 'Password updated successfully.' })
 }

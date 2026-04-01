@@ -190,11 +190,11 @@ export default function RegisterPage() {
         <div className="glass page-enter" style={{ width: '100%', maxWidth: 460, padding: '2.5rem 2rem' }}>
 
           {/* Logo */}
-          <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', marginBottom: '1.5rem' }}>
             <img
               src="/logo-with-name.jpeg"
               alt="Africa Logistics"
-              style={{ height: 64, width: 'auto', objectFit: 'contain', marginBottom: '0.5rem', borderRadius: 10 }}
+              style={{ height: 64, width: 'auto', objectFit: 'contain', marginBottom: '0.5rem', borderRadius: 10, display: 'block' }}
             />
             <p style={{ color: 'var(--clr-muted)', marginTop: '0.25rem', fontSize: '0.875rem' }}>
               {stepTitle}

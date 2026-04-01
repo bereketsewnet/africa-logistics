@@ -15,6 +15,7 @@ import {
   requestOtpHandler,
   verifyOtpHandler,
   loginHandler,
+  loginEmailHandler,
   telegramAuthHandler,
   meHandler,
   changePasswordHandler,
@@ -24,6 +25,8 @@ import {
   verifyPhoneChangeHandler,
   updateProfileHandler,
   deleteProfilePhotoHandler,
+  forgotPasswordEmailHandler,
+  resetPasswordEmailHandler,
 } from '../controllers/auth.controller.js'
 
 export default async function authRoutes(fastify: FastifyInstance) {
@@ -151,4 +154,45 @@ export default async function authRoutes(fastify: FastifyInstance) {
   fastify.delete('/api/auth/profile/photo', {
     onRequest: [fastify.authenticate],
   }, deleteProfilePhotoHandler)
+
+  // POST /api/auth/login-email — email + password login (email must be verified)
+  fastify.post('/api/auth/login-email', {
+    schema: {
+      body: {
+        type: 'object',
+        required: ['email', 'password'],
+        properties: {
+          email:    { type: 'string', format: 'email' },
+          password: { type: 'string', minLength: 1 },
+        },
+      },
+    },
+  }, loginEmailHandler)
+
+  // POST /api/auth/forgot-password-email — send reset link to verified email
+  fastify.post('/api/auth/forgot-password-email', {
+    schema: {
+      body: {
+        type: 'object',
+        required: ['email'],
+        properties: {
+          email: { type: 'string', format: 'email' },
+        },
+      },
+    },
+  }, forgotPasswordEmailHandler)
+
+  // POST /api/auth/reset-password-email — verify JWT reset token and update password
+  fastify.post('/api/auth/reset-password-email', {
+    schema: {
+      body: {
+        type: 'object',
+        required: ['token', 'new_password'],
+        properties: {
+          token:        { type: 'string', minLength: 1 },
+          new_password: { type: 'string', minLength: 6 },
+        },
+      },
+    },
+  }, resetPasswordEmailHandler)
 }

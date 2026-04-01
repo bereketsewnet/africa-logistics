@@ -7,15 +7,19 @@ import PhoneField from '../components/PhoneField'
 import { normalisePhone } from '../lib/normalisePhone'
 import {
   LuEye, LuEyeOff, LuTriangleAlert, LuFlaskConical,
-  LuLogIn,
+  LuLogIn, LuPhone, LuMail,
 } from 'react-icons/lu'
 import { SiTelegram } from 'react-icons/si'
+
+type LoginMode = 'phone' | 'email'
 
 export default function LoginPage() {
   const { login }   = useAuth()
   const navigate    = useNavigate()
 
+  const [loginMode, setLoginMode] = useState<LoginMode>('phone')
   const [phone,     setPhone]     = useState('')
+  const [email,     setEmail]     = useState('')
   const [password,  setPassword]  = useState('')
   const [showPw,    setShowPw]    = useState(false)
   const [error,     setError]     = useState('')
@@ -27,12 +31,18 @@ export default function LoginPage() {
     setError('')
     setLoading(true)
     try {
-      const { data } = await apiClient.post('/auth/login', {
-        phone_number: normalisePhone(phone),
-        password,
-      })
+      let data: any
+      if (loginMode === 'email') {
+        const res = await apiClient.post('/auth/login-email', { email, password })
+        data = res.data
+      } else {
+        const res = await apiClient.post('/auth/login', {
+          phone_number: normalisePhone(phone),
+          password,
+        })
+        data = res.data
+      }
       await login(data.token)
-      // role_id 1 = Admin → go to admin panel, everyone else → dashboard
       const roleId = data.user?.role_id
       navigate(roleId === 1 ? '/admin' : '/dashboard')
     } catch (err: any) {
@@ -49,15 +59,41 @@ export default function LoginPage() {
         <div className="glass page-enter" style={{ width: '100%', maxWidth: 440, padding: '2.5rem 2rem' }}>
 
           {/* Logo */}
-          <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', marginBottom: '2rem' }}>
             <img
               src="/logo-with-name.jpeg"
               alt="Africa Logistics"
-              style={{ height: 72, width: 'auto', objectFit: 'contain', marginBottom: '0.5rem', borderRadius: 12 }}
+              style={{ height: 72, width: 'auto', objectFit: 'contain', marginBottom: '0.5rem', borderRadius: 12, display: 'block' }}
             />
             <p style={{ color: 'var(--clr-muted)', marginTop: '0.25rem', fontSize: '0.9rem' }}>
               Sign in to your account
             </p>
+          </div>
+
+          {/* Mode switcher */}
+          <div style={{
+            display: 'flex', gap: '0.5rem', background: 'rgba(255,255,255,0.04)',
+            borderRadius: 12, padding: '0.3rem', marginBottom: '1.25rem',
+            border: '1px solid rgba(255,255,255,0.07)',
+          }}>
+            {(['phone', 'email'] as LoginMode[]).map(m => (
+              <button
+                key={m} type="button"
+                onClick={() => { setLoginMode(m); setError('') }}
+                style={{
+                  flex: 1, padding: '0.55rem 0.75rem', borderRadius: 9,
+                  border: 'none', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 600,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem',
+                  transition: 'all 0.2s',
+                  background: loginMode === m ? 'linear-gradient(135deg,#7c3aed,#0ea5e9)' : 'transparent',
+                  color: loginMode === m ? '#fff' : 'var(--clr-muted)',
+                  fontFamily: 'inherit',
+                }}
+              >
+                {m === 'phone' ? <LuPhone size={14}/> : <LuMail size={14}/>}
+                {m === 'phone' ? 'Phone' : 'Email'}
+              </button>
+            ))}
           </div>
 
           {/* Error */}
@@ -72,11 +108,26 @@ export default function LoginPage() {
             <input type="text"     style={{ display: 'none' }} aria-hidden="true" readOnly />
             <input type="password" style={{ display: 'none' }} aria-hidden="true" readOnly />
 
-            {/* Phone */}
-            <div>
-              <span className="phone-label">Phone number</span>
-              <PhoneField id="login-phone" value={phone} onChange={setPhone} />
-            </div>
+            {/* Phone or Email field */}
+            {loginMode === 'phone' ? (
+              <div>
+                <span className="phone-label">Phone number</span>
+                <PhoneField id="login-phone" value={phone} onChange={setPhone} />
+              </div>
+            ) : (
+              <div className="input-wrap">
+                <input
+                  id="login-email"
+                  type="email"
+                  placeholder=" "
+                  value={email}
+                  onChange={e => setEmail(e.target.value)}
+                  required
+                  autoComplete="email"
+                />
+                <label htmlFor="login-email">Email address</label>
+              </div>
+            )}
 
             {/* Password */}
             <div className="input-wrap">
@@ -147,7 +198,7 @@ export default function LoginPage() {
           {/* Demo credentials — click to autofill */}
           <button
             type="button"
-            onClick={() => { setPhone('+251911000001'); setPassword('Admin1234') }}
+            onClick={() => { setLoginMode('phone'); setPhone('+251911000001'); setPassword('Admin1234') }}
             style={{
               marginTop:'1.25rem', padding:'0.75rem 1rem', borderRadius:10,
               background:'rgba(124,58,237,0.10)', border:'1px solid rgba(124,58,237,0.25)',

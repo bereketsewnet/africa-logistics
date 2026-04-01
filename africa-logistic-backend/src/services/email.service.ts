@@ -157,6 +157,35 @@ function buildStyledEmail({
 
 // ─── Verification email ───────────────────────────────────────────────────────
 
+export async function sendPasswordResetEmail(to: string, resetUrl: string) {
+  const html = buildStyledEmail({
+    title: 'Reset your password — Africa Logistics',
+    preheader: 'You requested a password reset for your Africa Logistics account.',
+    bodyHtml: `
+      <h1 style="margin:0 0 0.75rem;font-size:1.4rem;font-weight:800;color:#f1f5f9;letter-spacing:-0.02em;">Reset your password</h1>
+      <p style="margin:0 0 1rem;color:#94a3b8;">
+        We received a request to reset the password for your <strong style="color:#e2e8f0;">Africa Logistics</strong> account.
+        Click the button below to choose a new password.
+      </p>
+      <div style="background:rgba(239,68,68,0.05);border:1px solid rgba(239,68,68,0.15);border-radius:12px;padding:1rem 1.25rem;margin:1.25rem 0;">
+        <p style="margin:0;font-size:0.8rem;color:#64748b;">Resetting password for</p>
+        <p style="margin:4px 0 0;font-size:0.9rem;font-weight:600;color:#0ea5e9;">${to}</p>
+      </div>
+      <p style="margin:0 0 0.5rem;font-size:0.85rem;color:#64748b;">This link expires in <strong style="color:#cbd5e1;">1 hour</strong>. If you did not request a password reset, you can safely ignore this email — your password will remain unchanged.</p>
+    `,
+    ctaUrl: resetUrl,
+    ctaLabel: '🔑 Reset My Password',
+    footerNote: 'This password reset was requested for your Africa Logistics account.',
+  })
+
+  return sendEmail({
+    to,
+    subject: '🔑 Reset your password — Africa Logistics',
+    html,
+    text: `Reset your Africa Logistics password:\n${resetUrl}\n\nLink expires in 1 hour. If you did not request this, ignore this email.`,
+  })
+}
+
 export async function sendVerificationEmail(to: string, token: string) {
   const frontendBase = process.env.FRONTEND_BASE_URL || process.env.FRONTEND_URL?.split(',')[0] || 'https://afri-logistics.lula.com.et'
   const verifyUrl = `${frontendBase.replace(/\/$/, '')}/verify-email?token=${encodeURIComponent(token)}`
