@@ -1,0 +1,120 @@
+services:
+
+  # ─── MySQL 8 Database ───────────────────────────────────────────────────────
+  mysql:
+    image: mysql:8.0
+    container_name: africa_mysql
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: ""
+      MYSQL_ALLOW_EMPTY_PASSWORD: "yes"
+      MYSQL_DATABASE: africa_logistics
+    ports:
+      - "127.0.0.1:3306:3306"           # Localhost only — not public
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./init:/docker-entrypoint-initdb.d  # Auto-import SQL on first start
+    command: --default-authentication-plugin=mysql_native_password
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - africa_net
+
+  # ─── Adminer (Database GUI) ─────────────────────────────────────────────────
+  # Access at: http://<VPS-IP>:8080
+  # Server: mysql | User: root | Password: (empty) | DB: africa_logistics
+  adminer:
+    image: adminer:latest
+    container_name: africa_adminer
+    restart: always
+    ports:
+      - "0.0.0.0:8080:8080"
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      ADMINER_DEFAULT_SERVER: mysql
+      ADMINER_DESIGN: pepa-linha
+    networks:
+      - africa_net
+
+  # ─── Africa Logistics Backend (Fastify API) ───────────────────────────────
+  africa_backend:
+    build:
+      context: ./africa-logistic-backend
+      dockerfile: Dockerfile
+    container_name: africa_backend
+    restart: always
+    env_file: ./africa-logistic-backend/.env
+    volumes:
+      - uploads_data:/app/uploads
+    depends_on:
+      mysql:
+        condition: service_healthy
+    networks:
+      - africa_net
+
+  # ─── Africa Logistics Frontend (React SPA via Nginx) ─────────────────────────
+  africa_frontend:
+    build:
+      context: ./africa-logistic-frontend
+      dockerfile: Dockerfile
+    container_name: africa_frontend
+    restart: always
+    depends_on:
+      - africa_backend
+    networks:
+      - africa_net
+
+  # ─── n8n AI Agent ────────────────────────────────────────────────────────────
+  n8n:
+    image: n8nio/n8n
+    container_name: n8n
+    restart: unless-stopped
+    environment:
+      - WEBHOOK_TUNNEL_URL=https://dineos-agent.lula.com.et
+      - N8N_HOST=dineos-agent.lula.com.et
+      - N8N_PORT=443
+      - N8N_PROTOCOL=https
+      - N8N_RESTRICT_FILE_ACCESS_TO=/files
+      - N8N_TRUST_PROXY=true
+    volumes:
+      - /home/n8n-data:/home/node/.n8n
+      - /home/n8n-data/local-files:/files
+    networks:
+      - africa_net
+
+  # ─── Caddy (Reverse Proxy + Auto HTTPS) ──────────────────────────────────────
+  # Handles ALL three domains — no port conflicts
+  caddy:
+    image: caddy:2
+    container_name: caddy
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+      - uploads_data:/srv/uploads:ro   # serve backend uploads as static files
+    depends_on:
+      - africa_backend
+      - africa_frontend
+      - n8n
+    networks:
+      - africa_net
+
+networks:
+  africa_net:
+    driver: bridge
+
+volumes:
+  mysql_data:
+    driver: local
+  caddy_data:
+  caddy_config:
+  uploads_data:

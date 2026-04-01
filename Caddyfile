@@ -1,0 +1,23 @@
+# ─── Africa Logistics — Frontend ──────────────────────────────────────────────
+# Use the corrected domain names (afri- prefix)
+afri-logistics.lula.com.et {
+    reverse_proxy africa_frontend:80
+}
+
+# ─── Africa Logistics — Backend API ───────────────────────────────────────────
+# /uploads/* is served as static files from the shared Docker volume.
+# All other paths are proxied to the Fastify backend.
+afri-logistics-api.lula.com.et {
+    handle_path /uploads/* {
+        root * /srv/uploads
+        file_server
+    }
+    handle {
+        reverse_proxy africa_backend:3000
+    }
+}
+
+# ─── Dineos AI Agent (n8n) ────────────────────────────────────────────────────
+dineos-agent.lula.com.et {
+    reverse_proxy n8n:443
+}

@@ -1,0 +1,170 @@
+import { useState } from 'react'
+import type { FormEvent } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
+import { useAuth } from '../context/AuthContext'
+import apiClient from '../lib/apiClient'
+import PhoneField from '../components/PhoneField'
+import { normalisePhone } from '../lib/normalisePhone'
+import {
+  LuTruck, LuEye, LuEyeOff, LuTriangleAlert, LuFlaskConical,
+  LuLogIn,
+} from 'react-icons/lu'
+import { SiTelegram } from 'react-icons/si'
+
+export default function LoginPage() {
+  const { login }   = useAuth()
+  const navigate    = useNavigate()
+
+  const [phone,     setPhone]     = useState('')
+  const [password,  setPassword]  = useState('')
+  const [showPw,    setShowPw]    = useState(false)
+  const [error,     setError]     = useState('')
+  const [loading,   setLoading]   = useState(false)
+
+  const handleSubmit = async (e: FormEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setError('')
+    setLoading(true)
+    try {
+      const { data } = await apiClient.post('/auth/login', {
+        phone_number: normalisePhone(phone),
+        password,
+      })
+      await login(data.token)
+      // role_id 1 = Admin → go to admin panel, everyone else → dashboard
+      const roleId = data.user?.role_id
+      navigate(roleId === 1 ? '/admin' : '/dashboard')
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Login failed. Please try again.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <div className="aurora-bg">
+      <div className="aurora-orb aurora-orb-1" />
+      <div className="page-shell centered">
+        <div className="glass page-enter" style={{ width: '100%', maxWidth: 440, padding: '2.5rem 2rem' }}>
+
+          {/* Logo */}
+          <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
+            <div className="logo-glow" style={{ display: 'flex', justifyContent: 'center', marginBottom: '0.75rem' }}>
+              <LuTruck size={48} color="var(--clr-accent)" strokeWidth={1.5} />
+            </div>
+            <h1 style={{ fontSize: '1.6rem', fontWeight: 800, color: '#e2e8f0', letterSpacing: '-0.02em' }}>
+              Africa Logistics
+            </h1>
+            <p style={{ color: 'var(--clr-muted)', marginTop: '0.35rem', fontSize: '0.9rem' }}>
+              Sign in to your account
+            </p>
+          </div>
+
+          {/* Error */}
+          {error && (
+            <div className="alert alert-error" style={{ marginBottom: '1.25rem' }}>
+              <LuTriangleAlert size={15} /> {error}
+            </div>
+          )}
+
+          <form onSubmit={handleSubmit} autoComplete="off" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            {/* Dummy inputs stop password managers from hijacking real fields */}
+            <input type="text"     style={{ display: 'none' }} aria-hidden="true" readOnly />
+            <input type="password" style={{ display: 'none' }} aria-hidden="true" readOnly />
+
+            {/* Phone */}
+            <div>
+              <span className="phone-label">Phone number</span>
+              <PhoneField id="login-phone" value={phone} onChange={setPhone} />
+            </div>
+
+            {/* Password */}
+            <div className="input-wrap">
+              <input
+                id="login-pw"
+                type={showPw ? 'text' : 'password'}
+                placeholder=" "
+                value={password}
+                onChange={e => setPassword(e.target.value)}
+                required
+                autoComplete="off"
+                data-lpignore="true"
+                data-form-type="other"
+                style={{ paddingRight: '2.8rem' }}
+              />
+              <label htmlFor="login-pw">Password</label>
+              <button
+                type="button"
+                className="input-suffix"
+                onClick={() => setShowPw(v => !v)}
+                aria-label="Toggle password visibility"
+              >
+                {showPw ? <LuEyeOff size={16} /> : <LuEye size={16} />}
+              </button>
+            </div>
+
+            {/* Forgot link */}
+            <div style={{ textAlign: 'right', marginTop: '-0.25rem' }}>
+              <Link to="/forgot-password" className="link-accent" style={{ fontSize: '0.825rem' }}>
+                Forgot password?
+              </Link>
+            </div>
+
+            {/* Submit */}
+            <button type="submit" className="btn-primary" disabled={loading} style={{ marginTop: '0.5rem' }}>
+              {loading ? (
+                <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
+                  <span className="spinner" /> Signing in…
+                </span>
+              ) : (
+                <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
+                  <LuLogIn size={16} /> Sign In
+                </span>
+              )}
+            </button>
+
+          </form>
+
+          {/* Divider */}
+          <div className="divider" style={{ margin: '1.5rem 0' }}>or continue with</div>
+
+          {/* Telegram */}
+          <button
+            type="button"
+            className="btn-telegram"
+            onClick={() => alert('Telegram login coming soon')}
+          >
+            <SiTelegram size={20} />
+            Continue with Telegram
+          </button>
+
+          {/* Register link */}
+          <p style={{ textAlign: 'center', color: 'var(--clr-muted)', fontSize: '0.875rem', marginTop: '1.5rem' }}>
+            Don't have an account?{' '}
+            <Link to="/register" className="link-accent">Create one</Link>
+          </p>
+
+          {/* Demo credentials — click to autofill */}
+          <button
+            type="button"
+            onClick={() => { setPhone('+251911000001'); setPassword('Admin1234') }}
+            style={{
+              marginTop:'1.25rem', padding:'0.75rem 1rem', borderRadius:10,
+              background:'rgba(124,58,237,0.10)', border:'1px solid rgba(124,58,237,0.25)',
+              fontSize:'0.78rem', color:'var(--clr-muted)', width:'100%', textAlign:'left',
+              cursor:'pointer', fontFamily:'inherit', transition:'all 0.2s',
+            }}
+            onMouseEnter={e => (e.currentTarget.style.background = 'rgba(124,58,237,0.20)')}
+            onMouseLeave={e => (e.currentTarget.style.background = 'rgba(124,58,237,0.10)')}
+          >
+            <p style={{ fontWeight:700, color:'#a78bfa', marginBottom:'0.3rem', display:'flex', alignItems:'center', gap:'0.4rem' }}><LuFlaskConical size={14}/> Demo account <span style={{ fontWeight:400, fontSize:'0.72rem' }}>(click to fill)</span></p>
+            <p>Phone: <span style={{ color:'var(--clr-text)', fontWeight:600 }}>+251 911 000 001</span></p>
+            <p>Password: <span style={{ color:'var(--clr-text)', fontWeight:600 }}>Admin1234</span></p>
+          </button>
+
+        </div>
+      </div>
+    </div>
+  )
+}
