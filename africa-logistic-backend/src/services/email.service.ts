@@ -1,6 +1,4 @@
 import nodemailer from 'nodemailer'
-import path from 'path'
-import fs from 'fs'
 
 interface EmailOptions {
   to: string
@@ -52,18 +50,9 @@ export async function sendEmail(opts: EmailOptions) {
   })
 }
 
-// ─── Styled email builder ─────────────────────────────────────────────────────
-
-function getLogoBase64(): string {
-  try {
-    const logoPath = path.join(process.cwd(), 'src', 'assets', 'logo-with-name.jpeg')
-    if (fs.existsSync(logoPath)) {
-      const data = fs.readFileSync(logoPath)
-      return `data:image/jpeg;base64,${data.toString('base64')}`
-    }
-  } catch { /* ignore */ }
-  return ''
-}
+// ─── Gmail-safe email builder ─────────────────────────────────────────────────
+// Rules: no rgba(), no CSS gradients, no shorthand properties, solid hex only.
+// Gmail strips gradients and rgba → cards look black with invisible dark text.
 
 function buildStyledEmail({
   title,
@@ -80,76 +69,108 @@ function buildStyledEmail({
   ctaLabel?: string
   footerNote?: string
 }): string {
-  const logoBase64 = getLogoBase64()
-  const logoTag = logoBase64
-    ? `<img src="${logoBase64}" alt="Africa Logistics" style="height:52px;width:auto;object-fit:contain;border-radius:8px;" />`
-    : `<span style="font-size:1.3rem;font-weight:900;color:#00e5ff;letter-spacing:-0.02em;">Africa Logistics</span>`
 
   const ctaBlock = ctaUrl && ctaLabel ? `
-    <div style="text-align:center;margin:2rem 0 1.5rem;">
-      <a href="${ctaUrl}"
-         style="display:inline-block;padding:0.85rem 2.2rem;background:linear-gradient(135deg,#7c3aed,#0ea5e9);color:#ffffff;font-size:0.95rem;font-weight:700;text-decoration:none;border-radius:12px;letter-spacing:0.02em;box-shadow:0 4px 20px rgba(0,229,255,0.25);">
-        ${ctaLabel}
-      </a>
-      <p style="margin-top:0.9rem;font-size:0.75rem;color:#64748b;">
-        Button not working? Copy and paste this link:<br/>
-        <a href="${ctaUrl}" style="color:#0ea5e9;word-break:break-all;">${ctaUrl}</a>
-      </p>
-    </div>` : ''
+    <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:28px 0 20px;">
+      <tr>
+        <td align="center">
+          <a href="${ctaUrl}"
+             style="display:inline-block;padding:14px 36px;background-color:#7c3aed;color:#ffffff;font-size:15px;font-weight:700;text-decoration:none;border-radius:8px;font-family:Arial,sans-serif;letter-spacing:0.3px;">
+            ${ctaLabel}
+          </a>
+        </td>
+      </tr>
+      <tr>
+        <td align="center" style="padding-top:14px;">
+          <p style="margin:0;font-size:12px;color:#888888;font-family:Arial,sans-serif;">
+            Button not working? Copy and paste this link into your browser:
+          </p>
+          <p style="margin:6px 0 0;font-size:12px;font-family:Arial,sans-serif;">
+            <a href="${ctaUrl}" style="color:#7c3aed;word-break:break-all;">${ctaUrl}</a>
+          </p>
+        </td>
+      </tr>
+    </table>` : ''
 
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8"/>
-  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
-  <meta name="x-apple-disable-message-reformatting"/>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>${title}</title>
-  <!--[if mso]><style>table{border-collapse:collapse!important}</style><![endif]-->
 </head>
-<body style="margin:0;padding:0;background:#0d1117;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;-webkit-font-smoothing:antialiased;">
+<body style="margin:0;padding:0;background-color:#f4f4f7;font-family:Arial,Helvetica,sans-serif;">
 
-  <!-- Preheader (hidden preview text) -->
-  <div style="display:none;max-height:0;overflow:hidden;mso-hide:all;">${preheader}&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;</div>
+  <!-- Hidden preheader -->
+  <div style="display:none;max-height:0;overflow:hidden;mso-hide:all;">${preheader} &nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;</div>
 
   <!-- Outer wrapper -->
-  <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#0d1117;min-height:100vh;">
-    <tr><td align="center" style="padding:32px 16px 48px;">
+  <table width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#f4f4f7">
+    <tr>
+      <td align="center" style="padding:32px 16px 48px;">
 
-      <!-- Card -->
-      <table width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:520px;background:linear-gradient(145deg,rgba(22,28,45,0.98),rgba(13,17,23,0.98));border-radius:20px;border:1px solid rgba(255,255,255,0.08);box-shadow:0 24px 80px rgba(0,0,0,0.6),0 0 0 1px rgba(0,229,255,0.04);">
+        <!-- Card -->
+        <table width="100%" cellpadding="0" cellspacing="0" border="0"
+               style="max-width:520px;background-color:#ffffff;border-radius:12px;border:1px solid #e2e2e2;">
 
-        <!-- Accent top bar -->
-        <tr><td style="height:4px;background:linear-gradient(90deg,#7c3aed,#00e5ff,#0ea5e9);border-radius:20px 20px 0 0;"></td></tr>
+          <!-- Accent top bar -->
+          <tr>
+            <td bgcolor="#7c3aed" style="height:5px;border-radius:12px 12px 0 0;font-size:0;line-height:0;">&nbsp;</td>
+          </tr>
 
-        <!-- Header -->
-        <tr><td align="center" style="padding:36px 40px 28px;">
-          <div style="margin-bottom:6px;">${logoTag}</div>
-          <p style="margin:12px 0 0;font-size:0.75rem;color:#475569;letter-spacing:0.08em;text-transform:uppercase;font-weight:600;">Logistics Platform</p>
-        </td></tr>
+          <!-- Header / Logo area -->
+          <tr>
+            <td align="center" style="padding:32px 40px 20px;background-color:#ffffff;">
+              <p style="margin:0;font-size:22px;font-weight:700;color:#1a1a2e;font-family:Arial,sans-serif;letter-spacing:-0.3px;">
+                &#x1F69A; Africa Logistics
+              </p>
+              <p style="margin:6px 0 0;font-size:12px;color:#888888;font-family:Arial,sans-serif;text-transform:uppercase;letter-spacing:1px;">
+                Logistics Platform
+              </p>
+            </td>
+          </tr>
 
-        <!-- Divider -->
-        <tr><td style="padding:0 40px;"><div style="height:1px;background:linear-gradient(90deg,transparent,rgba(255,255,255,0.08),transparent);"></div></td></tr>
+          <!-- Divider -->
+          <tr>
+            <td style="padding:0 40px;">
+              <table width="100%" cellpadding="0" cellspacing="0" border="0">
+                <tr><td bgcolor="#e8e8e8" style="height:1px;font-size:0;line-height:0;">&nbsp;</td></tr>
+              </table>
+            </td>
+          </tr>
 
-        <!-- Body -->
-        <tr><td style="padding:32px 40px 8px;color:#cbd5e1;font-size:0.9375rem;line-height:1.7;">
-          ${bodyHtml}
-          ${ctaBlock}
-        </td></tr>
+          <!-- Body -->
+          <tr>
+            <td style="padding:28px 40px 8px;color:#333333;font-size:15px;line-height:1.7;font-family:Arial,sans-serif;">
+              ${bodyHtml}
+              ${ctaBlock}
+            </td>
+          </tr>
 
-        <!-- Divider -->
-        <tr><td style="padding:8px 40px 0;"><div style="height:1px;background:linear-gradient(90deg,transparent,rgba(255,255,255,0.06),transparent);"></div></td></tr>
+          <!-- Divider -->
+          <tr>
+            <td style="padding:0 40px;">
+              <table width="100%" cellpadding="0" cellspacing="0" border="0">
+                <tr><td bgcolor="#e8e8e8" style="height:1px;font-size:0;line-height:0;">&nbsp;</td></tr>
+              </table>
+            </td>
+          </tr>
 
-        <!-- Footer -->
-        <tr><td align="center" style="padding:24px 40px 32px;">
-          <p style="margin:0 0 6px;font-size:0.75rem;color:#334155;">${footerNote || 'You received this because your email is linked to an Africa Logistics account.'}</p>
-          <p style="margin:0;font-size:0.7rem;color:#1e293b;">© ${new Date().getFullYear()} Africa Logistics &bull; afri-logistics.lula.com.et</p>
-        </td></tr>
+          <!-- Footer -->
+          <tr>
+            <td align="center" style="padding:20px 40px 28px;background-color:#fafafa;border-radius:0 0 12px 12px;">
+              <p style="margin:0 0 4px;font-size:12px;color:#999999;font-family:Arial,sans-serif;">
+                ${footerNote || 'You received this because your email is linked to an Africa Logistics account.'}
+              </p>
+              <p style="margin:0;font-size:11px;color:#bbbbbb;font-family:Arial,sans-serif;">
+                &copy; ${new Date().getFullYear()} Africa Logistics &bull; afri-logistics.lula.com.et
+              </p>
+            </td>
+          </tr>
 
-        <!-- Bottom accent bar -->
-        <tr><td style="height:3px;background:linear-gradient(90deg,#0ea5e9,#7c3aed);border-radius:0 0 20px 20px;opacity:0.5;"></td></tr>
-
-      </table>
-    </td></tr>
+        </table>
+      </td>
+    </tr>
   </table>
 </body>
 </html>`
@@ -162,19 +183,23 @@ export async function sendPasswordResetEmail(to: string, resetUrl: string) {
     title: 'Reset your password — Africa Logistics',
     preheader: 'You requested a password reset for your Africa Logistics account.',
     bodyHtml: `
-      <h1 style="margin:0 0 0.75rem;font-size:1.4rem;font-weight:800;color:#f1f5f9;letter-spacing:-0.02em;">Reset your password</h1>
-      <p style="margin:0 0 1rem;color:#94a3b8;">
-        We received a request to reset the password for your <strong style="color:#e2e8f0;">Africa Logistics</strong> account.
+      <h1 style="margin:0 0 12px;font-size:22px;font-weight:700;color:#1a1a2e;font-family:Arial,sans-serif;">Reset your password</h1>
+      <p style="margin:0 0 16px;color:#444444;font-size:15px;line-height:1.6;font-family:Arial,sans-serif;">
+        We received a request to reset the password for your <strong style="color:#1a1a2e;">Africa Logistics</strong> account.
         Click the button below to choose a new password.
       </p>
-      <div style="background:rgba(239,68,68,0.05);border:1px solid rgba(239,68,68,0.15);border-radius:12px;padding:1rem 1.25rem;margin:1.25rem 0;">
-        <p style="margin:0;font-size:0.8rem;color:#64748b;">Resetting password for</p>
-        <p style="margin:4px 0 0;font-size:0.9rem;font-weight:600;color:#0ea5e9;">${to}</p>
-      </div>
-      <p style="margin:0 0 0.5rem;font-size:0.85rem;color:#64748b;">This link expires in <strong style="color:#cbd5e1;">1 hour</strong>. If you did not request a password reset, you can safely ignore this email — your password will remain unchanged.</p>
+      <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:16px 0;">
+        <tr>
+          <td bgcolor="#fff3f3" style="border:1px solid #fca5a5;border-radius:8px;padding:14px 18px;">
+            <p style="margin:0;font-size:12px;color:#666666;font-family:Arial,sans-serif;">Resetting password for</p>
+            <p style="margin:4px 0 0;font-size:14px;font-weight:700;color:#7c3aed;font-family:Arial,sans-serif;">${to}</p>
+          </td>
+        </tr>
+      </table>
+      <p style="margin:0 0 8px;font-size:13px;color:#666666;font-family:Arial,sans-serif;">This link expires in <strong style="color:#333333;">1 hour</strong>. If you did not request a password reset, you can safely ignore this email.</p>
     `,
     ctaUrl: resetUrl,
-    ctaLabel: '🔑 Reset My Password',
+    ctaLabel: 'Reset My Password',
     footerNote: 'This password reset was requested for your Africa Logistics account.',
   })
 
@@ -194,18 +219,22 @@ export async function sendVerificationEmail(to: string, token: string) {
     title: 'Verify your email — Africa Logistics',
     preheader: 'Confirm your email address to activate your Africa Logistics account.',
     bodyHtml: `
-      <h1 style="margin:0 0 0.75rem;font-size:1.4rem;font-weight:800;color:#f1f5f9;letter-spacing:-0.02em;">Confirm your email address</h1>
-      <p style="margin:0 0 1rem;color:#94a3b8;">
-        Welcome to <strong style="color:#e2e8f0;">Africa Logistics</strong>. Click the button below to verify your email address and activate your account.
+      <h1 style="margin:0 0 12px;font-size:22px;font-weight:700;color:#1a1a2e;font-family:Arial,sans-serif;">Confirm your email address</h1>
+      <p style="margin:0 0 16px;color:#444444;font-size:15px;line-height:1.6;font-family:Arial,sans-serif;">
+        Welcome to <strong style="color:#1a1a2e;">Africa Logistics</strong>. Click the button below to verify your email address and activate your account.
       </p>
-      <div style="background:rgba(0,229,255,0.05);border:1px solid rgba(0,229,255,0.12);border-radius:12px;padding:1rem 1.25rem;margin:1.25rem 0;">
-        <p style="margin:0;font-size:0.8rem;color:#64748b;">Verifying for</p>
-        <p style="margin:4px 0 0;font-size:0.9rem;font-weight:600;color:#0ea5e9;">${to}</p>
-      </div>
-      <p style="margin:0 0 0.5rem;font-size:0.85rem;color:#64748b;">This link expires in <strong style="color:#cbd5e1;">24 hours</strong>. If you did not request this, you can safely ignore this email.</p>
+      <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:16px 0;">
+        <tr>
+          <td bgcolor="#f0f9ff" style="border:1px solid #bae6fd;border-radius:8px;padding:14px 18px;">
+            <p style="margin:0;font-size:12px;color:#666666;font-family:Arial,sans-serif;">Verifying for</p>
+            <p style="margin:4px 0 0;font-size:14px;font-weight:700;color:#7c3aed;font-family:Arial,sans-serif;">${to}</p>
+          </td>
+        </tr>
+      </table>
+      <p style="margin:0 0 8px;font-size:13px;color:#666666;font-family:Arial,sans-serif;">This link expires in <strong style="color:#333333;">24 hours</strong>. If you did not request this, you can safely ignore this email.</p>
     `,
     ctaUrl: verifyUrl,
-    ctaLabel: '✓ Verify My Email',
+    ctaLabel: 'Verify My Email',
     footerNote: 'This verification was requested for your Africa Logistics account.',
   })
 

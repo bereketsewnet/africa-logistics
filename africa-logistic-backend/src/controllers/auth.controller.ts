@@ -31,7 +31,9 @@ import path from 'path'
 interface RequestOtpBody    { phone_number: string }
 interface VerifyOtpBody     { phone_number: string; otp: string; new_password: string; role_id?: number; first_name?: string; last_name?: string }
 interface LoginBody         { phone_number: string; password: string }
-interface LoginEmailBody    { email: string; password: string }
+interface LoginEmailBody         { email: string; password: string }
+interface ForgotPasswordEmailBody { email: string }
+interface ResetPasswordEmailBody  { token: string; new_password: string }
 interface TelegramAuthBody  { initData: string }
 interface ChangePasswordBody { current_password: string; new_password: string }
 interface RequestEmailLinkBody { email: string }
