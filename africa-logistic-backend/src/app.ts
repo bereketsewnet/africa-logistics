@@ -73,9 +73,11 @@ if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true })
 import healthRoutes from './routes/health.js'
 import authRoutes from './routes/auth.js'
 import adminRoutes from './routes/admin.js'
+import profileRoutes from './routes/profile.js'
 
 app.register(healthRoutes)
 app.register(authRoutes)
 app.register(adminRoutes, { prefix: '/api/admin' })
+app.register(profileRoutes, { prefix: '/api/profile' })
 
 export default app

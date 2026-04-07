@@ -69,23 +69,6 @@ services:
     networks:
       - africa_net
 
-  # ─── n8n AI Agent ────────────────────────────────────────────────────────────
-  n8n:
-    image: n8nio/n8n
-    container_name: n8n
-    restart: unless-stopped
-    environment:
-      - WEBHOOK_TUNNEL_URL=https://dineos-agent.lula.com.et
-      - N8N_HOST=dineos-agent.lula.com.et
-      - N8N_PORT=443
-      - N8N_PROTOCOL=https
-      - N8N_RESTRICT_FILE_ACCESS_TO=/files
-      - N8N_TRUST_PROXY=true
-    volumes:
-      - /home/n8n-data:/home/node/.n8n
-      - /home/n8n-data/local-files:/files
-    networks:
-      - africa_net
 
   # ─── Caddy (Reverse Proxy + Auto HTTPS) ──────────────────────────────────────
   # Handles ALL three domains — no port conflicts
@@ -104,7 +87,6 @@ services:
     depends_on:
       - africa_backend
       - africa_frontend
-      - n8n
     networks:
       - africa_net
 

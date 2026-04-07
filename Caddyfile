@@ -16,8 +16,3 @@ afri-logistics-api.lula.com.et {
         reverse_proxy africa_backend:3000
     }
 }
-
-# ─── Dineos AI Agent (n8n) ────────────────────────────────────────────────────
-dineos-agent.lula.com.et {
-    reverse_proxy n8n:443
-}

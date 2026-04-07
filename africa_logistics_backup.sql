@@ -2,7 +2,7 @@
 --
 -- Host: localhost    Database: africa_logistics
 -- ------------------------------------------------------
--- Server version	8.0.45
+-- Server version	8.0.45-0ubuntu0.24.04.1
 
 /*!40101 SET @OLD_CHARACTER_SET_CLIENT=@@CHARACTER_SET_CLIENT */;
 /*!40101 SET @OLD_CHARACTER_SET_RESULTS=@@CHARACTER_SET_RESULTS */;
@@ -16,29 +16,6 @@
 /*!40111 SET @OLD_SQL_NOTES=@@SQL_NOTES, SQL_NOTES=0 */;
 
 --
--- Table structure for table `driver_document_reviews`
---
-
-DROP TABLE IF EXISTS `driver_document_reviews`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
-CREATE TABLE `driver_document_reviews` (
-  `id` char(36) NOT NULL,
-  `driver_id` char(36) NOT NULL,
-  `document_type` enum('national_id','license','libre') NOT NULL,
-  `action` enum('APPROVED','REJECTED') NOT NULL,
-  `reason` text,
-  `reviewed_by` char(36) NOT NULL,
-  `reviewed_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (`id`),
-  KEY `driver_id` (`driver_id`),
-  KEY `reviewed_by` (`reviewed_by`),
-  CONSTRAINT `driver_document_reviews_ibfk_1` FOREIGN KEY (`driver_id`) REFERENCES `users` (`id`),
-  CONSTRAINT `driver_document_reviews_ibfk_2` FOREIGN KEY (`reviewed_by`) REFERENCES `users` (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
-/*!40101 SET character_set_client = @saved_cs_client */;
-
---
 -- Table structure for table `driver_profiles`
 --
 
@@ -50,13 +27,6 @@ CREATE TABLE `driver_profiles` (
   `national_id_url` varchar(255) DEFAULT NULL,
   `license_url` varchar(255) DEFAULT NULL,
   `libre_url` varchar(255) DEFAULT NULL,
-  `national_id_status` enum('PENDING','APPROVED','REJECTED') DEFAULT 'PENDING',
-  `license_status` enum('PENDING','APPROVED','REJECTED') DEFAULT 'PENDING',
-  `libre_status` enum('PENDING','APPROVED','REJECTED') DEFAULT 'PENDING',
-  `rejection_reason` text,
-  `verified_at` timestamp NULL DEFAULT NULL,
-  `rating` decimal(3,2) DEFAULT NULL,
-  `total_trips` int DEFAULT '0',
   `is_verified` tinyint(1) DEFAULT '0',
   `status` enum('AVAILABLE','ON_JOB','OFFLINE','SUSPENDED') DEFAULT 'OFFLINE',
   `verified_by_admin_id` char(36) DEFAULT NULL,
@@ -68,64 +38,13 @@ CREATE TABLE `driver_profiles` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
--- Table structure for table `email_verifications`
+-- Dumping data for table `driver_profiles`
 --
 
-DROP TABLE IF EXISTS `email_verifications`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
-CREATE TABLE `email_verifications` (
-  `id` char(36) NOT NULL,
-  `user_id` char(36) NOT NULL,
-  `new_email` varchar(100) NOT NULL,
-  `token` varchar(128) NOT NULL,
-  `expires_at` datetime NOT NULL,
-  `used` tinyint(1) DEFAULT '0',
-  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (`id`),
-  KEY `user_id` (`user_id`),
-  CONSTRAINT `email_verifications_fk_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
-/*!40101 SET character_set_client = @saved_cs_client */;
-
---
--- Table structure for table `notification_preferences`
---
-
-DROP TABLE IF EXISTS `notification_preferences`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
-CREATE TABLE `notification_preferences` (
-  `user_id` char(36) NOT NULL,
-  `sms_enabled` tinyint(1) DEFAULT '1',
-  `email_enabled` tinyint(1) DEFAULT '1',
-  `browser_enabled` tinyint(1) DEFAULT '1',
-  `order_updates` tinyint(1) DEFAULT '1',
-  `promotions` tinyint(1) DEFAULT '0',
-  `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  PRIMARY KEY (`user_id`),
-  CONSTRAINT `notification_preferences_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
-/*!40101 SET character_set_client = @saved_cs_client */;
-
---
--- Table structure for table `phone_change_requests`
---
-
-DROP TABLE IF EXISTS `phone_change_requests`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
-CREATE TABLE `phone_change_requests` (
-  `id` char(36) NOT NULL,
-  `user_id` char(36) NOT NULL,
-  `new_phone` varchar(20) NOT NULL,
-  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
-  `expires_at` datetime NOT NULL,
-  PRIMARY KEY (`id`),
-  KEY `user_id` (`user_id`),
-  CONSTRAINT `phone_change_requests_fk_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
-/*!40101 SET character_set_client = @saved_cs_client */;
+LOCK TABLES `driver_profiles` WRITE;
+/*!40000 ALTER TABLE `driver_profiles` DISABLE KEYS */;
+/*!40000 ALTER TABLE `driver_profiles` ENABLE KEYS */;
+UNLOCK TABLES;
 
 --
 -- Table structure for table `roles`
@@ -142,6 +61,16 @@ CREATE TABLE `roles` (
   UNIQUE KEY `role_name` (`role_name`)
 ) ENGINE=InnoDB AUTO_INCREMENT=5 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `roles`
+--
+
+LOCK TABLES `roles` WRITE;
+/*!40000 ALTER TABLE `roles` DISABLE KEYS */;
+INSERT INTO `roles` VALUES (1,'ADMIN','Platform administrator'),(2,'SHIPPER','A business or individual shipping goods'),(3,'DRIVER','A truck driver on the platform'),(4,'DISPATCHER','Operations team member managing dispatch');
+/*!40000 ALTER TABLE `roles` ENABLE KEYS */;
+UNLOCK TABLES;
 
 --
 -- Table structure for table `users`
@@ -176,6 +105,16 @@ CREATE TABLE `users` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
+-- Dumping data for table `users`
+--
+
+LOCK TABLES `users` WRITE;
+/*!40000 ALTER TABLE `users` DISABLE KEYS */;
+INSERT INTO `users` VALUES ('4396aa77-2cd0-11f1-a6d1-4ae8d4bc7d0d',1,'+251911000001','$2b$12$u8H2xpXDVbGCbGAV7pUcaOGUme5aIwzoFZXSgXsNriyKURLbbD8He',NULL,NULL,'Admin','Test',NULL,1,0,1,'SYSTEM','2026-03-31 07:07:22','2026-03-31 07:07:22');
+/*!40000 ALTER TABLE `users` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
 -- Table structure for table `vehicles`
 --
 
@@ -189,10 +128,6 @@ CREATE TABLE `vehicles` (
   `vehicle_type` varchar(50) NOT NULL,
   `max_capacity_kg` decimal(10,2) NOT NULL,
   `is_company_owned` tinyint(1) DEFAULT '0',
-  `vehicle_photo_url` varchar(255) DEFAULT NULL,
-  `description` varchar(255) DEFAULT NULL,
-  `is_active` tinyint(1) DEFAULT '1',
-  `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   UNIQUE KEY `plate_number` (`plate_number`),
@@ -200,6 +135,15 @@ CREATE TABLE `vehicles` (
   CONSTRAINT `vehicles_ibfk_1` FOREIGN KEY (`driver_id`) REFERENCES `users` (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `vehicles`
+--
+
+LOCK TABLES `vehicles` WRITE;
+/*!40000 ALTER TABLE `vehicles` DISABLE KEYS */;
+/*!40000 ALTER TABLE `vehicles` ENABLE KEYS */;
+UNLOCK TABLES;
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
 
 /*!40101 SET SQL_MODE=@OLD_SQL_MODE */;
@@ -210,4 +154,4 @@ CREATE TABLE `vehicles` (
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2026-04-01  8:42:41
+-- Dump completed on 2026-03-31 17:43:25
