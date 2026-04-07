@@ -1,14 +1,15 @@
-import { useState, useRef, type FormEvent, type ChangeEvent } from 'react'
+import { useState, useRef, useEffect, type FormEvent, type ChangeEvent } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { useNavigate } from 'react-router-dom'
-import { authApi } from '../lib/apiClient'
+import apiClient, { authApi } from '../lib/apiClient'
 import PhoneField from '../components/PhoneField'
 import { normalisePhone } from '../lib/normalisePhone'
 import {
   LuTruck, LuUser, LuShield, LuPackage, LuPhone, LuMail,
   LuIdCard, LuCircleCheck, LuTriangleAlert, LuCamera, LuTrash2,
   LuEye, LuEyeOff, LuLogOut, LuCheck, LuSmartphone, LuArrowLeft,
-  LuLock, LuContact,
+  LuLock, LuContact, LuBell, LuSun, LuMoon, LuMonitor, LuFileText,
+  LuUpload, LuRefreshCw, LuStar,
 } from 'react-icons/lu'
 
 // ─── Sub-components ──────────────────────────────────────────────────────────
@@ -80,7 +81,7 @@ function SectionRow({
   )
 }
 
-type Tab = 'profile' | 'security' | 'contact'
+type Tab = 'profile' | 'security' | 'contact' | 'preferences' | 'documents'
 
 export default function DashboardPage() {
   const { user, logout, updateUser, refreshUser } = useAuth()
@@ -90,6 +91,79 @@ export default function DashboardPage() {
   const roleIcon  = user?.role_id === 1 ? <LuShield size={30}/> : user?.role_id === 2 ? <LuPackage size={30}/> : user?.role_id === 3 ? <LuTruck size={30}/> : <LuUser size={30}/>
 
   const [activeTab, setActiveTab] = useState<Tab>('profile')
+
+  // ── Theme preference ───────────────────────────────────────────────────────
+  const [themeVal,   setThemeVal]   = useState<'LIGHT' | 'DARK' | 'SYSTEM'>('SYSTEM')
+  const [themeLoading, setThemeLoading] = useState(false)
+  const [themeMsg,   setThemeMsg]   = useState('')
+
+  const handleSetTheme = async (t: 'LIGHT' | 'DARK' | 'SYSTEM') => {
+    setThemeVal(t); setThemeLoading(true); setThemeMsg('')
+    try {
+      await apiClient.put('/profile/theme', { theme: t })
+      setThemeMsg('Theme saved.')
+      setTimeout(() => setThemeMsg(''), 2500)
+    } catch { setThemeMsg('Failed to save theme.') }
+    finally { setThemeLoading(false) }
+  }
+
+  // ── Notification preferences ────────────────────────────────────────────────
+  const [notifPrefs, setNotifPrefs] = useState({ sms_enabled: 1, email_enabled: 1, browser_enabled: 1, order_updates: 1, promotions: 0 })
+  const [notifLoading, setNotifLoading] = useState(false)
+  const [notifMsg,   setNotifMsg]   = useState('')
+
+  useEffect(() => {
+    apiClient.get('/profile/notifications').then(r => {
+      if (r.data.preferences) setNotifPrefs(r.data.preferences)
+    }).catch(() => {})
+  }, [])
+
+  const handleToggleNotif = async (key: keyof typeof notifPrefs) => {
+    const next = { ...notifPrefs, [key]: notifPrefs[key] ? 0 : 1 }
+    setNotifPrefs(next); setNotifLoading(true); setNotifMsg('')
+    try {
+      await apiClient.put('/profile/notifications', {
+        sms_enabled: !!next.sms_enabled, email_enabled: !!next.email_enabled,
+        browser_enabled: !!next.browser_enabled, order_updates: !!next.order_updates,
+        promotions: !!next.promotions,
+      })
+      setNotifMsg('Preferences saved.')
+      setTimeout(() => setNotifMsg(''), 2500)
+    } catch { setNotifMsg('Failed to save.') }
+    finally { setNotifLoading(false) }
+  }
+
+  // ── Driver documents ────────────────────────────────────────────────────────
+  const [driverProfile, setDriverProfile] = useState<any>(null)
+  const [docsLoading,   setDocsLoading]   = useState(false)
+  const [docsError,     setDocsError]     = useState('')
+  const [docsSuccess,   setDocsSuccess]   = useState('')
+  const [uploadingDoc,  setUploadingDoc]  = useState<string | null>(null)
+
+  useEffect(() => {
+    if (user?.role_id === 3) {
+      setDocsLoading(true)
+      apiClient.get('/profile/driver').then(r => setDriverProfile(r.data.driver_profile)).catch(() => {}).finally(() => setDocsLoading(false))
+    }
+  }, [user?.role_id])
+
+  const handleDocUpload = async (docKey: 'national_id' | 'license' | 'libre', file: File) => {
+    if (file.size > 8 * 1024 * 1024) { setDocsError('Max file size is 8 MB'); return }
+    setDocsError(''); setDocsSuccess(''); setUploadingDoc(docKey)
+    const reader = new FileReader()
+    reader.onload = async () => {
+      try {
+        await apiClient.post('/profile/driver/documents', { [docKey]: reader.result as string })
+        const r = await apiClient.get('/profile/driver')
+        setDriverProfile(r.data.driver_profile)
+        setDocsSuccess(`${docKey.replace('_', ' ')} uploaded successfully.`)
+        setTimeout(() => setDocsSuccess(''), 3000)
+      } catch (err: any) {
+        setDocsError(err.response?.data?.message || 'Upload failed.')
+      } finally { setUploadingDoc(null) }
+    }
+    reader.readAsDataURL(file)
+  }
 
   type TabDef = { id: Tab; icon: React.ReactNode; label: string }
 
@@ -266,9 +340,11 @@ export default function DashboardPage() {
   const photoUrl = user?.profile_photo_url
 
   const tabs: TabDef[] = [
-    { id: 'profile',  icon: <LuUser size={15}/>,    label: 'Profile'  },
-    { id: 'security', icon: <LuLock size={15}/>,    label: 'Security' },
-    { id: 'contact',  icon: <LuContact size={15}/>, label: 'Contact'  },
+    { id: 'profile',     icon: <LuUser size={15}/>,     label: 'Profile'     },
+    { id: 'security',    icon: <LuLock size={15}/>,     label: 'Security'    },
+    { id: 'contact',     icon: <LuContact size={15}/>,  label: 'Contact'     },
+    { id: 'preferences', icon: <LuBell size={15}/>,     label: 'Prefs'       },
+    ...(user?.role_id === 3 ? [{ id: 'documents' as Tab, icon: <LuFileText size={15}/>, label: 'Docs' }] : []),
   ]
 
   return (
@@ -495,6 +571,148 @@ export default function DashboardPage() {
                   </form>
                 )}
               </SectionRow>
+            </div>
+          )}
+
+          {/* Preferences tab */}
+          {activeTab === 'preferences' && (
+            <div className="glass step-enter" style={{ padding: '1.75rem', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+              {/* Theme */}
+              <div>
+                <h2 style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--clr-text)', display:'flex', alignItems:'center', gap:'0.45rem', marginBottom:'1rem' }}><LuSun size={16}/> Display Theme</h2>
+                <div style={{ display:'flex', gap:'0.6rem' }}>
+                  {([['LIGHT', <LuSun size={15}/>, 'Light'], ['DARK', <LuMoon size={15}/>, 'Dark'], ['SYSTEM', <LuMonitor size={15}/>, 'System']] as const).map(([val, icon, label]) => (
+                    <button key={val} onClick={() => handleSetTheme(val)} disabled={themeLoading}
+                      style={{
+                        flex: 1, padding: '0.7rem 0.5rem', borderRadius: 12, border: '1px solid',
+                        borderColor: themeVal === val ? 'var(--clr-accent)' : 'rgba(255,255,255,0.10)',
+                        background: themeVal === val ? 'rgba(0,229,255,0.10)' : 'rgba(255,255,255,0.03)',
+                        color: themeVal === val ? 'var(--clr-accent)' : 'var(--clr-muted)',
+                        fontFamily: 'inherit', fontSize: '0.82rem', fontWeight: 600,
+                        cursor: 'pointer', transition: 'all 0.18s',
+                        display:'flex', flexDirection:'column', alignItems:'center', gap:'0.35rem',
+                      }}>
+                      {icon}{label}
+                    </button>
+                  ))}
+                </div>
+                {themeMsg && <p style={{ fontSize:'0.78rem', color: themeMsg.includes('Failed') ? 'var(--clr-danger)' : '#86efac', marginTop:'0.5rem' }}>{themeMsg}</p>}
+              </div>
+
+              <Divider />
+
+              {/* Notifications */}
+              <div>
+                <h2 style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--clr-text)', display:'flex', alignItems:'center', gap:'0.45rem', marginBottom:'0.25rem' }}><LuBell size={16}/> Notifications</h2>
+                <p style={{ fontSize:'0.78rem', color:'var(--clr-muted)', marginBottom:'1rem' }}>SMS is reserved for critical alerts only.</p>
+                {notifMsg && <div className={`alert ${notifMsg.includes('Failed') ? 'alert-error' : 'alert-success'}`} style={{marginBottom:'0.75rem',display:'flex',alignItems:'center',gap:'0.4rem'}}><LuCheck size={13}/> {notifMsg}</div>}
+                <div style={{ display:'flex', flexDirection:'column', gap:'0' }}>
+                  {([
+                    { key: 'sms_enabled',     icon: <LuSmartphone size={15}/>, label: 'SMS Alerts',            sub: 'Critical updates only — order status, OTPs' },
+                    { key: 'email_enabled',   icon: <LuMail size={15}/>,       label: 'Email Notifications',   sub: 'Order summaries, receipts, account alerts' },
+                    { key: 'browser_enabled', icon: <LuBell size={15}/>,       label: 'Browser Notifications', sub: 'Real-time web push alerts while browsing' },
+                    { key: 'order_updates',   icon: <LuTruck size={15}/>,      label: 'Order Updates',         sub: 'Status changes on your logistics orders' },
+                    { key: 'promotions',      icon: <LuStar size={15}/>,       label: 'Promotions',            sub: 'News, offers and platform announcements' },
+                  ] as { key: keyof typeof notifPrefs; icon: React.ReactNode; label: string; sub: string }[]).map(({ key, icon, label, sub }, i, arr) => (
+                    <div key={key} style={{ display:'flex', alignItems:'center', gap:'0.85rem', padding:'0.9rem 0', borderBottom: i < arr.length-1 ? '1px solid rgba(255,255,255,0.05)' : 'none' }}>
+                      <span style={{ color:'var(--clr-accent)', display:'flex', alignItems:'center', flexShrink:0 }}>{icon}</span>
+                      <div style={{ flex:1 }}>
+                        <p style={{ fontSize:'0.875rem', fontWeight:600, color:'var(--clr-text)' }}>{label}</p>
+                        <p style={{ fontSize:'0.75rem', color:'var(--clr-muted)', marginTop:'0.1rem' }}>{sub}</p>
+                      </div>
+                      <button onClick={() => handleToggleNotif(key)} disabled={notifLoading}
+                        style={{
+                          width: 44, height: 24, borderRadius: 99, border: 'none', cursor: 'pointer',
+                          background: notifPrefs[key] ? 'var(--clr-accent)' : 'rgba(255,255,255,0.12)',
+                          transition: 'background 0.2s', flexShrink: 0, position: 'relative',
+                        }}>
+                        <span style={{
+                          position:'absolute', top: 3, left: notifPrefs[key] ? 23 : 3,
+                          width: 18, height: 18, borderRadius: '50%',
+                          background: notifPrefs[key] ? '#080b14' : 'var(--clr-muted)',
+                          transition: 'left 0.2s',
+                        }} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Driver Documents tab */}
+          {activeTab === 'documents' && user?.role_id === 3 && (
+            <div className="glass step-enter" style={{ padding: '1.75rem', display:'flex', flexDirection:'column', gap:'1.25rem' }}>
+              <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+                <h2 style={{ fontSize:'0.95rem', fontWeight:700, color:'var(--clr-text)', display:'flex', alignItems:'center', gap:'0.45rem' }}><LuFileText size={16}/> Verification Documents</h2>
+                <button className="btn-outline" style={{ fontSize:'0.75rem', padding:'0.35rem 0.7rem', display:'flex', alignItems:'center', gap:'0.35rem' }}
+                  onClick={() => { setDocsLoading(true); apiClient.get('/profile/driver').then(r => setDriverProfile(r.data.driver_profile)).catch(()=>{}).finally(()=>setDocsLoading(false)) }}>
+                  <LuRefreshCw size={13}/> Refresh
+                </button>
+              </div>
+
+              {driverProfile?.is_verified === 1 && (
+                <div className="alert alert-success" style={{ display:'flex', alignItems:'center', gap:'0.5rem', fontWeight:700 }}>
+                  <LuCircleCheck size={15}/> Your account is fully verified!
+                </div>
+              )}
+              {driverProfile?.rejection_reason && (
+                <div className="alert alert-error">
+                  <LuTriangleAlert size={14}/> Rejected: {driverProfile.rejection_reason}
+                </div>
+              )}
+
+              {docsError   && <div className="alert alert-error"><LuTriangleAlert size={14}/> {docsError}</div>}
+              {docsSuccess && <div className="alert alert-success" style={{display:'flex',alignItems:'center',gap:'0.4rem'}}><LuCheck size={14}/> {docsSuccess}</div>}
+
+              {docsLoading ? (
+                <div style={{ display:'flex', alignItems:'center', gap:'0.5rem', color:'var(--clr-muted)', fontSize:'0.875rem', padding:'1rem 0' }}>
+                  <span className="spinner" /> Loading…
+                </div>
+              ) : (
+                <div style={{ display:'flex', flexDirection:'column', gap:'0.85rem' }}>
+                  {([
+                    { key: 'national_id', label: 'National ID',             urlKey: 'national_id_url', statusKey: 'national_id_status' },
+                    { key: 'license',     label: "Driver's License",        urlKey: 'license_url',     statusKey: 'license_status'     },
+                    { key: 'libre',       label: 'Libre (Vehicle Ownership)', urlKey: 'libre_url',     statusKey: 'libre_status'       },
+                  ] as { key: 'national_id'|'license'|'libre'; label: string; urlKey: string; statusKey: string }[]).map(doc => {
+                    const url    = driverProfile?.[doc.urlKey] as string | null
+                    const status = (driverProfile?.[doc.statusKey] ?? 'NOT UPLOADED') as string
+                    const statusColor = status === 'APPROVED' ? '#4ade80' : status === 'REJECTED' ? '#fca5a5' : status === 'PENDING' ? '#fbbf24' : 'var(--clr-muted)'
+                    const inputId = `doc-${doc.key}`
+                    return (
+                      <div key={doc.key} className="glass-inner" style={{ padding:'1rem', display:'flex', flexDirection:'column', gap:'0.65rem' }}>
+                        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+                          <p style={{ fontWeight:600, fontSize:'0.875rem', color:'var(--clr-text)' }}>{doc.label}</p>
+                          <span style={{ fontSize:'0.73rem', fontWeight:700, color: statusColor, background: `${statusColor}18`, border: `1px solid ${statusColor}44`, borderRadius:99, padding:'0.2rem 0.6rem' }}>
+                            {status}
+                          </span>
+                        </div>
+                        {url && (
+                          <a href={url} target="_blank" rel="noopener noreferrer"
+                            style={{ fontSize:'0.78rem', color:'var(--clr-accent)', display:'flex', alignItems:'center', gap:'0.3rem', textDecoration:'none' }}>
+                            <LuFileText size={13}/> View uploaded file ↗
+                          </a>
+                        )}
+                        <label htmlFor={inputId} style={{
+                          display:'flex', alignItems:'center', justifyContent:'center', gap:'0.5rem',
+                          padding:'0.6rem', borderRadius:10, border:'1px dashed rgba(255,255,255,0.18)',
+                          color: uploadingDoc === doc.key ? 'var(--clr-accent)' : 'var(--clr-muted)',
+                          cursor: uploadingDoc ? 'not-allowed' : 'pointer',
+                          fontSize:'0.82rem', fontWeight:600, transition:'all 0.18s',
+                          background: 'rgba(255,255,255,0.02)',
+                        }}>
+                          {uploadingDoc === doc.key ? <><span className="spinner" /> Uploading…</> : <><LuUpload size={14}/> {url ? 'Replace' : 'Upload'} file</>}
+                        </label>
+                        <input id={inputId} type="file" accept="image/jpeg,image/png,image/webp,application/pdf"
+                          style={{ display:'none' }} disabled={!!uploadingDoc}
+                          onChange={e => { const f = e.target.files?.[0]; if(f) handleDocUpload(doc.key, f); e.target.value='' }} />
+                        <p style={{ fontSize:'0.72rem', color:'var(--clr-muted)' }}>Accepted: JPG, PNG, WEBP, PDF · Max 8 MB</p>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
             </div>
           )}
 

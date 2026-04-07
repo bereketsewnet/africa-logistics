@@ -27,6 +27,8 @@ import {
   deleteProfilePhotoHandler,
   forgotPasswordEmailHandler,
   resetPasswordEmailHandler,
+  forgotPasswordRequestOtpHandler,
+  forgotPasswordResetHandler,
 } from '../controllers/auth.controller.js'
 
 export default async function authRoutes(fastify: FastifyInstance) {
@@ -168,6 +170,34 @@ export default async function authRoutes(fastify: FastifyInstance) {
       },
     },
   }, loginEmailHandler)
+
+  // POST /api/auth/forgot-password/request-otp — send OTP to registered phone for password reset
+  fastify.post('/api/auth/forgot-password/request-otp', {
+    schema: {
+      body: {
+        type: 'object',
+        required: ['phone_number'],
+        properties: {
+          phone_number: { type: 'string', minLength: 7, maxLength: 20 },
+        },
+      },
+    },
+  }, forgotPasswordRequestOtpHandler)
+
+  // POST /api/auth/forgot-password/reset — verify OTP and set new password
+  fastify.post('/api/auth/forgot-password/reset', {
+    schema: {
+      body: {
+        type: 'object',
+        required: ['phone_number', 'otp', 'new_password'],
+        properties: {
+          phone_number: { type: 'string', minLength: 7, maxLength: 20 },
+          otp:          { type: 'string', minLength: 6, maxLength: 6, pattern: '^[0-9]{6}$' },
+          new_password: { type: 'string', minLength: 6 },
+        },
+      },
+    },
+  }, forgotPasswordResetHandler)
 
   // POST /api/auth/forgot-password-email — send reset link to verified email
   fastify.post('/api/auth/forgot-password-email', {

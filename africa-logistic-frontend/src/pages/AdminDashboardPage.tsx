@@ -13,6 +13,8 @@ import {
   LuEye, LuEyeOff, LuLogOut, LuCheck, LuSmartphone, LuArrowLeft,
   LuLock, LuContact, LuMenu, LuPin, LuPinOff,
   LuUsers, LuChartBar, LuX, LuStar, LuHistory,
+  LuShieldCheck, LuPencil, LuPlus, LuFileText, LuRefreshCw,
+  LuCar, LuBadgeCheck,
 } from 'react-icons/lu'
 
 // ─── Shared UI helpers ────────────────────────────────────────────────────────
@@ -84,8 +86,43 @@ interface Stats {
   total_users: number; total_admins: number; total_shippers: number
   total_drivers: number; active_users: number; new_today: number
 }
-type AdminSection = 'overview' | 'users' | 'drivers' | 'shippers' | 'profile'
+type AdminSection = 'overview' | 'users' | 'drivers' | 'shippers' | 'verify-drivers' | 'vehicles' | 'profile'
 type ProfileTab = 'profile' | 'security' | 'contact'
+
+interface DriverRow {
+  user_id: string
+  first_name: string
+  last_name: string
+  phone_number: string
+  email: string | null
+  profile_photo_url: string | null
+  national_id_url: string | null
+  license_url: string | null
+  libre_url: string | null
+  national_id_status: string | null
+  license_status: string | null
+  libre_status: string | null
+  rejection_reason: string | null
+  is_verified: number
+  status: string
+  verified_at: string | null
+  rating: number | null
+  total_trips: number
+}
+interface VehicleRow {
+  id: string
+  driver_id: string | null
+  plate_number: string
+  vehicle_type: string
+  max_capacity_kg: number
+  is_company_owned: number
+  vehicle_photo_url: string | null
+  description: string | null
+  is_active: number
+  created_at: string
+  // populated separately
+  driver_name?: string
+}
 
 // ─── Admin sub-components ─────────────────────────────────────────────────────
 
@@ -478,6 +515,492 @@ function ProfileSection() {
   )
 }
 
+// ─── Driver Verification section ─────────────────────────────────────────────
+
+function DriverVerificationSection() {
+  const [filter, setFilter] = useState<'all' | 'pending' | 'verified' | 'rejected'>('pending')
+  const [drivers, setDrivers] = useState<DriverRow[]>([])
+  const [loading, setLoading] = useState(false)
+  const [toastMsg, setToastMsg] = useState('')
+  const [expandedId, setExpandedId] = useState<string | null>(null)
+  const [actionLoading, setActionLoading] = useState<string | null>(null)
+
+  // Reject modal state
+  const [rejectModal, setRejectModal] = useState<{ type: 'driver' | 'doc'; driverId: string; docType?: string } | null>(null)
+  const [rejectReason, setRejectReason] = useState('')
+
+  const toast = (msg: string) => { setToastMsg(msg); setTimeout(() => setToastMsg(''), 3000) }
+
+  const load = async () => {
+    setLoading(true)
+    try {
+      const { data } = await apiClient.get(`/admin/drivers?filter=${filter}`)
+      setDrivers(data.drivers ?? [])
+    } catch { toast('Failed to load drivers') }
+    finally { setLoading(false) }
+  }
+
+  useEffect(() => { load() }, [filter]) // eslint-disable-line
+
+  const reviewDoc = async (driverId: string, docType: string, action: 'APPROVED' | 'REJECTED', reason?: string) => {
+    const key = `${driverId}-${docType}-${action}`
+    setActionLoading(key)
+    try {
+      await apiClient.post(`/admin/drivers/${driverId}/review-document`, { document_type: docType, action, reason: reason ?? null })
+      toast(`${docType.replace('_', ' ')} ${action.toLowerCase()}.`)
+      await load()
+    } catch (e: any) { toast(e.response?.data?.message ?? 'Action failed') }
+    finally { setActionLoading(null); setRejectModal(null); setRejectReason('') }
+  }
+
+  const verifyDriver = async (driverId: string) => {
+    setActionLoading(`verify-${driverId}`)
+    try {
+      await apiClient.post(`/admin/drivers/${driverId}/verify`)
+      toast('Driver fully verified!')
+      await load()
+    } catch (e: any) { toast(e.response?.data?.message ?? 'Action failed') }
+    finally { setActionLoading(null) }
+  }
+
+  const rejectDriverFull = async (driverId: string, reason: string) => {
+    if (!reason.trim()) return
+    setActionLoading(`reject-${driverId}`)
+    try {
+      await apiClient.post(`/admin/drivers/${driverId}/reject`, { reason })
+      toast('Driver rejected.')
+      await load()
+    } catch (e: any) { toast(e.response?.data?.message ?? 'Action failed') }
+    finally { setActionLoading(null); setRejectModal(null); setRejectReason('') }
+  }
+
+  const statusColor = (s: string | null) =>
+    s === 'APPROVED' ? '#4ade80' : s === 'REJECTED' ? '#fca5a5' : s === 'PENDING' ? '#fbbf24' : 'var(--clr-muted)'
+  const StatusBadge = ({ s, label }: { s: string | null; label: string }) => (
+    <span style={{ fontSize:'0.68rem', fontWeight:700, color: statusColor(s), background:`${statusColor(s)}18`, border:`1px solid ${statusColor(s)}44`, borderRadius:99, padding:'0.15rem 0.5rem', whiteSpace:'nowrap' }}>{label}: {s ?? 'N/A'}</span>
+  )
+
+  const filters: { id: typeof filter; label: string }[] = [
+    { id: 'pending',  label: 'Pending'  },
+    { id: 'verified', label: 'Verified' },
+    { id: 'rejected', label: 'Rejected' },
+    { id: 'all',      label: 'All'      },
+  ]
+
+  return (
+    <div style={{ display:'flex', flexDirection:'column', gap:'1rem' }}>
+      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', flexWrap:'wrap', gap:'0.5rem' }}>
+        <h2 style={{ fontSize:'1rem', fontWeight:800, color:'var(--clr-text)', display:'flex', alignItems:'center', gap:'0.45rem' }}><LuShieldCheck size={17}/> Driver Verification</h2>
+        <button className="btn-outline" style={{ fontSize:'0.75rem', padding:'0.35rem 0.7rem', display:'flex', alignItems:'center', gap:'0.35rem' }} onClick={load} disabled={loading}><LuRefreshCw size={13}/> Refresh</button>
+      </div>
+
+      {/* Filter tabs */}
+      <div style={{ display:'flex', gap:'0.4rem', background:'rgba(255,255,255,0.04)', borderRadius:12, padding:'0.3rem' }}>
+        {filters.map(f => (
+          <button key={f.id} onClick={() => setFilter(f.id)} style={{ flex:1, padding:'0.45rem', border:'none', borderRadius:9, background: filter===f.id ? 'rgba(0,229,255,0.12)' : 'transparent', color: filter===f.id ? 'var(--clr-accent)' : 'var(--clr-muted)', fontFamily:'inherit', fontSize:'0.78rem', fontWeight:600, cursor:'pointer', transition:'all 0.18s', outline: filter===f.id ? '1px solid rgba(0,229,255,0.2)' : 'none' }}>
+            {f.label}
+          </button>
+        ))}
+      </div>
+
+      {loading ? <LoadingSpinner /> : drivers.length === 0 ? (
+        <div className="glass-inner" style={{ padding:'2.5rem', textAlign:'center', color:'var(--clr-muted)', fontSize:'0.875rem' }}>No drivers in this filter</div>
+      ) : (
+        <div style={{ display:'flex', flexDirection:'column', gap:'0.65rem' }}>
+          {drivers.map(d => {
+            const isExpanded = expandedId === d.user_id
+            const fullName = `${d.first_name} ${d.last_name}`
+            return (
+              <div key={d.user_id} className="glass-inner" style={{ overflow:'hidden' }}>
+                {/* Card header */}
+                <div style={{ display:'flex', alignItems:'center', gap:'0.75rem', padding:'0.85rem 1rem', cursor:'pointer' }} onClick={() => setExpandedId(isExpanded ? null : d.user_id)}>
+                  <div style={{ width:38, height:38, borderRadius:'50%', flexShrink:0, background:'linear-gradient(135deg,var(--clr-accent2),var(--clr-accent))', display:'flex', alignItems:'center', justifyContent:'center', overflow:'hidden', border:'2px solid rgba(0,229,255,0.2)' }}>
+                    {d.profile_photo_url ? <img src={d.profile_photo_url} alt="" style={{ width:'100%', height:'100%', objectFit:'cover' }}/> : <LuTruck size={16} color="#fff"/>}
+                  </div>
+                  <div style={{ flex:1, minWidth:0 }}>
+                    <div style={{ display:'flex', alignItems:'center', gap:'0.4rem', flexWrap:'wrap' }}>
+                      <span style={{ fontWeight:700, fontSize:'0.875rem', color:'var(--clr-text)' }}>{fullName}</span>
+                      {d.is_verified === 1 && <span style={{ color:'#4ade80', display:'flex', alignItems:'center', gap:'0.2rem', fontSize:'0.72rem', fontWeight:700 }}><LuBadgeCheck size={12}/> Verified</span>}
+                    </div>
+                    <p style={{ fontSize:'0.73rem', color:'var(--clr-muted)' }}>{d.phone_number}</p>
+                    <div style={{ display:'flex', gap:'0.35rem', flexWrap:'wrap', marginTop:'0.3rem' }}>
+                      <StatusBadge s={d.national_id_status} label="ID" />
+                      <StatusBadge s={d.license_status}    label="License" />
+                      <StatusBadge s={d.libre_status}      label="Libre" />
+                    </div>
+                  </div>
+                  <span style={{ color:'var(--clr-muted)', fontSize:'0.75rem', flexShrink:0, marginLeft:'0.5rem' }}>{isExpanded ? '▲' : '▼'}</span>
+                </div>
+
+                {/* Expanded detail */}
+                {isExpanded && (
+                  <div style={{ borderTop:'1px solid rgba(255,255,255,0.06)', padding:'1rem', display:'flex', flexDirection:'column', gap:'1rem' }}>
+                    {d.rejection_reason && (
+                      <div className="alert alert-error" style={{ fontSize:'0.8rem' }}><LuTriangleAlert size={13}/> Rejection reason: {d.rejection_reason}</div>
+                    )}
+
+                    {/* Per-document review */}
+                    {(['national_id','license','libre'] as const).map(docKey => {
+                      const urlKey = `${docKey}_url` as keyof DriverRow
+                      const statusKey = `${docKey}_status` as keyof DriverRow
+                      const url = d[urlKey] as string | null
+                      const status = d[statusKey] as string | null
+                      const aKey = `${d.user_id}-${docKey}`
+                      return (
+                        <div key={docKey} style={{ display:'flex', alignItems:'flex-start', gap:'0.75rem', padding:'0.75rem', background:'rgba(255,255,255,0.03)', borderRadius:10 }}>
+                          <div style={{ flex:1 }}>
+                            <div style={{ display:'flex', alignItems:'center', gap:'0.5rem', marginBottom:'0.3rem' }}>
+                              <span style={{ fontWeight:600, fontSize:'0.82rem', color:'var(--clr-text)', textTransform:'capitalize' }}>{docKey.replace('_',' ')}</span>
+                              <StatusBadge s={status} label="" />
+                            </div>
+                            {url ? (
+                              <a href={url} target="_blank" rel="noopener noreferrer" style={{ fontSize:'0.75rem', color:'var(--clr-accent)', display:'flex', alignItems:'center', gap:'0.25rem', textDecoration:'none' }}>
+                                <LuFileText size={12}/> View document ↗
+                              </a>
+                            ) : (
+                              <span style={{ fontSize:'0.73rem', color:'var(--clr-muted)' }}>No document uploaded</span>
+                            )}
+                          </div>
+                          {url && (
+                            <div style={{ display:'flex', gap:'0.4rem', flexShrink:0 }}>
+                              <button onClick={() => reviewDoc(d.user_id, docKey, 'APPROVED')} disabled={!!actionLoading || status === 'APPROVED'}
+                                style={{ padding:'0.3rem 0.65rem', borderRadius:7, border:'1px solid rgba(74,222,128,0.35)', background:'rgba(74,222,128,0.08)', color:'#4ade80', fontFamily:'inherit', fontSize:'0.72rem', fontWeight:600, cursor: status === 'APPROVED' ? 'not-allowed' : 'pointer', opacity: status === 'APPROVED' ? 0.5 : 1 }}>
+                                {actionLoading === `${aKey}-APPROVED` ? '…' : '✓ Approve'}
+                              </button>
+                              <button onClick={() => { setRejectModal({ type:'doc', driverId: d.user_id, docType: docKey }); setRejectReason('') }} disabled={!!actionLoading || status === 'REJECTED'}
+                                style={{ padding:'0.3rem 0.65rem', borderRadius:7, border:'1px solid rgba(239,68,68,0.35)', background:'rgba(239,68,68,0.08)', color:'#fca5a5', fontFamily:'inherit', fontSize:'0.72rem', fontWeight:600, cursor: status === 'REJECTED' ? 'not-allowed' : 'pointer', opacity: status === 'REJECTED' ? 0.5 : 1 }}>
+                                ✕ Reject
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      )
+                    })}
+
+                    {/* Full verify/reject */}
+                    {d.is_verified !== 1 && (
+                      <div style={{ display:'flex', gap:'0.5rem', borderTop:'1px solid rgba(255,255,255,0.06)', paddingTop:'0.85rem' }}>
+                        <button onClick={() => verifyDriver(d.user_id)} disabled={!!actionLoading}
+                          style={{ flex:1, padding:'0.55rem', borderRadius:10, border:'1px solid rgba(74,222,128,0.35)', background:'rgba(74,222,128,0.10)', color:'#4ade80', fontFamily:'inherit', fontSize:'0.82rem', fontWeight:700, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:'0.4rem' }}>
+                          {actionLoading === `verify-${d.user_id}` ? <><span className="spinner"/>…</> : <><LuShieldCheck size={14}/> Fully Verify</>}
+                        </button>
+                        <button onClick={() => { setRejectModal({ type:'driver', driverId: d.user_id }); setRejectReason('') }} disabled={!!actionLoading}
+                          style={{ flex:1, padding:'0.55rem', borderRadius:10, border:'1px solid rgba(239,68,68,0.35)', background:'rgba(239,68,68,0.08)', color:'#fca5a5', fontFamily:'inherit', fontSize:'0.82rem', fontWeight:700, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:'0.4rem' }}>
+                          <LuX size={14}/> Reject Driver
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      )}
+
+      {/* Reject reason modal */}
+      {rejectModal && (
+        <div className="modal-backdrop" onClick={e => { if (e.target === e.currentTarget) { setRejectModal(null); setRejectReason('') } }}>
+          <div className="glass modal-box" style={{ padding:'1.75rem' }}>
+            <h2 style={{ fontSize:'1rem', fontWeight:800, color:'#fca5a5', marginBottom:'0.4rem' }}>
+              {rejectModal.type === 'driver' ? 'Reject Driver' : `Reject ${rejectModal.docType?.replace('_',' ')}`}
+            </h2>
+            <p style={{ fontSize:'0.82rem', color:'var(--clr-muted)', marginBottom:'1rem' }}>Provide a reason (required).</p>
+            <div className="input-wrap" style={{ marginBottom:'0.75rem' }}>
+              <input id="rej-reason" type="text" placeholder=" " value={rejectReason} onChange={e => setRejectReason(e.target.value)} autoFocus/>
+              <label htmlFor="rej-reason">Reason for rejection</label>
+            </div>
+            <div style={{ display:'flex', gap:'0.6rem' }}>
+              <button className="btn-outline" style={{ flex:1 }} onClick={() => { setRejectModal(null); setRejectReason('') }}>Cancel</button>
+              <button disabled={!rejectReason.trim() || !!actionLoading}
+                onClick={() => {
+                  if (rejectModal.type === 'driver') rejectDriverFull(rejectModal.driverId, rejectReason)
+                  else reviewDoc(rejectModal.driverId, rejectModal.docType!, 'REJECTED', rejectReason)
+                }}
+                style={{ flex:1, padding:'0.7rem', borderRadius:10, border:'none', background: rejectReason.trim() ? '#ef4444' : 'rgba(239,68,68,0.25)', color:'#fff', fontFamily:'inherit', fontSize:'0.85rem', fontWeight:700, cursor: rejectReason.trim() ? 'pointer' : 'not-allowed' }}>
+                {actionLoading ? <><span className="spinner"/> …</> : 'Confirm Reject'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Toast */}
+      {toastMsg && (
+        <div style={{ position:'fixed', bottom:'1.25rem', right:'1.25rem', zIndex:200, background:'rgba(0,229,255,0.12)', border:'1px solid rgba(0,229,255,0.25)', color:'var(--clr-text)', padding:'0.65rem 1.1rem', borderRadius:12, fontSize:'0.85rem', fontWeight:600, backdropFilter:'blur(12px)' }}>
+          {toastMsg}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ─── Vehicle Management section ───────────────────────────────────────────────
+
+const VEHICLE_TYPES = ['Truck', 'Van', 'Pickup', 'Motorcycle', 'Cargo Bike', 'Mini Truck', 'Trailer', 'Other']
+
+function VehicleManagementSection() {
+  const [vehicles, setVehicles] = useState<VehicleRow[]>([])
+  const [loading, setLoading] = useState(false)
+  const [toastMsg, setToastMsg] = useState('')
+  const [showAll, setShowAll] = useState(false)
+  const [actionLoading, setActionLoading] = useState<string | null>(null)
+
+  // Modal state: create / edit
+  const [modal, setModal] = useState<'create' | 'edit' | null>(null)
+  const [editTarget, setEditTarget] = useState<VehicleRow | null>(null)
+  const [form, setForm] = useState({ plate_number:'', vehicle_type:'Truck', max_capacity_kg:'', is_company_owned: true, description:'', vehicle_photo: '' as string })
+  const [formError, setFormError] = useState('')
+  const photoInputRef = useRef<HTMLInputElement>(null)
+
+  // Assign driver modal
+  const [assignModal, setAssignModal] = useState<VehicleRow | null>(null)
+  const [allDrivers, setAllDrivers] = useState<DriverRow[]>([])
+  const [selectedDriver, setSelectedDriver] = useState('')
+  const [driversLoading, setDriversLoading] = useState(false)
+
+  // Confirm delete
+  const [deleteConfirm, setDeleteConfirm] = useState<VehicleRow | null>(null)
+
+  const toast = (msg: string) => { setToastMsg(msg); setTimeout(() => setToastMsg(''), 3000) }
+
+  const load = async () => {
+    setLoading(true)
+    try {
+      const { data } = await apiClient.get(`/admin/vehicles${showAll ? '?all=1' : ''}`)
+      setVehicles(data.vehicles ?? [])
+    } catch { toast('Failed to load vehicles') }
+    finally { setLoading(false) }
+  }
+
+  useEffect(() => { load() }, [showAll]) // eslint-disable-line
+
+  const resetForm = () => { setForm({ plate_number:'', vehicle_type:'Truck', max_capacity_kg:'', is_company_owned: true, description:'', vehicle_photo:'' }); setFormError('') }
+
+  const openCreate = () => { resetForm(); setModal('create') }
+  const openEdit = (v: VehicleRow) => {
+    setEditTarget(v)
+    setForm({ plate_number: v.plate_number, vehicle_type: v.vehicle_type, max_capacity_kg: String(v.max_capacity_kg), is_company_owned: !!v.is_company_owned, description: v.description ?? '', vehicle_photo:'' })
+    setModal('edit')
+  }
+
+  const handlePhotoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]; if (!file) return
+    if (file.size > 8 * 1024 * 1024) { setFormError('Max file size 8 MB'); return }
+    const reader = new FileReader()
+    reader.onload = () => setForm(f => ({ ...f, vehicle_photo: reader.result as string }))
+    reader.readAsDataURL(file)
+    e.target.value = ''
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault(); setFormError('')
+    if (!form.plate_number.trim()) { setFormError('Plate number is required'); return }
+    const cap = parseFloat(form.max_capacity_kg)
+    if (isNaN(cap) || cap <= 0) { setFormError('Enter valid capacity (kg)'); return }
+    const payload: Record<string, unknown> = {
+      plate_number: form.plate_number.trim(),
+      vehicle_type: form.vehicle_type,
+      max_capacity_kg: cap,
+      is_company_owned: form.is_company_owned,
+      description: form.description.trim() || undefined,
+    }
+    if (form.vehicle_photo) payload.vehicle_photo = form.vehicle_photo
+    setActionLoading('form')
+    try {
+      if (modal === 'create') {
+        await apiClient.post('/admin/vehicles', payload)
+        toast('Vehicle created.')
+      } else if (editTarget) {
+        await apiClient.put(`/admin/vehicles/${editTarget.id}`, payload)
+        toast('Vehicle updated.')
+      }
+      setModal(null); resetForm(); await load()
+    } catch (err: any) { setFormError(err.response?.data?.message ?? 'Failed.') }
+    finally { setActionLoading(null) }
+  }
+
+  const handleDelete = async (v: VehicleRow) => {
+    setActionLoading(`del-${v.id}`)
+    try {
+      await apiClient.delete(`/admin/vehicles/${v.id}`)
+      toast('Vehicle deactivated.'); setDeleteConfirm(null); await load()
+    } catch (err: any) { toast(err.response?.data?.message ?? 'Delete failed') }
+    finally { setActionLoading(null) }
+  }
+
+  const openAssign = async (v: VehicleRow) => {
+    setAssignModal(v); setSelectedDriver(v.driver_id ?? '')
+    setDriversLoading(true)
+    try {
+      const { data } = await apiClient.get('/admin/drivers?filter=verified')
+      setAllDrivers(data.drivers ?? [])
+    } catch { toast('Failed to load drivers') }
+    finally { setDriversLoading(false) }
+  }
+
+  const handleAssign = async () => {
+    if (!assignModal) return
+    setActionLoading(`assign-${assignModal.id}`)
+    try {
+      await apiClient.post(`/admin/vehicles/${assignModal.id}/assign-driver`, { driver_id: selectedDriver || null })
+      toast(selectedDriver ? 'Driver assigned.' : 'Driver unassigned.')
+      setAssignModal(null); await load()
+    } catch (err: any) { toast(err.response?.data?.message ?? 'Failed') }
+    finally { setActionLoading(null) }
+  }
+
+  const FormModal = ({ title }: { title: string }) => (
+    <div className="modal-backdrop" onClick={e => { if (e.target === e.currentTarget) { setModal(null); resetForm() } }}>
+      <div className="glass modal-box" style={{ padding:'1.75rem', maxWidth: 420, width:'95%' }}>
+        <h2 style={{ fontSize:'1rem', fontWeight:800, color:'var(--clr-text)', marginBottom:'1.1rem', display:'flex', alignItems:'center', gap:'0.4rem' }}><LuCar size={16}/> {title}</h2>
+        <form onSubmit={handleSubmit} style={{ display:'flex', flexDirection:'column', gap:'0.7rem' }}>
+          {formError && <div className="alert alert-error"><LuTriangleAlert size={13}/> {formError}</div>}
+          <div className="input-wrap"><input id="veh-plate" type="text" placeholder=" " value={form.plate_number} onChange={e => setForm(f => ({ ...f, plate_number: e.target.value }))} required/><label htmlFor="veh-plate">Plate Number *</label></div>
+          <div className="input-wrap">
+            <select id="veh-type" value={form.vehicle_type} onChange={e => setForm(f => ({ ...f, vehicle_type: e.target.value }))} style={{ background:'transparent', border:'none', color:'var(--clr-text)', fontFamily:'inherit', fontSize:'0.9rem', width:'100%', outline:'none', paddingTop:'1.1rem' }}>
+              {VEHICLE_TYPES.map(t => <option key={t} value={t} style={{ background:'#0f172a' }}>{t}</option>)}
+            </select>
+            <label htmlFor="veh-type" style={{ top:'0.35rem', fontSize:'0.7rem', color:'var(--clr-accent)' }}>Vehicle Type</label>
+          </div>
+          <div className="input-wrap"><input id="veh-cap" type="number" placeholder=" " min="1" step="1" value={form.max_capacity_kg} onChange={e => setForm(f => ({ ...f, max_capacity_kg: e.target.value }))} required/><label htmlFor="veh-cap">Max Capacity (kg) *</label></div>
+          <div className="input-wrap"><input id="veh-desc" type="text" placeholder=" " value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))}/><label htmlFor="veh-desc">Description (optional)</label></div>
+          {/* company owned toggle */}
+          <div style={{ display:'flex', alignItems:'center', gap:'0.65rem' }}>
+            <button type="button" onClick={() => setForm(f => ({ ...f, is_company_owned: !f.is_company_owned }))}
+              style={{ width:44, height:24, borderRadius:99, border:'none', cursor:'pointer', background: form.is_company_owned ? 'var(--clr-accent)' : 'rgba(255,255,255,0.12)', transition:'background 0.2s', flexShrink:0, position:'relative' }}>
+              <span style={{ position:'absolute', top:3, left: form.is_company_owned ? 23 : 3, width:18, height:18, borderRadius:'50%', background: form.is_company_owned ? '#080b14' : 'var(--clr-muted)', transition:'left 0.2s' }}/>
+            </button>
+            <span style={{ fontSize:'0.85rem', color:'var(--clr-text)' }}>Company-owned vehicle</span>
+          </div>
+          {/* photo */}
+          <label htmlFor="veh-photo" style={{ display:'flex', alignItems:'center', gap:'0.5rem', padding:'0.6rem', borderRadius:10, border:'1px dashed rgba(255,255,255,0.18)', color: form.vehicle_photo ? 'var(--clr-accent)' : 'var(--clr-muted)', cursor:'pointer', fontSize:'0.82rem', fontWeight:600, background:'rgba(255,255,255,0.02)' }}>
+            <LuCamera size={14}/> {form.vehicle_photo ? 'Photo selected ✓' : (modal === 'edit' ? 'Replace photo (optional)' : 'Add photo (optional)')}
+          </label>
+          <input id="veh-photo" ref={photoInputRef} type="file" accept="image/jpeg,image/png,image/webp" style={{ display:'none' }} onChange={handlePhotoSelect}/>
+          <div style={{ display:'flex', gap:'0.6rem', marginTop:'0.25rem' }}>
+            <button type="button" className="btn-outline" style={{ flex:1 }} onClick={() => { setModal(null); resetForm() }}>Cancel</button>
+            <button type="submit" className="btn-primary" style={{ flex:2 }} disabled={actionLoading === 'form'}>{actionLoading === 'form' ? <><span className="spinner"/> Saving…</> : (modal === 'create' ? 'Create Vehicle' : 'Save Changes')}</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
+
+  return (
+    <div style={{ display:'flex', flexDirection:'column', gap:'1rem' }}>
+      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', flexWrap:'wrap', gap:'0.5rem' }}>
+        <h2 style={{ fontSize:'1rem', fontWeight:800, color:'var(--clr-text)', display:'flex', alignItems:'center', gap:'0.45rem' }}><LuCar size={17}/> Vehicle Management</h2>
+        <div style={{ display:'flex', gap:'0.5rem', alignItems:'center' }}>
+          <label style={{ display:'flex', alignItems:'center', gap:'0.4rem', fontSize:'0.78rem', color:'var(--clr-muted)', cursor:'pointer' }}>
+            <input type="checkbox" checked={showAll} onChange={e => setShowAll(e.target.checked)} style={{ accentColor:'var(--clr-accent)' }}/> Show inactive
+          </label>
+          <button className="btn-primary" style={{ fontSize:'0.8rem', padding:'0.42rem 0.9rem', display:'flex', alignItems:'center', gap:'0.4rem' }} onClick={openCreate}><LuPlus size={14}/> Add Vehicle</button>
+          <button className="btn-outline" style={{ fontSize:'0.75rem', padding:'0.35rem 0.7rem', display:'flex', alignItems:'center', gap:'0.35rem' }} onClick={load} disabled={loading}><LuRefreshCw size={13}/></button>
+        </div>
+      </div>
+
+      {loading ? <LoadingSpinner /> : vehicles.length === 0 ? (
+        <div className="glass-inner" style={{ padding:'2.5rem', textAlign:'center', color:'var(--clr-muted)', fontSize:'0.875rem' }}>No vehicles found. Add one above.</div>
+      ) : (
+        <div className="glass-inner" style={{ overflow:'hidden' }}>
+          {vehicles.map((v, i) => (
+            <div key={v.id} style={{ display:'flex', alignItems:'center', gap:'0.75rem', padding:'0.85rem 1rem', borderBottom: i < vehicles.length-1 ? '1px solid rgba(255,255,255,0.05)' : 'none', flexWrap:'wrap' }}>
+              <div style={{ width:42, height:42, borderRadius:10, flexShrink:0, background:'rgba(255,255,255,0.06)', border:'1px solid rgba(255,255,255,0.10)', display:'flex', alignItems:'center', justifyContent:'center', overflow:'hidden' }}>
+                {v.vehicle_photo_url ? <img src={v.vehicle_photo_url} alt="" style={{ width:'100%', height:'100%', objectFit:'cover' }}/> : <LuCar size={18} color="var(--clr-muted)"/>}
+              </div>
+              <div style={{ flex:1, minWidth:110 }}>
+                <div style={{ display:'flex', alignItems:'center', gap:'0.4rem', flexWrap:'wrap' }}>
+                  <span style={{ fontWeight:700, fontSize:'0.885rem', color:'var(--clr-text)' }}>{v.plate_number}</span>
+                  <span className="badge badge-cyan" style={{ fontSize:'0.67rem' }}>{v.vehicle_type}</span>
+                  {v.is_company_owned ? <span className="badge badge-purple" style={{ fontSize:'0.67rem' }}>Company</span> : null}
+                  {!v.is_active ? <span className="badge badge-red" style={{ fontSize:'0.67rem' }}>Inactive</span> : null}
+                </div>
+                <p style={{ fontSize:'0.73rem', color:'var(--clr-muted)', marginTop:'0.1rem' }}>{v.max_capacity_kg} kg · {v.driver_id ? `Assigned` : 'Unassigned'}</p>
+                {v.description && <p style={{ fontSize:'0.7rem', color:'var(--clr-muted)' }}>{v.description}</p>}
+              </div>
+              <div style={{ display:'flex', gap:'0.35rem', flexShrink:0 }}>
+                <button title="Assign driver" onClick={() => openAssign(v)}
+                  style={{ padding:'0.28rem 0.5rem', borderRadius:7, border:'1px solid rgba(0,229,255,0.25)', background:'rgba(0,229,255,0.07)', color:'var(--clr-accent)', fontFamily:'inherit', fontSize:'0.72rem', cursor:'pointer', display:'flex', alignItems:'center', gap:'0.25rem' }}>
+                  <LuUser size={12}/> Driver
+                </button>
+                <button title="Edit" onClick={() => openEdit(v)}
+                  style={{ padding:'0.28rem 0.5rem', borderRadius:7, border:'1px solid rgba(255,255,255,0.15)', background:'rgba(255,255,255,0.05)', color:'var(--clr-text)', fontFamily:'inherit', fontSize:'0.72rem', cursor:'pointer', display:'flex', alignItems:'center' }}>
+                  <LuPencil size={12}/>
+                </button>
+                {v.is_active ? (
+                  <button title="Deactivate" onClick={() => setDeleteConfirm(v)} disabled={!!actionLoading}
+                    style={{ padding:'0.28rem 0.5rem', borderRadius:7, border:'1px solid rgba(239,68,68,0.35)', background:'rgba(239,68,68,0.08)', color:'#fca5a5', fontFamily:'inherit', fontSize:'0.72rem', cursor:'pointer', display:'flex', alignItems:'center' }}>
+                    <LuTrash2 size={12}/>
+                  </button>
+                ) : null}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Create / Edit modal */}
+      {modal === 'create' && <FormModal title="Add New Vehicle" />}
+      {modal === 'edit'   && <FormModal title="Edit Vehicle" />}
+
+      {/* Assign driver modal */}
+      {assignModal && (
+        <div className="modal-backdrop" onClick={e => { if (e.target === e.currentTarget) setAssignModal(null) }}>
+          <div className="glass modal-box" style={{ padding:'1.75rem' }}>
+            <h2 style={{ fontSize:'1rem', fontWeight:800, color:'var(--clr-text)', marginBottom:'0.35rem', display:'flex', alignItems:'center', gap:'0.4rem' }}><LuTruck size={15}/> Assign Driver</h2>
+            <p style={{ fontSize:'0.8rem', color:'var(--clr-muted)', marginBottom:'1rem' }}>Vehicle: <strong style={{ color:'var(--clr-text)' }}>{assignModal.plate_number}</strong></p>
+            {driversLoading ? <LoadingSpinner /> : (
+              <>
+                <div className="input-wrap" style={{ marginBottom:'0.75rem' }}>
+                  <select id="drv-sel" value={selectedDriver} onChange={e => setSelectedDriver(e.target.value)}
+                    style={{ background:'transparent', border:'none', color:'var(--clr-text)', fontFamily:'inherit', fontSize:'0.9rem', width:'100%', outline:'none', paddingTop:'1.1rem' }}>
+                    <option value="" style={{ background:'#0f172a' }}>— Unassign driver —</option>
+                    {allDrivers.map(d => (
+                      <option key={d.user_id} value={d.user_id} style={{ background:'#0f172a' }}>{d.first_name} {d.last_name} · {d.phone_number}</option>
+                    ))}
+                  </select>
+                  <label htmlFor="drv-sel" style={{ top:'0.35rem', fontSize:'0.7rem', color:'var(--clr-accent)' }}>Verified Driver</label>
+                </div>
+                <div style={{ display:'flex', gap:'0.6rem' }}>
+                  <button className="btn-outline" style={{ flex:1 }} onClick={() => setAssignModal(null)}>Cancel</button>
+                  <button className="btn-primary" style={{ flex:2 }} disabled={!!actionLoading} onClick={handleAssign}>
+                    {actionLoading ? <><span className="spinner"/> …</> : (selectedDriver ? 'Assign Driver' : 'Unassign')}
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Delete confirm */}
+      {deleteConfirm && (
+        <div className="modal-backdrop" onClick={e => { if (e.target === e.currentTarget) setDeleteConfirm(null) }}>
+          <div className="glass modal-box" style={{ padding:'1.75rem' }}>
+            <h2 style={{ fontSize:'1rem', fontWeight:800, color:'#fca5a5', marginBottom:'0.4rem', display:'flex', alignItems:'center', gap:'0.4rem' }}><LuTriangleAlert size={15}/> Deactivate Vehicle</h2>
+            <p style={{ fontSize:'0.85rem', color:'var(--clr-muted)', marginBottom:'1.1rem' }}>Deactivate <strong style={{ color:'var(--clr-text)' }}>{deleteConfirm.plate_number}</strong>? The vehicle will be hidden but not deleted.</p>
+            <div style={{ display:'flex', gap:'0.6rem' }}>
+              <button className="btn-outline" style={{ flex:1 }} onClick={() => setDeleteConfirm(null)}>Cancel</button>
+              <button disabled={!!actionLoading} onClick={() => handleDelete(deleteConfirm)}
+                style={{ flex:1, padding:'0.7rem', borderRadius:10, border:'none', background:'#ef4444', color:'#fff', fontFamily:'inherit', fontSize:'0.85rem', fontWeight:700, cursor:'pointer' }}>
+                {actionLoading ? <><span className="spinner"/> …</> : 'Deactivate'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Toast */}
+      {toastMsg && (
+        <div style={{ position:'fixed', bottom:'1.25rem', right:'1.25rem', zIndex:200, background:'rgba(0,229,255,0.12)', border:'1px solid rgba(0,229,255,0.25)', color:'var(--clr-text)', padding:'0.65rem 1.1rem', borderRadius:12, fontSize:'0.85rem', fontWeight:600, backdropFilter:'blur(12px)' }}>
+          {toastMsg}
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ─── Main Admin Dashboard ─────────────────────────────────────────────────────
 
 export default function AdminDashboardPage() {
@@ -519,11 +1042,13 @@ export default function AdminDashboardPage() {
   const shippers = users.filter(u => u.role_id === 2)
 
   const navItems: { id: AdminSection; icon: React.ReactNode; label: string; count?: number }[] = [
-    { id: 'overview',  icon: <LuChartBar size={16}/>, label: 'Overview'  },
-    { id: 'users',     icon: <LuUsers size={16}/>,     label: 'All Users',  count: users.length    },
-    { id: 'shippers',  icon: <LuPackage size={16}/>,   label: 'Shippers',   count: shippers.length },
-    { id: 'drivers',   icon: <LuTruck size={16}/>,     label: 'Drivers',    count: drivers.length  },
-    { id: 'profile',   icon: <LuUser size={16}/>,      label: 'My Profile' },
+    { id: 'overview',       icon: <LuChartBar size={16}/>,     label: 'Overview'         },
+    { id: 'users',          icon: <LuUsers size={16}/>,        label: 'All Users',       count: users.length    },
+    { id: 'shippers',       icon: <LuPackage size={16}/>,      label: 'Shippers',        count: shippers.length },
+    { id: 'drivers',        icon: <LuTruck size={16}/>,        label: 'Drivers',         count: drivers.length  },
+    { id: 'verify-drivers', icon: <LuShieldCheck size={16}/>,  label: 'Verify Drivers'   },
+    { id: 'vehicles',       icon: <LuCar size={16}/>,          label: 'Vehicles'         },
+    { id: 'profile',        icon: <LuUser size={16}/>,         label: 'My Profile'       },
   ]
 
   const sectionTitle = navItems.find(n => n.id === section)
@@ -616,11 +1141,13 @@ export default function AdminDashboardPage() {
 
         {/* Section content */}
         <main style={{ flex: 1, padding: '1.25rem 1.1rem 2rem', maxWidth: 840, width: '100%', margin: '0 auto', boxSizing: 'border-box' }}>
-          {section === 'overview' && <OverviewSection stats={stats} users={users} onNav={setSection} />}
-          {section === 'users'    && <UsersListSection title="All Users"  allUsers={users}    loading={usersLoading} onToggleActive={handleToggleActive} />}
-          {section === 'drivers'  && <UsersListSection title="Drivers"    allUsers={drivers}  loading={usersLoading} onToggleActive={handleToggleActive} />}
-          {section === 'shippers' && <UsersListSection title="Shippers"   allUsers={shippers} loading={usersLoading} onToggleActive={handleToggleActive} />}
-          {section === 'profile'  && <ProfileSection />}
+          {section === 'overview'       && <OverviewSection stats={stats} users={users} onNav={setSection} />}
+          {section === 'users'          && <UsersListSection title="All Users"  allUsers={users}    loading={usersLoading} onToggleActive={handleToggleActive} />}
+          {section === 'drivers'        && <UsersListSection title="Drivers"    allUsers={drivers}  loading={usersLoading} onToggleActive={handleToggleActive} />}
+          {section === 'shippers'       && <UsersListSection title="Shippers"   allUsers={shippers} loading={usersLoading} onToggleActive={handleToggleActive} />}
+          {section === 'verify-drivers' && <DriverVerificationSection />}
+          {section === 'vehicles'       && <VehicleManagementSection />}
+          {section === 'profile'        && <ProfileSection />}
         </main>
       </div>
 

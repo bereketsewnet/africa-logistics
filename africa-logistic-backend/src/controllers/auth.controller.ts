@@ -65,7 +65,12 @@ export async function requestOtpHandler(
   }
 
   // Generate OTP and send it via Twilio SMS (or console.log in dev mode)
-  await generateAndSendOtp(phone_number)
+  try {
+    await generateAndSendOtp(phone_number)
+  } catch (err: any) {
+    request.server.log.error({ err }, 'Failed to send OTP')
+    return reply.status(503).send({ success: false, message: 'Unable to send OTP at this time. Please try again later.' })
+  }
 
   return reply.send({
     success: true,
@@ -388,7 +393,12 @@ export async function requestPhoneChangeHandler(
   if ((rows as any[]).length > 0) return reply.status(409).send({ success: false, message: 'Phone already in use.' })
 
   // Generate OTP and send to new phone
-  await generateAndSendOtp(new_phone)
+  try {
+    await generateAndSendOtp(new_phone)
+  } catch (err: any) {
+    request.server.log.error({ err }, 'Failed to send OTP for phone change')
+    return reply.status(503).send({ success: false, message: 'Unable to send OTP at this time. Please try again later.' })
+  }
 
   const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString().slice(0,19).replace('T',' ')
   await createPhoneChangeRequest(request.server.db, userId, new_phone, expiresAt)
@@ -588,6 +598,58 @@ export async function forgotPasswordEmailHandler(
   }
 
   return reply.send({ success: true, message: 'If that email is registered and verified, a reset link has been sent.' })
+}
+
+/**
+ * POST /api/auth/forgot-password/request-otp
+ * Public: send an OTP to the user's registered phone for password reset.
+ */
+export async function forgotPasswordRequestOtpHandler(
+  request: FastifyRequest<{ Body: { phone_number: string } }>,
+  reply: FastifyReply
+) {
+  const { phone_number } = request.body
+
+  const user = await findUserByPhone(request.server.db, phone_number)
+  if (!user) {
+    // Don't reveal whether the number is registered
+    return reply.send({ success: true, message: 'If that number is registered, an OTP has been sent.' })
+  }
+
+  try {
+    await generateAndSendOtp(phone_number)
+  } catch (err: any) {
+    request.server.log.error({ err }, 'Failed to send forgot-password OTP')
+    return reply.status(503).send({ success: false, message: 'Unable to send OTP at this time. Please try again later.' })
+  }
+
+  return reply.send({ success: true, message: 'OTP sent. It expires in 10 minutes.' })
+}
+
+/**
+ * POST /api/auth/forgot-password/reset
+ * Public: verify OTP and set a new password.
+ */
+export async function forgotPasswordResetHandler(
+  request: FastifyRequest<{ Body: { phone_number: string; otp: string; new_password: string } }>,
+  reply: FastifyReply
+) {
+  const { phone_number, otp, new_password } = request.body
+
+  const isValid = verifyOtp(phone_number, otp)
+  if (!isValid) {
+    return reply.status(400).send({ success: false, message: 'Invalid or expired OTP.' })
+  }
+
+  const user = await findUserByPhone(request.server.db, phone_number)
+  if (!user) {
+    return reply.status(404).send({ success: false, message: 'User not found.' })
+  }
+
+  const newHash = await bcrypt.hash(new_password, 12)
+  await updateUserPassword(request.server.db, user.id, newHash)
+
+  return reply.send({ success: true, message: 'Password updated successfully.' })
 }
 
 /**
