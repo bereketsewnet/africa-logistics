@@ -13,6 +13,9 @@ import {
   updateNotificationPrefsHandler,
   getDriverProfileHandler,
   uploadDriverDocumentsHandler,
+  getDriverDocReviewsHandler,
+  getDriverVehiclesHandler,
+  submitDriverVehicleHandler,
 } from '../controllers/profile.controller.js'
 
 export default async function profileRoutes(fastify: FastifyInstance) {
@@ -66,4 +69,22 @@ export default async function profileRoutes(fastify: FastifyInstance) {
    * Requires role_id = 3 (DRIVER).
    */
   fastify.post('/driver/documents', uploadDriverDocumentsHandler)
+
+  /**
+   * GET /api/profile/driver/reviews
+   * Returns the document review history (rejection reasons, dates) for this driver.
+   */
+  fastify.get('/driver/reviews', getDriverDocReviewsHandler)
+
+  /**
+   * GET /api/profile/driver/vehicles
+   * Returns all vehicles submitted by or assigned to this driver.
+   */
+  fastify.get('/driver/vehicles', getDriverVehiclesHandler)
+
+  /**
+   * POST /api/profile/driver/vehicles
+   * Driver submits their own vehicle for admin approval.
+   */
+  fastify.post('/driver/vehicles', submitDriverVehicleHandler)
 }

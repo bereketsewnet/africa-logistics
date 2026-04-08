@@ -6,7 +6,7 @@ import dotenv from 'dotenv'
 // Load .env variables FIRST — before anything else reads process.env
 dotenv.config()
 
-const app = Fastify({ logger: true })
+const app = Fastify({ logger: true, bodyLimit: 52428800 }) // 50 MB – needed for multi-image base64 uploads
 
 // ─── 1. CORS ──────────────────────────────────────────────────────────────────
 // Build a list of allowed origins from FRONTEND_URL (comma-separated) plus

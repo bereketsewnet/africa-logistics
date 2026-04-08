@@ -2,6 +2,8 @@ import { FastifyInstance } from 'fastify'
 import {
   adminGetUsersHandler,
   adminToggleActiveHandler,
+  adminCreateStaffHandler,
+  adminUpdateUserHandler,
   adminListDriversHandler,
   adminGetDriverHandler,
   adminReviewDocumentHandler,
@@ -13,6 +15,8 @@ import {
   adminUpdateVehicleHandler,
   adminDeleteVehicleHandler,
   adminAssignDriverToVehicleHandler,
+  adminListVehicleSubmissionsHandler,
+  adminReviewVehicleSubmissionHandler,
 } from '../controllers/admin.controller.js'
 
 export default async function adminRoutes(fastify: FastifyInstance) {
@@ -23,6 +27,12 @@ export default async function adminRoutes(fastify: FastifyInstance) {
 
   /** GET /api/admin/users — list all users + stats */
   fastify.get('/users', adminGetUsersHandler)
+
+  /** POST /api/admin/staff — create a new staff user (Admin/Cashier/Dispatcher) */
+  fastify.post('/staff', adminCreateStaffHandler)
+
+  /** PUT /api/admin/users/:id — update user details */
+  fastify.put('/users/:id', adminUpdateUserHandler)
 
   /** PATCH /api/admin/users/:id/toggle-active — suspend / activate a user */
   fastify.patch('/users/:id/toggle-active', adminToggleActiveHandler)
@@ -64,6 +74,13 @@ export default async function adminRoutes(fastify: FastifyInstance) {
    */
   fastify.get('/vehicles', adminListVehiclesHandler)
 
+  /**
+   * GET /api/admin/vehicles/submissions
+   * List all driver-submitted vehicles.
+   * MUST be registered BEFORE /vehicles/:id to avoid route conflict.
+   */
+  fastify.get('/vehicles/submissions', adminListVehicleSubmissionsHandler)
+
   /** GET /api/admin/vehicles/:id */
   fastify.get('/vehicles/:id', adminGetVehicleHandler)
 
@@ -90,4 +107,10 @@ export default async function adminRoutes(fastify: FastifyInstance) {
    * Body: { driver_id: string }  or empty to unassign.
    */
   fastify.post('/vehicles/:id/assign-driver', adminAssignDriverToVehicleHandler)
+
+  /**
+   * POST /api/admin/vehicles/:id/review
+   * Body: { action: 'APPROVED'|'REJECTED', reason? }
+   */
+  fastify.post('/vehicles/:id/review', adminReviewVehicleSubmissionHandler)
 }

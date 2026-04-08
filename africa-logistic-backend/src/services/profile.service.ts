@@ -54,14 +54,21 @@ export interface VehicleRow extends RowDataPacket {
   max_capacity_kg: number
   is_company_owned: number
   vehicle_photo_url: string | null
+  vehicle_images: string | null      // JSON array of additional image URLs
+  libre_url: string | null           // libre document for this vehicle
   description: string | null
   is_active: number
+  is_approved: number
+  submitted_by_driver_id: string | null
+  driver_submission_status: 'PENDING' | 'APPROVED' | 'REJECTED' | null
   created_at: string
   updated_at: string
   // joined
   driver_first_name?: string
   driver_last_name?: string
   driver_phone?: string
+  submitter_first_name?: string
+  submitter_last_name?: string
 }
 
 export interface DocumentReviewRow extends RowDataPacket {
@@ -300,16 +307,51 @@ export async function updateThemePreference(
 
 // ─── Vehicles ─────────────────────────────────────────────────────────────────
 
-export async function listVehicles(db: Pool, activeOnly = true): Promise<VehicleRow[]> {
+export async function listVehicles(db: Pool, activeOnly = true, includeSubmissions = false): Promise<VehicleRow[]> {
+  let where = ''
+  if (activeOnly) where = 'WHERE v.is_active = 1 AND v.is_approved = 1'
+  if (includeSubmissions) where = ''
   const [rows] = await db.query<VehicleRow[]>(
     `SELECT v.*,
-            u.first_name AS driver_first_name,
-            u.last_name  AS driver_last_name,
-            u.phone_number AS driver_phone
+            u.first_name  AS driver_first_name,
+            u.last_name   AS driver_last_name,
+            u.phone_number AS driver_phone,
+            s.first_name  AS submitter_first_name,
+            s.last_name   AS submitter_last_name
        FROM vehicles v
        LEFT JOIN users u ON u.id = v.driver_id
-      ${activeOnly ? 'WHERE v.is_active = 1' : ''}
+       LEFT JOIN users s ON s.id = v.submitted_by_driver_id
+      ${where}
       ORDER BY v.created_at DESC`
+  )
+  return rows
+}
+
+export async function listPendingDriverVehicles(db: Pool): Promise<VehicleRow[]> {
+  const [rows] = await db.query<VehicleRow[]>(
+    `SELECT v.*,
+            u.first_name  AS driver_first_name,
+            u.last_name   AS driver_last_name,
+            u.phone_number AS driver_phone,
+            s.first_name  AS submitter_first_name,
+            s.last_name   AS submitter_last_name
+       FROM vehicles v
+       LEFT JOIN users u ON u.id = v.driver_id
+       LEFT JOIN users s ON s.id = v.submitted_by_driver_id
+      WHERE v.submitted_by_driver_id IS NOT NULL
+      ORDER BY v.created_at DESC`
+  )
+  return rows
+}
+
+export async function getDriverVehicles(db: Pool, driverId: string): Promise<VehicleRow[]> {
+  const [rows] = await db.query<VehicleRow[]>(
+    `SELECT v.*, u.first_name AS driver_first_name, u.last_name AS driver_last_name
+       FROM vehicles v
+       LEFT JOIN users u ON u.id = v.driver_id
+      WHERE v.submitted_by_driver_id = ? OR v.driver_id = ?
+      ORDER BY v.created_at DESC`,
+    [driverId, driverId]
   )
   return rows
 }
@@ -337,14 +379,19 @@ export async function createVehicle(
     maxCapacityKg: number
     isCompanyOwned?: boolean
     vehiclePhotoUrl?: string | null
+    vehicleImages?: string[]        // additional gallery images
+    libreUrl?: string | null
     description?: string | null
+    submittedByDriverId?: string    // set when driver submits own vehicle
+    isApproved?: boolean            // default true for admin-created
   }
 ): Promise<string> {
   const id = uuidv4()
+  const isSubmission = !!data.submittedByDriverId
   await db.query<ResultSetHeader>(
     `INSERT INTO vehicles
-       (id, plate_number, vehicle_type, max_capacity_kg, is_company_owned, vehicle_photo_url, description)
-     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+       (id, plate_number, vehicle_type, max_capacity_kg, is_company_owned, vehicle_photo_url, vehicle_images, libre_url, description, is_approved, submitted_by_driver_id, driver_submission_status)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       id,
       data.plateNumber,
@@ -352,7 +399,12 @@ export async function createVehicle(
       data.maxCapacityKg,
       data.isCompanyOwned ? 1 : 0,
       data.vehiclePhotoUrl ?? null,
+      data.vehicleImages ? JSON.stringify(data.vehicleImages) : null,
+      data.libreUrl ?? null,
       data.description ?? null,
+      isSubmission ? 0 : 1,
+      data.submittedByDriverId ?? null,
+      isSubmission ? 'PENDING' : null,
     ]
   )
   return id
@@ -379,8 +431,12 @@ export async function updateVehicle(
   if (data.maxCapacityKg  !== undefined) { fields.push('max_capacity_kg = ?');  values.push(data.maxCapacityKg) }
   if (data.isCompanyOwned !== undefined) { fields.push('is_company_owned = ?'); values.push(data.isCompanyOwned ? 1 : 0) }
   if (data.vehiclePhotoUrl !== undefined) { fields.push('vehicle_photo_url = ?'); values.push(data.vehiclePhotoUrl) }
+  if ((data as any).vehicleImages   !== undefined) { fields.push('vehicle_images = ?');  values.push((data as any).vehicleImages)  }
+  if ((data as any).libreUrl        !== undefined) { fields.push('libre_url = ?');        values.push((data as any).libreUrl)        }
   if (data.description    !== undefined) { fields.push('description = ?');      values.push(data.description) }
   if (data.isActive       !== undefined) { fields.push('is_active = ?');        values.push(data.isActive ? 1 : 0) }
+  if ((data as any).isApproved      !== undefined) { fields.push('is_approved = ?');      values.push((data as any).isApproved ? 1 : 0) }
+  if ((data as any).driverSubmissionStatus !== undefined) { fields.push('driver_submission_status = ?'); values.push((data as any).driverSubmissionStatus) }
 
   if (fields.length === 0) return
   values.push(vehicleId)

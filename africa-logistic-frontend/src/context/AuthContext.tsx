@@ -39,6 +39,7 @@ export interface AuthUser {
   is_active:         number
   is_email_verified?: number
   is_phone_verified?: number
+  theme_preference?: 'LIGHT' | 'DARK' | 'SYSTEM'
 }
 
 interface AuthContextType {

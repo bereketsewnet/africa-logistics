@@ -716,3 +716,329 @@ html, body, #root {
   from { transform: translateX(120%); opacity: 0; }
   to   { transform: translateX(0);    opacity: 1; }
 }
+
+/* ════════════════════════════════════════════════════
+   FLOATING DOCK NAVIGATION — DashboardPage
+   ════════════════════════════════════════════════════ */
+
+/* ── Shared dock button ── */
+.dock-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.22rem;
+  border: none;
+  background: transparent;
+  color: var(--clr-muted);
+  font-family: inherit;
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  border-radius: 16px;
+  transition: all 0.18s;
+  position: relative;
+  outline: none;
+}
+.dock-btn:hover:not(.dock-btn-soon) { color: var(--clr-text); }
+.dock-btn-active {
+  color: var(--clr-accent) !important;
+  background: rgba(0,229,255,0.10);
+  outline: 1px solid rgba(0,229,255,0.18);
+  box-shadow: 0 0 14px rgba(0,229,255,0.12);
+}
+.dock-btn-soon { cursor: default; opacity: 0.4; }
+.dock-icon { display: flex; align-items: center; justify-content: center; }
+.dock-label { line-height: 1; }
+.dock-soon-dot {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: rgba(100,116,139,0.6);
+}
+
+/* ── MOBILE BOTTOM DOCK (default — all screen sizes start mobile) ── */
+.dash-dock-mobile {
+  position: fixed;
+  bottom: 1rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  gap: 0.18rem;
+  padding: 0.45rem 0.6rem;
+  background: rgba(8,11,22,0.90);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border-radius: 28px;
+  border: 1px solid rgba(255,255,255,0.10);
+  box-shadow: 0 8px 40px rgba(0,0,0,0.55), 0 0 0 1px rgba(255,255,255,0.04);
+}
+.dash-dock-mobile .dock-btn {
+  flex-direction: column;
+  padding: 0.5rem 0.8rem;
+  min-width: 50px;
+}
+
+/* ── DESKTOP LEFT DOCK (hidden on mobile) ── */
+.dash-dock-desktop { display: none; }
+
+/* Content area — mobile: pad bottom for dock */
+.dash-main {
+  padding-bottom: 100px;
+  min-height: 100vh;
+}
+
+/* Sign out button — visible on mobile only */
+.dash-signout-mobile { display: flex; }
+
+/* ── DESKTOP breakpoint (≥ 769px) ── */
+@media (min-width: 769px) {
+  /* Hide mobile dock, show desktop dock */
+  .dash-dock-mobile  { display: none; }
+  .dash-dock-desktop {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    position: fixed;
+    left: 1rem;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 50;
+    padding: 0.75rem 0.5rem;
+    gap: 0.25rem;
+    background: rgba(8,11,22,0.90);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+    border-radius: 28px;
+    border: 1px solid rgba(255,255,255,0.10);
+    box-shadow: 0 8px 40px rgba(0,0,0,0.55);
+    width: 68px;
+  }
+  .dash-dock-desktop .dock-btn {
+    padding: 0.65rem 0.5rem;
+    width: 100%;
+    font-size: 0.65rem;
+    border-radius: 14px;
+    flex-direction: column;
+  }
+
+  /* Dock item wrapper for tooltip */
+  .dock-desktop-item {
+    position: relative;
+    width: 100%;
+  }
+  .dock-tooltip {
+    position: absolute;
+    left: calc(100% + 0.65rem);
+    top: 50%;
+    transform: translateY(-50%);
+    background: rgba(8,11,22,0.96);
+    backdrop-filter: blur(8px);
+    border: 1px solid rgba(255,255,255,0.10);
+    border-radius: 8px;
+    padding: 0.28rem 0.7rem;
+    font-size: 0.76rem;
+    font-weight: 600;
+    color: var(--clr-text);
+    white-space: nowrap;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.15s;
+    z-index: 60;
+  }
+  .dock-desktop-item:hover .dock-tooltip { opacity: 1; }
+
+  /* Content area — desktop: pad left for dock */
+  .dash-main {
+    padding-bottom: 0;
+    padding-left: 100px;
+  }
+
+  /* Hide mobile sign-out button — desktop uses dock */
+  .dash-signout-mobile { display: none; }
+}
+
+/* ══════════════════════════════════════════════════════════════
+   THEME SYSTEM
+   data-theme="dark"   → default dark aurora theme
+   data-theme="light"  → clean bright theme
+   data-theme="system" → auto via prefers-color-scheme
+   ══════════════════════════════════════════════════════════════ */
+
+/* Light theme values — applied when data-theme="light" is on <html> */
+[data-theme="light"] {
+  --clr-bg:      #f0f4f8;
+  --clr-surface: rgba(255, 255, 255, 0.75);
+  --clr-border:  rgba(0, 0, 0, 0.10);
+  --clr-accent:  #0284c7;
+  --clr-accent2: #7c3aed;
+  --clr-neon:    #16a34a;
+  --clr-text:    #0f172a;
+  --clr-muted:   #64748b;
+  --clr-danger:  #dc2626;
+  --clr-warning: #d97706;
+}
+
+[data-theme="light"] body,
+[data-theme="light"] #root {
+  background-color: var(--clr-bg);
+  color: var(--clr-text);
+}
+
+/* Scrollbar in light mode */
+[data-theme="light"] ::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.15);
+}
+
+/* Glass card overrides for light */
+[data-theme="light"] .glass {
+  background: rgba(255, 255, 255, 0.80);
+  border-color: rgba(0, 0, 0, 0.09);
+  box-shadow:
+    0 0 0 1px rgba(0,0,0,0.04),
+    0 12px 40px rgba(0, 0, 0, 0.10),
+    inset 0 1px 0 rgba(255,255,255,0.90);
+}
+[data-theme="light"] .glass:hover {
+  box-shadow:
+    0 0 0 1px rgba(2,132,199,0.20),
+    0 12px 40px rgba(0, 0, 0, 0.13),
+    inset 0 1px 0 rgba(255,255,255,0.90);
+}
+
+[data-theme="light"] .glass-inner {
+  background: rgba(0, 0, 0, 0.025);
+  border-color: rgba(0, 0, 0, 0.07);
+}
+
+/* Input overrides */
+[data-theme="light"] .input-wrap input,
+[data-theme="light"] .input-wrap select {
+  background: rgba(255, 255, 255, 0.90);
+  border-color: rgba(0, 0, 0, 0.14);
+  color: var(--clr-text);
+}
+[data-theme="light"] .input-wrap input:focus,
+[data-theme="light"] .input-wrap select:focus {
+  border-color: var(--clr-accent);
+  background: rgba(2, 132, 199, 0.04);
+  box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.12);
+}
+
+/* OTP boxes */
+[data-theme="light"] .otp-box {
+  background: rgba(255,255,255,0.90);
+  border-color: rgba(0,0,0,0.15);
+  color: var(--clr-text);
+}
+
+/* Btn outline */
+[data-theme="light"] .btn-outline {
+  border-color: rgba(0,0,0,0.16);
+  color: var(--clr-muted);
+}
+[data-theme="light"] .btn-outline:hover {
+  border-color: var(--clr-accent);
+  color: var(--clr-accent);
+}
+
+/* Badge */
+[data-theme="light"] .badge-cyan {
+  background: rgba(2,132,199,0.10);
+  border-color: rgba(2,132,199,0.25);
+}
+
+/* Aurora orbs: lighter and barely visible in light mode */
+[data-theme="light"] .aurora-bg::before { opacity: 0.08; }
+[data-theme="light"] .aurora-bg::after  { opacity: 0.08; }
+
+/* Divider */
+[data-theme="light"] .divider::before,
+[data-theme="light"] .divider::after {
+  background: rgba(0,0,0,0.09);
+}
+
+/* Sidebar / topbar in AdminDashboard light */
+[data-theme="light"] aside {
+  background: rgba(255,255,255,0.94) !important;
+  border-right-color: rgba(0,0,0,0.08) !important;
+}
+[data-theme="light"] header {
+  background: rgba(255,255,255,0.90) !important;
+  border-bottom-color: rgba(0,0,0,0.08) !important;
+}
+
+/* Alert overrides */
+[data-theme="light"] .alert-error  { background: rgba(220,38,38,0.08);  color: #991b1b; }
+[data-theme="light"] .alert-success { background: rgba(22,163,74,0.08); color: #166534; }
+[data-theme="light"] .alert-info   { background: rgba(2,132,199,0.08);  color: #075985; }
+
+/* Phone field */
+[data-theme="light"] .phone-field-wrap .PhoneInput {
+  background: rgba(255, 255, 255, 0.90);
+  border-color: rgba(0, 0, 0, 0.14);
+}
+[data-theme="light"] .phone-field-wrap .PhoneInputInput {
+  color: var(--clr-text);
+}
+[data-theme="light"] .phone-field-wrap .PhoneInputCountry {
+  background: rgba(0, 0, 0, 0.03);
+  border-right-color: rgba(0, 0, 0, 0.08);
+}
+
+/* System auto using prefers-color-scheme — applies light when user OS is light */
+@media (prefers-color-scheme: light) {
+  [data-theme="system"] {
+    --clr-bg:      #f0f4f8;
+    --clr-surface: rgba(255, 255, 255, 0.75);
+    --clr-border:  rgba(0, 0, 0, 0.10);
+    --clr-accent:  #0284c7;
+    --clr-accent2: #7c3aed;
+    --clr-neon:    #16a34a;
+    --clr-text:    #0f172a;
+    --clr-muted:   #64748b;
+    --clr-danger:  #dc2626;
+    --clr-warning: #d97706;
+  }
+
+  [data-theme="system"] body,
+  [data-theme="system"] #root {
+    background-color: var(--clr-bg);
+    color: var(--clr-text);
+  }
+
+  [data-theme="system"] .glass {
+    background: rgba(255, 255, 255, 0.80);
+    border-color: rgba(0, 0, 0, 0.09);
+    box-shadow: 0 0 0 1px rgba(0,0,0,0.04), 0 12px 40px rgba(0,0,0,0.10), inset 0 1px 0 rgba(255,255,255,0.90);
+  }
+  [data-theme="system"] .glass-inner {
+    background: rgba(0, 0, 0, 0.025);
+    border-color: rgba(0, 0, 0, 0.07);
+  }
+  [data-theme="system"] .input-wrap input,
+  [data-theme="system"] .input-wrap select {
+    background: rgba(255, 255, 255, 0.90);
+    border-color: rgba(0, 0, 0, 0.14);
+    color: var(--clr-text);
+  }
+  [data-theme="system"] .btn-outline {
+    border-color: rgba(0,0,0,0.16);
+    color: var(--clr-muted);
+  }
+  [data-theme="system"] .aurora-bg::before,
+  [data-theme="system"] .aurora-bg::after { opacity: 0.08; }
+  [data-theme="system"] aside {
+    background: rgba(255,255,255,0.94) !important;
+    border-right-color: rgba(0,0,0,0.08) !important;
+  }
+  [data-theme="system"] header {
+    background: rgba(255,255,255,0.90) !important;
+    border-bottom-color: rgba(0,0,0,0.08) !important;
+  }
+}

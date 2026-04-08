@@ -1,4 +1,6 @@
 import { FastifyRequest, FastifyReply } from 'fastify'
+import bcrypt from 'bcrypt'
+import { v4 as uuidv4 } from 'uuid'
 import {
   listDriversForAdmin,
   reviewDriverDocument,
@@ -7,6 +9,7 @@ import {
   getDriverProfile,
   getDocumentReviews,
   listVehicles,
+  listPendingDriverVehicles,
   getVehicleById,
   createVehicle,
   updateVehicle,
@@ -31,7 +34,9 @@ interface CreateVehicleBody {
   vehicle_type: string
   max_capacity_kg: number
   is_company_owned?: boolean
-  vehicle_photo?: string  // base64
+  vehicle_photo?: string   // base64 main photo
+  vehicle_images?: string[] // up to 5 extra images (base64)
+  libre_file?: string      // base64 libre document
   description?: string
 }
 
@@ -40,7 +45,9 @@ interface UpdateVehicleBody {
   vehicle_type?: string
   max_capacity_kg?: number
   is_company_owned?: boolean
-  vehicle_photo?: string  // base64
+  vehicle_photo?: string   // base64
+  vehicle_images?: string[] // up to 5 extra (base64)
+  libre_file?: string
   description?: string
   is_active?: boolean
 }
@@ -54,21 +61,24 @@ interface AssignDriverBody {
 import fs from 'fs'
 import path from 'path'
 
-function saveVehiclePhoto(base64Data: string, vehicleId: string): string {
+function saveFile(base64Data: string, subDir: string, baseName: string): string {
   const match = base64Data.match(/^data:([a-zA-Z0-9+/]+\/[a-zA-Z0-9+/]+);base64,(.+)$/)
-  const raw = match ? match[2] : base64Data
+  const raw  = match ? match[2] : base64Data
   const mime = match ? match[1] : 'image/jpeg'
   const extMap: Record<string, string> = {
     'image/jpeg': 'jpg', 'image/jpg': 'jpg', 'image/png': 'png',
-    'image/webp': 'webp',
+    'image/webp': 'webp', 'application/pdf': 'pdf',
   }
   const ext = extMap[mime] ?? 'jpg'
-  const dir = path.join(process.cwd(), 'uploads', 'vehicles')
+  const dir = path.join(process.cwd(), 'uploads', subDir)
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true })
-  const filename = `${vehicleId}_${Date.now()}.${ext}`
+  const filename = `${baseName}_${Date.now()}.${ext}`
   fs.writeFileSync(path.join(dir, filename), Buffer.from(raw, 'base64'))
-  return `/uploads/vehicles/${filename}`
+  return `/uploads/${subDir}/${filename}`
 }
+
+// keep old name as alias
+const saveVehiclePhoto = (b64: string, id: string) => saveFile(b64, 'vehicles', id)
 
 // ─── Existing Handlers ────────────────────────────────────────────────────────
 
@@ -329,26 +339,34 @@ export async function adminCreateVehicleHandler(
   const caller = request.user as { id: string; role_id: number }
   if (caller.role_id !== 1) return reply.status(403).send({ message: 'Admin access required.' })
 
-  const { plate_number, vehicle_type, max_capacity_kg, is_company_owned, vehicle_photo, description } = request.body
+  const { plate_number, vehicle_type, max_capacity_kg, is_company_owned, vehicle_photo, vehicle_images, libre_file, description } = request.body
 
   if (!plate_number || !vehicle_type || max_capacity_kg === undefined) {
     return reply.status(400).send({ message: 'plate_number, vehicle_type, and max_capacity_kg are required.' })
   }
 
-  // Generate a temp id for photo naming; the real id will come from createVehicle
-  const tempId = `tmp_${Date.now()}`
   let photoUrl: string | null = null
-  if (vehicle_photo) {
-    photoUrl = saveVehiclePhoto(vehicle_photo, tempId)
+  if (vehicle_photo) photoUrl = saveVehiclePhoto(vehicle_photo, `tmp_${Date.now()}`)
+
+  const imageUrls: string[] = []
+  if (vehicle_images?.length) {
+    for (let i = 0; i < Math.min(vehicle_images.length, 5); i++) {
+      imageUrls.push(saveFile(vehicle_images[i], 'vehicles', `img_${Date.now()}_${i}`))
+    }
   }
 
+  let libreUrl: string | null = null
+  if (libre_file) libreUrl = saveFile(libre_file, 'vehicles', `libre_${Date.now()}`)
+
   const vehicleId = await createVehicle(request.server.db, {
-    plateNumber: plate_number,
-    vehicleType: vehicle_type,
-    maxCapacityKg: max_capacity_kg,
+    plateNumber:    plate_number,
+    vehicleType:    vehicle_type,
+    maxCapacityKg:  max_capacity_kg,
     isCompanyOwned: is_company_owned ?? false,
     vehiclePhotoUrl: photoUrl,
-    description: description ?? null,
+    vehicleImages:  imageUrls.length ? imageUrls : undefined,
+    libreUrl,
+    description:    description ?? null,
   })
 
   const vehicle = await getVehicleById(request.server.db, vehicleId)
@@ -372,10 +390,17 @@ export async function adminUpdateVehicleHandler(
 
   const body = request.body
   let photoUrl: string | undefined = undefined
+  let imageUrls: string[] | undefined = undefined
+  let libreUrl: string | undefined = undefined
 
-  if (body.vehicle_photo) {
-    photoUrl = saveVehiclePhoto(body.vehicle_photo, request.params.id)
+  if (body.vehicle_photo) photoUrl = saveVehiclePhoto(body.vehicle_photo, request.params.id)
+  if (body.vehicle_images?.length) {
+    imageUrls = []
+    for (let i = 0; i < Math.min(body.vehicle_images.length, 5); i++) {
+      imageUrls.push(saveFile(body.vehicle_images[i], 'vehicles', `img_${request.params.id}_${i}`))
+    }
   }
+  if (body.libre_file) libreUrl = saveFile(body.libre_file, 'vehicles', `libre_${request.params.id}`)
 
   await updateVehicle(db, request.params.id, {
     plateNumber:    body.plate_number,
@@ -383,6 +408,8 @@ export async function adminUpdateVehicleHandler(
     maxCapacityKg:  body.max_capacity_kg,
     isCompanyOwned: body.is_company_owned,
     vehiclePhotoUrl: photoUrl,
+    ...(imageUrls !== undefined ? { vehicleImages: JSON.stringify(imageUrls) } as any : {}),
+    ...(libreUrl  !== undefined ? { libreUrl } as any : {}),
     description:    body.description,
     isActive:       body.is_active,
   })
@@ -457,3 +484,152 @@ export async function adminAssignDriverToVehicleHandler(
     vehicle: updated,
   })
 }
+
+// ─── Staff / User Management Handlers ────────────────────────────────────────────────
+
+/**
+ * POST /api/admin/staff
+ * Create a new staff user (role_id 1=Admin, 4=Cashier, 5=Dispatcher).
+ * Body: { first_name, last_name, phone_number, password, email?, role_id }
+ */
+export async function adminCreateStaffHandler(
+  request: FastifyRequest<{ Body: {
+    first_name: string; last_name?: string; phone_number: string
+    password: string; email?: string; role_id: number
+  } }>,
+  reply: FastifyReply
+) {
+  const caller = request.user as { id: string; role_id: number }
+  if (caller.role_id !== 1) return reply.status(403).send({ message: 'Admin access required.' })
+
+  const { first_name, last_name, phone_number, password, email, role_id } = request.body
+
+  const staffRoles = [1, 4, 5]
+  if (!staffRoles.includes(role_id)) {
+    return reply.status(400).send({ message: 'role_id must be 1 (Admin), 4 (Cashier), or 5 (Dispatcher).' })
+  }
+  if (!first_name?.trim() || !phone_number?.trim() || !password?.trim()) {
+    return reply.status(400).send({ message: 'first_name, phone_number and password are required.' })
+  }
+
+  const db = request.server.db
+  const [[existing]] = await db.query<any[]>(
+    'SELECT id FROM users WHERE phone_number = ? LIMIT 1',
+    [phone_number]
+  )
+  if (existing) return reply.status(409).send({ message: 'Phone number already registered.' })
+
+  const id = uuidv4()
+  const password_hash = await bcrypt.hash(password, 12)
+
+  await db.query(
+    `INSERT INTO users (id, role_id, first_name, last_name, phone_number, email, password_hash,
+       is_active, is_phone_verified, is_email_verified)
+     VALUES (?, ?, ?, ?, ?, ?, ?, 1, 1, ?)`,
+    [id, role_id, first_name.trim(), (last_name ?? '').trim(), phone_number, email ?? null,
+     password_hash, email ? 1 : 0]
+  )
+
+  return reply.status(201).send({ success: true, message: 'Staff user created.', id })
+}
+
+/**
+ * PUT /api/admin/users/:id
+ * Update a user's display name, email or role.
+ * Body: { first_name?, last_name?, email?, role_id? }
+ */
+export async function adminUpdateUserHandler(
+  request: FastifyRequest<{ Params: { id: string }; Body: {
+    first_name?: string; last_name?: string; email?: string; role_id?: number
+  } }>,
+  reply: FastifyReply
+) {
+  const caller = request.user as { id: string; role_id: number }
+  if (caller.role_id !== 1) return reply.status(403).send({ message: 'Admin access required.' })
+
+  const db = request.server.db
+  const { id } = request.params
+  const { first_name, last_name, email, role_id } = request.body
+
+  const [[user]] = await db.query<any[]>('SELECT id FROM users WHERE id = ? LIMIT 1', [id])
+  if (!user) return reply.status(404).send({ message: 'User not found.' })
+
+  const updates: string[] = []
+  const values: any[] = []
+  if (first_name !== undefined) { updates.push('first_name = ?'); values.push(first_name.trim()) }
+  if (last_name  !== undefined) { updates.push('last_name = ?');  values.push(last_name.trim()) }
+  if (email      !== undefined) { updates.push('email = ?');      values.push(email || null) }
+  if (role_id    !== undefined) { updates.push('role_id = ?');    values.push(role_id) }
+
+  if (updates.length === 0) return reply.status(400).send({ message: 'Nothing to update.' })
+
+  values.push(id)
+  await db.query(`UPDATE users SET ${updates.join(', ')} WHERE id = ?`, values)
+
+  // Also handle new_password
+  const { new_password } = request.body as any
+  if (new_password) {
+    const hash = await bcrypt.hash(new_password, 12)
+    await db.query(`UPDATE users SET password_hash = ? WHERE id = ?`, [hash, id])
+  }
+
+  return reply.send({ success: true, message: 'User updated.' })
+}
+
+// ─── Driver Vehicle Submission Review ─────────────────────────────────────────
+
+/**
+ * GET /api/admin/vehicles/submissions
+ * List all driver-submitted vehicles with their status.
+ */
+export async function adminListVehicleSubmissionsHandler(
+  request: FastifyRequest,
+  reply: FastifyReply
+) {
+  const caller = request.user as { id: string; role_id: number }
+  if (caller.role_id !== 1) return reply.status(403).send({ message: 'Admin access required.' })
+
+  const vehicles = await listPendingDriverVehicles(request.server.db)
+  return reply.send({ success: true, vehicles, total: vehicles.length })
+}
+
+/**
+ * POST /api/admin/vehicles/:id/review
+ * Approve or reject a driver-submitted vehicle.
+ * Body: { action: 'APPROVED' | 'REJECTED', reason?: string }
+ */
+export async function adminReviewVehicleSubmissionHandler(
+  request: FastifyRequest<{ Params: { id: string }; Body: { action: 'APPROVED' | 'REJECTED'; reason?: string } }>,
+  reply: FastifyReply
+) {
+  const caller = request.user as { id: string; role_id: number }
+  if (caller.role_id !== 1) return reply.status(403).send({ message: 'Admin access required.' })
+
+  const { action, reason } = request.body
+  if (action !== 'APPROVED' && action !== 'REJECTED') {
+    return reply.status(400).send({ message: 'action must be APPROVED or REJECTED.' })
+  }
+  if (action === 'REJECTED' && !reason) {
+    return reply.status(400).send({ message: 'reason is required when rejecting.' })
+  }
+
+  const db = request.server.db
+  const vehicle = await getVehicleById(db, request.params.id)
+  if (!vehicle) return reply.status(404).send({ success: false, message: 'Vehicle not found.' })
+  if (!vehicle.submitted_by_driver_id) {
+    return reply.status(400).send({ message: 'This vehicle was not submitted by a driver.' })
+  }
+
+  await updateVehicle(db, request.params.id, {
+    ...(action === 'APPROVED' ? { isApproved: true } : { isApproved: false }),
+    driverSubmissionStatus: action,
+  } as any)
+
+  // If approved → assign vehicle to the submitting driver
+  if (action === 'APPROVED') {
+    await assignVehicleToDriver(db, request.params.id, vehicle.submitted_by_driver_id!)
+  }
+
+  return reply.send({ success: true, message: `Vehicle submission ${action.toLowerCase()}.` })
+}
+

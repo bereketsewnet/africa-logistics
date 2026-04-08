@@ -19,6 +19,9 @@ import {
   getNotificationPrefs,
   upsertNotificationPrefs,
   updateThemePreference,
+  getDocumentReviews,
+  getDriverVehicles,
+  createVehicle,
 } from '../services/profile.service.js'
 import { findUserById } from '../services/auth.service.js'
 
@@ -43,6 +46,15 @@ interface DriverDocUploadBody {
   license?: string
   /** base64-encoded image/PDF for Libre (vehicle ownership doc) */
   libre?: string
+}
+
+interface DriverVehicleSubmitBody {
+  plate_number: string
+  vehicle_type: string
+  max_capacity_kg: number
+  description?: string
+  vehicle_photo?: string  // base64
+  libre_file?: string     // base64 libre doc
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -273,5 +285,80 @@ export async function uploadDriverDocumentsHandler(
     success: true,
     message: 'Documents uploaded successfully. Pending admin review.',
     driver_profile: profile,
+  })
+}
+
+/**
+ * GET /api/profile/driver/reviews
+ * Returns the document review history for this driver (for showing rejection reasons).
+ */
+export async function getDriverDocReviewsHandler(
+  request: FastifyRequest,
+  reply: FastifyReply
+) {
+  const caller = request.user as { id: string; role_id: number }
+  if (caller.role_id !== 3) return reply.status(403).send({ success: false, message: 'Driver role required.' })
+  const reviews = await getDocumentReviews(request.server.db, caller.id)
+  return reply.send({ success: true, reviews })
+}
+
+/**
+ * GET /api/profile/driver/vehicles
+ * Returns all vehicles associated with this driver (submitted + assigned).
+ */
+export async function getDriverVehiclesHandler(
+  request: FastifyRequest,
+  reply: FastifyReply
+) {
+  const caller = request.user as { id: string; role_id: number }
+  if (caller.role_id !== 3) return reply.status(403).send({ success: false, message: 'Driver role required.' })
+  const vehicles = await getDriverVehicles(request.server.db, caller.id)
+  return reply.send({ success: true, vehicles })
+}
+
+/**
+ * POST /api/profile/driver/vehicles
+ * Driver submits their own vehicle for admin approval.
+ * Body: { plate_number, vehicle_type, max_capacity_kg, description?, vehicle_photo?, libre_file? }
+ */
+export async function submitDriverVehicleHandler(
+  request: FastifyRequest<{ Body: DriverVehicleSubmitBody }>,
+  reply: FastifyReply
+) {
+  const caller = request.user as { id: string; role_id: number }
+  if (caller.role_id !== 3) return reply.status(403).send({ success: false, message: 'Driver role required.' })
+
+  const { plate_number, vehicle_type, max_capacity_kg, description, vehicle_photo, libre_file } = request.body
+
+  if (!plate_number?.trim() || !vehicle_type?.trim() || max_capacity_kg === undefined) {
+    return reply.status(400).send({ message: 'plate_number, vehicle_type, and max_capacity_kg are required.' })
+  }
+
+  const db = request.server.db
+
+  // Check plate not already registered
+  const [[existing]] = await db.query<any[]>('SELECT id FROM vehicles WHERE plate_number = ? LIMIT 1', [plate_number.trim()])
+  if (existing) return reply.status(409).send({ message: 'A vehicle with this plate number is already registered.' })
+
+  let photoUrl: string | null = null
+  let libreUrl: string | null = null
+  if (vehicle_photo) photoUrl = saveBase64File(vehicle_photo, 'vehicles', `drv_${caller.id}_photo`)
+  if (libre_file)   libreUrl = saveBase64File(libre_file, 'vehicles', `drv_${caller.id}_libre`)
+
+  const vehicleId = await createVehicle(db, {
+    plateNumber:           plate_number.trim(),
+    vehicleType:           vehicle_type.trim(),
+    maxCapacityKg:         max_capacity_kg,
+    isCompanyOwned:        false,
+    vehiclePhotoUrl:       photoUrl,
+    libreUrl,
+    description:           description?.trim() ?? null,
+    submittedByDriverId:   caller.id,
+  })
+
+  return reply.status(201).send({
+    success: true,
+    message: 'Vehicle submitted for admin approval.',
+    vehicle_id: vehicleId,
   })
 }

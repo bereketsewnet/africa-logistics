@@ -14,7 +14,7 @@ import {
   LuLock, LuContact, LuMenu, LuPin, LuPinOff,
   LuUsers, LuChartBar, LuX, LuStar, LuHistory,
   LuShieldCheck, LuPencil, LuPlus, LuFileText, LuRefreshCw,
-  LuCar, LuBadgeCheck,
+  LuCar, LuBadgeCheck, LuUserPlus, LuBriefcase, LuSearch,
 } from 'react-icons/lu'
 
 // ─── Shared UI helpers ────────────────────────────────────────────────────────
@@ -79,6 +79,7 @@ interface UserRow {
   role_id: number
   is_active: number
   is_phone_verified: number
+  is_email_verified: number
   created_at: string
   profile_photo_url: string | null
 }
@@ -86,7 +87,7 @@ interface Stats {
   total_users: number; total_admins: number; total_shippers: number
   total_drivers: number; active_users: number; new_today: number
 }
-type AdminSection = 'overview' | 'users' | 'drivers' | 'shippers' | 'verify-drivers' | 'vehicles' | 'profile'
+type AdminSection = 'overview' | 'drivers' | 'shippers' | 'staff' | 'verify-drivers' | 'vehicles' | 'profile'
 type ProfileTab = 'profile' | 'security' | 'contact'
 
 interface DriverRow {
@@ -109,6 +110,16 @@ interface DriverRow {
   rating: number | null
   total_trips: number
 }
+
+interface DocReview {
+  id: string
+  document_type: 'national_id' | 'license' | 'libre'
+  action: 'APPROVED' | 'REJECTED'
+  reason: string | null
+  reviewed_at: string
+  reviewer_name?: string
+}
+
 interface VehicleRow {
   id: string
   driver_id: string | null
@@ -117,11 +128,19 @@ interface VehicleRow {
   max_capacity_kg: number
   is_company_owned: number
   vehicle_photo_url: string | null
+  vehicle_images: string | null     // JSON array
+  libre_url: string | null
   description: string | null
   is_active: number
+  is_approved: number
+  submitted_by_driver_id: string | null
+  driver_submission_status: 'PENDING' | 'APPROVED' | 'REJECTED' | null
   created_at: string
-  // populated separately
-  driver_name?: string
+  driver_first_name?: string
+  driver_last_name?: string
+  driver_phone?: string
+  submitter_first_name?: string
+  submitter_last_name?: string
 }
 
 // ─── Admin sub-components ─────────────────────────────────────────────────────
@@ -138,7 +157,7 @@ function UserAvatar({ u, size = 36 }: { u: UserRow; size?: number }) {
   )
 }
 function RoleBadge({ roleId, roleName }: { roleId: number; roleName: string }) {
-  const cls: Record<number, string> = { 1: 'badge-cyan', 2: 'badge-purple', 3: 'badge-red' }
+  const cls: Record<number, string> = { 1: 'badge-cyan', 2: 'badge-purple', 3: 'badge-red', 4: 'badge-cyan', 5: 'badge-purple' }
   return <span className={`badge ${cls[roleId] ?? 'badge-cyan'}`}>{roleName}</span>
 }
 function StatCard({ icon, label, value, sub }: { icon: React.ReactNode; label: string; value: number | string; sub?: string }) {
@@ -183,7 +202,7 @@ function OverviewSection({ stats, users, onNav }: { stats: Stats | null; users: 
       <div>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
           <h3 style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--clr-text)', display:'flex', alignItems:'center', gap:'0.4rem' }}><LuHistory size={15}/> Recent Registrations</h3>
-          <button className="btn-outline" style={{ fontSize: '0.72rem', padding: '0.3rem 0.7rem' }} onClick={() => onNav('users')}>View all →</button>
+          <button className="btn-outline" style={{ fontSize: '0.72rem', padding: '0.3rem 0.7rem' }} onClick={() => onNav('shippers')}>View shippers →</button>
         </div>
         <div className="glass-inner" style={{ overflow: 'hidden' }}>
           {recent.length === 0 ? (
@@ -206,28 +225,45 @@ function OverviewSection({ stats, users, onNav }: { stats: Stats | null; users: 
 
 // ─── Users list section ───────────────────────────────────────────────────────
 
-function UsersListSection({ title, allUsers, loading, onToggleActive }: {
-  title: string; allUsers: UserRow[]; loading: boolean; onToggleActive: (u: UserRow) => void
+// ─── Customer section (Shippers / Drivers) ───────────────────────────────────
+
+function CustomerSection({ title, allUsers, loading, onToggleActive, onRefresh }: {
+  title: string; allUsers: UserRow[]; loading: boolean
+  onToggleActive: (u: UserRow) => void; onRefresh: () => void
 }) {
   const [search, setSearch] = useState('')
+  const [selected, setSelected] = useState<UserRow | null>(null)
   const filtered = allUsers.filter(u => {
     const q = search.toLowerCase()
     return !q || u.first_name.toLowerCase().includes(q) || u.last_name.toLowerCase().includes(q) || u.phone_number.includes(q) || (u.email ?? '').toLowerCase().includes(q)
   })
+
+  const handleToggle = (u: UserRow) => {
+    onToggleActive(u)
+    if (selected?.id === u.id) setSelected({ ...u, is_active: u.is_active ? 0 : 1 })
+  }
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-      <h2 style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--clr-text)' }}>{title}</h2>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+        <h2 style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--clr-text)', flex: 1 }}>{title}</h2>
+        <button onClick={onRefresh} style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', padding: '0.3rem 0.7rem', borderRadius: 8, border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.04)', color: 'var(--clr-muted)', fontFamily: 'inherit', fontSize: '0.72rem', fontWeight: 600, cursor: 'pointer' }}>
+          <LuRefreshCw size={12}/> Refresh
+        </button>
+      </div>
       <div className="input-wrap">
-        <input id="s-search" type="text" placeholder=" " value={search} onChange={e => setSearch(e.target.value)} />
-        <label htmlFor="s-search">Search name / phone / email</label>
+        <input id="cs-search" type="text" placeholder=" " value={search} onChange={e => setSearch(e.target.value)} />
+        <label htmlFor="cs-search"><LuSearch size={12} style={{ verticalAlign: 'middle', marginRight: '0.3rem' }}/>Search name / phone / email</label>
       </div>
       {loading ? <LoadingSpinner /> : (
         <div className="glass-inner" style={{ overflow: 'hidden' }}>
           {filtered.length === 0 ? (
             <p style={{ padding: '2rem', textAlign: 'center', color: 'var(--clr-muted)', fontSize: '0.875rem' }}>No users found</p>
           ) : filtered.map((u, i) => (
-            <div key={u.id} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.85rem 1rem', borderBottom: i < filtered.length - 1 ? '1px solid rgba(255,255,255,0.05)' : 'none', flexWrap: 'wrap' }}>
-              <UserAvatar u={u} size={38} />
+            <div key={u.id} onClick={() => setSelected(u)} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.85rem 1rem', borderBottom: i < filtered.length - 1 ? '1px solid rgba(255,255,255,0.05)' : 'none', flexWrap: 'wrap', cursor: 'pointer', transition: 'background 0.15s' }}
+              onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.03)')}
+              onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
+              <UserAvatar u={u} size={40} />
               <div style={{ flex: 1, minWidth: 110 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', flexWrap: 'wrap' }}>
                   <span style={{ fontWeight: 600, fontSize: '0.875rem', color: 'var(--clr-text)' }}>{u.first_name} {u.last_name}</span>
@@ -237,21 +273,276 @@ function UsersListSection({ title, allUsers, loading, onToggleActive }: {
                 <p style={{ fontSize: '0.75rem', color: 'var(--clr-muted)', marginTop: '0.15rem' }}>{u.phone_number}</p>
                 {u.email && <p style={{ fontSize: '0.7rem', color: 'var(--clr-muted)' }}>{u.email}</p>}
               </div>
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.3rem', flexShrink: 0 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.3rem', flexShrink: 0 }} onClick={e => e.stopPropagation()}>
                 <span style={{ fontSize: '0.68rem', color: 'var(--clr-muted)' }}>{new Date(u.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</span>
-                <button onClick={() => onToggleActive(u)} style={{
-                  padding: '0.28rem 0.65rem', borderRadius: 7, border: '1px solid',
-                  borderColor: u.is_active ? 'rgba(239,68,68,0.35)' : 'rgba(74,222,128,0.35)',
-                  background: u.is_active ? 'rgba(239,68,68,0.08)' : 'rgba(74,222,128,0.08)',
-                  color: u.is_active ? '#fca5a5' : '#4ade80',
-                  fontFamily: 'inherit', fontSize: '0.7rem', fontWeight: 600, cursor: 'pointer',
-                }}>{u.is_active ? 'Suspend' : 'Activate'}</button>
+                <button onClick={() => handleToggle(u)} style={{ padding: '0.28rem 0.65rem', borderRadius: 7, border: '1px solid', borderColor: u.is_active ? 'rgba(239,68,68,0.35)' : 'rgba(74,222,128,0.35)', background: u.is_active ? 'rgba(239,68,68,0.08)' : 'rgba(74,222,128,0.08)', color: u.is_active ? '#fca5a5' : '#4ade80', fontFamily: 'inherit', fontSize: '0.7rem', fontWeight: 600, cursor: 'pointer' }}>
+                  {u.is_active ? 'Suspend' : 'Activate'}
+                </button>
               </div>
             </div>
           ))}
         </div>
       )}
-      <p style={{ fontSize: '0.73rem', color: 'var(--clr-muted)', textAlign: 'right' }}>{filtered.length} shown</p>
+      <p style={{ fontSize: '0.73rem', color: 'var(--clr-muted)', textAlign: 'right' }}>{filtered.length} shown — click a row to view details</p>
+
+      {/* Detail modal */}
+      {selected && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 60, background: 'rgba(0,0,0,0.72)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }} onClick={() => setSelected(null)}>
+          <div className="glass" style={{ borderRadius: 18, padding: '1.5rem', maxWidth: 440, width: '100%', position: 'relative', boxShadow: '0 24px 64px rgba(0,0,0,0.5)' }} onClick={e => e.stopPropagation()}>
+            <button onClick={() => setSelected(null)} style={{ position: 'absolute', top: '0.85rem', right: '0.85rem', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--clr-muted)' }}><LuX size={18}/></button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1.4rem' }}>
+              <UserAvatar u={selected} size={56} />
+              <div>
+                <p style={{ fontWeight: 800, fontSize: '1.05rem', color: 'var(--clr-text)' }}>{selected.first_name} {selected.last_name}</p>
+                <div style={{ display: 'flex', gap: '0.4rem', marginTop: '0.25rem', flexWrap: 'wrap' }}>
+                  <RoleBadge roleId={selected.role_id} roleName={selected.role_name} />
+                  {!selected.is_active && <span className="badge badge-red" style={{ fontSize: '0.67rem' }}>Suspended</span>}
+                </div>
+              </div>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.85rem 1.5rem', fontSize: '0.8rem', marginBottom: '1.25rem' }}>
+              {[
+                { label: 'Phone',        value: selected.phone_number },
+                { label: 'Email',        value: selected.email || '—' },
+                { label: 'Phone Verified', value: selected.is_phone_verified ? '✓ Yes' : '✗ No', clr: selected.is_phone_verified ? '#4ade80' : '#fca5a5' },
+                { label: 'Email Verified', value: selected.is_email_verified ? '✓ Yes' : '✗ No', clr: selected.is_email_verified ? '#4ade80' : '#fca5a5' },
+                { label: 'Status',       value: selected.is_active ? 'Active' : 'Suspended', clr: selected.is_active ? '#4ade80' : '#fca5a5' },
+                { label: 'Registered',   value: new Date(selected.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) },
+              ].map(r => (
+                <div key={r.label}>
+                  <p style={{ color: 'var(--clr-muted)', marginBottom: '0.15rem', fontSize: '0.72rem' }}>{r.label}</p>
+                  <p style={{ color: r.clr ?? 'var(--clr-text)', fontWeight: 600 }}>{r.value}</p>
+                </div>
+              ))}
+            </div>
+            <button onClick={() => handleToggle(selected)} style={{ width: '100%', padding: '0.6rem', borderRadius: 10, border: '1px solid', borderColor: selected.is_active ? 'rgba(239,68,68,0.35)' : 'rgba(74,222,128,0.35)', background: selected.is_active ? 'rgba(239,68,68,0.1)' : 'rgba(74,222,128,0.1)', color: selected.is_active ? '#fca5a5' : '#4ade80', fontFamily: 'inherit', fontSize: '0.85rem', fontWeight: 700, cursor: 'pointer' }}>
+              {selected.is_active ? 'Suspend This User' : 'Activate This User'}
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ─── Staff management section ─────────────────────────────────────────────────
+
+const STAFF_ROLE_OPTIONS = [
+  { id: 1, label: 'Admin' },
+  { id: 4, label: 'Cashier' },
+  { id: 5, label: 'Dispatcher' },
+]
+
+function StaffManagementSection({ allUsers, loading, onToggleActive, onRefresh }: {
+  allUsers: UserRow[]; loading: boolean
+  onToggleActive: (u: UserRow) => void; onRefresh: () => void
+}) {
+  const [search, setSearch] = useState('')
+  const [showCreate, setShowCreate] = useState(false)
+  const [editTarget, setEditTarget] = useState<UserRow | null>(null)
+  const [formErr, setFormErr] = useState('')
+  const [saving, setSaving] = useState(false)
+
+  // Create form state
+  const [cFirst, setCFirst] = useState(''); const [cLast, setCLast] = useState('')
+  const [cPhone, setCPhone] = useState(''); const [cEmail, setCEmail] = useState('')
+  const [cRole, setCRole]   = useState<number>(4)
+  const [cPass, setCPass]   = useState(''); const [showCPass, setShowCPass] = useState(false)
+
+  // Edit form state
+  const [eFirst, setEFirst] = useState(''); const [eLast, setELast] = useState('')
+  const [eEmail, setEEmail] = useState(''); const [eRole, setERole] = useState<number>(4)
+  const [ePass, setEPass]   = useState(''); const [showEPass, setShowEPass] = useState(false)
+
+  const filtered = allUsers.filter(u => {
+    const q = search.toLowerCase()
+    return !q || u.first_name.toLowerCase().includes(q) || u.last_name.toLowerCase().includes(q) || u.phone_number.includes(q) || (u.email ?? '').toLowerCase().includes(q)
+  })
+
+  const openEdit = (u: UserRow) => {
+    setEFirst(u.first_name); setELast(u.last_name)
+    setEEmail(u.email ?? ''); setERole(u.role_id); setEPass('')
+    setFormErr(''); setEditTarget(u)
+  }
+
+  const handleCreate = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!cFirst.trim() || !cPhone.trim() || !cPass) { setFormErr('First name, phone and password are required'); return }
+    if (cPass.length < 6) { setFormErr('Password must be at least 6 characters'); return }
+    setFormErr(''); setSaving(true)
+    try {
+      await apiClient.post('/admin/staff', { first_name: cFirst.trim(), last_name: cLast.trim(), phone_number: cPhone.trim(), email: cEmail.trim() || undefined, role_id: cRole, password: cPass })
+      setCFirst(''); setCLast(''); setCPhone(''); setCEmail(''); setCPass(''); setCRole(4)
+      setShowCreate(false); onRefresh()
+    } catch (err: any) { setFormErr(err.response?.data?.message ?? 'Failed to create staff member') }
+    finally { setSaving(false) }
+  }
+
+  const handleEdit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!editTarget) return
+    if (!eFirst.trim()) { setFormErr('First name is required'); return }
+    setFormErr(''); setSaving(true)
+    try {
+      await apiClient.put(`/admin/users/${editTarget.id}`, { first_name: eFirst.trim(), last_name: eLast.trim(), email: eEmail.trim() || null, role_id: eRole, new_password: ePass || undefined })
+      setEditTarget(null); onRefresh()
+    } catch (err: any) { setFormErr(err.response?.data?.message ?? 'Failed to update staff member') }
+    finally { setSaving(false) }
+  }
+
+  const inputStyle: React.CSSProperties = { width: '100%', padding: '0.6rem 0.8rem', borderRadius: 10, border: '1px solid rgba(255,255,255,0.12)', background: 'rgba(255,255,255,0.05)', color: 'var(--clr-text)', fontFamily: 'inherit', fontSize: '0.85rem', boxSizing: 'border-box' }
+  const labelStyle: React.CSSProperties = { fontSize: '0.75rem', fontWeight: 600, color: 'var(--clr-muted)', marginBottom: '0.35rem', display: 'block' }
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+        <h2 style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--clr-text)', flex: 1 }}>Staff Users</h2>
+        <button onClick={onRefresh} style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', padding: '0.3rem 0.7rem', borderRadius: 8, border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.04)', color: 'var(--clr-muted)', fontFamily: 'inherit', fontSize: '0.72rem', fontWeight: 600, cursor: 'pointer' }}>
+          <LuRefreshCw size={12}/> Refresh
+        </button>
+        <button onClick={() => { setFormErr(''); setShowCreate(true) }} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', padding: '0.42rem 0.9rem', borderRadius: 9, border: 'none', background: 'var(--clr-accent)', color: '#000', fontFamily: 'inherit', fontSize: '0.82rem', fontWeight: 700, cursor: 'pointer' }}>
+          <LuUserPlus size={14}/> Add Staff
+        </button>
+      </div>
+      <div className="input-wrap">
+        <input id="sf-search" type="text" placeholder=" " value={search} onChange={e => setSearch(e.target.value)} />
+        <label htmlFor="sf-search"><LuSearch size={12} style={{ verticalAlign: 'middle', marginRight: '0.3rem' }}/>Search name / phone / email</label>
+      </div>
+      {loading ? <LoadingSpinner /> : (
+        <div className="glass-inner" style={{ overflow: 'hidden' }}>
+          {filtered.length === 0 ? (
+            <p style={{ padding: '2rem', textAlign: 'center', color: 'var(--clr-muted)', fontSize: '0.875rem' }}>No staff found</p>
+          ) : filtered.map((u, i) => (
+            <div key={u.id} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.85rem 1rem', borderBottom: i < filtered.length - 1 ? '1px solid rgba(255,255,255,0.05)' : 'none', flexWrap: 'wrap' }}>
+              <UserAvatar u={u} size={40} />
+              <div style={{ flex: 1, minWidth: 110 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', flexWrap: 'wrap' }}>
+                  <span style={{ fontWeight: 600, fontSize: '0.875rem', color: 'var(--clr-text)' }}>{u.first_name} {u.last_name}</span>
+                  <RoleBadge roleId={u.role_id} roleName={u.role_name} />
+                  {!u.is_active && <span className="badge badge-red" style={{ fontSize: '0.67rem' }}>Suspended</span>}
+                </div>
+                <p style={{ fontSize: '0.75rem', color: 'var(--clr-muted)', marginTop: '0.15rem' }}>{u.phone_number}</p>
+                {u.email && <p style={{ fontSize: '0.7rem', color: 'var(--clr-muted)' }}>{u.email}</p>}
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexShrink: 0 }}>
+                <button onClick={() => openEdit(u)} style={{ padding: '0.28rem 0.55rem', borderRadius: 7, border: '1px solid rgba(255,255,255,0.12)', background: 'rgba(255,255,255,0.05)', color: 'var(--clr-muted)', fontFamily: 'inherit', fontSize: '0.7rem', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                  <LuPencil size={11}/> Edit
+                </button>
+                <button onClick={() => onToggleActive(u)} style={{ padding: '0.28rem 0.65rem', borderRadius: 7, border: '1px solid', borderColor: u.is_active ? 'rgba(239,68,68,0.35)' : 'rgba(74,222,128,0.35)', background: u.is_active ? 'rgba(239,68,68,0.08)' : 'rgba(74,222,128,0.08)', color: u.is_active ? '#fca5a5' : '#4ade80', fontFamily: 'inherit', fontSize: '0.7rem', fontWeight: 600, cursor: 'pointer' }}>
+                  {u.is_active ? 'Suspend' : 'Activate'}
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+      <p style={{ fontSize: '0.73rem', color: 'var(--clr-muted)', textAlign: 'right' }}>{filtered.length} staff members</p>
+
+      {/* Create staff modal */}
+      {showCreate && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 60, background: 'rgba(0,0,0,0.72)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }} onClick={() => setShowCreate(false)}>
+          <div className="glass" style={{ borderRadius: 18, padding: '1.5rem', maxWidth: 440, width: '100%', position: 'relative', boxShadow: '0 24px 64px rgba(0,0,0,0.5)' }} onClick={e => e.stopPropagation()}>
+            <button onClick={() => setShowCreate(false)} style={{ position: 'absolute', top: '0.85rem', right: '0.85rem', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--clr-muted)' }}><LuX size={18}/></button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '1.25rem' }}>
+              <LuUserPlus size={20} color="var(--clr-accent)"/>
+              <h3 style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--clr-text)' }}>Add New Staff Member</h3>
+            </div>
+            <form onSubmit={handleCreate} style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.85rem' }}>
+                <div>
+                  <label style={labelStyle}>First Name *</label>
+                  <input style={inputStyle} placeholder="First name" value={cFirst} onChange={e => setCFirst(e.target.value)} required />
+                </div>
+                <div>
+                  <label style={labelStyle}>Last Name</label>
+                  <input style={inputStyle} placeholder="Last name" value={cLast} onChange={e => setCLast(e.target.value)} />
+                </div>
+              </div>
+              <div>
+                <label style={labelStyle}>Phone Number *</label>
+                <input style={inputStyle} placeholder="+2519..." value={cPhone} onChange={e => setCPhone(e.target.value)} required />
+              </div>
+              <div>
+                <label style={labelStyle}>Email (optional)</label>
+                <input style={inputStyle} type="email" placeholder="email@example.com" value={cEmail} onChange={e => setCEmail(e.target.value)} />
+              </div>
+              <div>
+                <label style={labelStyle}>Role *</label>
+                <select style={{ ...inputStyle, cursor: 'pointer' }} value={cRole} onChange={e => setCRole(Number(e.target.value))}>
+                  {STAFF_ROLE_OPTIONS.map(r => <option key={r.id} value={r.id}>{r.label}</option>)}
+                </select>
+              </div>
+              <div>
+                <label style={labelStyle}>Password *</label>
+                <div style={{ position: 'relative' }}>
+                  <input style={{ ...inputStyle, paddingRight: '2.5rem' }} type={showCPass ? 'text' : 'password'} placeholder="Min 6 characters" value={cPass} onChange={e => setCPass(e.target.value)} required />
+                  <button type="button" onClick={() => setShowCPass(v => !v)} style={{ position: 'absolute', right: '0.65rem', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--clr-muted)', padding: 0 }}>
+                    {showCPass ? <LuEyeOff size={15}/> : <LuEye size={15}/>}
+                  </button>
+                </div>
+              </div>
+              {formErr && <p style={{ color: '#fca5a5', fontSize: '0.8rem', margin: 0 }}>{formErr}</p>}
+              <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.25rem' }}>
+                <button type="button" onClick={() => setShowCreate(false)} style={{ flex: 1, padding: '0.6rem', borderRadius: 10, border: '1px solid rgba(255,255,255,0.12)', background: 'rgba(255,255,255,0.04)', color: 'var(--clr-muted)', fontFamily: 'inherit', fontSize: '0.85rem', fontWeight: 600, cursor: 'pointer' }}>Cancel</button>
+                <button type="submit" disabled={saving} style={{ flex: 2, padding: '0.6rem', borderRadius: 10, border: 'none', background: 'var(--clr-accent)', color: '#000', fontFamily: 'inherit', fontSize: '0.85rem', fontWeight: 700, cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.6 : 1 }}>
+                  {saving ? 'Creating…' : 'Create Staff Member'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit staff modal */}
+      {editTarget && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 60, background: 'rgba(0,0,0,0.72)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }} onClick={() => setEditTarget(null)}>
+          <div className="glass" style={{ borderRadius: 18, padding: '1.5rem', maxWidth: 440, width: '100%', position: 'relative', boxShadow: '0 24px 64px rgba(0,0,0,0.5)' }} onClick={e => e.stopPropagation()}>
+            <button onClick={() => setEditTarget(null)} style={{ position: 'absolute', top: '0.85rem', right: '0.85rem', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--clr-muted)' }}><LuX size={18}/></button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '1.25rem' }}>
+              <LuPencil size={18} color="var(--clr-accent)"/>
+              <h3 style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--clr-text)' }}>Edit {editTarget.first_name} {editTarget.last_name}</h3>
+            </div>
+            <form onSubmit={handleEdit} style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.85rem' }}>
+                <div>
+                  <label style={labelStyle}>First Name *</label>
+                  <input style={inputStyle} placeholder="First name" value={eFirst} onChange={e => setEFirst(e.target.value)} required />
+                </div>
+                <div>
+                  <label style={labelStyle}>Last Name</label>
+                  <input style={inputStyle} placeholder="Last name" value={eLast} onChange={e => setELast(e.target.value)} />
+                </div>
+              </div>
+              <div>
+                <label style={labelStyle}>Email</label>
+                <input style={inputStyle} type="email" placeholder="email@example.com" value={eEmail} onChange={e => setEEmail(e.target.value)} />
+              </div>
+              <div>
+                <label style={labelStyle}>Role</label>
+                <select style={{ ...inputStyle, cursor: 'pointer' }} value={eRole} onChange={e => setERole(Number(e.target.value))}>
+                  {STAFF_ROLE_OPTIONS.map(r => <option key={r.id} value={r.id}>{r.label}</option>)}
+                </select>
+              </div>
+              <div>
+                <label style={labelStyle}>New Password (leave blank to keep current)</label>
+                <div style={{ position: 'relative' }}>
+                  <input style={{ ...inputStyle, paddingRight: '2.5rem' }} type={showEPass ? 'text' : 'password'} placeholder="Leave blank to keep current" value={ePass} onChange={e => setEPass(e.target.value)} />
+                  <button type="button" onClick={() => setShowEPass(v => !v)} style={{ position: 'absolute', right: '0.65rem', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--clr-muted)', padding: 0 }}>
+                    {showEPass ? <LuEyeOff size={15}/> : <LuEye size={15}/>}
+                  </button>
+                </div>
+              </div>
+              {formErr && <p style={{ color: '#fca5a5', fontSize: '0.8rem', margin: 0 }}>{formErr}</p>}
+              <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.25rem' }}>
+                <button type="button" onClick={() => setEditTarget(null)} style={{ flex: 1, padding: '0.6rem', borderRadius: 10, border: '1px solid rgba(255,255,255,0.12)', background: 'rgba(255,255,255,0.04)', color: 'var(--clr-muted)', fontFamily: 'inherit', fontSize: '0.85rem', fontWeight: 600, cursor: 'pointer' }}>Cancel</button>
+                <button type="submit" disabled={saving} style={{ flex: 2, padding: '0.6rem', borderRadius: 10, border: 'none', background: 'var(--clr-accent)', color: '#000', fontFamily: 'inherit', fontSize: '0.85rem', fontWeight: 700, cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.6 : 1 }}>
+                  {saving ? 'Saving…' : 'Save Changes'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -524,6 +815,7 @@ function DriverVerificationSection() {
   const [toastMsg, setToastMsg] = useState('')
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [actionLoading, setActionLoading] = useState<string | null>(null)
+  const [driverReviews, setDriverReviews] = useState<Record<string, DocReview[]>>({})
 
   // Reject modal state
   const [rejectModal, setRejectModal] = useState<{ type: 'driver' | 'doc'; driverId: string; docType?: string } | null>(null)
@@ -542,13 +834,30 @@ function DriverVerificationSection() {
 
   useEffect(() => { load() }, [filter]) // eslint-disable-line
 
+  const loadDriverDetail = async (driverId: string) => {
+    if (driverReviews[driverId]) return // already loaded
+    try {
+      const { data } = await apiClient.get(`/admin/drivers/${driverId}`)
+      setDriverReviews(prev => ({ ...prev, [driverId]: data.document_reviews ?? [] }))
+    } catch { /* ignore */ }
+  }
+
+  const handleExpand = (driverId: string) => {
+    const next = expandedId === driverId ? null : driverId
+    setExpandedId(next)
+    if (next) loadDriverDetail(next)
+  }
+
   const reviewDoc = async (driverId: string, docType: string, action: 'APPROVED' | 'REJECTED', reason?: string) => {
     const key = `${driverId}-${docType}-${action}`
     setActionLoading(key)
     try {
       await apiClient.post(`/admin/drivers/${driverId}/review-document`, { document_type: docType, action, reason: reason ?? null })
       toast(`${docType.replace('_', ' ')} ${action.toLowerCase()}.`)
+      // Invalidate cached reviews so it reloads
+      setDriverReviews(prev => { const next = { ...prev }; delete next[driverId]; return next })
       await load()
+      await loadDriverDetail(driverId)
     } catch (e: any) { toast(e.response?.data?.message ?? 'Action failed') }
     finally { setActionLoading(null); setRejectModal(null); setRejectReason('') }
   }
@@ -569,6 +878,7 @@ function DriverVerificationSection() {
     try {
       await apiClient.post(`/admin/drivers/${driverId}/reject`, { reason })
       toast('Driver rejected.')
+      setDriverReviews(prev => { const next = { ...prev }; delete next[driverId]; return next })
       await load()
     } catch (e: any) { toast(e.response?.data?.message ?? 'Action failed') }
     finally { setActionLoading(null); setRejectModal(null); setRejectReason('') }
@@ -576,8 +886,11 @@ function DriverVerificationSection() {
 
   const statusColor = (s: string | null) =>
     s === 'APPROVED' ? '#4ade80' : s === 'REJECTED' ? '#fca5a5' : s === 'PENDING' ? '#fbbf24' : 'var(--clr-muted)'
-  const StatusBadge = ({ s, label }: { s: string | null; label: string }) => (
-    <span style={{ fontSize:'0.68rem', fontWeight:700, color: statusColor(s), background:`${statusColor(s)}18`, border:`1px solid ${statusColor(s)}44`, borderRadius:99, padding:'0.15rem 0.5rem', whiteSpace:'nowrap' }}>{label}: {s ?? 'N/A'}</span>
+
+  const StatusBadge = ({ s, label }: { s: string | null; label?: string }) => (
+    <span style={{ fontSize:'0.68rem', fontWeight:700, color: statusColor(s), background:`${statusColor(s)}18`, border:`1px solid ${statusColor(s)}44`, borderRadius:99, padding:'0.15rem 0.5rem', whiteSpace:'nowrap' }}>
+      {label ? `${label}: ` : ''}{s ?? 'N/A'}
+    </span>
   )
 
   const filters: { id: typeof filter; label: string }[] = [
@@ -586,6 +899,9 @@ function DriverVerificationSection() {
     { id: 'rejected', label: 'Rejected' },
     { id: 'all',      label: 'All'      },
   ]
+
+  const _apiBase = (import.meta.env.VITE_API_BASE_URL as string ?? '').replace(/\/api$/, '')
+  const absUrl = (raw: string | null) => raw ? (raw.startsWith('http') ? raw : `${_apiBase}${raw}`) : null
 
   return (
     <div style={{ display:'flex', flexDirection:'column', gap:'1rem' }}>
@@ -610,12 +926,13 @@ function DriverVerificationSection() {
           {drivers.map(d => {
             const isExpanded = expandedId === d.user_id
             const fullName = `${d.first_name} ${d.last_name}`
+            const reviews = driverReviews[d.user_id] ?? []
             return (
               <div key={d.user_id} className="glass-inner" style={{ overflow:'hidden' }}>
                 {/* Card header */}
-                <div style={{ display:'flex', alignItems:'center', gap:'0.75rem', padding:'0.85rem 1rem', cursor:'pointer' }} onClick={() => setExpandedId(isExpanded ? null : d.user_id)}>
+                <div style={{ display:'flex', alignItems:'center', gap:'0.75rem', padding:'0.85rem 1rem', cursor:'pointer' }} onClick={() => handleExpand(d.user_id)}>
                   <div style={{ width:38, height:38, borderRadius:'50%', flexShrink:0, background:'linear-gradient(135deg,var(--clr-accent2),var(--clr-accent))', display:'flex', alignItems:'center', justifyContent:'center', overflow:'hidden', border:'2px solid rgba(0,229,255,0.2)' }}>
-                    {d.profile_photo_url ? <img src={d.profile_photo_url} alt="" style={{ width:'100%', height:'100%', objectFit:'cover' }}/> : <LuTruck size={16} color="#fff"/>}
+                    {d.profile_photo_url ? <img src={absUrl(d.profile_photo_url)!} alt="" style={{ width:'100%', height:'100%', objectFit:'cover' }}/> : <LuTruck size={16} color="#fff"/>}
                   </div>
                   <div style={{ flex:1, minWidth:0 }}>
                     <div style={{ display:'flex', alignItems:'center', gap:'0.4rem', flexWrap:'wrap' }}>
@@ -635,43 +952,83 @@ function DriverVerificationSection() {
                 {/* Expanded detail */}
                 {isExpanded && (
                   <div style={{ borderTop:'1px solid rgba(255,255,255,0.06)', padding:'1rem', display:'flex', flexDirection:'column', gap:'1rem' }}>
+
+                    {/* Overall rejection reason */}
                     {d.rejection_reason && (
-                      <div className="alert alert-error" style={{ fontSize:'0.8rem' }}><LuTriangleAlert size={13}/> Rejection reason: {d.rejection_reason}</div>
+                      <div className="alert alert-error" style={{ fontSize:'0.8rem', display:'flex', alignItems:'flex-start', gap:'0.4rem' }}>
+                        <LuTriangleAlert size={13} style={{ flexShrink:0, marginTop:2 }}/> 
+                        <span><strong>Overall rejection:</strong> {d.rejection_reason}</span>
+                      </div>
                     )}
 
                     {/* Per-document review */}
                     {(['national_id','license','libre'] as const).map(docKey => {
                       const urlKey = `${docKey}_url` as keyof DriverRow
                       const statusKey = `${docKey}_status` as keyof DriverRow
-                      const url = d[urlKey] as string | null
+                      const rawUrl = d[urlKey] as string | null
+                      const url = absUrl(rawUrl)
                       const status = d[statusKey] as string | null
                       const aKey = `${d.user_id}-${docKey}`
+
+                      // Get rejection reasons for this doc from review history
+                      const docRejections = reviews.filter(r => r.document_type === docKey && r.action === 'REJECTED')
+                      const latestRejection = docRejections[0]
+
                       return (
-                        <div key={docKey} style={{ display:'flex', alignItems:'flex-start', gap:'0.75rem', padding:'0.75rem', background:'rgba(255,255,255,0.03)', borderRadius:10 }}>
-                          <div style={{ flex:1 }}>
-                            <div style={{ display:'flex', alignItems:'center', gap:'0.5rem', marginBottom:'0.3rem' }}>
-                              <span style={{ fontWeight:600, fontSize:'0.82rem', color:'var(--clr-text)', textTransform:'capitalize' }}>{docKey.replace('_',' ')}</span>
-                              <StatusBadge s={status} label="" />
+                        <div key={docKey} style={{ display:'flex', flexDirection:'column', gap:'0.5rem', padding:'0.75rem', background:'rgba(255,255,255,0.03)', borderRadius:10 }}>
+                          <div style={{ display:'flex', alignItems:'flex-start', gap:'0.75rem' }}>
+                            <div style={{ flex:1 }}>
+                              <div style={{ display:'flex', alignItems:'center', gap:'0.5rem', marginBottom:'0.3rem', flexWrap:'wrap' }}>
+                                <span style={{ fontWeight:600, fontSize:'0.82rem', color:'var(--clr-text)', textTransform:'capitalize' }}>{docKey.replace('_',' ')}</span>
+                                <StatusBadge s={status} />
+                              </div>
+                              {url ? (
+                                <a href={url} target="_blank" rel="noopener noreferrer" style={{ fontSize:'0.75rem', color:'var(--clr-accent)', display:'flex', alignItems:'center', gap:'0.25rem', textDecoration:'none' }}>
+                                  <LuFileText size={12}/> View document ↗
+                                </a>
+                              ) : (
+                                <span style={{ fontSize:'0.73rem', color:'var(--clr-muted)' }}>No document uploaded</span>
+                              )}
+                              {/* Latest rejection reason for this doc */}
+                              {status === 'REJECTED' && latestRejection?.reason && (
+                                <p style={{ marginTop:'0.35rem', fontSize:'0.75rem', color:'#fca5a5', display:'flex', alignItems:'flex-start', gap:'0.3rem' }}>
+                                  <LuTriangleAlert size={11} style={{ flexShrink:0, marginTop:2 }}/> {latestRejection.reason}
+                                </p>
+                              )}
                             </div>
-                            {url ? (
-                              <a href={url} target="_blank" rel="noopener noreferrer" style={{ fontSize:'0.75rem', color:'var(--clr-accent)', display:'flex', alignItems:'center', gap:'0.25rem', textDecoration:'none' }}>
-                                <LuFileText size={12}/> View document ↗
-                              </a>
-                            ) : (
-                              <span style={{ fontSize:'0.73rem', color:'var(--clr-muted)' }}>No document uploaded</span>
+                            {url && (
+                              <div style={{ display:'flex', gap:'0.4rem', flexShrink:0 }}>
+                                <button onClick={() => reviewDoc(d.user_id, docKey, 'APPROVED')} disabled={!!actionLoading || status === 'APPROVED'}
+                                  style={{ padding:'0.3rem 0.65rem', borderRadius:7, border:'1px solid rgba(74,222,128,0.35)', background:'rgba(74,222,128,0.08)', color:'#4ade80', fontFamily:'inherit', fontSize:'0.72rem', fontWeight:600, cursor: status === 'APPROVED' ? 'not-allowed' : 'pointer', opacity: status === 'APPROVED' ? 0.5 : 1 }}>
+                                  {actionLoading === `${aKey}-APPROVED` ? '…' : '✓ Approve'}
+                                </button>
+                                <button onClick={() => { setRejectModal({ type:'doc', driverId: d.user_id, docType: docKey }); setRejectReason('') }} disabled={!!actionLoading || status === 'REJECTED'}
+                                  style={{ padding:'0.3rem 0.65rem', borderRadius:7, border:'1px solid rgba(239,68,68,0.35)', background:'rgba(239,68,68,0.08)', color:'#fca5a5', fontFamily:'inherit', fontSize:'0.72rem', fontWeight:600, cursor: status === 'REJECTED' ? 'not-allowed' : 'pointer', opacity: status === 'REJECTED' ? 0.5 : 1 }}>
+                                  ✕ Reject
+                                </button>
+                              </div>
                             )}
                           </div>
-                          {url && (
-                            <div style={{ display:'flex', gap:'0.4rem', flexShrink:0 }}>
-                              <button onClick={() => reviewDoc(d.user_id, docKey, 'APPROVED')} disabled={!!actionLoading || status === 'APPROVED'}
-                                style={{ padding:'0.3rem 0.65rem', borderRadius:7, border:'1px solid rgba(74,222,128,0.35)', background:'rgba(74,222,128,0.08)', color:'#4ade80', fontFamily:'inherit', fontSize:'0.72rem', fontWeight:600, cursor: status === 'APPROVED' ? 'not-allowed' : 'pointer', opacity: status === 'APPROVED' ? 0.5 : 1 }}>
-                                {actionLoading === `${aKey}-APPROVED` ? '…' : '✓ Approve'}
-                              </button>
-                              <button onClick={() => { setRejectModal({ type:'doc', driverId: d.user_id, docType: docKey }); setRejectReason('') }} disabled={!!actionLoading || status === 'REJECTED'}
-                                style={{ padding:'0.3rem 0.65rem', borderRadius:7, border:'1px solid rgba(239,68,68,0.35)', background:'rgba(239,68,68,0.08)', color:'#fca5a5', fontFamily:'inherit', fontSize:'0.72rem', fontWeight:600, cursor: status === 'REJECTED' ? 'not-allowed' : 'pointer', opacity: status === 'REJECTED' ? 0.5 : 1 }}>
-                                ✕ Reject
-                              </button>
-                            </div>
+
+                          {/* Review history for this document */}
+                          {docRejections.length > 0 && (
+                            <details style={{ marginTop:'0.2rem' }}>
+                              <summary style={{ fontSize:'0.72rem', color:'var(--clr-muted)', cursor:'pointer', userSelect:'none', listStyle:'none', display:'flex', alignItems:'center', gap:'0.3rem', outline:'none' }}>
+                                <LuHistory size={11}/> {docRejections.length} rejection{docRejections.length > 1 ? 's' : ''} — view history
+                              </summary>
+                              <div style={{ marginTop:'0.5rem', display:'flex', flexDirection:'column', gap:'0.3rem' }}>
+                                {docRejections.map(r => (
+                                  <div key={r.id} style={{ background:'rgba(239,68,68,0.06)', border:'1px solid rgba(239,68,68,0.15)', borderRadius:7, padding:'0.4rem 0.6rem', fontSize:'0.73rem' }}>
+                                    <div style={{ display:'flex', justifyContent:'space-between', gap:'0.5rem', flexWrap:'wrap', marginBottom:'0.2rem' }}>
+                                      <span style={{ color:'#fca5a5', fontWeight:600 }}>Rejected</span>
+                                      <span style={{ color:'var(--clr-muted)' }}>{new Date(r.reviewed_at).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})}</span>
+                                    </div>
+                                    {r.reason && <p style={{ color:'var(--clr-muted)' }}>{r.reason}</p>}
+                                    {r.reviewer_name && <p style={{ color:'var(--clr-muted)', fontSize:'0.68rem', marginTop:'0.15rem' }}>by {r.reviewer_name}</p>}
+                                  </div>
+                                ))}
+                              </div>
+                            </details>
                           )}
                         </div>
                       )
@@ -705,7 +1062,7 @@ function DriverVerificationSection() {
             <h2 style={{ fontSize:'1rem', fontWeight:800, color:'#fca5a5', marginBottom:'0.4rem' }}>
               {rejectModal.type === 'driver' ? 'Reject Driver' : `Reject ${rejectModal.docType?.replace('_',' ')}`}
             </h2>
-            <p style={{ fontSize:'0.82rem', color:'var(--clr-muted)', marginBottom:'1rem' }}>Provide a reason (required).</p>
+            <p style={{ fontSize:'0.82rem', color:'var(--clr-muted)', marginBottom:'1rem' }}>Provide a reason (required). The driver will see this reason.</p>
             <div className="input-wrap" style={{ marginBottom:'0.75rem' }}>
               <input id="rej-reason" type="text" placeholder=" " value={rejectReason} onChange={e => setRejectReason(e.target.value)} autoFocus/>
               <label htmlFor="rej-reason">Reason for rejection</label>
@@ -740,8 +1097,14 @@ function DriverVerificationSection() {
 const VEHICLE_TYPES = ['Truck', 'Van', 'Pickup', 'Motorcycle', 'Cargo Bike', 'Mini Truck', 'Trailer', 'Other']
 
 function VehicleManagementSection() {
+  const _apiBase = (import.meta.env.VITE_API_BASE_URL as string ?? '').replace(/\/api$/, '')
+  const absUrl = (raw: string | null | undefined) => !raw ? null : raw.startsWith('http') ? raw : `${_apiBase}${raw}`
+
+  const [vehicleTab, setVehicleTab] = useState<'fleet' | 'submissions'>('fleet')
   const [vehicles, setVehicles] = useState<VehicleRow[]>([])
+  const [submissions, setSubmissions] = useState<VehicleRow[]>([])
   const [loading, setLoading] = useState(false)
+  const [subsLoading, setSubsLoading] = useState(false)
   const [toastMsg, setToastMsg] = useState('')
   const [showAll, setShowAll] = useState(false)
   const [actionLoading, setActionLoading] = useState<string | null>(null)
@@ -750,8 +1113,12 @@ function VehicleManagementSection() {
   const [modal, setModal] = useState<'create' | 'edit' | null>(null)
   const [editTarget, setEditTarget] = useState<VehicleRow | null>(null)
   const [form, setForm] = useState({ plate_number:'', vehicle_type:'Truck', max_capacity_kg:'', is_company_owned: true, description:'', vehicle_photo: '' as string })
+  const [vehicleGallery, setVehicleGallery] = useState<string[]>([])
+  const [formLibre, setFormLibre] = useState('')
   const [formError, setFormError] = useState('')
   const photoInputRef = useRef<HTMLInputElement>(null)
+  const galleryInputRef = useRef<HTMLInputElement>(null)
+  const libreInputRef = useRef<HTMLInputElement>(null)
 
   // Assign driver modal
   const [assignModal, setAssignModal] = useState<VehicleRow | null>(null)
@@ -773,14 +1140,32 @@ function VehicleManagementSection() {
     finally { setLoading(false) }
   }
 
-  useEffect(() => { load() }, [showAll]) // eslint-disable-line
+  const loadSubmissions = async () => {
+    setSubsLoading(true)
+    try {
+      const { data } = await apiClient.get('/admin/vehicles/submissions')
+      setSubmissions(data.vehicles ?? [])
+    } catch { toast('Failed to load submissions') }
+    finally { setSubsLoading(false) }
+  }
 
-  const resetForm = () => { setForm({ plate_number:'', vehicle_type:'Truck', max_capacity_kg:'', is_company_owned: true, description:'', vehicle_photo:'' }); setFormError('') }
+  useEffect(() => { load() }, [showAll]) // eslint-disable-line
+  useEffect(() => { if (vehicleTab === 'submissions') loadSubmissions() }, [vehicleTab]) // eslint-disable-line
+
+  const resetForm = () => {
+    setForm({ plate_number:'', vehicle_type:'Truck', max_capacity_kg:'', is_company_owned: true, description:'', vehicle_photo:'' })
+    setVehicleGallery([])
+    setFormLibre('')
+    setFormError('')
+  }
 
   const openCreate = () => { resetForm(); setModal('create') }
   const openEdit = (v: VehicleRow) => {
     setEditTarget(v)
     setForm({ plate_number: v.plate_number, vehicle_type: v.vehicle_type, max_capacity_kg: String(v.max_capacity_kg), is_company_owned: !!v.is_company_owned, description: v.description ?? '', vehicle_photo:'' })
+    setVehicleGallery([])
+    setFormLibre('')
+    setFormError('')
     setModal('edit')
   }
 
@@ -789,6 +1174,27 @@ function VehicleManagementSection() {
     if (file.size > 8 * 1024 * 1024) { setFormError('Max file size 8 MB'); return }
     const reader = new FileReader()
     reader.onload = () => setForm(f => ({ ...f, vehicle_photo: reader.result as string }))
+    reader.readAsDataURL(file)
+    e.target.value = ''
+  }
+
+  const handleGallerySelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files ?? [])
+    if (!files.length) return
+    files.slice(0, 5 - vehicleGallery.length).forEach(file => {
+      if (file.size > 8 * 1024 * 1024) { setFormError('Max file size 8 MB each'); return }
+      const reader = new FileReader()
+      reader.onload = () => setVehicleGallery(g => g.length < 5 ? [...g, reader.result as string] : g)
+      reader.readAsDataURL(file)
+    })
+    e.target.value = ''
+  }
+
+  const handleLibreSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]; if (!file) return
+    if (file.size > 8 * 1024 * 1024) { setFormError('Max 8 MB'); return }
+    const reader = new FileReader()
+    reader.onload = () => setFormLibre(reader.result as string)
     reader.readAsDataURL(file)
     e.target.value = ''
   }
@@ -806,6 +1212,8 @@ function VehicleManagementSection() {
       description: form.description.trim() || undefined,
     }
     if (form.vehicle_photo) payload.vehicle_photo = form.vehicle_photo
+    if (vehicleGallery.length > 0) payload.vehicle_images = vehicleGallery
+    if (formLibre) payload.libre_file = formLibre
     setActionLoading('form')
     try {
       if (modal === 'create') {
@@ -817,6 +1225,16 @@ function VehicleManagementSection() {
       }
       setModal(null); resetForm(); await load()
     } catch (err: any) { setFormError(err.response?.data?.message ?? 'Failed.') }
+    finally { setActionLoading(null) }
+  }
+
+  const handleReviewSubmission = async (vehicleId: string, action: 'APPROVED' | 'REJECTED', driverId?: string) => {
+    setActionLoading(`review-${vehicleId}-${action}`)
+    try {
+      await apiClient.post(`/admin/vehicles/${vehicleId}/review`, { action, driver_id: driverId })
+      toast(action === 'APPROVED' ? 'Vehicle approved & assigned to driver.' : 'Submission rejected.')
+      await loadSubmissions()
+    } catch (err: any) { toast(err.response?.data?.message ?? 'Failed') }
     finally { setActionLoading(null) }
   }
 
@@ -852,7 +1270,7 @@ function VehicleManagementSection() {
 
   const FormModal = ({ title }: { title: string }) => (
     <div className="modal-backdrop" onClick={e => { if (e.target === e.currentTarget) { setModal(null); resetForm() } }}>
-      <div className="glass modal-box" style={{ padding:'1.75rem', maxWidth: 420, width:'95%' }}>
+      <div className="glass modal-box" style={{ padding:'1.75rem', maxWidth:460, width:'95%', maxHeight:'90vh', overflowY:'auto' }}>
         <h2 style={{ fontSize:'1rem', fontWeight:800, color:'var(--clr-text)', marginBottom:'1.1rem', display:'flex', alignItems:'center', gap:'0.4rem' }}><LuCar size={16}/> {title}</h2>
         <form onSubmit={handleSubmit} style={{ display:'flex', flexDirection:'column', gap:'0.7rem' }}>
           {formError && <div className="alert alert-error"><LuTriangleAlert size={13}/> {formError}</div>}
@@ -873,11 +1291,43 @@ function VehicleManagementSection() {
             </button>
             <span style={{ fontSize:'0.85rem', color:'var(--clr-text)' }}>Company-owned vehicle</span>
           </div>
-          {/* photo */}
-          <label htmlFor="veh-photo" style={{ display:'flex', alignItems:'center', gap:'0.5rem', padding:'0.6rem', borderRadius:10, border:'1px dashed rgba(255,255,255,0.18)', color: form.vehicle_photo ? 'var(--clr-accent)' : 'var(--clr-muted)', cursor:'pointer', fontSize:'0.82rem', fontWeight:600, background:'rgba(255,255,255,0.02)' }}>
-            <LuCamera size={14}/> {form.vehicle_photo ? 'Photo selected ✓' : (modal === 'edit' ? 'Replace photo (optional)' : 'Add photo (optional)')}
-          </label>
-          <input id="veh-photo" ref={photoInputRef} type="file" accept="image/jpeg,image/png,image/webp" style={{ display:'none' }} onChange={handlePhotoSelect}/>
+          {/* main photo */}
+          <div>
+            <p style={{ fontSize:'0.75rem', color:'var(--clr-muted)', marginBottom:'0.35rem', fontWeight:600 }}>Main Photo (optional)</p>
+            <label htmlFor="veh-photo" style={{ display:'flex', alignItems:'center', gap:'0.5rem', padding:'0.6rem', borderRadius:10, border:'1px dashed rgba(255,255,255,0.18)', color: form.vehicle_photo ? 'var(--clr-accent)' : 'var(--clr-muted)', cursor:'pointer', fontSize:'0.82rem', fontWeight:600, background:'rgba(255,255,255,0.02)' }}>
+              <LuCamera size={14}/> {form.vehicle_photo ? 'Photo selected ✓' : (modal === 'edit' ? 'Replace photo (optional)' : 'Add photo (optional)')}
+            </label>
+            <input id="veh-photo" ref={photoInputRef} type="file" accept="image/jpeg,image/png,image/webp" style={{ display:'none' }} onChange={handlePhotoSelect}/>
+          </div>
+          {/* gallery photos */}
+          <div>
+            <p style={{ fontSize:'0.75rem', color:'var(--clr-muted)', marginBottom:'0.35rem', fontWeight:600 }}>Gallery — up to 5 images (optional)</p>
+            <label htmlFor="veh-gallery" style={{ display:'flex', alignItems:'center', gap:'0.5rem', padding:'0.6rem', borderRadius:10, border:'1px dashed rgba(255,255,255,0.18)', color: vehicleGallery.length > 0 ? 'var(--clr-accent)' : 'var(--clr-muted)', cursor: vehicleGallery.length >= 5 ? 'not-allowed' : 'pointer', fontSize:'0.82rem', fontWeight:600, background:'rgba(255,255,255,0.02)', opacity: vehicleGallery.length >= 5 ? 0.5 : 1 }}>
+              <LuCamera size={14}/> {vehicleGallery.length > 0 ? `${vehicleGallery.length}/5 selected` : 'Add gallery images'}
+            </label>
+            <input id="veh-gallery" ref={galleryInputRef} type="file" accept="image/jpeg,image/png,image/webp" multiple style={{ display:'none' }} onChange={handleGallerySelect} disabled={vehicleGallery.length >= 5}/>
+            {vehicleGallery.length > 0 && (
+              <div style={{ display:'flex', gap:'0.4rem', flexWrap:'wrap', marginTop:'0.5rem' }}>
+                {vehicleGallery.map((src, idx) => (
+                  <div key={idx} style={{ position:'relative' }}>
+                    <img src={src} alt="" style={{ width:56, height:56, borderRadius:8, objectFit:'cover', border:'1px solid rgba(255,255,255,0.12)' }}/>
+                    <button type="button" onClick={() => setVehicleGallery(g => g.filter((_,i) => i !== idx))}
+                      style={{ position:'absolute', top:-4, right:-4, width:16, height:16, borderRadius:'50%', background:'#ef4444', border:'none', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', padding:0 }}>
+                      <LuX size={9} color="#fff"/>
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+          {/* libre document */}
+          <div>
+            <p style={{ fontSize:'0.75rem', color:'var(--clr-muted)', marginBottom:'0.35rem', fontWeight:600 }}>Libre Document (optional)</p>
+            <label htmlFor="veh-libre" style={{ display:'flex', alignItems:'center', gap:'0.5rem', padding:'0.6rem', borderRadius:10, border:'1px dashed rgba(255,255,255,0.18)', color: formLibre ? 'var(--clr-accent)' : 'var(--clr-muted)', cursor:'pointer', fontSize:'0.82rem', fontWeight:600, background:'rgba(255,255,255,0.02)' }}>
+              <LuFileText size={14}/> {formLibre ? 'Libre selected ✓' : (modal === 'edit' ? 'Replace libre (optional)' : 'Upload libre (optional)')}
+            </label>
+            <input id="veh-libre" ref={libreInputRef} type="file" accept="image/jpeg,image/png,image/webp,application/pdf" style={{ display:'none' }} onChange={handleLibreSelect}/>
+          </div>
           <div style={{ display:'flex', gap:'0.6rem', marginTop:'0.25rem' }}>
             <button type="button" className="btn-outline" style={{ flex:1 }} onClick={() => { setModal(null); resetForm() }}>Cancel</button>
             <button type="submit" className="btn-primary" style={{ flex:2 }} disabled={actionLoading === 'form'}>{actionLoading === 'form' ? <><span className="spinner"/> Saving…</> : (modal === 'create' ? 'Create Vehicle' : 'Save Changes')}</button>
@@ -892,52 +1342,129 @@ function VehicleManagementSection() {
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', flexWrap:'wrap', gap:'0.5rem' }}>
         <h2 style={{ fontSize:'1rem', fontWeight:800, color:'var(--clr-text)', display:'flex', alignItems:'center', gap:'0.45rem' }}><LuCar size={17}/> Vehicle Management</h2>
         <div style={{ display:'flex', gap:'0.5rem', alignItems:'center' }}>
-          <label style={{ display:'flex', alignItems:'center', gap:'0.4rem', fontSize:'0.78rem', color:'var(--clr-muted)', cursor:'pointer' }}>
-            <input type="checkbox" checked={showAll} onChange={e => setShowAll(e.target.checked)} style={{ accentColor:'var(--clr-accent)' }}/> Show inactive
-          </label>
-          <button className="btn-primary" style={{ fontSize:'0.8rem', padding:'0.42rem 0.9rem', display:'flex', alignItems:'center', gap:'0.4rem' }} onClick={openCreate}><LuPlus size={14}/> Add Vehicle</button>
-          <button className="btn-outline" style={{ fontSize:'0.75rem', padding:'0.35rem 0.7rem', display:'flex', alignItems:'center', gap:'0.35rem' }} onClick={load} disabled={loading}><LuRefreshCw size={13}/></button>
+          {vehicleTab === 'fleet' && (
+            <>
+              <div style={{ display:'flex', alignItems:'center', gap:'0.45rem' }}>
+                <button type="button" onClick={() => setShowAll(v => !v)}
+                  style={{ width:38, height:22, borderRadius:99, border:'none', cursor:'pointer', background: showAll ? 'var(--clr-accent)' : 'rgba(255,255,255,0.12)', transition:'background 0.2s', flexShrink:0, position:'relative' }}>
+                  <span style={{ position:'absolute', top:2, left: showAll ? 18 : 2, width:18, height:18, borderRadius:'50%', background: showAll ? '#080b14' : 'var(--clr-muted)', transition:'left 0.2s' }}/>
+                </button>
+                <span style={{ fontSize:'0.78rem', color:'var(--clr-muted)' }}>Show inactive</span>
+              </div>
+              <button className="btn-primary" style={{ fontSize:'0.8rem', padding:'0.42rem 0.9rem', display:'flex', alignItems:'center', gap:'0.4rem' }} onClick={openCreate}><LuPlus size={14}/> Add Vehicle</button>
+            </>
+          )}
+          <button className="btn-outline" style={{ fontSize:'0.75rem', padding:'0.35rem 0.7rem', display:'flex', alignItems:'center', gap:'0.35rem' }} onClick={vehicleTab === 'fleet' ? load : loadSubmissions} disabled={loading || subsLoading}><LuRefreshCw size={13}/></button>
         </div>
       </div>
 
-      {loading ? <LoadingSpinner /> : vehicles.length === 0 ? (
-        <div className="glass-inner" style={{ padding:'2.5rem', textAlign:'center', color:'var(--clr-muted)', fontSize:'0.875rem' }}>No vehicles found. Add one above.</div>
-      ) : (
-        <div className="glass-inner" style={{ overflow:'hidden' }}>
-          {vehicles.map((v, i) => (
-            <div key={v.id} style={{ display:'flex', alignItems:'center', gap:'0.75rem', padding:'0.85rem 1rem', borderBottom: i < vehicles.length-1 ? '1px solid rgba(255,255,255,0.05)' : 'none', flexWrap:'wrap' }}>
-              <div style={{ width:42, height:42, borderRadius:10, flexShrink:0, background:'rgba(255,255,255,0.06)', border:'1px solid rgba(255,255,255,0.10)', display:'flex', alignItems:'center', justifyContent:'center', overflow:'hidden' }}>
-                {v.vehicle_photo_url ? <img src={v.vehicle_photo_url} alt="" style={{ width:'100%', height:'100%', objectFit:'cover' }}/> : <LuCar size={18} color="var(--clr-muted)"/>}
-              </div>
-              <div style={{ flex:1, minWidth:110 }}>
-                <div style={{ display:'flex', alignItems:'center', gap:'0.4rem', flexWrap:'wrap' }}>
-                  <span style={{ fontWeight:700, fontSize:'0.885rem', color:'var(--clr-text)' }}>{v.plate_number}</span>
-                  <span className="badge badge-cyan" style={{ fontSize:'0.67rem' }}>{v.vehicle_type}</span>
-                  {v.is_company_owned ? <span className="badge badge-purple" style={{ fontSize:'0.67rem' }}>Company</span> : null}
-                  {!v.is_active ? <span className="badge badge-red" style={{ fontSize:'0.67rem' }}>Inactive</span> : null}
+      {/* Tabs */}
+      <div style={{ display:'flex', gap:'0.4rem', background:'rgba(255,255,255,0.04)', borderRadius:12, padding:'0.3rem' }}>
+        {(['fleet','submissions'] as const).map(tab => (
+          <button key={tab} onClick={() => setVehicleTab(tab)} style={{ flex:1, padding:'0.45rem', border:'none', borderRadius:9, background: vehicleTab===tab ? 'rgba(0,229,255,0.12)' : 'transparent', color: vehicleTab===tab ? 'var(--clr-accent)' : 'var(--clr-muted)', fontFamily:'inherit', fontSize:'0.78rem', fontWeight:600, cursor:'pointer', transition:'all 0.18s', outline: vehicleTab===tab ? '1px solid rgba(0,229,255,0.2)' : 'none' }}>
+            {tab === 'fleet' ? 'Fleet' : `Driver Submissions${submissions.length > 0 ? ` (${submissions.length})` : ''}`}
+          </button>
+        ))}
+      </div>
+
+      {/* Fleet tab */}
+      {vehicleTab === 'fleet' && (
+        loading ? <LoadingSpinner /> : vehicles.length === 0 ? (
+          <div className="glass-inner" style={{ padding:'2.5rem', textAlign:'center', color:'var(--clr-muted)', fontSize:'0.875rem' }}>No vehicles found. Add one above.</div>
+        ) : (
+          <div className="glass-inner" style={{ overflow:'hidden' }}>
+            {vehicles.map((v, i) => {
+              const imgUrl = absUrl(v.vehicle_photo_url)
+              const gallery: string[] = v.vehicle_images ? (() => { try { return JSON.parse(v.vehicle_images) } catch { return [] } })() : []
+              return (
+                <div key={v.id} style={{ display:'flex', alignItems:'flex-start', gap:'0.75rem', padding:'0.85rem 1rem', borderBottom: i < vehicles.length-1 ? '1px solid rgba(255,255,255,0.05)' : 'none', flexWrap:'wrap' }}>
+                  <div style={{ width:42, height:42, borderRadius:10, flexShrink:0, background:'rgba(255,255,255,0.06)', border:'1px solid rgba(255,255,255,0.10)', display:'flex', alignItems:'center', justifyContent:'center', overflow:'hidden', marginTop:2 }}>
+                    {imgUrl ? <img src={imgUrl} alt="" style={{ width:'100%', height:'100%', objectFit:'cover' }}/> : <LuCar size={18} color="var(--clr-muted)"/>}
+                  </div>
+                  <div style={{ flex:1, minWidth:110 }}>
+                    <div style={{ display:'flex', alignItems:'center', gap:'0.4rem', flexWrap:'wrap' }}>
+                      <span style={{ fontWeight:700, fontSize:'0.885rem', color:'var(--clr-text)' }}>{v.plate_number}</span>
+                      <span className="badge badge-cyan" style={{ fontSize:'0.67rem' }}>{v.vehicle_type}</span>
+                      {!!v.is_company_owned && <span className="badge badge-purple" style={{ fontSize:'0.67rem' }}>Company</span>}
+                      {!v.is_active && <span className="badge badge-red" style={{ fontSize:'0.67rem' }}>Inactive</span>}
+                      {v.libre_url && <a href={absUrl(v.libre_url)!} target="_blank" rel="noopener noreferrer" style={{ fontSize:'0.65rem', display:'inline-flex', alignItems:'center', gap:'0.15rem', color:'var(--clr-muted)', textDecoration:'none', border:'1px solid rgba(255,255,255,0.10)', borderRadius:5, padding:'0.1rem 0.35rem' }}><LuFileText size={10}/> Libre</a>}
+                    </div>
+                    <p style={{ fontSize:'0.73rem', color:'var(--clr-muted)', marginTop:'0.1rem' }}>{v.max_capacity_kg} kg · {v.driver_id ? 'Assigned' : 'Unassigned'}</p>
+                    {v.description && <p style={{ fontSize:'0.7rem', color:'var(--clr-muted)' }}>{v.description}</p>}
+                    {gallery.length > 0 && (
+                      <div style={{ display:'flex', gap:'0.25rem', marginTop:'0.35rem', flexWrap:'wrap' }}>
+                        {gallery.map((src, gi) => {
+                          const u = absUrl(src)
+                          return u ? <img key={gi} src={u} alt="" style={{ width:28, height:28, borderRadius:5, objectFit:'cover', border:'1px solid rgba(255,255,255,0.1)' }}/> : null
+                        })}
+                      </div>
+                    )}
+                  </div>
+                  <div style={{ display:'flex', gap:'0.35rem', flexShrink:0 }}>
+                    <button title="Assign driver" onClick={() => openAssign(v)}
+                      style={{ padding:'0.28rem 0.5rem', borderRadius:7, border:'1px solid rgba(0,229,255,0.25)', background:'rgba(0,229,255,0.07)', color:'var(--clr-accent)', fontFamily:'inherit', fontSize:'0.72rem', cursor:'pointer', display:'flex', alignItems:'center', gap:'0.25rem' }}>
+                      <LuUser size={12}/> Driver
+                    </button>
+                    <button title="Edit" onClick={() => openEdit(v)}
+                      style={{ padding:'0.28rem 0.5rem', borderRadius:7, border:'1px solid rgba(255,255,255,0.15)', background:'rgba(255,255,255,0.05)', color:'var(--clr-text)', fontFamily:'inherit', fontSize:'0.72rem', cursor:'pointer', display:'flex', alignItems:'center' }}>
+                      <LuPencil size={12}/>
+                    </button>
+                    {!!v.is_active && (
+                      <button title="Deactivate" onClick={() => setDeleteConfirm(v)} disabled={!!actionLoading}
+                        style={{ padding:'0.28rem 0.5rem', borderRadius:7, border:'1px solid rgba(239,68,68,0.35)', background:'rgba(239,68,68,0.08)', color:'#fca5a5', fontFamily:'inherit', fontSize:'0.72rem', cursor:'pointer', display:'flex', alignItems:'center' }}>
+                        <LuTrash2 size={12}/>
+                      </button>
+                    )}
+                  </div>
                 </div>
-                <p style={{ fontSize:'0.73rem', color:'var(--clr-muted)', marginTop:'0.1rem' }}>{v.max_capacity_kg} kg · {v.driver_id ? `Assigned` : 'Unassigned'}</p>
-                {v.description && <p style={{ fontSize:'0.7rem', color:'var(--clr-muted)' }}>{v.description}</p>}
-              </div>
-              <div style={{ display:'flex', gap:'0.35rem', flexShrink:0 }}>
-                <button title="Assign driver" onClick={() => openAssign(v)}
-                  style={{ padding:'0.28rem 0.5rem', borderRadius:7, border:'1px solid rgba(0,229,255,0.25)', background:'rgba(0,229,255,0.07)', color:'var(--clr-accent)', fontFamily:'inherit', fontSize:'0.72rem', cursor:'pointer', display:'flex', alignItems:'center', gap:'0.25rem' }}>
-                  <LuUser size={12}/> Driver
-                </button>
-                <button title="Edit" onClick={() => openEdit(v)}
-                  style={{ padding:'0.28rem 0.5rem', borderRadius:7, border:'1px solid rgba(255,255,255,0.15)', background:'rgba(255,255,255,0.05)', color:'var(--clr-text)', fontFamily:'inherit', fontSize:'0.72rem', cursor:'pointer', display:'flex', alignItems:'center' }}>
-                  <LuPencil size={12}/>
-                </button>
-                {v.is_active ? (
-                  <button title="Deactivate" onClick={() => setDeleteConfirm(v)} disabled={!!actionLoading}
-                    style={{ padding:'0.28rem 0.5rem', borderRadius:7, border:'1px solid rgba(239,68,68,0.35)', background:'rgba(239,68,68,0.08)', color:'#fca5a5', fontFamily:'inherit', fontSize:'0.72rem', cursor:'pointer', display:'flex', alignItems:'center' }}>
-                    <LuTrash2 size={12}/>
-                  </button>
-                ) : null}
-              </div>
-            </div>
-          ))}
-        </div>
+              )
+            })}
+          </div>
+        )
+      )}
+
+      {/* Driver Submissions tab */}
+      {vehicleTab === 'submissions' && (
+        subsLoading ? <LoadingSpinner /> : submissions.length === 0 ? (
+          <div className="glass-inner" style={{ padding:'2.5rem', textAlign:'center', color:'var(--clr-muted)', fontSize:'0.875rem' }}>No driver vehicle submissions yet.</div>
+        ) : (
+          <div style={{ display:'flex', flexDirection:'column', gap:'0.65rem' }}>
+            {submissions.map(v => {
+              const imgUrl = absUrl(v.vehicle_photo_url)
+              const submitterName = v.submitter_first_name ? `${v.submitter_first_name} ${v.submitter_last_name ?? ''}`.trim() : 'Unknown'
+              const sColor = v.driver_submission_status === 'APPROVED' ? '#4ade80' : v.driver_submission_status === 'REJECTED' ? '#fca5a5' : '#fbbf24'
+              return (
+                <div key={v.id} className="glass-inner" style={{ padding:'0.9rem 1rem', display:'flex', alignItems:'flex-start', gap:'0.75rem', flexWrap:'wrap' }}>
+                  <div style={{ width:42, height:42, borderRadius:10, flexShrink:0, background:'rgba(255,255,255,0.06)', border:'1px solid rgba(255,255,255,0.10)', display:'flex', alignItems:'center', justifyContent:'center', overflow:'hidden', marginTop:2 }}>
+                    {imgUrl ? <img src={imgUrl} alt="" style={{ width:'100%', height:'100%', objectFit:'cover' }}/> : <LuCar size={18} color="var(--clr-muted)"/>}
+                  </div>
+                  <div style={{ flex:1, minWidth:110 }}>
+                    <div style={{ display:'flex', alignItems:'center', gap:'0.4rem', flexWrap:'wrap' }}>
+                      <span style={{ fontWeight:700, fontSize:'0.885rem', color:'var(--clr-text)' }}>{v.plate_number}</span>
+                      <span className="badge badge-cyan" style={{ fontSize:'0.67rem' }}>{v.vehicle_type}</span>
+                      <span style={{ fontSize:'0.68rem', fontWeight:700, color:sColor, background:`${sColor}18`, border:`1px solid ${sColor}44`, borderRadius:99, padding:'0.15rem 0.5rem' }}>{v.driver_submission_status ?? 'PENDING'}</span>
+                    </div>
+                    <p style={{ fontSize:'0.73rem', color:'var(--clr-muted)', marginTop:'0.1rem' }}>By: <strong style={{ color:'var(--clr-text)' }}>{submitterName}</strong> · {v.max_capacity_kg} kg</p>
+                    {v.description && <p style={{ fontSize:'0.7rem', color:'var(--clr-muted)' }}>{v.description}</p>}
+                    {v.libre_url && <a href={absUrl(v.libre_url)!} target="_blank" rel="noopener noreferrer" style={{ fontSize:'0.65rem', display:'inline-flex', alignItems:'center', gap:'0.15rem', color:'var(--clr-accent)', textDecoration:'none', marginTop:'0.2rem' }}><LuFileText size={10}/> View Libre ↗</a>}
+                  </div>
+                  {v.driver_submission_status === 'PENDING' && (
+                    <div style={{ display:'flex', gap:'0.4rem', flexShrink:0 }}>
+                      <button onClick={() => handleReviewSubmission(v.id, 'APPROVED', v.submitted_by_driver_id ?? undefined)} disabled={!!actionLoading}
+                        style={{ padding:'0.3rem 0.65rem', borderRadius:7, border:'1px solid rgba(74,222,128,0.35)', background:'rgba(74,222,128,0.08)', color:'#4ade80', fontFamily:'inherit', fontSize:'0.72rem', fontWeight:600, cursor:'pointer', display:'flex', alignItems:'center', gap:'0.25rem' }}>
+                        {actionLoading === `review-${v.id}-APPROVED` ? <span className="spinner"/> : null}✓ Approve
+                      </button>
+                      <button onClick={() => handleReviewSubmission(v.id, 'REJECTED')} disabled={!!actionLoading}
+                        style={{ padding:'0.3rem 0.65rem', borderRadius:7, border:'1px solid rgba(239,68,68,0.35)', background:'rgba(239,68,68,0.08)', color:'#fca5a5', fontFamily:'inherit', fontSize:'0.72rem', fontWeight:600, cursor:'pointer', display:'flex', alignItems:'center', gap:'0.25rem' }}>
+                        {actionLoading === `review-${v.id}-REJECTED` ? <span className="spinner"/> : null}✕ Reject
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        )
       )}
 
       {/* Create / Edit modal */}
@@ -1038,14 +1565,15 @@ export default function AdminDashboardPage() {
     } catch { showToast('Action failed.') }
   }
 
-  const drivers  = users.filter(u => u.role_id === 3)
-  const shippers = users.filter(u => u.role_id === 2)
+  const drivers    = users.filter(u => u.role_id === 3)
+  const shippers   = users.filter(u => u.role_id === 2)
+  const staffUsers = users.filter(u => [1, 4, 5].includes(u.role_id))
 
   const navItems: { id: AdminSection; icon: React.ReactNode; label: string; count?: number }[] = [
     { id: 'overview',       icon: <LuChartBar size={16}/>,     label: 'Overview'         },
-    { id: 'users',          icon: <LuUsers size={16}/>,        label: 'All Users',       count: users.length    },
     { id: 'shippers',       icon: <LuPackage size={16}/>,      label: 'Shippers',        count: shippers.length },
     { id: 'drivers',        icon: <LuTruck size={16}/>,        label: 'Drivers',         count: drivers.length  },
+    { id: 'staff',          icon: <LuBriefcase size={16}/>,    label: 'Staff Users',     count: staffUsers.length },
     { id: 'verify-drivers', icon: <LuShieldCheck size={16}/>,  label: 'Verify Drivers'   },
     { id: 'vehicles',       icon: <LuCar size={16}/>,          label: 'Vehicles'         },
     { id: 'profile',        icon: <LuUser size={16}/>,         label: 'My Profile'       },
@@ -1142,9 +1670,9 @@ export default function AdminDashboardPage() {
         {/* Section content */}
         <main style={{ flex: 1, padding: '1.25rem 1.1rem 2rem', maxWidth: 840, width: '100%', margin: '0 auto', boxSizing: 'border-box' }}>
           {section === 'overview'       && <OverviewSection stats={stats} users={users} onNav={setSection} />}
-          {section === 'users'          && <UsersListSection title="All Users"  allUsers={users}    loading={usersLoading} onToggleActive={handleToggleActive} />}
-          {section === 'drivers'        && <UsersListSection title="Drivers"    allUsers={drivers}  loading={usersLoading} onToggleActive={handleToggleActive} />}
-          {section === 'shippers'       && <UsersListSection title="Shippers"   allUsers={shippers} loading={usersLoading} onToggleActive={handleToggleActive} />}
+          {section === 'drivers'        && <CustomerSection title="Drivers"  allUsers={drivers}    loading={usersLoading} onToggleActive={handleToggleActive} onRefresh={loadUsers} />}
+          {section === 'shippers'       && <CustomerSection title="Shippers" allUsers={shippers}   loading={usersLoading} onToggleActive={handleToggleActive} onRefresh={loadUsers} />}
+          {section === 'staff'          && <StaffManagementSection            allUsers={staffUsers} loading={usersLoading} onToggleActive={handleToggleActive} onRefresh={loadUsers} />}
           {section === 'verify-drivers' && <DriverVerificationSection />}
           {section === 'vehicles'       && <VehicleManagementSection />}
           {section === 'profile'        && <ProfileSection />}

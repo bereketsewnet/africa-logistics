@@ -9,7 +9,8 @@ import {
   LuIdCard, LuCircleCheck, LuTriangleAlert, LuCamera, LuTrash2,
   LuEye, LuEyeOff, LuLogOut, LuCheck, LuSmartphone, LuArrowLeft,
   LuLock, LuContact, LuBell, LuSun, LuMoon, LuMonitor, LuFileText,
-  LuUpload, LuRefreshCw, LuStar,
+  LuUpload, LuRefreshCw, LuStar, LuWallet, LuMessageSquare,
+  LuLifeBuoy, LuClock, LuCar, LuX,
 } from 'react-icons/lu'
 
 // ─── Sub-components ──────────────────────────────────────────────────────────
@@ -82,6 +83,28 @@ function SectionRow({
 }
 
 type Tab = 'profile' | 'security' | 'contact' | 'preferences' | 'documents'
+type DockPage = 'account' | 'orders' | 'payments' | 'messages' | 'help' | 'vehicle'
+
+function ComingSoon({ title, icon, desc }: { title: string; icon: React.ReactNode; desc: string }) {
+  return (
+    <div style={{ display:'flex', alignItems:'center', justifyContent:'center', minHeight:'70vh', padding:'2rem 1rem' }}>
+      <div className="glass page-enter" style={{ padding:'3rem 2rem', textAlign:'center', maxWidth:360, width:'100%' }}>
+        <div style={{ width:72, height:72, borderRadius:'50%', background:'rgba(0,229,255,0.07)', border:'1px solid rgba(0,229,255,0.15)', display:'flex', alignItems:'center', justifyContent:'center', margin:'0 auto 1.5rem', color:'var(--clr-muted)' }}>
+          {icon}
+        </div>
+        <h2 style={{ fontSize:'1.3rem', fontWeight:800, color:'var(--clr-text)', marginBottom:'0.4rem' }}>{title}</h2>
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:'0.4rem', color:'var(--clr-accent)', fontSize:'0.8rem', fontWeight:700, marginBottom:'0.75rem' }}>
+          <LuClock size={13}/> Coming Soon
+        </div>
+        <p style={{ fontSize:'0.84rem', color:'var(--clr-muted)', lineHeight:1.65 }}>{desc}</p>
+        <div style={{ marginTop:'1.75rem', height:3, borderRadius:99, background:'rgba(255,255,255,0.06)', overflow:'hidden' }}>
+          <div style={{ height:'100%', width:'28%', borderRadius:99, background:'linear-gradient(90deg,var(--clr-accent2),var(--clr-accent))' }}/>
+        </div>
+        <p style={{ fontSize:'0.68rem', color:'rgba(100,116,139,0.7)', marginTop:'0.4rem' }}>28% complete</p>
+      </div>
+    </div>
+  )
+}
 
 export default function DashboardPage() {
   const { user, logout, updateUser, refreshUser } = useAuth()
@@ -97,8 +120,30 @@ export default function DashboardPage() {
   const [themeLoading, setThemeLoading] = useState(false)
   const [themeMsg,   setThemeMsg]   = useState('')
 
+  // Apply theme to <html data-theme="…"> — 'dark'|'light'|'system'
+  const applyTheme = (t: 'LIGHT' | 'DARK' | 'SYSTEM') => {
+    document.documentElement.setAttribute('data-theme', t.toLowerCase())
+  }
+
+  // Load theme from user object (already fetched on login via /auth/me)
+  useEffect(() => {
+    const saved = (user?.theme_preference ?? 'SYSTEM') as 'LIGHT' | 'DARK' | 'SYSTEM'
+    setThemeVal(saved)
+    applyTheme(saved)
+  }, [user?.id])
+
+  // React to OS-level preference changes when SYSTEM theme is active
+  useEffect(() => {
+    const mq = window.matchMedia('(prefers-color-scheme: light)')
+    const handler = () => { if (themeVal === 'SYSTEM') applyTheme('SYSTEM') }
+    mq.addEventListener('change', handler)
+    return () => mq.removeEventListener('change', handler)
+  }, [themeVal])
+
   const handleSetTheme = async (t: 'LIGHT' | 'DARK' | 'SYSTEM') => {
-    setThemeVal(t); setThemeLoading(true); setThemeMsg('')
+    setThemeVal(t)
+    applyTheme(t)
+    setThemeLoading(true); setThemeMsg('')
     try {
       await apiClient.put('/profile/theme', { theme: t })
       setThemeMsg('Theme saved.')
@@ -166,6 +211,74 @@ export default function DashboardPage() {
   }
 
   type TabDef = { id: Tab; icon: React.ReactNode; label: string }
+  const [activePage, setActivePage] = useState<DockPage>('account')
+
+  // ── Driver Vehicle ─────────────────────────────────────────────────────────
+  interface DriverVehicle {
+    id: string; plate_number: string; vehicle_type: string; max_capacity_kg: number
+    vehicle_photo_url: string | null; libre_url: string | null; description: string | null
+    is_approved: number; driver_submission_status: 'PENDING' | 'APPROVED' | 'REJECTED' | null
+  }
+  const [myVehicles,   setMyVehicles]   = useState<DriverVehicle[]>([])
+  const [vehicleLoading, setVehicleLoading] = useState(false)
+  const [vehicleToast, setVehicleToast] = useState('')
+  const [showVehicleForm, setShowVehicleForm] = useState(false)
+  const [vForm, setVForm] = useState({ plate_number:'', vehicle_type:'Truck', max_capacity_kg:'', description:'' })
+  const [vPhoto, setVPhoto]   = useState('')
+  const [vLibre, setVLibre]   = useState('')
+  const [vSubmitting, setVSubmitting] = useState(false)
+  const [vFormError, setVFormError]   = useState('')
+  const vPhotoRef = useRef<HTMLInputElement>(null)
+  const vLibreRef = useRef<HTMLInputElement>(null)
+
+  const vehicleTypes = ['Truck', 'Van', 'Pickup', 'Motorcycle', 'Cargo Bike', 'Mini Truck', 'Trailer', 'Other']
+  const _apiBase = (import.meta.env.VITE_API_BASE_URL as string ?? '').replace(/\/api$/, '')
+  const absUrl = (raw: string | null | undefined) => !raw ? null : raw.startsWith('http') ? raw : `${_apiBase}${raw}`
+  const vToast = (msg: string) => { setVehicleToast(msg); setTimeout(() => setVehicleToast(''), 3000) }
+
+  const loadMyVehicles = () => {
+    if (user?.role_id !== 3) return
+    setVehicleLoading(true)
+    apiClient.get('/profile/driver/vehicles').then(r => setMyVehicles(r.data.vehicles ?? [])).catch(() => {}).finally(() => setVehicleLoading(false))
+  }
+
+  useEffect(() => {
+    if (activePage === 'vehicle') loadMyVehicles()
+  }, [activePage]) // eslint-disable-line
+
+  const handleVFileSelect = (setter: (v: string) => void) => (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]; if (!file) return
+    if (file.size > 8 * 1024 * 1024) { setVFormError('Max 8 MB'); return }
+    const reader = new FileReader()
+    reader.onload = () => setter(reader.result as string)
+    reader.readAsDataURL(file)
+    e.target.value = ''
+  }
+
+  const handleVSubmit = async (e: React.FormEvent) => {
+    e.preventDefault(); setVFormError('')
+    if (!vForm.plate_number.trim()) { setVFormError('Plate number required'); return }
+    const cap = parseFloat(vForm.max_capacity_kg)
+    if (isNaN(cap) || cap <= 0) { setVFormError('Enter valid capacity'); return }
+    setVSubmitting(true)
+    try {
+      const payload: Record<string, unknown> = {
+        plate_number: vForm.plate_number.trim(),
+        vehicle_type: vForm.vehicle_type,
+        max_capacity_kg: cap,
+        description: vForm.description.trim() || undefined,
+      }
+      if (vPhoto) payload.vehicle_photo = vPhoto
+      if (vLibre) payload.libre_file = vLibre
+      await apiClient.post('/profile/driver/vehicles', payload)
+      vToast('Vehicle submitted for review!')
+      setShowVehicleForm(false)
+      setVForm({ plate_number:'', vehicle_type:'Truck', max_capacity_kg:'', description:'' })
+      setVPhoto(''); setVLibre('')
+      loadMyVehicles()
+    } catch (err: any) { setVFormError(err.response?.data?.message ?? 'Submission failed.') }
+    finally { setVSubmitting(false) }
+  }
 
   // ── Photo ──────────────────────────────────────────────────────────────────
   const photoInput    = useRef<HTMLInputElement>(null)
@@ -340,96 +453,136 @@ export default function DashboardPage() {
   const photoUrl = user?.profile_photo_url
 
   const tabs: TabDef[] = [
-    { id: 'profile',     icon: <LuUser size={15}/>,     label: 'Profile'     },
-    { id: 'security',    icon: <LuLock size={15}/>,     label: 'Security'    },
-    { id: 'contact',     icon: <LuContact size={15}/>,  label: 'Contact'     },
-    { id: 'preferences', icon: <LuBell size={15}/>,     label: 'Prefs'       },
-    ...(user?.role_id === 3 ? [{ id: 'documents' as Tab, icon: <LuFileText size={15}/>, label: 'Docs' }] : []),
+    { id: 'profile',     icon: <LuUser size={14}/>,     label: 'Profile'     },
+    { id: 'security',    icon: <LuLock size={14}/>,     label: 'Security'    },
+    { id: 'contact',     icon: <LuContact size={14}/>,  label: 'Contact'     },
+    { id: 'preferences', icon: <LuBell size={14}/>,     label: 'Prefs'       },
+    ...(user?.role_id === 3 ? [{ id: 'documents' as Tab, icon: <LuFileText size={14}/>, label: 'Docs' }] : []),
+  ]
+
+  // ── Dock items ─────────────────────────────────────────────────────────────
+  const dockItems: { id: DockPage; icon: React.ReactNode; label: string; soon?: boolean }[] = [
+    { id: 'account',  icon: <LuUser size={19}/>,         label: 'Account'  },
+    ...(user?.role_id === 3 ? [{ id: 'vehicle' as DockPage, icon: <LuCar size={19}/>, label: 'My Vehicle' }] : []),
+    { id: 'orders',   icon: <LuPackage size={19}/>,      label: 'Orders',   soon: true },
+    { id: 'payments', icon: <LuWallet size={19}/>,       label: 'Payments', soon: true },
+    { id: 'messages', icon: <LuMessageSquare size={19}/>, label: 'Chat',    soon: true },
+    { id: 'help',     icon: <LuLifeBuoy size={19}/>,     label: 'Help',     soon: true },
   ]
 
   return (
-    <div className="aurora-bg">
+    <div className="aurora-bg" style={{ minHeight: '100vh' }}>
       <div className="aurora-orb aurora-orb-1" />
-      <div className="page-shell">
-        <div style={{ width: '100%', maxWidth: 540, display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
 
-          {/* Header card */}
-          <div className="glass page-enter" style={{ padding: '1.75rem' }}>
-            <div style={{ display: 'flex', alignItems: 'flex-start', gap: '1.1rem' }}>
-              <div style={{ position: 'relative', flexShrink: 0 }}>
-                <div style={{
-                  width: 76, height: 76, borderRadius: '50%',
-                  background: photoUrl ? 'transparent' : 'linear-gradient(135deg,var(--clr-accent2),var(--clr-accent))',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontSize: '2rem', overflow: 'hidden',
-                  border: '2.5px solid rgba(0,229,255,0.3)',
-                  boxShadow: '0 0 24px rgba(0,229,255,0.2)',
-                }}>
-                  {photoUrl
-                    ? <img src={photoUrl} alt="Profile" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                    : roleIcon}
-                </div>
-                <button
-                  title="Change photo" onClick={() => photoInput.current?.click()} disabled={photoLoading}
-                  style={{
-                    position: 'absolute', bottom: 0, right: 0, width: 26, height: 26, borderRadius: '50%',
-                    background: 'var(--clr-accent)', border: '2px solid rgba(0,0,0,0.4)',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    cursor: 'pointer', fontSize: '0.72rem', boxShadow: '0 2px 8px rgba(0,0,0,0.5)',
-                  }}
-                >
-                  {photoLoading ? '…' : <LuCamera size={13}/>}
-                </button>
-                <input ref={photoInput} type="file" accept="image/jpeg,image/png,image/webp" style={{ display: 'none' }} onChange={handlePhotoChange} />
-              </div>
+      {/* ── FLOATING BOTTOM DOCK (mobile/tablet) ── */}
+      <div className="dash-dock-mobile">
+        {dockItems.map(item => (
+          <button key={item.id}
+            onClick={() => { if (!item.soon) setActivePage(item.id) }}
+            title={item.soon ? `${item.label} — Coming Soon` : item.label}
+            className={`dock-btn${activePage === item.id ? ' dock-btn-active' : ''}${item.soon ? ' dock-btn-soon' : ''}`}
+          >
+            <span className="dock-icon">{item.icon}</span>
+            <span className="dock-label">{item.label}</span>
+            {item.soon && <span className="dock-soon-dot" />}
+          </button>
+        ))}
+      </div>
 
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap' }}>
-                  <h1 style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--clr-text)' }}>
-                    {user?.first_name} {user?.last_name}
-                  </h1>
-                  <span className="badge badge-cyan">{roleLabel}</span>
-                </div>
-                <p style={{ color: 'var(--clr-muted)', fontSize: '0.83rem', marginTop: '0.15rem' }}>{user?.phone_number}</p>
-                {user?.email && (
-                  <p style={{ color: 'var(--clr-muted)', fontSize: '0.78rem', marginTop: '0.1rem' }}>
-                    {user.email}{' '}
-                    {user.is_email_verified
-                      ? <span style={{ color: '#4ade80', fontSize: '0.72rem', display:'inline-flex', alignItems:'center', gap:'0.2rem' }}><LuCircleCheck size={12}/> verified</span>
-                      : <span style={{ color: '#fbbf24', fontSize: '0.72rem' }}>(pending)</span>}
-                  </p>
-                )}
-                {photoError && <p style={{ color: '#fca5a5', fontSize: '0.77rem', marginTop: '0.3rem' }}>{photoError}</p>}
-                {photoUrl && (
-                  <button className="btn-outline" style={{ marginTop: '0.5rem', fontSize: '0.73rem', padding: '0.28rem 0.7rem', display:'flex', alignItems:'center', gap:'0.35rem' }}
-                    onClick={handleDeletePhoto} disabled={photoLoading}>
-                    <LuTrash2 size={13}/> Remove photo
-                  </button>
-                )}
-              </div>
-
-              <button className="btn-outline" style={{ flexShrink: 0, fontSize: '0.8rem', display:'flex', alignItems:'center', gap:'0.4rem' }} onClick={handleLogout}>
-                <LuLogOut size={14}/> Sign out
-              </button>
+      {/* ── FLOATING LEFT DOCK (desktop) ── */}
+      <div className="dash-dock-desktop">
+        {/* Avatar */}
+        <div style={{ width:44, height:44, borderRadius:'50%', overflow:'hidden', flexShrink:0, background:'linear-gradient(135deg,var(--clr-accent2),var(--clr-accent))', border:'2px solid rgba(0,229,255,0.25)', display:'flex', alignItems:'center', justifyContent:'center', marginBottom:'0.2rem' }}>
+          {photoUrl ? <img src={photoUrl} alt="" style={{ width:'100%', height:'100%', objectFit:'cover' }}/> : roleIcon}
+        </div>
+        <div style={{ height:1, width:'80%', background:'rgba(255,255,255,0.08)', margin:'0.35rem 0' }}/>
+        {dockItems.map(item => (
+          <div key={item.id} className="dock-desktop-item">
+            <button
+              onClick={() => { if (!item.soon) setActivePage(item.id) }}
+              title={item.label}
+              className={`dock-btn${activePage === item.id ? ' dock-btn-active' : ''}${item.soon ? ' dock-btn-soon' : ''}`}
+              style={{ width:'100%', flexDirection:'column' }}
+            >
+              <span className="dock-icon">{item.icon}</span>
+              {item.soon && <span className="dock-soon-dot" />}
+            </button>
+            <div className="dock-tooltip">
+              {item.label}{item.soon ? <span style={{ fontSize:'0.65rem', color:'var(--clr-muted)', marginLeft:4 }}>Soon</span> : ''}
             </div>
           </div>
+        ))}
+        <div style={{ height:1, width:'80%', background:'rgba(255,255,255,0.08)', margin:'0.35rem 0' }}/>
+        {/* Sign out */}
+        <button onClick={handleLogout} title="Sign out" className="dock-btn" style={{ width:'100%', flexDirection:'column' }}>
+          <LuLogOut size={18}/>
+        </button>
+      </div>
 
-          {/* Tab bar */}
-          <div style={{ display: 'flex', gap: '0.5rem', background: 'rgba(255,255,255,0.04)', borderRadius: 14, padding: '0.35rem' }}>
-            {tabs.map(t => (
-              <button key={t.id} onClick={() => setActiveTab(t.id)} style={{
-                flex: 1, padding: '0.55rem 0.5rem', border: 'none', borderRadius: 10,
-                background: activeTab === t.id ? 'rgba(0,229,255,0.12)' : 'transparent',
-                color: activeTab === t.id ? 'var(--clr-accent)' : 'var(--clr-muted)',
-                fontFamily: 'inherit', fontSize: '0.82rem', fontWeight: 600,
-                cursor: 'pointer', transition: 'all 0.18s',
-                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem',
-                outline: activeTab === t.id ? '1px solid rgba(0,229,255,0.2)' : 'none',
-              }}>
-                <span>{t.icon}</span>{t.label}
-              </button>
-            ))}
-          </div>
+      {/* ── Main content area ── */}
+      <div className="dash-main">
+        {activePage === 'account' && (
+          <div className="page-shell" style={{ alignItems:'flex-start' }}>
+            <div style={{ width:'100%', maxWidth:560, display:'flex', flexDirection:'column', gap:'1.25rem' }}>
+
+              {/* Header card */}
+              <div className="glass page-enter" style={{ padding:'1.75rem' }}>
+                <div style={{ display:'flex', alignItems:'flex-start', gap:'1.1rem' }}>
+                  <div style={{ position:'relative', flexShrink:0 }}>
+                    <div style={{ width:76, height:76, borderRadius:'50%', background: photoUrl ? 'transparent' : 'linear-gradient(135deg,var(--clr-accent2),var(--clr-accent))', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'2rem', overflow:'hidden', border:'2.5px solid rgba(0,229,255,0.3)', boxShadow:'0 0 24px rgba(0,229,255,0.2)' }}>
+                      {photoUrl ? <img src={photoUrl} alt="Profile" style={{ width:'100%', height:'100%', objectFit:'cover' }}/> : roleIcon}
+                    </div>
+                    <button title="Change photo" onClick={() => photoInput.current?.click()} disabled={photoLoading}
+                      style={{ position:'absolute', bottom:0, right:0, width:26, height:26, borderRadius:'50%', background:'var(--clr-accent)', border:'2px solid rgba(0,0,0,0.4)', display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', boxShadow:'0 2px 8px rgba(0,0,0,0.5)' }}>
+                      {photoLoading ? '…' : <LuCamera size={13}/>}
+                    </button>
+                    <input ref={photoInput} type="file" accept="image/jpeg,image/png,image/webp" style={{ display:'none' }} onChange={handlePhotoChange} />
+                  </div>
+                  <div style={{ flex:1, minWidth:0 }}>
+                    <div style={{ display:'flex', alignItems:'center', gap:'0.6rem', flexWrap:'wrap' }}>
+                      <h1 style={{ fontSize:'1.2rem', fontWeight:800, color:'var(--clr-text)' }}>{user?.first_name} {user?.last_name}</h1>
+                      <span className="badge badge-cyan">{roleLabel}</span>
+                    </div>
+                    <p style={{ color:'var(--clr-muted)', fontSize:'0.83rem', marginTop:'0.15rem' }}>{user?.phone_number}</p>
+                    {user?.email && (
+                      <p style={{ color:'var(--clr-muted)', fontSize:'0.78rem', marginTop:'0.1rem' }}>
+                        {user.email}{' '}
+                        {user.is_email_verified
+                          ? <span style={{ color:'#4ade80', fontSize:'0.72rem', display:'inline-flex', alignItems:'center', gap:'0.2rem' }}><LuCircleCheck size={12}/> verified</span>
+                          : <span style={{ color:'#fbbf24', fontSize:'0.72rem' }}>(pending)</span>}
+                      </p>
+                    )}
+                    {photoError && <p style={{ color:'#fca5a5', fontSize:'0.77rem', marginTop:'0.3rem' }}>{photoError}</p>}
+                    {photoUrl && (
+                      <button className="btn-outline" style={{ marginTop:'0.5rem', fontSize:'0.73rem', padding:'0.28rem 0.7rem', display:'flex', alignItems:'center', gap:'0.35rem' }}
+                        onClick={handleDeletePhoto} disabled={photoLoading}>
+                        <LuTrash2 size={13}/> Remove photo
+                      </button>
+                    )}
+                  </div>
+                  {/* Sign out only visible on mobile (desktop uses dock) */}
+                  <button className="btn-outline dash-signout-mobile" style={{ flexShrink:0, fontSize:'0.78rem', display:'flex', alignItems:'center', gap:'0.35rem' }} onClick={handleLogout}>
+                    <LuLogOut size={14}/>
+                  </button>
+                </div>
+              </div>
+
+              {/* Account sub-tabs */}
+              <div style={{ display:'flex', gap:'0.4rem', background:'rgba(255,255,255,0.04)', borderRadius:14, padding:'0.32rem' }}>
+                {tabs.map(t => (
+                  <button key={t.id} onClick={() => setActiveTab(t.id)} style={{
+                    flex:1, padding:'0.5rem 0.35rem', border:'none', borderRadius:10,
+                    background: activeTab === t.id ? 'rgba(0,229,255,0.12)' : 'transparent',
+                    color: activeTab === t.id ? 'var(--clr-accent)' : 'var(--clr-muted)',
+                    fontFamily:'inherit', fontSize:'0.78rem', fontWeight:600,
+                    cursor:'pointer', transition:'all 0.18s',
+                    display:'flex', alignItems:'center', justifyContent:'center', gap:'0.35rem',
+                    outline: activeTab === t.id ? '1px solid rgba(0,229,255,0.2)' : 'none',
+                  }}>
+                    {t.icon}{t.label}
+                  </button>
+                ))}
+              </div>
 
           {/* Profile tab */}
           {activeTab === 'profile' && (
@@ -676,7 +829,9 @@ export default function DashboardPage() {
                     { key: 'license',     label: "Driver's License",        urlKey: 'license_url',     statusKey: 'license_status'     },
                     { key: 'libre',       label: 'Libre (Vehicle Ownership)', urlKey: 'libre_url',     statusKey: 'libre_status'       },
                   ] as { key: 'national_id'|'license'|'libre'; label: string; urlKey: string; statusKey: string }[]).map(doc => {
-                    const url    = driverProfile?.[doc.urlKey] as string | null
+                    const rawUrl = driverProfile?.[doc.urlKey] as string | null
+                    const apiBase = (import.meta.env.VITE_API_BASE_URL as string ?? '').replace(/\/api$/, '')
+                    const url = rawUrl ? (rawUrl.startsWith('http') ? rawUrl : `${apiBase}${rawUrl}`) : null
                     const status = (driverProfile?.[doc.statusKey] ?? 'NOT UPLOADED') as string
                     const statusColor = status === 'APPROVED' ? '#4ade80' : status === 'REJECTED' ? '#fca5a5' : status === 'PENDING' ? '#fbbf24' : 'var(--clr-muted)'
                     const inputId = `doc-${doc.key}`
@@ -719,7 +874,157 @@ export default function DashboardPage() {
           <p style={{ textAlign: 'center', fontSize: '0.73rem', color: 'var(--clr-muted)', paddingBottom: '1rem' }}>
             Africa Logistics Platform · v1.0
           </p>
-        </div>
+            </div>
+          </div>
+        )}
+
+        {activePage === 'orders'   && <ComingSoon title="Orders" icon={<LuPackage size={30}/>} desc="Track and manage your logistics orders, delivery timelines and status updates in real time." />}
+        {activePage === 'payments' && <ComingSoon title="Payments" icon={<LuWallet size={30}/>} desc="View invoices, payment history and manage your billing information securely." />}
+        {activePage === 'messages' && <ComingSoon title="Messages" icon={<LuMessageSquare size={30}/>} desc="Communicate directly with drivers and dispatchers through the in-app secure messaging channel." />}
+        {activePage === 'help'     && <ComingSoon title="Help & Support" icon={<LuLifeBuoy size={30}/>} desc="Access guides, FAQs and contact customer support for any platform-related issues." />}
+
+        {/* ── My Vehicle (drivers only) ── */}
+        {activePage === 'vehicle' && user?.role_id === 3 && (
+          <div className="page-shell" style={{ alignItems:'flex-start' }}>
+            <div style={{ width:'100%', maxWidth:560, display:'flex', flexDirection:'column', gap:'1.25rem' }}>
+              <div className="glass page-enter" style={{ padding:'1.5rem' }}>
+                <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'1rem', gap:'0.5rem', flexWrap:'wrap' }}>
+                  <h2 style={{ fontSize:'1rem', fontWeight:800, color:'var(--clr-text)', display:'flex', alignItems:'center', gap:'0.45rem' }}><LuCar size={17}/> My Vehicle</h2>
+                  <div style={{ display:'flex', gap:'0.4rem' }}>
+                    <button onClick={loadMyVehicles} disabled={vehicleLoading}
+                      style={{ display:'flex', alignItems:'center', gap:'0.35rem', padding:'0.3rem 0.65rem', borderRadius:8, border:'1px solid rgba(255,255,255,0.1)', background:'rgba(255,255,255,0.04)', color:'var(--clr-muted)', fontFamily:'inherit', fontSize:'0.72rem', fontWeight:600, cursor:'pointer' }}>
+                      <LuRefreshCw size={12}/> Refresh
+                    </button>
+                    {!showVehicleForm && (
+                      <button onClick={() => { setShowVehicleForm(true); setVFormError('') }}
+                        style={{ display:'flex', alignItems:'center', gap:'0.35rem', padding:'0.3rem 0.75rem', borderRadius:8, border:'none', background:'var(--clr-accent)', color:'#080b14', fontFamily:'inherit', fontSize:'0.75rem', fontWeight:700, cursor:'pointer' }}>
+                        + Submit Vehicle
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                <p style={{ fontSize:'0.8rem', color:'var(--clr-muted)', marginBottom:'1rem', lineHeight:1.6 }}>
+                  Own a vehicle? Submit it for admin approval. Once approved, it will be assigned to your driver profile.
+                </p>
+
+                {vehicleLoading ? (
+                  <div style={{ display:'flex', alignItems:'center', gap:'0.5rem', padding:'1.5rem', color:'var(--clr-muted)', fontSize:'0.875rem', justifyContent:'center' }}>
+                    <span className="spinner"/> Loading…
+                  </div>
+                ) : myVehicles.length === 0 && !showVehicleForm ? (
+                  <div style={{ padding:'2rem', textAlign:'center', color:'var(--clr-muted)', fontSize:'0.875rem', background:'rgba(255,255,255,0.02)', borderRadius:12, border:'1px dashed rgba(255,255,255,0.08)' }}>
+                    <LuCar size={32} style={{ opacity:0.3, display:'block', margin:'0 auto 0.75rem' }}/>
+                    No vehicles submitted yet.<br/>
+                    <span style={{ fontSize:'0.78rem' }}>Click <strong style={{ color:'var(--clr-accent)' }}>Submit Vehicle</strong> above to get started.</span>
+                  </div>
+                ) : (
+                  <div style={{ display:'flex', flexDirection:'column', gap:'0.65rem' }}>
+                    {myVehicles.map(v => {
+                      const st = v.driver_submission_status
+                      const sColor = st === 'APPROVED' ? '#4ade80' : st === 'REJECTED' ? '#fca5a5' : '#fbbf24'
+                      const imgUrl = absUrl(v.vehicle_photo_url)
+                      return (
+                        <div key={v.id} className="glass-inner" style={{ padding:'0.9rem 1rem', display:'flex', alignItems:'flex-start', gap:'0.75rem' }}>
+                          <div style={{ width:44, height:44, borderRadius:10, flexShrink:0, background:'rgba(255,255,255,0.06)', border:'1px solid rgba(255,255,255,0.1)', display:'flex', alignItems:'center', justifyContent:'center', overflow:'hidden' }}>
+                            {imgUrl ? <img src={imgUrl} alt="" style={{ width:'100%', height:'100%', objectFit:'cover' }}/> : <LuCar size={20} color="var(--clr-muted)"/>}
+                          </div>
+                          <div style={{ flex:1, minWidth:0 }}>
+                            <div style={{ display:'flex', alignItems:'center', gap:'0.4rem', flexWrap:'wrap', marginBottom:'0.2rem' }}>
+                              <span style={{ fontWeight:700, fontSize:'0.9rem', color:'var(--clr-text)' }}>{v.plate_number}</span>
+                              <span className="badge badge-cyan" style={{ fontSize:'0.67rem' }}>{v.vehicle_type}</span>
+                              <span style={{ fontSize:'0.68rem', fontWeight:700, color:sColor, background:`${sColor}18`, border:`1px solid ${sColor}44`, borderRadius:99, padding:'0.15rem 0.5rem' }}>
+                                {st ?? 'PENDING'}
+                              </span>
+                            </div>
+                            <p style={{ fontSize:'0.73rem', color:'var(--clr-muted)' }}>{v.max_capacity_kg} kg{v.description ? ` · ${v.description}` : ''}</p>
+                            {v.libre_url && (
+                              <a href={absUrl(v.libre_url)!} target="_blank" rel="noopener noreferrer" style={{ fontSize:'0.7rem', color:'var(--clr-accent)', display:'inline-flex', alignItems:'center', gap:'0.2rem', marginTop:'0.2rem', textDecoration:'none' }}>
+                                <LuFileText size={11}/> View Libre ↗
+                              </a>
+                            )}
+                            {st === 'PENDING' && (
+                              <p style={{ fontSize:'0.73rem', color:'#fbbf24', marginTop:'0.25rem', display:'flex', alignItems:'center', gap:'0.3rem' }}>
+                                <LuClock size={11}/> Under review by admin
+                              </p>
+                            )}
+                            {st === 'APPROVED' && (
+                              <p style={{ fontSize:'0.73rem', color:'#4ade80', marginTop:'0.25rem', display:'flex', alignItems:'center', gap:'0.3rem' }}>
+                                <LuCircleCheck size={11}/> Approved — vehicle assigned to your profile
+                              </p>
+                            )}
+                            {st === 'REJECTED' && (
+                              <p style={{ fontSize:'0.73rem', color:'#fca5a5', marginTop:'0.25rem', display:'flex', alignItems:'center', gap:'0.3rem' }}>
+                                <LuTriangleAlert size={11}/> Rejected — you may submit a new vehicle
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+
+                {/* Submit vehicle form */}
+                {showVehicleForm && (
+                  <div style={{ marginTop:'1rem', borderTop:'1px solid rgba(255,255,255,0.06)', paddingTop:'1rem' }}>
+                    <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'0.85rem' }}>
+                      <h3 style={{ fontSize:'0.9rem', fontWeight:700, color:'var(--clr-text)' }}>Submit Your Vehicle</h3>
+                      <button onClick={() => { setShowVehicleForm(false); setVFormError(''); setVPhoto(''); setVLibre('') }}
+                        style={{ background:'none', border:'none', cursor:'pointer', color:'var(--clr-muted)', padding:0, display:'flex', alignItems:'center' }}>
+                        <LuX size={16}/>
+                      </button>
+                    </div>
+                    <form onSubmit={handleVSubmit} style={{ display:'flex', flexDirection:'column', gap:'0.75rem' }}>
+                      {vFormError && <div className="alert alert-error"><LuTriangleAlert size={13}/> {vFormError}</div>}
+                      <div className="input-wrap">
+                        <input id="v-plate" type="text" placeholder=" " value={vForm.plate_number} onChange={e => setVForm(f => ({ ...f, plate_number: e.target.value }))} required/>
+                        <label htmlFor="v-plate">Plate Number *</label>
+                      </div>
+                      <div className="input-wrap">
+                        <select id="v-type" value={vForm.vehicle_type} onChange={e => setVForm(f => ({ ...f, vehicle_type: e.target.value }))}
+                          style={{ background:'transparent', border:'none', color:'var(--clr-text)', fontFamily:'inherit', fontSize:'0.9rem', width:'100%', outline:'none', paddingTop:'1.1rem' }}>
+                          {vehicleTypes.map(t => <option key={t} value={t} style={{ background:'#0f172a' }}>{t}</option>)}
+                        </select>
+                        <label htmlFor="v-type" style={{ top:'0.35rem', fontSize:'0.7rem', color:'var(--clr-accent)' }}>Vehicle Type</label>
+                      </div>
+                      <div className="input-wrap">
+                        <input id="v-cap" type="number" placeholder=" " min="1" step="1" value={vForm.max_capacity_kg} onChange={e => setVForm(f => ({ ...f, max_capacity_kg: e.target.value }))} required/>
+                        <label htmlFor="v-cap">Max Capacity (kg) *</label>
+                      </div>
+                      <div className="input-wrap">
+                        <input id="v-desc" type="text" placeholder=" " value={vForm.description} onChange={e => setVForm(f => ({ ...f, description: e.target.value }))}/>
+                        <label htmlFor="v-desc">Description (optional)</label>
+                      </div>
+                      {/* Photo */}
+                      <label htmlFor="v-photo" style={{ display:'flex', alignItems:'center', gap:'0.5rem', padding:'0.6rem', borderRadius:10, border:'1px dashed rgba(255,255,255,0.18)', color: vPhoto ? 'var(--clr-accent)' : 'var(--clr-muted)', cursor:'pointer', fontSize:'0.82rem', fontWeight:600, background:'rgba(255,255,255,0.02)' }}>
+                        <LuCamera size={14}/> {vPhoto ? 'Vehicle photo selected ✓' : 'Add vehicle photo (optional)'}
+                      </label>
+                      <input id="v-photo" ref={vPhotoRef} type="file" accept="image/jpeg,image/png,image/webp" style={{ display:'none' }} onChange={handleVFileSelect(setVPhoto)}/>
+                      {/* Libre */}
+                      <label htmlFor="v-libre" style={{ display:'flex', alignItems:'center', gap:'0.5rem', padding:'0.6rem', borderRadius:10, border:'1px dashed rgba(255,255,255,0.18)', color: vLibre ? 'var(--clr-accent)' : 'var(--clr-muted)', cursor:'pointer', fontSize:'0.82rem', fontWeight:600, background:'rgba(255,255,255,0.02)' }}>
+                        <LuFileText size={14}/> {vLibre ? 'Libre document selected ✓' : 'Upload libre document (optional)'}
+                      </label>
+                      <input id="v-libre" ref={vLibreRef} type="file" accept="image/jpeg,image/png,image/webp,application/pdf" style={{ display:'none' }} onChange={handleVFileSelect(setVLibre)}/>
+                      <div style={{ display:'flex', gap:'0.6rem' }}>
+                        <button type="button" className="btn-outline" style={{ flex:1 }} onClick={() => { setShowVehicleForm(false); setVFormError(''); setVPhoto(''); setVLibre('') }}>Cancel</button>
+                        <button type="submit" className="btn-primary" style={{ flex:2 }} disabled={vSubmitting}>
+                          {vSubmitting ? <Spinner text="Submitting…"/> : 'Submit for Review'}
+                        </button>
+                      </div>
+                    </form>
+                  </div>
+                )}
+
+                {vehicleToast && (
+                  <div style={{ position:'fixed', bottom:'5.5rem', right:'1.25rem', zIndex:200, background:'rgba(0,229,255,0.12)', border:'1px solid rgba(0,229,255,0.25)', color:'var(--clr-text)', padding:'0.65rem 1.1rem', borderRadius:12, fontSize:'0.85rem', fontWeight:600, backdropFilter:'blur(12px)' }}>
+                    {vehicleToast}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {showDeleteModal && (
