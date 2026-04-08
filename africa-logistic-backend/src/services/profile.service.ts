@@ -41,6 +41,7 @@ export interface NotificationPrefsRow extends RowDataPacket {
   sms_enabled: number
   email_enabled: number
   browser_enabled: number
+  telegram_enabled: number
   order_updates: number
   promotions: number
   updated_at: string
@@ -266,6 +267,7 @@ export async function upsertNotificationPrefs(
     sms_enabled?: number
     email_enabled?: number
     browser_enabled?: number
+    telegram_enabled?: number
     order_updates?: number
     promotions?: number
   }
@@ -273,19 +275,21 @@ export async function upsertNotificationPrefs(
   // Build insert with defaults, update on duplicate
   await db.query(
     `INSERT INTO notification_preferences
-       (user_id, sms_enabled, email_enabled, browser_enabled, order_updates, promotions)
-     VALUES (?, ?, ?, ?, ?, ?)
+       (user_id, sms_enabled, email_enabled, browser_enabled, telegram_enabled, order_updates, promotions)
+     VALUES (?, ?, ?, ?, ?, ?, ?)
      ON DUPLICATE KEY UPDATE
-       sms_enabled     = VALUES(sms_enabled),
-       email_enabled   = VALUES(email_enabled),
-       browser_enabled = VALUES(browser_enabled),
-       order_updates   = VALUES(order_updates),
-       promotions      = VALUES(promotions)`,
+       sms_enabled      = VALUES(sms_enabled),
+       email_enabled    = VALUES(email_enabled),
+       browser_enabled  = VALUES(browser_enabled),
+       telegram_enabled = VALUES(telegram_enabled),
+       order_updates    = VALUES(order_updates),
+       promotions       = VALUES(promotions)`,
     [
       userId,
       prefs.sms_enabled     ?? 1,
       prefs.email_enabled   ?? 1,
       prefs.browser_enabled ?? 1,
+      prefs.telegram_enabled ?? 1,
       prefs.order_updates   ?? 1,
       prefs.promotions      ?? 0,
     ]

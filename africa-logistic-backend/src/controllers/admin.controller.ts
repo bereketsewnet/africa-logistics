@@ -1,6 +1,7 @@
 import { FastifyRequest, FastifyReply } from 'fastify'
 import bcrypt from 'bcrypt'
 import { v4 as uuidv4 } from 'uuid'
+import twilio from 'twilio'
 import {
   listDriversForAdmin,
   reviewDriverDocument,
@@ -54,6 +55,23 @@ interface UpdateVehicleBody {
 
 interface AssignDriverBody {
   driver_id: string
+}
+
+// ─── SMS Helper ───────────────────────────────────────────────────────────────
+
+async function sendRejectionSms(phone: string, message: string): Promise<void> {
+  const sid  = process.env.TWILIO_ACCOUNT_SID
+  const token = process.env.TWILIO_AUTH_TOKEN
+  const from  = process.env.TWILIO_PHONE_NUMBER
+  if (!sid || !token || !from || sid.startsWith('ACxxxxx')) {
+    console.log(`📱 [SMS stub] To ${phone}: ${message}`)
+    return
+  }
+  try {
+    await twilio(sid, token).messages.create({ body: message, from, to: phone })
+  } catch (err) {
+    console.error('Twilio SMS failed:', err)
+  }
 }
 
 // ─── Helper ───────────────────────────────────────────────────────────────────
@@ -111,9 +129,11 @@ export async function adminGetUsersHandler(
       u.created_at,
       u.profile_photo_url,
       r.id        AS role_id,
-      r.role_name AS role_name
+      r.role_name AS role_name,
+      dp.is_verified AS is_driver_verified
     FROM users u
     LEFT JOIN roles r ON r.id = u.role_id
+    LEFT JOIN driver_profiles dp ON dp.user_id = u.id
     ORDER BY u.created_at DESC
   `)
 
@@ -233,6 +253,21 @@ export async function adminReviewDocumentHandler(
 
   await reviewDriverDocument(db, request.params.id, document_type, action, reason ?? null, caller.id)
 
+  // Send SMS to driver when a document is rejected
+  if (action === 'REJECTED') {
+    const [userRows] = await db.query<any[]>(
+      'SELECT u.phone_number FROM users u JOIN driver_profiles dp ON dp.user_id = u.id WHERE dp.user_id = ? LIMIT 1',
+      [request.params.id]
+    )
+    if (userRows[0]?.phone_number) {
+      const docLabel: Record<string, string> = { national_id: 'National ID', license: "Driver's License", libre: 'Libre document' }
+      await sendRejectionSms(
+        userRows[0].phone_number,
+        `Africa Logistics: Your ${docLabel[document_type] ?? document_type} was rejected. Reason: ${reason}. Please re-upload via the app.`
+      )
+    }
+  }
+
   const updated = await getDriverProfile(db, request.params.id)
   return reply.send({
     success: true,
@@ -289,6 +324,19 @@ export async function adminRejectDriverHandler(
   if (!profile) return reply.status(404).send({ success: false, message: 'Driver profile not found.' })
 
   await rejectDriver(db, request.params.id, reason)
+
+  // Send SMS to driver with rejection reason
+  const [userRows] = await db.query<any[]>(
+    'SELECT u.phone_number FROM users u JOIN driver_profiles dp ON dp.user_id = u.id WHERE dp.user_id = ? LIMIT 1',
+    [request.params.id]
+  )
+  if (userRows[0]?.phone_number) {
+    await sendRejectionSms(
+      userRows[0].phone_number,
+      `Africa Logistics: Your driver application has been rejected. Reason: ${reason}. Please contact support if you have questions.`
+    )
+  }
+
   return reply.send({ success: true, message: 'Driver rejected.', reason })
 }
 

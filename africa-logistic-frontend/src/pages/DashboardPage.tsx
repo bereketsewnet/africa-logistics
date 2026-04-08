@@ -10,7 +10,7 @@ import {
   LuEye, LuEyeOff, LuLogOut, LuCheck, LuSmartphone, LuArrowLeft,
   LuLock, LuContact, LuBell, LuSun, LuMoon, LuMonitor, LuFileText,
   LuUpload, LuRefreshCw, LuStar, LuWallet, LuMessageSquare,
-  LuLifeBuoy, LuClock, LuCar, LuX,
+  LuLifeBuoy, LuClock, LuCar, LuX, LuChevronLeft, LuChevronRight,
 } from 'react-icons/lu'
 
 // ─── Sub-components ──────────────────────────────────────────────────────────
@@ -83,7 +83,7 @@ function SectionRow({
 }
 
 type Tab = 'profile' | 'security' | 'contact' | 'preferences' | 'documents'
-type DockPage = 'account' | 'orders' | 'payments' | 'messages' | 'help' | 'vehicle'
+type DockPage = 'account' | 'orders' | 'payments' | 'messages' | 'help' | 'vehicle' | 'shipments'
 
 function ComingSoon({ title, icon, desc }: { title: string; icon: React.ReactNode; desc: string }) {
   return (
@@ -153,7 +153,7 @@ export default function DashboardPage() {
   }
 
   // ── Notification preferences ────────────────────────────────────────────────
-  const [notifPrefs, setNotifPrefs] = useState({ sms_enabled: 1, email_enabled: 1, browser_enabled: 1, order_updates: 1, promotions: 0 })
+  const [notifPrefs, setNotifPrefs] = useState({ sms_enabled: 1, email_enabled: 1, browser_enabled: 1, telegram_enabled: 1, order_updates: 1, promotions: 0 })
   const [notifLoading, setNotifLoading] = useState(false)
   const [notifMsg,   setNotifMsg]   = useState('')
 
@@ -169,8 +169,8 @@ export default function DashboardPage() {
     try {
       await apiClient.put('/profile/notifications', {
         sms_enabled: !!next.sms_enabled, email_enabled: !!next.email_enabled,
-        browser_enabled: !!next.browser_enabled, order_updates: !!next.order_updates,
-        promotions: !!next.promotions,
+        browser_enabled: !!next.browser_enabled, telegram_enabled: !!next.telegram_enabled,
+        order_updates: !!next.order_updates, promotions: !!next.promotions,
       })
       setNotifMsg('Preferences saved.')
       setTimeout(() => setNotifMsg(''), 2500)
@@ -212,6 +212,21 @@ export default function DashboardPage() {
 
   type TabDef = { id: Tab; icon: React.ReactNode; label: string }
   const [activePage, setActivePage] = useState<DockPage>('account')
+
+  // ── Sidebar collapse state ─────────────────────────────────────────────────
+  const SIDEBAR_KEY = 'dash_sidebar_v2'
+  const [sidebarOpen, setSidebarOpen] = useState(() => {
+    const saved = localStorage.getItem(SIDEBAR_KEY)
+    if (saved !== null) return saved === 'true'
+    // Default: collapsed on phones only
+    if (typeof window !== 'undefined') return window.innerWidth > 600
+    return true
+  })
+  const toggleSidebar = () => {
+    const next = !sidebarOpen
+    setSidebarOpen(next)
+    localStorage.setItem(SIDEBAR_KEY, String(next))
+  }
 
   // ── Driver Vehicle ─────────────────────────────────────────────────────────
   interface DriverVehicle {
@@ -462,65 +477,67 @@ export default function DashboardPage() {
 
   // ── Dock items ─────────────────────────────────────────────────────────────
   const dockItems: { id: DockPage; icon: React.ReactNode; label: string; soon?: boolean }[] = [
-    { id: 'account',  icon: <LuUser size={19}/>,         label: 'Account'  },
+    { id: 'account',   icon: <LuUser size={19}/>,          label: 'My Account'    },
     ...(user?.role_id === 3 ? [{ id: 'vehicle' as DockPage, icon: <LuCar size={19}/>, label: 'My Vehicle' }] : []),
-    { id: 'orders',   icon: <LuPackage size={19}/>,      label: 'Orders',   soon: true },
-    { id: 'payments', icon: <LuWallet size={19}/>,       label: 'Payments', soon: true },
-    { id: 'messages', icon: <LuMessageSquare size={19}/>, label: 'Chat',    soon: true },
-    { id: 'help',     icon: <LuLifeBuoy size={19}/>,     label: 'Help',     soon: true },
+    ...(user?.role_id === 2 ? [{ id: 'shipments' as DockPage, icon: <LuPackage size={19}/>, label: 'My Shipments' }] : []),
+    { id: 'orders',    icon: <LuPackage size={19}/>,       label: 'My Orders',    soon: true },
+    { id: 'payments',  icon: <LuWallet size={19}/>,        label: 'Payments',     soon: true },
+    { id: 'messages',  icon: <LuMessageSquare size={19}/>, label: 'Messages',     soon: true },
+    { id: 'help',      icon: <LuLifeBuoy size={19}/>,      label: 'Help & Support', soon: true },
   ]
 
   return (
     <div className="aurora-bg" style={{ minHeight: '100vh' }}>
       <div className="aurora-orb aurora-orb-1" />
 
-      {/* ── FLOATING BOTTOM DOCK (mobile/tablet) ── */}
-      <div className="dash-dock-mobile">
-        {dockItems.map(item => (
-          <button key={item.id}
-            onClick={() => { if (!item.soon) setActivePage(item.id) }}
-            title={item.soon ? `${item.label} — Coming Soon` : item.label}
-            className={`dock-btn${activePage === item.id ? ' dock-btn-active' : ''}${item.soon ? ' dock-btn-soon' : ''}`}
-          >
-            <span className="dock-icon">{item.icon}</span>
-            <span className="dock-label">{item.label}</span>
-            {item.soon && <span className="dock-soon-dot" />}
-          </button>
-        ))}
-      </div>
-
-      {/* ── FLOATING LEFT DOCK (desktop) ── */}
-      <div className="dash-dock-desktop">
-        {/* Avatar */}
-        <div style={{ width:44, height:44, borderRadius:'50%', overflow:'hidden', flexShrink:0, background:'linear-gradient(135deg,var(--clr-accent2),var(--clr-accent))', border:'2px solid rgba(0,229,255,0.25)', display:'flex', alignItems:'center', justifyContent:'center', marginBottom:'0.2rem' }}>
-          {photoUrl ? <img src={photoUrl} alt="" style={{ width:'100%', height:'100%', objectFit:'cover' }}/> : roleIcon}
-        </div>
-        <div style={{ height:1, width:'80%', background:'rgba(255,255,255,0.08)', margin:'0.35rem 0' }}/>
-        {dockItems.map(item => (
-          <div key={item.id} className="dock-desktop-item">
-            <button
-              onClick={() => { if (!item.soon) setActivePage(item.id) }}
-              title={item.label}
-              className={`dock-btn${activePage === item.id ? ' dock-btn-active' : ''}${item.soon ? ' dock-btn-soon' : ''}`}
-              style={{ width:'100%', flexDirection:'column' }}
-            >
-              <span className="dock-icon">{item.icon}</span>
-              {item.soon && <span className="dock-soon-dot" />}
-            </button>
-            <div className="dock-tooltip">
-              {item.label}{item.soon ? <span style={{ fontSize:'0.65rem', color:'var(--clr-muted)', marginLeft:4 }}>Soon</span> : ''}
-            </div>
+      {/* ── COLLAPSIBLE LEFT SIDEBAR ── */}
+      <aside className={`dash-sidebar${sidebarOpen ? ' sidebar-open' : ''}`}>
+        {/* Top: avatar + user info */}
+        <div className="sidebar-top">
+          <div className="sidebar-avatar">
+            {photoUrl ? <img src={photoUrl} alt="" style={{ width:'100%', height:'100%', objectFit:'cover' }}/> : roleIcon}
           </div>
-        ))}
-        <div style={{ height:1, width:'80%', background:'rgba(255,255,255,0.08)', margin:'0.35rem 0' }}/>
-        {/* Sign out */}
-        <button onClick={handleLogout} title="Sign out" className="dock-btn" style={{ width:'100%', flexDirection:'column' }}>
-          <LuLogOut size={18}/>
+          <div className="sidebar-user-info">
+            <p className="sidebar-user-name">{user?.first_name} {user?.last_name}</p>
+            <span className="badge badge-cyan" style={{ fontSize:'0.6rem', padding:'0.1rem 0.45rem' }}>{roleLabel}</span>
+          </div>
+        </div>
+
+        {/* Collapse toggle */}
+        <button onClick={toggleSidebar} className="sidebar-toggle-btn" title={sidebarOpen ? 'Collapse sidebar' : 'Expand sidebar'}>
+          {sidebarOpen ? <LuChevronLeft size={13}/> : <LuChevronRight size={13}/>}
         </button>
-      </div>
+
+        <div className="sidebar-divider"/>
+
+        {/* Nav items */}
+        <nav className="sidebar-nav">
+          {dockItems.map(item => (
+            <button
+              key={item.id}
+              onClick={() => { if (!item.soon) { setActivePage(item.id); if (window.innerWidth < 601) setSidebarOpen(false) } }}
+              title={item.soon ? `${item.label} — Coming Soon` : ''}
+              className={`sidebar-nav-btn${activePage === item.id ? ' active' : ''}${item.soon ? ' soon' : ''}`}
+            >
+              <span className="sidebar-icon">{item.icon}</span>
+              <span className="sidebar-label">{item.label}</span>
+              {item.soon && <span className="sidebar-soon-dot"/>}
+            </button>
+          ))}
+        </nav>
+
+        <div style={{ flex: 1 }}/>
+        <div className="sidebar-divider"/>
+
+        {/* Logout */}
+        <button onClick={handleLogout} className="sidebar-nav-btn" style={{ margin:'0.3rem 0.4rem 0.6rem' }} title="Sign out">
+          <span className="sidebar-icon"><LuLogOut size={18}/></span>
+          <span className="sidebar-label">Sign Out</span>
+        </button>
+      </aside>
 
       {/* ── Main content area ── */}
-      <div className="dash-main">
+      <div className={`dash-main${sidebarOpen ? ' sidebar-expanded' : ''}`}>
         {activePage === 'account' && (
           <div className="page-shell" style={{ alignItems:'flex-start' }}>
             <div style={{ width:'100%', maxWidth:560, display:'flex', flexDirection:'column', gap:'1.25rem' }}>
@@ -587,6 +604,29 @@ export default function DashboardPage() {
           {/* Profile tab */}
           {activeTab === 'profile' && (
             <div className="glass step-enter" style={{ padding: '1.75rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+              {user?.role_id === 3 && driverProfile && driverProfile.is_verified !== 1 && (() => {
+                const completedDocs = (driverProfile.national_id_url ? 1 : 0) + (driverProfile.license_url ? 1 : 0) + (driverProfile.libre_url ? 1 : 0)
+                const pct = Math.round((completedDocs / 3) * 100)
+                return (
+                  <div className="glass-inner" style={{ padding:'1rem', display:'flex', flexDirection:'column', gap:'0.6rem', borderLeft:'3px solid var(--clr-accent)' }}>
+                    <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+                      <p style={{ fontWeight:700, fontSize:'0.875rem', color:'var(--clr-text)', display:'flex', alignItems:'center', gap:'0.4rem' }}>
+                        <LuUpload size={14} color="var(--clr-accent)"/> Verification Progress
+                      </p>
+                      <span style={{ fontSize:'0.75rem', color:'var(--clr-muted)', fontWeight:600 }}>{completedDocs}/3 docs</span>
+                    </div>
+                    <div style={{ height:5, borderRadius:99, background:'rgba(255,255,255,0.08)', overflow:'hidden' }}>
+                      <div style={{ height:'100%', width:`${pct}%`, borderRadius:99, background:'linear-gradient(90deg,var(--clr-accent2),var(--clr-accent))', transition:'width 0.4s' }}/>
+                    </div>
+                    <p style={{ fontSize:'0.78rem', color:'var(--clr-muted)', lineHeight:1.5 }}>
+                      {completedDocs === 0 ? 'Upload your verification documents to get started.' : `${completedDocs} of 3 documents uploaded — ${3 - completedDocs} remaining.`}
+                    </p>
+                    <button onClick={() => setActiveTab('documents')} style={{ alignSelf:'flex-start', padding:'0.32rem 0.8rem', borderRadius:8, border:'1px solid rgba(0,229,255,0.25)', background:'rgba(0,229,255,0.07)', color:'var(--clr-accent)', fontFamily:'inherit', fontSize:'0.78rem', fontWeight:700, cursor:'pointer' }}>
+                      Go to Documents →
+                    </button>
+                  </div>
+                )
+              })()}
               <h2 style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--clr-text)', display:'flex', alignItems:'center', gap:'0.45rem' }}><LuUser size={16}/> Profile Information</h2>
               <div className="glass-inner" style={{ padding: '1rem', display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
                 <InfoRow icon={<LuIdCard size={15}/>}       label="User ID" value={user?.id ? user.id.slice(0, 8) + '…' : '—'} />
@@ -764,7 +804,8 @@ export default function DashboardPage() {
                     { key: 'sms_enabled',     icon: <LuSmartphone size={15}/>, label: 'SMS Alerts',            sub: 'Critical updates only — order status, OTPs' },
                     { key: 'email_enabled',   icon: <LuMail size={15}/>,       label: 'Email Notifications',   sub: 'Order summaries, receipts, account alerts' },
                     { key: 'browser_enabled', icon: <LuBell size={15}/>,       label: 'Browser Notifications', sub: 'Real-time web push alerts while browsing' },
-                    { key: 'order_updates',   icon: <LuTruck size={15}/>,      label: 'Order Updates',         sub: 'Status changes on your logistics orders' },
+                    { key: 'telegram_enabled', icon: <LuMessageSquare size={15}/>, label: 'Telegram Alerts',       sub: 'Real-time alerts via Telegram bot' },
+                    { key: 'order_updates',   icon: <LuTruck size={15}/>,                label: 'Order Updates',         sub: 'Status changes on your logistics orders' },
                     { key: 'promotions',      icon: <LuStar size={15}/>,       label: 'Promotions',            sub: 'News, offers and platform announcements' },
                   ] as { key: keyof typeof notifPrefs; icon: React.ReactNode; label: string; sub: string }[]).map(({ key, icon, label, sub }, i, arr) => (
                     <div key={key} style={{ display:'flex', alignItems:'center', gap:'0.85rem', padding:'0.9rem 0', borderBottom: i < arr.length-1 ? '1px solid rgba(255,255,255,0.05)' : 'none' }}>
@@ -878,6 +919,56 @@ export default function DashboardPage() {
           </div>
         )}
 
+        {activePage === 'shipments' && user?.role_id === 2 && (
+          <div className="page-shell" style={{ alignItems:'flex-start' }}>
+            <div style={{ width:'100%', maxWidth:560, display:'flex', flexDirection:'column', gap:'1.25rem' }}>
+              {/* Shipper Hero */}
+              <div className="glass page-enter" style={{ padding:'1.75rem' }}>
+                <div style={{ display:'flex', alignItems:'center', gap:'1rem', marginBottom:'1.25rem' }}>
+                  <div style={{ width:52, height:52, borderRadius:'50%', background:'linear-gradient(135deg,var(--clr-accent2),var(--clr-accent))', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+                    <LuPackage size={24} color="#080b14"/>
+                  </div>
+                  <div>
+                    <h2 style={{ fontSize:'1.1rem', fontWeight:800, color:'var(--clr-text)', marginBottom:'0.15rem' }}>Shipper Hub</h2>
+                    <p style={{ fontSize:'0.8rem', color:'var(--clr-muted)' }}>Welcome back, {user?.first_name}</p>
+                  </div>
+                </div>
+                {/* Quick stats */}
+                <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:'0.65rem', marginBottom:'1.25rem' }}>
+                  {([['Total Orders','0',<LuPackage size={16}/>],['Active','0',<LuTruck size={16}/>],['Completed','0',<LuCircleCheck size={16}/>]] as const).map(([label, val, icon]) => (
+                    <div key={label} className="glass-inner" style={{ padding:'0.9rem 0.65rem', textAlign:'center', display:'flex', flexDirection:'column', gap:'0.35rem', alignItems:'center' }}>
+                      <span style={{ color:'var(--clr-accent)', opacity:0.8 }}>{icon}</span>
+                      <span style={{ fontSize:'1.4rem', fontWeight:800, color:'var(--clr-text)', lineHeight:1 }}>{val}</span>
+                      <span style={{ fontSize:'0.68rem', color:'var(--clr-muted)', fontWeight:600 }}>{label}</span>
+                    </div>
+                  ))}
+                </div>
+                {/* Booking CTA */}
+                <div style={{ background:'rgba(0,229,255,0.05)', border:'1px solid rgba(0,229,255,0.15)', borderRadius:12, padding:'1rem 1.1rem', display:'flex', alignItems:'center', gap:'0.85rem' }}>
+                  <LuClock size={20} color="var(--clr-accent)" style={{ flexShrink:0 }}/>
+                  <div style={{ flex:1 }}>
+                    <p style={{ fontWeight:700, fontSize:'0.875rem', color:'var(--clr-text)', marginBottom:'0.2rem' }}>Order booking is coming soon</p>
+                    <p style={{ fontSize:'0.78rem', color:'var(--clr-muted)', lineHeight:1.5 }}>You'll be able to book trucks, track deliveries, and manage invoices all in one place.</p>
+                  </div>
+                </div>
+              </div>
+              {/* Notification reminder */}
+              <div className="glass page-enter" style={{ padding:'1.25rem 1.5rem' }}>
+                <div style={{ display:'flex', alignItems:'center', gap:'0.75rem' }}>
+                  <LuBell size={18} color="var(--clr-accent)" style={{ flexShrink:0 }}/>
+                  <div style={{ flex:1 }}>
+                    <p style={{ fontWeight:700, fontSize:'0.875rem', color:'var(--clr-text)', marginBottom:'0.15rem' }}>Stay Notified</p>
+                    <p style={{ fontSize:'0.78rem', color:'var(--clr-muted)' }}>Configure SMS, email and Telegram alerts in your preferences.</p>
+                  </div>
+                  <button onClick={() => { setActivePage('account'); setTimeout(() => setActiveTab('preferences'), 50) }}
+                    style={{ padding:'0.38rem 0.8rem', borderRadius:8, border:'1px solid rgba(0,229,255,0.25)', background:'rgba(0,229,255,0.07)', color:'var(--clr-accent)', fontFamily:'inherit', fontSize:'0.75rem', fontWeight:700, cursor:'pointer', flexShrink:0 }}>
+                    Settings
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
         {activePage === 'orders'   && <ComingSoon title="Orders" icon={<LuPackage size={30}/>} desc="Track and manage your logistics orders, delivery timelines and status updates in real time." />}
         {activePage === 'payments' && <ComingSoon title="Payments" icon={<LuWallet size={30}/>} desc="View invoices, payment history and manage your billing information securely." />}
         {activePage === 'messages' && <ComingSoon title="Messages" icon={<LuMessageSquare size={30}/>} desc="Communicate directly with drivers and dispatchers through the in-app secure messaging channel." />}

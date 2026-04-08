@@ -80,6 +80,7 @@ interface UserRow {
   is_active: number
   is_phone_verified: number
   is_email_verified: number
+  is_driver_verified?: number  // only for drivers (role_id=3)
   created_at: string
   profile_photo_url: string | null
 }
@@ -159,6 +160,49 @@ function UserAvatar({ u, size = 36 }: { u: UserRow; size?: number }) {
 function RoleBadge({ roleId, roleName }: { roleId: number; roleName: string }) {
   const cls: Record<number, string> = { 1: 'badge-cyan', 2: 'badge-purple', 3: 'badge-red', 4: 'badge-cyan', 5: 'badge-purple' }
   return <span className={`badge ${cls[roleId] ?? 'badge-cyan'}`}>{roleName}</span>
+}
+function VerifiedBadge() {
+  return (
+    <span style={{ display:'inline-flex', alignItems:'center', gap:'0.2rem', background:'rgba(74,222,128,0.12)', border:'1px solid rgba(74,222,128,0.3)', color:'#4ade80', borderRadius:99, padding:'0.15rem 0.5rem', fontSize:'0.65rem', fontWeight:700 }}>
+      <LuBadgeCheck size={10}/> Verified
+    </span>
+  )
+}
+function userIsVerified(u: UserRow): boolean {
+  if (u.role_id === 3) return u.is_driver_verified === 1
+  if (u.role_id === 2) return u.is_phone_verified === 1 && u.is_email_verified === 1
+  return false
+}
+function CustomSelect({ value, onChange, options }: {
+  value: number; onChange: (v: number) => void; options: { id: number; label: string }[]
+}) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    const handler = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false) }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [])
+  const selected = options.find(o => o.id === value)
+  return (
+    <div ref={ref} style={{ position:'relative' }}>
+      <button type="button" onClick={() => setOpen(v => !v)} style={{ width:'100%', padding:'0.6rem 0.8rem', borderRadius:10, border:'1px solid rgba(255,255,255,0.18)', background:'rgba(255,255,255,0.08)', color:'var(--clr-text)', fontFamily:'inherit', fontSize:'0.85rem', fontWeight:600, display:'flex', alignItems:'center', justifyContent:'space-between', cursor:'pointer', textAlign:'left', WebkitAppearance:'none', appearance:'none' }}>
+        <span>{selected?.label ?? '—'}</span>
+        <span style={{ color:'var(--clr-muted)', fontSize:'0.7rem', marginLeft:'0.5rem' }}>{open ? '▲' : '▼'}</span>
+      </button>
+      {open && (
+        <div style={{ position:'absolute', top:'calc(100% + 4px)', left:0, right:0, background:'#080b16', border:'1px solid rgba(255,255,255,0.16)', borderRadius:10, overflow:'hidden', boxShadow:'0 8px 32px rgba(0,0,0,0.7)', zIndex:9999 }}>
+          {options.map(opt => (
+            <button key={opt.id} type="button" onClick={() => { onChange(opt.id); setOpen(false) }}
+              style={{ display:'block', width:'100%', padding:'0.7rem 0.85rem', border:'none', borderBottom:'1px solid rgba(255,255,255,0.06)', WebkitAppearance:'none', appearance:'none', background: opt.id === value ? 'rgba(0,229,255,0.12)' : '#080b16', color: opt.id === value ? '#00e5ff' : '#cbd5e1', fontFamily:'inherit', fontSize:'0.85rem', fontWeight:600, cursor:'pointer', textAlign:'left', transition:'background 0.12s' }}
+              onMouseEnter={e => { if (opt.id !== value) (e.currentTarget as HTMLButtonElement).style.background = 'rgba(255,255,255,0.07)' }}
+              onMouseLeave={e => { if (opt.id !== value) (e.currentTarget as HTMLButtonElement).style.background = '#080b16' }}
+            >{opt.label}</button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
 }
 function StatCard({ icon, label, value, sub }: { icon: React.ReactNode; label: string; value: number | string; sub?: string }) {
   return (
@@ -268,6 +312,7 @@ function CustomerSection({ title, allUsers, loading, onToggleActive, onRefresh }
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', flexWrap: 'wrap' }}>
                   <span style={{ fontWeight: 600, fontSize: '0.875rem', color: 'var(--clr-text)' }}>{u.first_name} {u.last_name}</span>
                   <RoleBadge roleId={u.role_id} roleName={u.role_name} />
+                  {userIsVerified(u) && <VerifiedBadge />}
                   {!u.is_active && <span className="badge badge-red" style={{ fontSize: '0.67rem' }}>Suspended</span>}
                 </div>
                 <p style={{ fontSize: '0.75rem', color: 'var(--clr-muted)', marginTop: '0.15rem' }}>{u.phone_number}</p>
@@ -296,6 +341,7 @@ function CustomerSection({ title, allUsers, loading, onToggleActive, onRefresh }
                 <p style={{ fontWeight: 800, fontSize: '1.05rem', color: 'var(--clr-text)' }}>{selected.first_name} {selected.last_name}</p>
                 <div style={{ display: 'flex', gap: '0.4rem', marginTop: '0.25rem', flexWrap: 'wrap' }}>
                   <RoleBadge roleId={selected.role_id} roleName={selected.role_name} />
+                  {userIsVerified(selected) && <VerifiedBadge />}
                   {!selected.is_active && <span className="badge badge-red" style={{ fontSize: '0.67rem' }}>Suspended</span>}
                 </div>
               </div>
@@ -468,9 +514,7 @@ function StaffManagementSection({ allUsers, loading, onToggleActive, onRefresh }
               </div>
               <div>
                 <label style={labelStyle}>Role *</label>
-                <select style={{ ...inputStyle, cursor: 'pointer' }} value={cRole} onChange={e => setCRole(Number(e.target.value))}>
-                  {STAFF_ROLE_OPTIONS.map(r => <option key={r.id} value={r.id}>{r.label}</option>)}
-                </select>
+                <CustomSelect value={cRole} onChange={setCRole} options={STAFF_ROLE_OPTIONS} />
               </div>
               <div>
                 <label style={labelStyle}>Password *</label>
@@ -519,9 +563,7 @@ function StaffManagementSection({ allUsers, loading, onToggleActive, onRefresh }
               </div>
               <div>
                 <label style={labelStyle}>Role</label>
-                <select style={{ ...inputStyle, cursor: 'pointer' }} value={eRole} onChange={e => setERole(Number(e.target.value))}>
-                  {STAFF_ROLE_OPTIONS.map(r => <option key={r.id} value={r.id}>{r.label}</option>)}
-                </select>
+                <CustomSelect value={eRole} onChange={setERole} options={STAFF_ROLE_OPTIONS} />
               </div>
               <div>
                 <label style={labelStyle}>New Password (leave blank to keep current)</label>

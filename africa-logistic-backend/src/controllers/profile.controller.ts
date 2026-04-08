@@ -35,6 +35,7 @@ interface UpdateNotificationPrefsBody {
   sms_enabled?: boolean
   email_enabled?: boolean
   browser_enabled?: boolean
+  telegram_enabled?: boolean
   order_updates?: boolean
   promotions?: boolean
 }
@@ -187,11 +188,12 @@ export async function updateNotificationPrefsHandler(
   const body = request.body
 
   await upsertNotificationPrefs(request.server.db, caller.id, {
-    sms_enabled:     body.sms_enabled     !== undefined ? (body.sms_enabled ? 1 : 0)     : undefined,
-    email_enabled:   body.email_enabled   !== undefined ? (body.email_enabled ? 1 : 0)   : undefined,
-    browser_enabled: body.browser_enabled !== undefined ? (body.browser_enabled ? 1 : 0) : undefined,
-    order_updates:   body.order_updates   !== undefined ? (body.order_updates ? 1 : 0)   : undefined,
-    promotions:      body.promotions      !== undefined ? (body.promotions ? 1 : 0)       : undefined,
+    sms_enabled:      body.sms_enabled      !== undefined ? (body.sms_enabled ? 1 : 0)      : undefined,
+    email_enabled:    body.email_enabled    !== undefined ? (body.email_enabled ? 1 : 0)    : undefined,
+    browser_enabled:  body.browser_enabled  !== undefined ? (body.browser_enabled ? 1 : 0)  : undefined,
+    telegram_enabled: body.telegram_enabled !== undefined ? (body.telegram_enabled ? 1 : 0) : undefined,
+    order_updates:    body.order_updates    !== undefined ? (body.order_updates ? 1 : 0)    : undefined,
+    promotions:       body.promotions       !== undefined ? (body.promotions ? 1 : 0)       : undefined,
   })
 
   const updated = await getNotificationPrefs(request.server.db, caller.id)

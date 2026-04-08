@@ -721,147 +721,175 @@ html, body, #root {
    FLOATING DOCK NAVIGATION — DashboardPage
    ════════════════════════════════════════════════════ */
 
-/* ── Shared dock button ── */
-.dock-btn {
+/* ══════════════════════════════════════════════════════════════
+   COLLAPSIBLE LEFT SIDEBAR  (DashboardPage — shipper / driver)
+   ══════════════════════════════════════════════════════════════ */
+
+.dash-sidebar {
+  position: fixed;
+  left: 0;
+  top: 0;
+  height: 100vh;
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  background: rgba(8,11,22,0.93);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border-right: 1px solid rgba(255,255,255,0.09);
+  box-shadow: 4px 0 32px rgba(0,0,0,0.35);
+  width: 64px;
+  transition: width 0.25s cubic-bezier(0.4,0,0.2,1);
+  overflow: hidden;
+}
+.dash-sidebar.sidebar-open { width: 200px; }
+
+.sidebar-top {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.9rem 0.7rem 0.4rem;
+  min-height: 64px;
+}
+.sidebar-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  overflow: hidden;
+  background: linear-gradient(135deg, var(--clr-accent2), var(--clr-accent));
+  border: 2px solid rgba(0,229,255,0.25);
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 0.22rem;
+  color: #fff;
+}
+.sidebar-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.sidebar-user-info {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+}
+.sidebar-user-name {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--clr-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-bottom: 0.2rem;
+}
+.sidebar-divider {
+  height: 1px;
+  background: rgba(255,255,255,0.08);
+  margin: 0.15rem 0.7rem;
+  flex-shrink: 0;
+}
+.sidebar-nav {
+  flex: 1;
+  padding: 0.3rem 0.4rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+.sidebar-nav-btn {
+  display: flex;
+  align-items: center;
+  padding: 0.62rem 0.72rem;
   border: none;
   background: transparent;
   color: var(--clr-muted);
   font-family: inherit;
-  font-size: 0.6rem;
-  font-weight: 700;
-  letter-spacing: 0.04em;
+  font-size: 0.83rem;
+  font-weight: 600;
   cursor: pointer;
-  border-radius: 16px;
-  transition: all 0.18s;
+  border-radius: 12px;
+  transition: background 0.18s, color 0.18s;
+  width: 100%;
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
   position: relative;
-  outline: none;
 }
-.dock-btn:hover:not(.dock-btn-soon) { color: var(--clr-text); }
-.dock-btn-active {
-  color: var(--clr-accent) !important;
+.sidebar-nav-btn:hover:not(.soon) {
+  background: rgba(255,255,255,0.05);
+  color: var(--clr-text);
+}
+.sidebar-nav-btn.active {
+  color: var(--clr-accent);
   background: rgba(0,229,255,0.10);
   outline: 1px solid rgba(0,229,255,0.18);
-  box-shadow: 0 0 14px rgba(0,229,255,0.12);
+  box-shadow: 0 0 14px rgba(0,229,255,0.08);
 }
-.dock-btn-soon { cursor: default; opacity: 0.4; }
-.dock-icon { display: flex; align-items: center; justify-content: center; }
-.dock-label { line-height: 1; }
-.dock-soon-dot {
+.sidebar-nav-btn.soon { opacity: 0.4; cursor: default; }
+
+.sidebar-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 20px;
+}
+.sidebar-label {
+  margin-left: 0;
+  max-width: 0;
+  opacity: 0;
+  overflow: hidden;
+  transition: max-width 0.25s ease, opacity 0.2s ease, margin-left 0.22s ease;
+  pointer-events: none;
+}
+.dash-sidebar.sidebar-open .sidebar-label {
+  margin-left: 0.65rem;
+  max-width: 140px;
+  opacity: 1;
+}
+.sidebar-soon-dot {
   position: absolute;
-  top: 6px;
-  right: 6px;
+  top: 8px;
+  right: 8px;
   width: 5px;
   height: 5px;
   border-radius: 50%;
   background: rgba(100,116,139,0.6);
 }
-
-/* ── MOBILE BOTTOM DOCK (default — all screen sizes start mobile) ── */
-.dash-dock-mobile {
-  position: fixed;
-  bottom: 1rem;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 50;
+.sidebar-toggle-btn {
   display: flex;
   align-items: center;
-  gap: 0.18rem;
-  padding: 0.45rem 0.6rem;
-  background: rgba(8,11,22,0.90);
-  backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
-  border-radius: 28px;
+  justify-content: center;
+  margin: 0.25rem auto 0.1rem;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
   border: 1px solid rgba(255,255,255,0.10);
-  box-shadow: 0 8px 40px rgba(0,0,0,0.55), 0 0 0 1px rgba(255,255,255,0.04);
+  background: rgba(255,255,255,0.04);
+  color: var(--clr-muted);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.18s, color 0.18s;
 }
-.dash-dock-mobile .dock-btn {
-  flex-direction: column;
-  padding: 0.5rem 0.8rem;
-  min-width: 50px;
-}
+.sidebar-toggle-btn:hover { background: rgba(255,255,255,0.09); color: var(--clr-text); }
 
-/* ── DESKTOP LEFT DOCK (hidden on mobile) ── */
-.dash-dock-desktop { display: none; }
-
-/* Content area — mobile: pad bottom for dock */
+/* Main content — always offset by collapsed sidebar (64px) */
 .dash-main {
-  padding-bottom: 100px;
   min-height: 100vh;
+  padding-left: 72px;
+  padding-bottom: 2rem;
+  transition: padding-left 0.25s cubic-bezier(0.4,0,0.2,1);
+}
+/* Desktop — sidebar expanded shifts content */
+.dash-main.sidebar-expanded { padding-left: 212px; }
+
+/* On small phones, expanded sidebar overlays content (no push) */
+@media (max-width: 600px) {
+  .dash-main.sidebar-expanded { padding-left: 72px; }
+  .dash-sidebar.sidebar-open { box-shadow: 4px 0 0 100vw rgba(0,0,0,0.45); }
 }
 
-/* Sign out button — visible on mobile only */
-.dash-signout-mobile { display: flex; }
+.dash-signout-mobile { display: none; }
 
-/* ── DESKTOP breakpoint (≥ 769px) ── */
-@media (min-width: 769px) {
-  /* Hide mobile dock, show desktop dock */
-  .dash-dock-mobile  { display: none; }
-  .dash-dock-desktop {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    position: fixed;
-    left: 1rem;
-    top: 50%;
-    transform: translateY(-50%);
-    z-index: 50;
-    padding: 0.75rem 0.5rem;
-    gap: 0.25rem;
-    background: rgba(8,11,22,0.90);
-    backdrop-filter: blur(24px);
-    -webkit-backdrop-filter: blur(24px);
-    border-radius: 28px;
-    border: 1px solid rgba(255,255,255,0.10);
-    box-shadow: 0 8px 40px rgba(0,0,0,0.55);
-    width: 68px;
-  }
-  .dash-dock-desktop .dock-btn {
-    padding: 0.65rem 0.5rem;
-    width: 100%;
-    font-size: 0.65rem;
-    border-radius: 14px;
-    flex-direction: column;
-  }
 
-  /* Dock item wrapper for tooltip */
-  .dock-desktop-item {
-    position: relative;
-    width: 100%;
-  }
-  .dock-tooltip {
-    position: absolute;
-    left: calc(100% + 0.65rem);
-    top: 50%;
-    transform: translateY(-50%);
-    background: rgba(8,11,22,0.96);
-    backdrop-filter: blur(8px);
-    border: 1px solid rgba(255,255,255,0.10);
-    border-radius: 8px;
-    padding: 0.28rem 0.7rem;
-    font-size: 0.76rem;
-    font-weight: 600;
-    color: var(--clr-text);
-    white-space: nowrap;
-    pointer-events: none;
-    opacity: 0;
-    transition: opacity 0.15s;
-    z-index: 60;
-  }
-  .dock-desktop-item:hover .dock-tooltip { opacity: 1; }
-
-  /* Content area — desktop: pad left for dock */
-  .dash-main {
-    padding-bottom: 0;
-    padding-left: 100px;
-  }
-
-  /* Hide mobile sign-out button — desktop uses dock */
-  .dash-signout-mobile { display: none; }
-}
 
 /* ══════════════════════════════════════════════════════════════
    THEME SYSTEM
