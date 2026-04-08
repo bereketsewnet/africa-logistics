@@ -1171,6 +1171,9 @@ function VehicleManagementSection() {
   // Confirm delete
   const [deleteConfirm, setDeleteConfirm] = useState<VehicleRow | null>(null)
 
+  // Lightbox for full-size image viewing
+  const [lightbox, setLightbox] = useState<{ urls: string[]; index: number } | null>(null)
+
   const toast = (msg: string) => { setToastMsg(msg); setTimeout(() => setToastMsg(''), 3000) }
 
   const load = async () => {
@@ -1418,9 +1421,11 @@ function VehicleManagementSection() {
             {vehicles.map((v, i) => {
               const imgUrl = absUrl(v.vehicle_photo_url)
               const gallery: string[] = v.vehicle_images ? (() => { try { return JSON.parse(v.vehicle_images) } catch { return [] } })() : []
+              const allImgs = [imgUrl, ...gallery.map(absUrl)].filter(Boolean) as string[]
               return (
                 <div key={v.id} style={{ display:'flex', alignItems:'flex-start', gap:'0.75rem', padding:'0.85rem 1rem', borderBottom: i < vehicles.length-1 ? '1px solid rgba(255,255,255,0.05)' : 'none', flexWrap:'wrap' }}>
-                  <div style={{ width:42, height:42, borderRadius:10, flexShrink:0, background:'rgba(255,255,255,0.06)', border:'1px solid rgba(255,255,255,0.10)', display:'flex', alignItems:'center', justifyContent:'center', overflow:'hidden', marginTop:2 }}>
+                  <div style={{ width:52, height:52, borderRadius:10, flexShrink:0, background:'rgba(255,255,255,0.06)', border:'1px solid rgba(255,255,255,0.10)', display:'flex', alignItems:'center', justifyContent:'center', overflow:'hidden', marginTop:2, cursor: imgUrl ? 'pointer' : 'default' }}
+                    onClick={() => imgUrl && setLightbox({ urls: allImgs, index: 0 })}>
                     {imgUrl ? <img src={imgUrl} alt="" style={{ width:'100%', height:'100%', objectFit:'cover' }}/> : <LuCar size={18} color="var(--clr-muted)"/>}
                   </div>
                   <div style={{ flex:1, minWidth:110 }}>
@@ -1434,10 +1439,14 @@ function VehicleManagementSection() {
                     <p style={{ fontSize:'0.73rem', color:'var(--clr-muted)', marginTop:'0.1rem' }}>{v.max_capacity_kg} kg · {v.driver_id ? 'Assigned' : 'Unassigned'}</p>
                     {v.description && <p style={{ fontSize:'0.7rem', color:'var(--clr-muted)' }}>{v.description}</p>}
                     {gallery.length > 0 && (
-                      <div style={{ display:'flex', gap:'0.25rem', marginTop:'0.35rem', flexWrap:'wrap' }}>
+                      <div style={{ display:'flex', gap:'0.3rem', marginTop:'0.4rem', flexWrap:'wrap' }}>
                         {gallery.map((src, gi) => {
                           const u = absUrl(src)
-                          return u ? <img key={gi} src={u} alt="" style={{ width:28, height:28, borderRadius:5, objectFit:'cover', border:'1px solid rgba(255,255,255,0.1)' }}/> : null
+                          return u ? <img key={gi} src={u} alt="" onClick={() => setLightbox({ urls: allImgs, index: gi + 1 })}
+                            style={{ width:52, height:52, borderRadius:6, objectFit:'cover', border:'1px solid rgba(255,255,255,0.12)', cursor:'pointer', transition:'transform 0.15s, opacity 0.15s' }}
+                            onMouseEnter={e => { e.currentTarget.style.transform='scale(1.08)'; e.currentTarget.style.opacity='0.9' }}
+                            onMouseLeave={e => { e.currentTarget.style.transform='scale(1)'; e.currentTarget.style.opacity='1' }}
+                          /> : null
                         })}
                       </div>
                     )}
@@ -1477,7 +1486,8 @@ function VehicleManagementSection() {
               const sColor = v.driver_submission_status === 'APPROVED' ? '#4ade80' : v.driver_submission_status === 'REJECTED' ? '#fca5a5' : '#fbbf24'
               return (
                 <div key={v.id} className="glass-inner" style={{ padding:'0.9rem 1rem', display:'flex', alignItems:'flex-start', gap:'0.75rem', flexWrap:'wrap' }}>
-                  <div style={{ width:42, height:42, borderRadius:10, flexShrink:0, background:'rgba(255,255,255,0.06)', border:'1px solid rgba(255,255,255,0.10)', display:'flex', alignItems:'center', justifyContent:'center', overflow:'hidden', marginTop:2 }}>
+                  <div style={{ width:52, height:52, borderRadius:10, flexShrink:0, background:'rgba(255,255,255,0.06)', border:'1px solid rgba(255,255,255,0.10)', display:'flex', alignItems:'center', justifyContent:'center', overflow:'hidden', marginTop:2, cursor: imgUrl ? 'pointer' : 'default' }}
+                    onClick={() => imgUrl && setLightbox({ urls: [imgUrl], index: 0 })}>
                     {imgUrl ? <img src={imgUrl} alt="" style={{ width:'100%', height:'100%', objectFit:'cover' }}/> : <LuCar size={18} color="var(--clr-muted)"/>}
                   </div>
                   <div style={{ flex:1, minWidth:110 }}>
@@ -1557,6 +1567,33 @@ function VehicleManagementSection() {
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Lightbox */}
+      {lightbox && (
+        <div onClick={() => setLightbox(null)}
+          style={{ position:'fixed', inset:0, zIndex:300, background:'rgba(0,0,0,0.88)', display:'flex', alignItems:'center', justifyContent:'center', cursor:'zoom-out', backdropFilter:'blur(6px)' }}>
+          <button onClick={() => setLightbox(null)}
+            style={{ position:'absolute', top:'1rem', right:'1rem', width:36, height:36, borderRadius:'50%', border:'1px solid rgba(255,255,255,0.2)', background:'rgba(255,255,255,0.1)', color:'#fff', cursor:'pointer', fontSize:'1.1rem', display:'flex', alignItems:'center', justifyContent:'center', zIndex:1 }}>✕</button>
+          {lightbox.urls.length > 1 && (
+            <>
+              <button onClick={e => { e.stopPropagation(); setLightbox(lb => lb ? { ...lb, index: (lb.index - 1 + lb.urls.length) % lb.urls.length } : null) }}
+                style={{ position:'absolute', left:'1rem', top:'50%', transform:'translateY(-50%)', width:40, height:40, borderRadius:'50%', border:'1px solid rgba(255,255,255,0.2)', background:'rgba(255,255,255,0.1)', color:'#fff', cursor:'pointer', fontSize:'1.2rem', display:'flex', alignItems:'center', justifyContent:'center', zIndex:1 }}>‹</button>
+              <button onClick={e => { e.stopPropagation(); setLightbox(lb => lb ? { ...lb, index: (lb.index + 1) % lb.urls.length } : null) }}
+                style={{ position:'absolute', right:'1rem', top:'50%', transform:'translateY(-50%)', width:40, height:40, borderRadius:'50%', border:'1px solid rgba(255,255,255,0.2)', background:'rgba(255,255,255,0.1)', color:'#fff', cursor:'pointer', fontSize:'1.2rem', display:'flex', alignItems:'center', justifyContent:'center', zIndex:1 }}>›</button>
+            </>
+          )}
+          <img src={lightbox.urls[lightbox.index]} alt="" onClick={e => e.stopPropagation()}
+            style={{ maxWidth:'90vw', maxHeight:'88vh', borderRadius:14, boxShadow:'0 24px 80px rgba(0,0,0,0.8)', objectFit:'contain', cursor:'default' }}/>
+          {lightbox.urls.length > 1 && (
+            <div style={{ position:'absolute', bottom:'1.25rem', left:'50%', transform:'translateX(-50%)', display:'flex', gap:'0.4rem' }}>
+              {lightbox.urls.map((_, i) => (
+                <div key={i} onClick={e => { e.stopPropagation(); setLightbox(lb => lb ? { ...lb, index: i } : null) }}
+                  style={{ width: i === lightbox.index ? 20 : 8, height:8, borderRadius:99, background: i === lightbox.index ? '#00e5ff' : 'rgba(255,255,255,0.3)', cursor:'pointer', transition:'all 0.2s' }}/>
+              ))}
+            </div>
+          )}
         </div>
       )}
 

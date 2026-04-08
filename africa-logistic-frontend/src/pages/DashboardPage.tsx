@@ -213,19 +213,16 @@ export default function DashboardPage() {
   type TabDef = { id: Tab; icon: React.ReactNode; label: string }
   const [activePage, setActivePage] = useState<DockPage>('account')
 
-  // ── Sidebar collapse state ─────────────────────────────────────────────────
-  const SIDEBAR_KEY = 'dash_sidebar_v2'
-  const [sidebarOpen, setSidebarOpen] = useState(() => {
-    const saved = localStorage.getItem(SIDEBAR_KEY)
-    if (saved !== null) return saved === 'true'
-    // Default: collapsed on phones only
-    if (typeof window !== 'undefined') return window.innerWidth > 600
-    return true
+  // ── Dock expand/collapse state ─────────────────────────────────────────────
+  const DOCK_KEY = 'dash_dock_v3'
+  const [dockExpanded, setDockExpanded] = useState(() => {
+    const saved = localStorage.getItem(DOCK_KEY)
+    return saved === 'true'   // default: collapsed
   })
-  const toggleSidebar = () => {
-    const next = !sidebarOpen
-    setSidebarOpen(next)
-    localStorage.setItem(SIDEBAR_KEY, String(next))
+  const toggleDock = () => {
+    const next = !dockExpanded
+    setDockExpanded(next)
+    localStorage.setItem(DOCK_KEY, String(next))
   }
 
   // ── Driver Vehicle ─────────────────────────────────────────────────────────
@@ -490,54 +487,54 @@ export default function DashboardPage() {
     <div className="aurora-bg" style={{ minHeight: '100vh' }}>
       <div className="aurora-orb aurora-orb-1" />
 
-      {/* ── COLLAPSIBLE LEFT SIDEBAR ── */}
-      <aside className={`dash-sidebar${sidebarOpen ? ' sidebar-open' : ''}`}>
-        {/* Top: avatar + user info */}
-        <div className="sidebar-top">
-          <div className="sidebar-avatar">
-            {photoUrl ? <img src={photoUrl} alt="" style={{ width:'100%', height:'100%', objectFit:'cover' }}/> : roleIcon}
-          </div>
-          <div className="sidebar-user-info">
-            <p className="sidebar-user-name">{user?.first_name} {user?.last_name}</p>
-            <span className="badge badge-cyan" style={{ fontSize:'0.6rem', padding:'0.1rem 0.45rem' }}>{roleLabel}</span>
-          </div>
+      {/* ── MOBILE BOTTOM DOCK ── */}
+      <div className="dash-dock-mobile">
+        {dockItems.map(item => (
+          <button key={item.id}
+            onClick={() => { if (!item.soon) setActivePage(item.id) }}
+            title={item.soon ? `${item.label} — Coming Soon` : item.label}
+            className={`dock-btn${activePage === item.id ? ' dock-btn-active' : ''}${item.soon ? ' dock-btn-soon' : ''}`}>
+            <span className="dock-icon">{item.icon}</span>
+            <span className="dock-label">{item.label}</span>
+            {item.soon && <span className="dock-soon-dot"/>}
+          </button>
+        ))}
+      </div>
+
+      {/* ── DESKTOP LEFT DOCK ── */}
+      <div className={`dash-dock-desktop${dockExpanded ? ' dock-expanded' : ''}`}>
+        <div className="dock-avatar">
+          {photoUrl
+            ? <img src={photoUrl} alt="" style={{ width:'100%', height:'100%', objectFit:'cover' }}/>
+            : roleIcon}
         </div>
-
-        {/* Collapse toggle */}
-        <button onClick={toggleSidebar} className="sidebar-toggle-btn" title={sidebarOpen ? 'Collapse sidebar' : 'Expand sidebar'}>
-          {sidebarOpen ? <LuChevronLeft size={13}/> : <LuChevronRight size={13}/>}
+        <div className="dock-divider"/>
+        {dockItems.map(item => (
+          <button key={item.id}
+            onClick={() => { if (!item.soon) setActivePage(item.id) }}
+            title={item.soon ? `${item.label} — Coming Soon` : item.label}
+            className={`dock-btn${activePage === item.id ? ' dock-btn-active' : ''}${item.soon ? ' dock-btn-soon' : ''}`}
+            style={{ flexDirection: dockExpanded ? 'row' : 'column', justifyContent: dockExpanded ? 'flex-start' : 'center', padding: dockExpanded ? '0.6rem 0.85rem' : '0.65rem 0.5rem', gap: dockExpanded ? '0.65rem' : '0.2rem' }}>
+            <span className="dock-icon">{item.icon}</span>
+            {dockExpanded && <span className="dock-item-label">{item.label}</span>}
+            {item.soon && <span className="dock-soon-dot"/>}
+          </button>
+        ))}
+        <div style={{ flex:1 }}/>
+        <div className="dock-divider"/>
+        <button onClick={toggleDock} className="dock-btn dock-toggle-btn"
+          title={dockExpanded ? 'Collapse' : 'Expand'}>
+          {dockExpanded ? <LuChevronLeft size={15}/> : <LuChevronRight size={15}/>}
         </button>
-
-        <div className="sidebar-divider"/>
-
-        {/* Nav items */}
-        <nav className="sidebar-nav">
-          {dockItems.map(item => (
-            <button
-              key={item.id}
-              onClick={() => { if (!item.soon) { setActivePage(item.id); if (window.innerWidth < 601) setSidebarOpen(false) } }}
-              title={item.soon ? `${item.label} — Coming Soon` : ''}
-              className={`sidebar-nav-btn${activePage === item.id ? ' active' : ''}${item.soon ? ' soon' : ''}`}
-            >
-              <span className="sidebar-icon">{item.icon}</span>
-              <span className="sidebar-label">{item.label}</span>
-              {item.soon && <span className="sidebar-soon-dot"/>}
-            </button>
-          ))}
-        </nav>
-
-        <div style={{ flex: 1 }}/>
-        <div className="sidebar-divider"/>
-
-        {/* Logout */}
-        <button onClick={handleLogout} className="sidebar-nav-btn" style={{ margin:'0.3rem 0.4rem 0.6rem' }} title="Sign out">
-          <span className="sidebar-icon"><LuLogOut size={18}/></span>
-          <span className="sidebar-label">Sign Out</span>
+        <button onClick={handleLogout} className="dock-btn" title="Sign out"
+          style={{ flexDirection:'column', gap:'0.2rem', padding:'0.65rem 0.5rem' }}>
+          <LuLogOut size={18}/>
+          {dockExpanded && <span className="dock-item-label">Sign Out</span>}
         </button>
-      </aside>
+      </div>
 
       {/* ── Main content area ── */}
-      <div className={`dash-main${sidebarOpen ? ' sidebar-expanded' : ''}`}>
+      <div className={`dash-main${dockExpanded ? ' dock-wide' : ''}`}>
         {activePage === 'account' && (
           <div className="page-shell" style={{ alignItems:'flex-start' }}>
             <div style={{ width:'100%', maxWidth:560, display:'flex', flexDirection:'column', gap:'1.25rem' }}>
