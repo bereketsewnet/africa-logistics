@@ -7,7 +7,7 @@ import {
   LuCircleCheck, LuTriangleAlert, LuTruck, LuMapPin,
   LuFileText, LuChevronRight, LuChevronLeft,
   LuSend, LuArrowRight, LuBan, LuNavigation,
-  LuEye, LuEyeOff, LuCopy, LuMessageSquare,
+  LuEye, LuEyeOff, LuCopy, LuMessageSquare, LuCamera, LuTrash2,
 } from 'react-icons/lu'
 
 // ─── Leaflet icon fix (Vite bundler) ─────────────────────────────────────────
@@ -33,7 +33,7 @@ const truckIcon = new L.DivIcon({
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface CargoType { id: number; name: string; description: string; requires_special_handling: number; icon: string }
-interface Quote { distance_km: number; estimated_price: number; base_fare: number; per_km_rate: number; distance_cost: number; city_surcharge: number; currency?: string }
+interface Quote { distance_km: number; estimated_price: number; base_fare: number; per_km_rate: number; per_kg_rate?: number; distance_cost: number; weight_cost?: number; city_surcharge: number; fees_breakdown?: Array<{name:string;amount:number;type:string;rate?:number}>; currency?: string }
 interface Order {
   id: string; reference_code: string; status: string
   cargo_type_name: string; vehicle_type_required: string; estimated_weight_kg: number
@@ -335,6 +335,10 @@ function PlaceOrderWizard({ cargoTypes, onDone, onClose }: WizardProps) {
   const [placedOrder, setPlacedOrder] = useState<{ reference_code: string; pickup_otp: string; delivery_otp: string } | null>(null)
   const [loading, setLoading] = useState(false)
   const [err, setErr] = useState('')
+  const [img1, setImg1] = useState<string>('')  // base64
+  const [img2, setImg2] = useState<string>('')  // base64
+  const [img1Preview, setImg1Preview] = useState<string>('')
+  const [img2Preview, setImg2Preview] = useState<string>('')
 
   const f = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) =>
     setForm(x => ({ ...x, [k]: e.target.value }))
@@ -353,7 +357,7 @@ function PlaceOrderWizard({ cargoTypes, onDone, onClose }: WizardProps) {
       const { data } = await orderApi.getQuote({
         cargo_type_id: Number(form.cargo_type_id),
         vehicle_type:  form.vehicle_type,
-        weight_kg:     parseFloat(form.weight_kg),
+        estimated_weight_kg: parseFloat(form.weight_kg) || undefined,
         pickup_lat:    parseFloat(form.pickup_lat),
         pickup_lng:    parseFloat(form.pickup_lng),
         delivery_lat:  parseFloat(form.delivery_lat),
@@ -380,6 +384,8 @@ function PlaceOrderWizard({ cargoTypes, onDone, onClose }: WizardProps) {
         delivery_lng:     parseFloat(form.delivery_lng),
         description:      form.description || undefined,
         estimated_value:  form.estimated_value ? parseFloat(form.estimated_value) : undefined,
+        order_image_1:    img1 || undefined,
+        order_image_2:    img2 || undefined,
       })
       setPlacedOrder({ reference_code: data.order.reference_code, pickup_otp: data.otps.pickup_otp, delivery_otp: data.otps.delivery_otp })
     } catch (e: any) { setErr(e.response?.data?.message ?? 'Failed to place order.') }
@@ -480,6 +486,56 @@ function PlaceOrderWizard({ cargoTypes, onDone, onClose }: WizardProps) {
             <label htmlFor="val">Estimated Value ETB (optional)</label>
           </div>
 
+          {/* Image upload (optional, max 2) */}
+          <div>
+            <p style={{ fontSize:'0.73rem', fontWeight:600, color:'var(--clr-muted)', marginBottom:'0.4rem' }}>Order Images (optional, max 2)</p>
+            <div style={{ display:'flex', gap:'0.65rem', flexWrap:'wrap' }}>
+              {/* Image 1 */}
+              <label style={{ cursor:'pointer', position:'relative' }}>
+                <div style={{ width:90, height:72, borderRadius:9, border:`1px dashed ${img1Preview?'rgba(0,229,255,0.4)':'rgba(255,255,255,0.2)'}`, background: img1Preview ? 'transparent' : 'rgba(255,255,255,0.03)', display:'flex', alignItems:'center', justifyContent:'center', overflow:'hidden' }}>
+                  {img1Preview ? (
+                    <img src={img1Preview} alt="img1" style={{ width:'100%', height:'100%', objectFit:'cover' }}/>
+                  ) : (
+                    <span style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:'0.2rem', color:'var(--clr-muted)', fontSize:'0.65rem' }}>
+                      <LuCamera size={18}/> Add photo
+                    </span>
+                  )}
+                </div>
+                <input type="file" accept="image/*" style={{ display:'none' }} onChange={e => {
+                  const file = e.target.files?.[0]; if (!file) return
+                  const reader = new FileReader()
+                  reader.onload = ev => { const r = ev.target?.result as string; setImg1(r); setImg1Preview(r) }
+                  reader.readAsDataURL(file)
+                }}/>
+              </label>
+              {/* Image 2 */}
+              {(img1Preview || img2Preview) && (
+                <label style={{ cursor:'pointer', position:'relative' }}>
+                  <div style={{ width:90, height:72, borderRadius:9, border:`1px dashed ${img2Preview?'rgba(0,229,255,0.4)':'rgba(255,255,255,0.2)'}`, background: img2Preview ? 'transparent' : 'rgba(255,255,255,0.03)', display:'flex', alignItems:'center', justifyContent:'center', overflow:'hidden' }}>
+                    {img2Preview ? (
+                      <img src={img2Preview} alt="img2" style={{ width:'100%', height:'100%', objectFit:'cover' }}/>
+                    ) : (
+                      <span style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:'0.2rem', color:'var(--clr-muted)', fontSize:'0.65rem' }}>
+                        <LuCamera size={18}/> Add 2nd
+                      </span>
+                    )}
+                  </div>
+                  <input type="file" accept="image/*" style={{ display:'none' }} onChange={e => {
+                    const file = e.target.files?.[0]; if (!file) return
+                    const reader = new FileReader()
+                    reader.onload = ev => { const r = ev.target?.result as string; setImg2(r); setImg2Preview(r) }
+                    reader.readAsDataURL(file)
+                  }}/>
+                </label>
+              )}
+              {img1Preview && (
+                <button type="button" onClick={() => { setImg1(''); setImg1Preview(''); setImg2(''); setImg2Preview('') }} style={{ alignSelf:'flex-start', background:'none', border:'none', color:'#f87171', cursor:'pointer', fontSize:'0.7rem', padding:'0.25rem', display:'flex', alignItems:'center', gap:'0.2rem' }}>
+                  <LuTrash2 size={13}/> Clear
+                </button>
+              )}
+            </div>
+          </div>
+
           {/* Missing-field hints */}
           {(!form.weight_kg || !form.pickup_lat || !form.delivery_lat) && (
             <div style={{ display:'flex', flexDirection:'column', gap:'0.2rem', padding:'0.55rem 0.75rem', borderRadius:9, background:'rgba(251,191,36,0.06)', border:'1px solid rgba(251,191,36,0.18)' }}>
@@ -506,7 +562,7 @@ function PlaceOrderWizard({ cargoTypes, onDone, onClose }: WizardProps) {
       {/* ── Step 2: Confirm ── */}
       {step === 2 && quote && (
         <div style={{ display:'flex', flexDirection:'column', gap:'0.85rem' }}>
-          {/* Quote card */}
+          {/* Quote card with detailed breakdown */}
           <div className="glass-inner" style={{ padding:'1.1rem 1.25rem' }}>
             <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'0.75rem' }}>
               <span style={{ fontSize:'0.8rem', color:'var(--clr-muted)', fontWeight:600 }}>Price Quote</span>
@@ -515,8 +571,21 @@ function PlaceOrderWizard({ cargoTypes, onDone, onClose }: WizardProps) {
             <div style={{ display:'flex', flexDirection:'column', gap:'0.35rem', fontSize:'0.78rem', color:'var(--clr-muted)' }}>
               <div style={{ display:'flex', justifyContent:'space-between' }}><span>Distance</span><span style={{ color:'var(--clr-text)' }}>{Number(quote.distance_km).toFixed(2)} km</span></div>
               <div style={{ display:'flex', justifyContent:'space-between' }}><span>Base Fare</span><span style={{ color:'var(--clr-text)' }}>{Number(quote.base_fare).toLocaleString()} ETB</span></div>
-              <div style={{ display:'flex', justifyContent:'space-between' }}><span>Distance Charge</span><span style={{ color:'var(--clr-text)' }}>{Number(quote.distance_cost).toLocaleString()} ETB</span></div>
-              {Number(quote.city_surcharge) > 0 && <div style={{ display:'flex', justifyContent:'space-between' }}><span>City Surcharge</span><span style={{ color:'var(--clr-text)' }}>{Number(quote.city_surcharge).toLocaleString()} ETB</span></div>}
+              <div style={{ display:'flex', justifyContent:'space-between' }}><span>Distance Charge ({Number(quote.per_km_rate)} ETB/km)</span><span style={{ color:'var(--clr-text)' }}>{Number(quote.distance_cost).toLocaleString()} ETB</span></div>
+              {(quote.weight_cost ?? 0) > 0 && (
+                <div style={{ display:'flex', justifyContent:'space-between' }}><span>Weight Charge ({Number(quote.per_kg_rate)} ETB/kg)</span><span style={{ color:'var(--clr-text)' }}>{Number(quote.weight_cost).toLocaleString()} ETB</span></div>
+              )}
+              {(quote.fees_breakdown ?? []).map((fee, i) => (
+                <div key={i} style={{ display:'flex', justifyContent:'space-between' }}>
+                  <span>{fee.name}{fee.type === 'percent' ? ` (${fee.rate}%)` : ''}</span>
+                  <span style={{ color:'var(--clr-text)' }}>{Number(fee.amount).toLocaleString()} ETB</span>
+                </div>
+              ))}
+              {(quote.fees_breakdown ?? []).length === 0 && Number(quote.city_surcharge) > 0 && (
+                <div style={{ display:'flex', justifyContent:'space-between' }}><span>Fees</span><span style={{ color:'var(--clr-text)' }}>{Number(quote.city_surcharge).toLocaleString()} ETB</span></div>
+              )}
+              <div style={{ height:1, background:'rgba(255,255,255,0.08)', margin:'0.2rem 0' }}/>
+              <div style={{ display:'flex', justifyContent:'space-between', fontWeight:700, color:'var(--clr-accent)' }}><span>Total</span><span>{Number(quote.estimated_price).toLocaleString()} ETB</span></div>
             </div>
           </div>
 

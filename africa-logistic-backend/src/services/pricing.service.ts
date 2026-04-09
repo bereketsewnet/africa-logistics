@@ -17,7 +17,9 @@ export interface PricingRuleRow extends RowDataPacket {
   vehicle_type: string
   base_fare: number
   per_km_rate: number
-  city_surcharge: number
+  per_kg_rate: number           // ETB per kg (0 = not charged)
+  city_surcharge: number        // sum of additional fees (stored per-order for history)
+  additional_fees: string | null // JSON: [{name,value,type:'fixed'|'percent'}]
   min_distance_km: number
   max_weight_kg: number | null
   is_active: number
@@ -25,12 +27,22 @@ export interface PricingRuleRow extends RowDataPacket {
   updated_at: string
 }
 
+export interface FeeBreakdown {
+  name: string
+  amount: number
+  type: 'fixed' | 'percent'
+  rate?: number  // original percent rate, if type === 'percent'
+}
+
 export interface QuoteResult {
   distance_km: number
   base_fare: number
   per_km_rate: number
   distance_cost: number
-  city_surcharge: number
+  per_kg_rate: number
+  weight_cost: number
+  fees_breakdown: FeeBreakdown[]
+  city_surcharge: number  // total of all fees (for DB storage backward compat)
   estimated_price: number
   vehicle_type: string
   rule_id: number
@@ -130,22 +142,50 @@ export async function listPricingRules(db: Pool): Promise<PricingRuleRow[]> {
 
 // ─── Quote Calculator ─────────────────────────────────────────────────────────
 
-export function calculateQuote(distanceKm: number, rule: PricingRuleRow): QuoteResult {
-  const baseFare       = Number(rule.base_fare)
-  const perKmRate      = Number(rule.per_km_rate)
-  const citySurcharge  = Number(rule.city_surcharge)
-  const minDistance    = Number(rule.min_distance_km)
+export function calculateQuote(
+  distanceKm: number,
+  rule: PricingRuleRow,
+  weightKg?: number | null
+): QuoteResult {
+  const baseFare    = Number(rule.base_fare)
+  const perKmRate   = Number(rule.per_km_rate)
+  const perKgRate   = Number(rule.per_kg_rate ?? 0)
+  const minDistance = Number(rule.min_distance_km ?? 0)
+
   const usedDistance = Math.max(distanceKm, minDistance)
-  const distanceCost  = Math.round(usedDistance * perKmRate * 100) / 100
-  const total = Math.round((baseFare + distanceCost + citySurcharge) * 100) / 100
+  const distanceCost = Math.round(usedDistance * perKmRate * 100) / 100
+  const weightCost   = (weightKg && perKgRate > 0) ? Math.round(weightKg * perKgRate * 100) / 100 : 0
+  const subtotal     = baseFare + distanceCost + weightCost
+
+  // Compute additional fees from JSON definition
+  const feesBreakdown: FeeBreakdown[] = []
+  let feesTotal = 0
+  try {
+    const fees: Array<{ name: string; value: number; type: 'fixed' | 'percent' }> =
+      rule.additional_fees ? JSON.parse(rule.additional_fees) : []
+    for (const fee of fees) {
+      const amount = fee.type === 'percent'
+        ? Math.round(subtotal * fee.value / 100 * 100) / 100
+        : Math.round(Number(fee.value) * 100) / 100
+      feesBreakdown.push({ name: fee.name, amount, type: fee.type, rate: fee.type === 'percent' ? fee.value : undefined })
+      feesTotal += amount
+    }
+  } catch { /* ignore parse errors */ }
+
+  const citySurcharge = Math.round(feesTotal * 100) / 100
+  const total         = Math.round((subtotal + citySurcharge) * 100) / 100
+
   return {
-    distance_km:     Math.round(distanceKm * 1000) / 1000,
-    base_fare:       baseFare,
-    per_km_rate:     perKmRate,
-    distance_cost:   distanceCost,
-    city_surcharge:  citySurcharge,
+    distance_km:    Math.round(distanceKm * 1000) / 1000,
+    base_fare:      baseFare,
+    per_km_rate:    perKmRate,
+    distance_cost:  distanceCost,
+    per_kg_rate:    perKgRate,
+    weight_cost:    weightCost,
+    fees_breakdown: feesBreakdown,
+    city_surcharge: citySurcharge,
     estimated_price: total,
-    vehicle_type:    rule.vehicle_type,
-    rule_id:         rule.id,
+    vehicle_type:   rule.vehicle_type,
+    rule_id:        rule.id,
   }
 }

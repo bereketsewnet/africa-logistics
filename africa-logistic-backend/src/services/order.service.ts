@@ -72,6 +72,8 @@ export interface OrderRow extends RowDataPacket {
   delivery_otp: string | null
   pickup_otp_verified_at: string | null
   delivery_otp_verified_at: string | null
+  order_image_1_url: string | null
+  order_image_2_url: string | null
   invoice_url: string | null
   payment_status: 'UNPAID' | 'ESCROWED' | 'SETTLED'
   assigned_at: string | null
@@ -142,6 +144,8 @@ export interface CreateOrderData {
   estimatedPrice: number
   pickupOtp: string    // plain text — we hash it here
   deliveryOtp: string  // plain text — we hash it here
+  orderImage1Url?: string | null
+  orderImage2Url?: string | null
 }
 
 // ─── OTP Utilities ────────────────────────────────────────────────────────────
@@ -192,11 +196,11 @@ export async function listAllCargoTypes(db: Pool): Promise<CargoTypeRow[]> {
 
 export async function createCargoType(
   db: Pool,
-  data: { name: string; description?: string; requires_special_handling?: boolean; icon?: string }
+  data: { name: string; description?: string; requires_special_handling?: boolean; icon?: string; icon_url?: string }
 ): Promise<number> {
   const [result] = await db.query<ResultSetHeader>(
-    `INSERT INTO cargo_types (name, description, requires_special_handling, icon) VALUES (?, ?, ?, ?)`,
-    [data.name, data.description ?? null, data.requires_special_handling ? 1 : 0, data.icon ?? null]
+    `INSERT INTO cargo_types (name, description, requires_special_handling, icon, icon_url) VALUES (?, ?, ?, ?, ?)`,
+    [data.name, data.description ?? null, data.requires_special_handling ? 1 : 0, data.icon ?? null, data.icon_url ?? null]
   )
   return result.insertId
 }
@@ -204,7 +208,7 @@ export async function createCargoType(
 export async function updateCargoType(
   db: Pool,
   id: number,
-  data: { name?: string; description?: string; requires_special_handling?: boolean; icon?: string; is_active?: boolean }
+  data: { name?: string; description?: string; requires_special_handling?: boolean; icon?: string; icon_url?: string; is_active?: boolean }
 ): Promise<void> {
   const fields: string[] = []
   const values: any[] = []
@@ -212,6 +216,7 @@ export async function updateCargoType(
   if (data.description !== undefined)              { fields.push('description = ?');              values.push(data.description) }
   if (data.requires_special_handling !== undefined){ fields.push('requires_special_handling = ?'); values.push(data.requires_special_handling ? 1 : 0) }
   if (data.icon !== undefined)                     { fields.push('icon = ?');                     values.push(data.icon) }
+  if (data.icon_url !== undefined)                 { fields.push('icon_url = ?');                 values.push(data.icon_url) }
   if (data.is_active !== undefined)                { fields.push('is_active = ?');                values.push(data.is_active ? 1 : 0) }
   if (fields.length === 0) return
   values.push(id)
@@ -250,8 +255,9 @@ export async function createOrder(db: Pool, data: CreateOrderData): Promise<stri
         delivery_lat, delivery_lng, delivery_address,
         estimated_weight_kg, vehicle_type_required, special_instructions,
         distance_km, base_fare, per_km_rate, city_surcharge, estimated_price,
-        pickup_otp_hash, pickup_otp, delivery_otp_hash, delivery_otp
-      ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+        pickup_otp_hash, pickup_otp, delivery_otp_hash, delivery_otp,
+        order_image_1_url, order_image_2_url
+      ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
     [
       id, refCode, data.shipperId, data.cargoTypeId,
       data.pickupLat, data.pickupLng, data.pickupAddress,
@@ -259,6 +265,7 @@ export async function createOrder(db: Pool, data: CreateOrderData): Promise<stri
       data.estimatedWeightKg, data.vehicleTypeRequired, data.specialInstructions,
       data.distanceKm, data.baseFare, data.perKmRate, data.citySurcharge, data.estimatedPrice,
       pickupHash, data.pickupOtp, deliveryHash, data.deliveryOtp,
+      data.orderImage1Url ?? null, data.orderImage2Url ?? null,
     ]
   )
 

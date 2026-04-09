@@ -51,6 +51,7 @@ interface QuoteBody {
   delivery_lat: number
   delivery_lng: number
   vehicle_type: string
+  estimated_weight_kg?: number
 }
 
 interface PlaceOrderBody {
@@ -64,6 +65,8 @@ interface PlaceOrderBody {
   estimated_weight_kg?: number
   vehicle_type: string
   special_instructions?: string
+  order_image_1?: string  // base64
+  order_image_2?: string  // base64
   // Quote lock-in (caller echoes back the server's quote for auditability)
   distance_km?: number
   estimated_price?: number
@@ -78,7 +81,18 @@ interface OrderListQuery {
   limit?: string
   status?: string
 }
+// ─── Image helpers ─────────────────────────────────────────────────────────────
 
+function saveOrderImage(base64Data: string, orderId: string, slot: 1 | 2): string {
+  const match = base64Data.match(/^data:([a-zA-Z0-9+/]+\/[a-zA-Z0-9+/]+);base64,(.+)$/)
+  const raw  = match ? match[2] : base64Data
+  const ext  = match?.[1].split('/')[1]?.replace('jpeg', 'jpg') ?? 'jpg'
+  const dir  = path.join(process.cwd(), 'uploads', 'order-images')
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true })
+  const filename = `${orderId}-${slot}.${ext}`
+  fs.writeFileSync(path.join(dir, filename), Buffer.from(raw, 'base64'))
+  return `/uploads/order-images/${filename}`
+}
 // ─── Helper ───────────────────────────────────────────────────────────────────
 
 /** Ensure user has shipper role (role_id = 2). Admins and dispatchers may also access. */
@@ -106,7 +120,7 @@ export async function getQuoteHandler(
   request: FastifyRequest<{ Body: QuoteBody }>,
   reply:   FastifyReply
 ) {
-  const { pickup_lat, pickup_lng, delivery_lat, delivery_lng, vehicle_type } = request.body
+  const { pickup_lat, pickup_lng, delivery_lat, delivery_lng, vehicle_type, estimated_weight_kg } = request.body
 
   if (!pickup_lat || !pickup_lng || !delivery_lat || !delivery_lng || !vehicle_type) {
     return reply.status(400).send({ success: false, message: 'pickup_lat, pickup_lng, delivery_lat, delivery_lng, vehicle_type are required.' })
@@ -126,7 +140,7 @@ export async function getQuoteHandler(
     reverseGeocode(delivery_lat, delivery_lng),
   ])
 
-  const quote = calculateQuote(distanceKm, rule)
+  const quote = calculateQuote(distanceKm, rule, estimated_weight_kg)
 
   return reply.send({
     success: true,
@@ -177,9 +191,18 @@ export async function placeOrderHandler(
     deliveryAddr = da
   }
 
-  const quote      = calculateQuote(distanceKm, rule)
+  const quote      = calculateQuote(distanceKm, rule, estimated_weight_kg)
   const pickupOtp  = generateOtp()
   const deliveryOtp = generateOtp()
+
+  // Save order images if provided
+  const tempId = require('node:crypto').randomUUID()
+  let img1Url: string | null = null
+  let img2Url: string | null = null
+  try {
+    if (request.body.order_image_1) img1Url = saveOrderImage(request.body.order_image_1, tempId, 1)
+    if (request.body.order_image_2) img2Url = saveOrderImage(request.body.order_image_2, tempId, 2)
+  } catch { /* image save failures don't block order placement */ }
 
   const orderId = await createOrder(request.server.db, {
     shipperId:           user.id,
@@ -200,6 +223,8 @@ export async function placeOrderHandler(
     estimatedPrice:      quote.estimated_price,
     pickupOtp,
     deliveryOtp,
+    orderImage1Url:      img1Url,
+    orderImage2Url:      img2Url,
   })
 
   const order = await getOrderById(request.server.db, orderId)

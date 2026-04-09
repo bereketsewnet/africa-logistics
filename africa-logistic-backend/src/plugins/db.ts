@@ -184,6 +184,24 @@ export default fp(async function dbPlugin(fastify: FastifyInstance) {
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     `)
 
+    // ─── Schema migrations (add columns introduced after initial deploy) ──────
+    // MySQL 8.0 does not support ADD COLUMN IF NOT EXISTS — check information_schema instead
+    const dbName = process.env.DB_NAME ?? 'africa_logistics'
+    const addColIfMissing = async (table: string, column: string, definition: string) => {
+      const [rows] = await conn.query<any[]>(
+        `SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ? AND COLUMN_NAME = ?`,
+        [dbName, table, column]
+      )
+      if ((rows as any[]).length === 0) {
+        await conn.query(`ALTER TABLE \`${table}\` ADD COLUMN \`${column}\` ${definition}`)
+      }
+    }
+    await addColIfMissing('pricing_rules', 'per_kg_rate',    'DECIMAL(10,4) DEFAULT 0.0000 AFTER per_km_rate')
+    await addColIfMissing('pricing_rules', 'additional_fees','JSON NULL AFTER city_surcharge')
+    await addColIfMissing('orders',        'order_image_1_url', 'VARCHAR(500) NULL')
+    await addColIfMissing('orders',        'order_image_2_url', 'VARCHAR(500) NULL')
+    await addColIfMissing('cargo_types',   'icon_url',          'VARCHAR(500) NULL')
+
     // ─── Seed default cargo types if table is empty ──────────────────────────
     const [ctRows] = await conn.query<any[]>('SELECT COUNT(*) as cnt FROM cargo_types')
     if (ctRows[0].cnt === 0) {

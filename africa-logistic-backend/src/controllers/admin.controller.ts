@@ -841,19 +841,19 @@ export async function adminListCargoTypesHandler(
 
 /** POST /api/admin/cargo-types */
 export async function adminCreateCargoTypeHandler(
-  request: FastifyRequest<{ Body: { name: string; description?: string; requires_special_handling?: boolean; icon?: string } }>,
+  request: FastifyRequest<{ Body: { name: string; description?: string; requires_special_handling?: boolean; icon?: string; icon_url?: string } }>,
   reply:   FastifyReply
 ) {
-  const { name, description, requires_special_handling, icon } = request.body
+  const { name, description, requires_special_handling, icon, icon_url } = request.body
   if (!name?.trim()) return reply.status(400).send({ success: false, message: 'Cargo type name is required.' })
 
-  const id = await createCargoType(request.server.db, { name: name.trim(), description, requires_special_handling, icon })
+  const id = await createCargoType(request.server.db, { name: name.trim(), description, requires_special_handling, icon, icon_url })
   return reply.status(201).send({ success: true, message: 'Cargo type created.', id })
 }
 
 /** PUT /api/admin/cargo-types/:id */
 export async function adminUpdateCargoTypeHandler(
-  request: FastifyRequest<{ Params: { id: string }; Body: { name?: string; description?: string; requires_special_handling?: boolean; icon?: string; is_active?: boolean } }>,
+  request: FastifyRequest<{ Params: { id: string }; Body: { name?: string; description?: string; requires_special_handling?: boolean; icon?: string; icon_url?: string; is_active?: boolean } }>,
   reply:   FastifyReply
 ) {
   await updateCargoType(request.server.db, Number(request.params.id), request.body)
@@ -866,7 +866,9 @@ interface PricingRuleBody {
   vehicle_type: string
   base_fare: number
   per_km_rate: number
+  per_kg_rate?: number
   city_surcharge?: number
+  additional_fees?: Array<{ name: string; value: number; type: 'fixed' | 'percent' }>
   min_distance_km?: number
   max_weight_kg?: number
   is_active?: boolean
@@ -886,14 +888,14 @@ export async function adminCreatePricingRuleHandler(
   request: FastifyRequest<{ Body: PricingRuleBody }>,
   reply:   FastifyReply
 ) {
-  const { vehicle_type, base_fare, per_km_rate, city_surcharge, min_distance_km, max_weight_kg } = request.body
+  const { vehicle_type, base_fare, per_km_rate, per_kg_rate, city_surcharge, additional_fees, min_distance_km, max_weight_kg } = request.body
   if (!vehicle_type || base_fare === undefined || per_km_rate === undefined) {
     return reply.status(400).send({ success: false, message: 'vehicle_type, base_fare, per_km_rate are required.' })
   }
   const [result] = await request.server.db.query<any>(
-    `INSERT INTO pricing_rules (vehicle_type, base_fare, per_km_rate, city_surcharge, min_distance_km, max_weight_kg)
-     VALUES (?, ?, ?, ?, ?, ?)`,
-    [vehicle_type, base_fare, per_km_rate, city_surcharge ?? 0, min_distance_km ?? 0, max_weight_kg ?? null]
+    `INSERT INTO pricing_rules (vehicle_type, base_fare, per_km_rate, per_kg_rate, city_surcharge, additional_fees, min_distance_km, max_weight_kg)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    [vehicle_type, base_fare, per_km_rate, per_kg_rate ?? 0, city_surcharge ?? 0, additional_fees ? JSON.stringify(additional_fees) : null, min_distance_km ?? 0, max_weight_kg ?? null]
   )
   return reply.status(201).send({ success: true, message: 'Pricing rule created.', id: result.insertId })
 }
@@ -909,7 +911,9 @@ export async function adminUpdatePricingRuleHandler(
   if (b.vehicle_type    !== undefined) { fields.push('vehicle_type = ?');    values.push(b.vehicle_type) }
   if (b.base_fare       !== undefined) { fields.push('base_fare = ?');       values.push(b.base_fare) }
   if (b.per_km_rate     !== undefined) { fields.push('per_km_rate = ?');     values.push(b.per_km_rate) }
+  if (b.per_kg_rate     !== undefined) { fields.push('per_kg_rate = ?');     values.push(b.per_kg_rate) }
   if (b.city_surcharge  !== undefined) { fields.push('city_surcharge = ?');  values.push(b.city_surcharge) }
+  if (b.additional_fees !== undefined) { fields.push('additional_fees = ?'); values.push(b.additional_fees ? JSON.stringify(b.additional_fees) : null) }
   if (b.min_distance_km !== undefined) { fields.push('min_distance_km = ?'); values.push(b.min_distance_km) }
   if (b.max_weight_kg   !== undefined) { fields.push('max_weight_kg = ?');   values.push(b.max_weight_kg) }
   if (b.is_active       !== undefined) { fields.push('is_active = ?');       values.push(b.is_active ? 1 : 0) }

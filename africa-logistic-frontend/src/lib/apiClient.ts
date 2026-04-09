@@ -90,7 +90,7 @@ export const orderApi = {
     apiClient.get('/orders/cargo-types'),
 
   getQuote: (data: {
-    cargo_type_id: number; vehicle_type: string; weight_kg: number
+    cargo_type_id: number; vehicle_type: string; estimated_weight_kg?: number
     pickup_lat: number; pickup_lng: number; delivery_lat: number; delivery_lng: number
   }) => apiClient.post('/orders/quote', data),
 
@@ -99,6 +99,7 @@ export const orderApi = {
     pickup_address: string; pickup_lat: number; pickup_lng: number
     delivery_address: string; delivery_lat: number; delivery_lng: number
     description?: string; estimated_value?: number
+    order_image_1?: string; order_image_2?: string
   }) => apiClient.post('/orders', data),
 
   listOrders: (params?: { status?: string; page?: number; limit?: number }) =>
@@ -191,18 +192,18 @@ export const adminOrderApi = {
   listCargoTypes: () =>
     apiClient.get('/admin/cargo-types'),
 
-  createCargoType: (data: { name: string; description?: string; requires_special_handling?: boolean; icon?: string }) =>
+  createCargoType: (data: { name: string; description?: string; requires_special_handling?: boolean; icon?: string; icon_url?: string }) =>
     apiClient.post('/admin/cargo-types', data),
 
-  updateCargoType: (id: number, data: { name?: string; description?: string; requires_special_handling?: boolean; icon?: string; is_active?: boolean }) =>
+  updateCargoType: (id: number, data: { name?: string; description?: string; requires_special_handling?: boolean; icon?: string; icon_url?: string; is_active?: boolean }) =>
     apiClient.put(`/admin/cargo-types/${id}`, data),
 
   listPricingRules: () =>
     apiClient.get('/admin/pricing-rules'),
 
-  createPricingRule: (data: { vehicle_type: string; base_fare: number; per_km_rate: number; city_surcharge?: number; min_distance_km?: number }) =>
+  createPricingRule: (data: { vehicle_type: string; base_fare: number; per_km_rate: number; per_kg_rate?: number; city_surcharge?: number; min_distance_km?: number; additional_fees?: Array<{name: string; value: number; type: 'fixed'|'percent'}> }) =>
     apiClient.post('/admin/pricing-rules', data),
 
-  updatePricingRule: (id: number, data: { vehicle_type?: string; base_fare?: number; per_km_rate?: number; city_surcharge?: number; min_distance_km?: number; is_active?: boolean }) =>
+  updatePricingRule: (id: number, data: { vehicle_type?: string; base_fare?: number; per_km_rate?: number; per_kg_rate?: number; city_surcharge?: number; min_distance_km?: number; is_active?: boolean; additional_fees?: Array<{name: string; value: number; type: 'fixed'|'percent'}> }) =>
     apiClient.put(`/admin/pricing-rules/${id}`, data),
 }

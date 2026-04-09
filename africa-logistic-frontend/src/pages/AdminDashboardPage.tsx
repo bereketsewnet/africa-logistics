@@ -16,6 +16,7 @@ import {
   LuShieldCheck, LuPencil, LuPlus, LuFileText, LuRefreshCw,
   LuCar, LuBadgeCheck, LuUserPlus, LuBriefcase, LuSearch,
   LuListOrdered, LuSettings, LuBox, LuBan,
+  LuLeaf, LuFlame, LuThermometer, LuHeart, LuMonitor, LuArchive, LuGem, LuFish, LuImage,
 } from 'react-icons/lu'
 
 // ─── Shared UI helpers ────────────────────────────────────────────────────────
@@ -1625,7 +1626,7 @@ interface OrderStats {
   total_revenue: string | number
 }
 interface AdminDriver { user_id: string; first_name: string; last_name: string; phone_number: string }
-interface AdminVehicle { id: string; plate_number: string; vehicle_type: string }
+interface AdminVehicle { id: string; plate_number: string; vehicle_type: string; driver_id?: string | null }
 
 const ORDER_STATUS_COLOR: Record<string, string> = {
   PENDING: '#fbbf24', ASSIGNED: '#60a5fa', EN_ROUTE: '#a78bfa',
@@ -1659,6 +1660,8 @@ function AdminOrdersSection() {
   const [selDriver, setSelDriver] = useState('')
   const [selVehicle, setSelVehicle] = useState('')
   const [assigning, setAssigning] = useState(false)
+  const [detailOrder, setDetailOrder] = useState<any | null>(null)
+  const [loadingDetail, setLoadingDetail] = useState(false)
 
   const loadOrders = useCallback(async (pg = page, sf = statusFilter, q = search) => {
     setLoading(true)
@@ -1685,6 +1688,25 @@ function AdminOrdersSection() {
       setDrivers(dr.data.drivers ?? [])
       setVehicles((vh.data.vehicles ?? []).filter((v: any) => v.is_active))
     } catch { showToast('Failed to load drivers/vehicles') }
+  }
+
+  // Auto-fill vehicle when driver selection changes
+  useEffect(() => {
+    if (selDriver && vehicles.length > 0) {
+      const match = vehicles.find((v: AdminVehicle) => v.driver_id === selDriver)
+      if (match) setSelVehicle(match.id)
+      else setSelVehicle('')
+    }
+  }, [selDriver]) // eslint-disable-line
+
+  const openOrderDetail = async (id: string) => {
+    setLoadingDetail(true)
+    setDetailOrder(null)
+    try {
+      const { data } = await adminOrderApi.getOrder(id)
+      setDetailOrder(data.order ?? data)
+    } catch { showToast('Failed to load order details') }
+    finally { setLoadingDetail(false) }
   }
 
   const handleAssign = async () => {
@@ -1752,7 +1774,7 @@ function AdminOrdersSection() {
         {loading ? <LoadingSpinner /> : orders.length === 0 ? (
           <p style={{ padding:'2rem', textAlign:'center', color:'var(--clr-muted)', fontSize:'0.875rem' }}>No orders found.</p>
         ) : orders.map((o, i) => (
-          <div key={o.id} style={{ display:'flex', alignItems:'flex-start', gap:'0.75rem', padding:'0.85rem 1rem', borderBottom: i < orders.length-1 ? '1px solid rgba(255,255,255,0.05)' : 'none', flexWrap:'wrap' }}>
+          <div key={o.id} style={{ display:'flex', alignItems:'flex-start', gap:'0.75rem', padding:'0.85rem 1rem', borderBottom: i < orders.length-1 ? '1px solid rgba(255,255,255,0.05)' : 'none', flexWrap:'wrap', cursor:'pointer' }} onClick={e => { if ((e.target as HTMLElement).closest('button')) return; openOrderDetail(o.id) }}>
             <div style={{ flex:1, minWidth:120 }}>
               <div style={{ display:'flex', alignItems:'center', gap:'0.45rem', flexWrap:'wrap', marginBottom:'0.2rem' }}>
                 <span style={{ fontWeight:700, fontSize:'0.875rem', color:'var(--clr-text)' }}>{o.reference_code}</span>
@@ -1820,6 +1842,101 @@ function AdminOrdersSection() {
         </div>
       )}
 
+      {/* Order detail modal */}
+      {(loadingDetail || detailOrder) && (
+        <div className="modal-backdrop" onClick={e => { if (e.target === e.currentTarget) { setDetailOrder(null); setLoadingDetail(false) } }}>
+          <div className="glass modal-box" style={{ padding:'1.75rem', maxWidth:520, maxHeight:'85vh', overflowY:'auto' }}>
+            {loadingDetail && !detailOrder ? (
+              <div style={{ textAlign:'center', padding:'2rem' }}><LoadingSpinner /></div>
+            ) : detailOrder && (
+              <>
+                <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:'1rem' }}>
+                  <div>
+                    <h2 style={{ fontSize:'1rem', fontWeight:800, color:'var(--clr-text)', marginBottom:'0.25rem' }}>{detailOrder.reference_code}</h2>
+                    <div style={{ display:'flex', gap:'0.4rem', flexWrap:'wrap' }}>{orderBadge(detailOrder.status)}</div>
+                  </div>
+                  <button onClick={() => setDetailOrder(null)} style={{ background:'none', border:'none', cursor:'pointer', color:'var(--clr-muted)', padding:'0.2rem' }}><LuX size={18}/></button>
+                </div>
+                <div style={{ display:'flex', flexDirection:'column', gap:'0.75rem' }}>
+                  {/* Shipper */}
+                  <div className="glass-inner" style={{ padding:'0.75rem 1rem' }}>
+                    <p style={{ fontSize:'0.7rem', color:'var(--clr-muted)', fontWeight:600, marginBottom:'0.35rem' }}>SHIPPER</p>
+                    <p style={{ fontSize:'0.875rem', color:'var(--clr-text)', fontWeight:600 }}>{detailOrder.shipper_first_name} {detailOrder.shipper_last_name}</p>
+                    {detailOrder.shipper_phone && <p style={{ fontSize:'0.78rem', color:'var(--clr-muted)' }}>{detailOrder.shipper_phone}</p>}
+                  </div>
+                  {/* Driver */}
+                  {detailOrder.driver_first_name && (
+                    <div className="glass-inner" style={{ padding:'0.75rem 1rem' }}>
+                      <p style={{ fontSize:'0.7rem', color:'var(--clr-muted)', fontWeight:600, marginBottom:'0.35rem' }}>DRIVER</p>
+                      <p style={{ fontSize:'0.875rem', color:'var(--clr-text)', fontWeight:600 }}>{detailOrder.driver_first_name} {detailOrder.driver_last_name}</p>
+                      {detailOrder.driver_phone && <p style={{ fontSize:'0.78rem', color:'var(--clr-muted)' }}>{detailOrder.driver_phone}</p>}
+                    </div>
+                  )}
+                  {/* Cargo & Route */}
+                  <div className="glass-inner" style={{ padding:'0.75rem 1rem' }}>
+                    <p style={{ fontSize:'0.7rem', color:'var(--clr-muted)', fontWeight:600, marginBottom:'0.5rem' }}>SHIPMENT</p>
+                    <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'0.5rem 1rem' }}>
+                      <div><p style={{ fontSize:'0.7rem', color:'var(--clr-muted)' }}>Cargo Type</p><p style={{ fontSize:'0.82rem', color:'var(--clr-text)', fontWeight:600 }}>{detailOrder.cargo_type_name ?? '—'}</p></div>
+                      <div><p style={{ fontSize:'0.7rem', color:'var(--clr-muted)' }}>Vehicle</p><p style={{ fontSize:'0.82rem', color:'var(--clr-text)', fontWeight:600 }}>{detailOrder.vehicle_type ?? '—'}</p></div>
+                      <div><p style={{ fontSize:'0.7rem', color:'var(--clr-muted)' }}>Weight</p><p style={{ fontSize:'0.82rem', color:'var(--clr-text)', fontWeight:600 }}>{detailOrder.estimated_weight_kg != null ? `${detailOrder.estimated_weight_kg} kg` : '—'}</p></div>
+                      <div><p style={{ fontSize:'0.7rem', color:'var(--clr-muted)' }}>Distance</p><p style={{ fontSize:'0.82rem', color:'var(--clr-text)', fontWeight:600 }}>{detailOrder.distance_km != null ? `${Number(detailOrder.distance_km).toFixed(1)} km` : '—'}</p></div>
+                    </div>
+                  </div>
+                  {/* Addresses */}
+                  <div className="glass-inner" style={{ padding:'0.75rem 1rem' }}>
+                    <p style={{ fontSize:'0.7rem', color:'var(--clr-muted)', fontWeight:600, marginBottom:'0.35rem' }}>ROUTE</p>
+                    <p style={{ fontSize:'0.78rem', color:'var(--clr-muted)', marginBottom:'0.15rem' }}>From</p>
+                    <p style={{ fontSize:'0.85rem', color:'var(--clr-text)', marginBottom:'0.4rem' }}>{detailOrder.pickup_address}</p>
+                    <p style={{ fontSize:'0.78rem', color:'var(--clr-muted)', marginBottom:'0.15rem' }}>To</p>
+                    <p style={{ fontSize:'0.85rem', color:'var(--clr-text)' }}>{detailOrder.delivery_address}</p>
+                  </div>
+                  {/* Pricing */}
+                  <div className="glass-inner" style={{ padding:'0.75rem 1rem' }}>
+                    <p style={{ fontSize:'0.7rem', color:'var(--clr-muted)', fontWeight:600, marginBottom:'0.35rem' }}>PRICING</p>
+                    <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+                      <span style={{ fontSize:'0.78rem', color:'var(--clr-muted)' }}>Estimated</span>
+                      <span style={{ fontSize:'0.85rem', color:'var(--clr-text)', fontWeight:700 }}>{Number(detailOrder.estimated_price ?? 0).toLocaleString()} ETB</span>
+                    </div>
+                    {detailOrder.final_price != null && (
+                      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginTop:'0.25rem' }}>
+                        <span style={{ fontSize:'0.78rem', color:'var(--clr-muted)' }}>Final</span>
+                        <span style={{ fontSize:'0.9rem', color:'var(--clr-accent)', fontWeight:800 }}>{Number(detailOrder.final_price).toLocaleString()} ETB</span>
+                      </div>
+                    )}
+                  </div>
+                  {/* Description */}
+                  {detailOrder.description && (
+                    <div className="glass-inner" style={{ padding:'0.75rem 1rem' }}>
+                      <p style={{ fontSize:'0.7rem', color:'var(--clr-muted)', fontWeight:600, marginBottom:'0.25rem' }}>NOTES</p>
+                      <p style={{ fontSize:'0.82rem', color:'var(--clr-text)' }}>{detailOrder.description}</p>
+                    </div>
+                  )}
+                  {/* Order Images */}
+                  {(detailOrder.order_image_1_url || detailOrder.order_image_2_url) && (
+                    <div className="glass-inner" style={{ padding:'0.75rem 1rem' }}>
+                      <p style={{ fontSize:'0.7rem', color:'var(--clr-muted)', fontWeight:600, marginBottom:'0.5rem' }}>ORDER IMAGES</p>
+                      <div style={{ display:'flex', gap:'0.65rem', flexWrap:'wrap' }}>
+                        {detailOrder.order_image_1_url && <img src={detailOrder.order_image_1_url} alt="Order image 1" style={{ width:120, height:90, objectFit:'cover', borderRadius:8, border:'1px solid rgba(255,255,255,0.1)' }}/>}
+                        {detailOrder.order_image_2_url && <img src={detailOrder.order_image_2_url} alt="Order image 2" style={{ width:120, height:90, objectFit:'cover', borderRadius:8, border:'1px solid rgba(255,255,255,0.1)' }}/>}
+                      </div>
+                    </div>
+                  )}
+                  {/* Action buttons */}
+                  <div style={{ display:'flex', gap:'0.5rem', flexWrap:'wrap' }}>
+                    {detailOrder.status === 'PENDING' && (
+                      <button onClick={() => { setDetailOrder(null); openAssign(detailOrder) }} style={{ display:'flex', alignItems:'center', gap:'0.3rem', padding:'0.45rem 0.9rem', borderRadius:8, border:'none', background:'var(--clr-accent)', color:'#080b14', fontFamily:'inherit', fontSize:'0.8rem', fontWeight:700, cursor:'pointer' }}><LuTruck size={13}/> Assign Driver</button>
+                    )}
+                    {['PENDING','ASSIGNED'].includes(detailOrder.status) && (
+                      <button onClick={() => { handleCancel(detailOrder); setDetailOrder(null) }} style={{ display:'flex', alignItems:'center', gap:'0.3rem', padding:'0.45rem 0.9rem', borderRadius:8, border:'1px solid rgba(248,113,113,0.3)', background:'rgba(248,113,113,0.06)', color:'#f87171', fontFamily:'inherit', fontSize:'0.8rem', fontWeight:700, cursor:'pointer' }}><LuBan size={13}/> Cancel Order</button>
+                    )}
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
       {toast && <div style={{ position:'fixed', bottom:'1.25rem', right:'1.25rem', zIndex:200, background:'rgba(0,229,255,0.12)', border:'1px solid rgba(0,229,255,0.25)', color:'var(--clr-text)', padding:'0.65rem 1.1rem', borderRadius:12, fontSize:'0.85rem', fontWeight:600, backdropFilter:'blur(12px)' }}>{toast}</div>}
     </div>
   )
@@ -1827,18 +1944,34 @@ function AdminOrdersSection() {
 
 // ─── Admin Cargo Types Section ────────────────────────────────────────────────
 
-interface CargoType { id: number; name: string; description: string | null; requires_special_handling: number; icon: string | null; is_active: number }
+interface CargoType { id: number; name: string; description: string | null; requires_special_handling: number; icon: string | null; icon_url: string | null; is_active: number }
 
 function AdminCargoTypesSection() {
   const [items, setItems] = useState<CargoType[]>([])
   const [loading, setLoading] = useState(false)
   const [modal, setModal] = useState<'create' | 'edit' | null>(null)
   const [editTarget, setEditTarget] = useState<CargoType | null>(null)
-  const [form, setForm] = useState({ name:'', description:'', requires_special_handling: false, icon:'', is_active: true })
+  const [form, setForm] = useState({ name:'', description:'', requires_special_handling: false, icon:'', icon_url:'', is_active: true })
   const [formErr, setFormErr] = useState('')
   const [saving, setSaving] = useState(false)
   const [toast, setToast] = useState('')
+  const [iconMode, setIconMode] = useState<'preset'|'custom'>('preset')
   const showToast = (m: string) => { setToast(m); setTimeout(() => setToast(''), 3000) }
+
+  const PRESET_ICONS: Array<{ label: string; icon: React.ReactNode; name: string }> = [
+    { label:'General', name:'LuPackage', icon:<LuPackage size={20}/> },
+    { label:'Box', name:'LuBox', icon:<LuBox size={20}/> },
+    { label:'Freight', name:'LuTruck', icon:<LuTruck size={20}/> },
+    { label:'Archive', name:'LuArchive', icon:<LuArchive size={20}/> },
+    { label:'Fragile', name:'LuHeart', icon:<LuHeart size={20}/> },
+    { label:'Electronic', name:'LuMonitor', icon:<LuMonitor size={20}/> },
+    { label:'Hazardous', name:'LuTriangleAlert', icon:<LuTriangleAlert size={20}/> },
+    { label:'Temp. Sensitive', name:'LuThermometer', icon:<LuThermometer size={20}/> },
+    { label:'Organic', name:'LuLeaf', icon:<LuLeaf size={20}/> },
+    { label:'Flammable', name:'LuFlame', icon:<LuFlame size={20}/> },
+    { label:'Valuable', name:'LuGem', icon:<LuGem size={20}/> },
+    { label:'Perishable', name:'LuFish', icon:<LuFish size={20}/> },
+  ]
 
   const load = async () => {
     setLoading(true)
@@ -1849,8 +1982,8 @@ function AdminCargoTypesSection() {
 
   useEffect(() => { load() }, []) // eslint-disable-line
 
-  const openCreate = () => { setForm({ name:'', description:'', requires_special_handling:false, icon:'', is_active:true }); setFormErr(''); setEditTarget(null); setModal('create') }
-  const openEdit = (c: CargoType) => { setForm({ name:c.name, description:c.description??'', requires_special_handling:!!c.requires_special_handling, icon:c.icon??'', is_active:!!c.is_active }); setFormErr(''); setEditTarget(c); setModal('edit') }
+  const openCreate = () => { setForm({ name:'', description:'', requires_special_handling:false, icon:'', icon_url:'', is_active:true }); setIconMode('preset'); setFormErr(''); setEditTarget(null); setModal('create') }
+  const openEdit = (c: CargoType) => { setForm({ name:c.name, description:c.description??'', requires_special_handling:!!c.requires_special_handling, icon:c.icon??'', icon_url:c.icon_url??'', is_active:!!c.is_active }); setIconMode(c.icon_url ? 'custom' : 'preset'); setFormErr(''); setEditTarget(c); setModal('edit') }
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -1858,10 +1991,10 @@ function AdminCargoTypesSection() {
     setFormErr(''); setSaving(true)
     try {
       if (modal === 'create') {
-        await adminOrderApi.createCargoType({ name:form.name.trim(), description:form.description||undefined, requires_special_handling:form.requires_special_handling, icon:form.icon||undefined })
+        await adminOrderApi.createCargoType({ name:form.name.trim(), description:form.description||undefined, requires_special_handling:form.requires_special_handling, icon:iconMode==='preset'?form.icon||undefined:undefined, icon_url:iconMode==='custom'?form.icon_url||undefined:undefined })
         showToast('Cargo type created.')
       } else if (editTarget) {
-        await adminOrderApi.updateCargoType(editTarget.id, { name:form.name.trim(), description:form.description||undefined, requires_special_handling:form.requires_special_handling, icon:form.icon||undefined, is_active:form.is_active })
+        await adminOrderApi.updateCargoType(editTarget.id, { name:form.name.trim(), description:form.description||undefined, requires_special_handling:form.requires_special_handling, icon:iconMode==='preset'?form.icon||undefined:undefined, icon_url:iconMode==='custom'?form.icon_url||undefined:undefined, is_active:form.is_active })
         showToast('Updated.')
       }
       setModal(null); load()
@@ -1908,7 +2041,38 @@ function AdminCargoTypesSection() {
               {formErr && <div className="alert alert-error"><LuTriangleAlert size={13}/> {formErr}</div>}
               <div><label style={labelStyle}>Name *</label><input style={inputStyle} value={form.name} onChange={e => setForm(f => ({ ...f, name:e.target.value }))} required/></div>
               <div><label style={labelStyle}>Description</label><input style={inputStyle} value={form.description} onChange={e => setForm(f => ({ ...f, description:e.target.value }))}/></div>
-              <div><label style={labelStyle}>Icon (Lucide name, e.g. LuPackage)</label><input style={inputStyle} value={form.icon} onChange={e => setForm(f => ({ ...f, icon:e.target.value }))}/></div>
+              {/* Icon picker */}
+              <div>
+                <label style={labelStyle}>Icon</label>
+                <div style={{ display:'flex', gap:'0.5rem', marginBottom:'0.6rem' }}>
+                  <button type="button" onClick={() => setIconMode('preset')} style={{ flex:1, padding:'0.4rem', borderRadius:7, border:`1px solid ${iconMode==='preset'?'var(--clr-accent)':'rgba(255,255,255,0.1)'}`, background:iconMode==='preset'?'rgba(0,229,255,0.1)':'rgba(255,255,255,0.04)', color:iconMode==='preset'?'var(--clr-accent)':'var(--clr-muted)', fontFamily:'inherit', fontSize:'0.75rem', fontWeight:600, cursor:'pointer' }}>Preset Icons</button>
+                  <button type="button" onClick={() => setIconMode('custom')} style={{ flex:1, padding:'0.4rem', borderRadius:7, border:`1px solid ${iconMode==='custom'?'var(--clr-accent)':'rgba(255,255,255,0.1)'}`, background:iconMode==='custom'?'rgba(0,229,255,0.1)':'rgba(255,255,255,0.04)', color:iconMode==='custom'?'var(--clr-accent)':'var(--clr-muted)', fontFamily:'inherit', fontSize:'0.75rem', fontWeight:600, cursor:'pointer' }}><LuImage size={12}/> Custom Image</button>
+                </div>
+                {iconMode === 'preset' ? (
+                  <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:'0.4rem' }}>
+                    {PRESET_ICONS.map(p => (
+                      <button key={p.name} type="button" onClick={() => setForm(f => ({ ...f, icon:p.name }))}
+                        style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:'0.2rem', padding:'0.5rem 0.25rem', borderRadius:8, border:`1px solid ${form.icon===p.name?'var(--clr-accent)':'rgba(255,255,255,0.08)'}`, background:form.icon===p.name?'rgba(0,229,255,0.12)':'rgba(255,255,255,0.03)', color:form.icon===p.name?'var(--clr-accent)':'var(--clr-muted)', cursor:'pointer', fontFamily:'inherit', fontSize:'0.6rem', fontWeight:600 }}>
+                        {p.icon}
+                        <span style={{ lineHeight:1.1, textAlign:'center' }}>{p.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                ) : (
+                  <div>
+                    {form.icon_url && <img src={form.icon_url} alt="icon preview" style={{ width:56, height:56, borderRadius:8, objectFit:'cover', border:'1px solid rgba(255,255,255,0.1)', marginBottom:'0.4rem' }}/>}
+                    <label style={{ display:'flex', alignItems:'center', gap:'0.5rem', padding:'0.5rem 0.75rem', borderRadius:8, border:'1px dashed rgba(255,255,255,0.2)', background:'rgba(255,255,255,0.03)', color:'var(--clr-muted)', cursor:'pointer', fontSize:'0.78rem' }}>
+                      <LuImage size={14}/> {form.icon_url ? 'Change image' : 'Upload image'}
+                      <input type="file" accept="image/*" style={{ display:'none' }} onChange={e => {
+                        const file = e.target.files?.[0]; if (!file) return
+                        const reader = new FileReader()
+                        reader.onload = ev => setForm(f => ({ ...f, icon_url: ev.target?.result as string }))
+                        reader.readAsDataURL(file)
+                      }}/>
+                    </label>
+                  </div>
+                )}
+              </div>
               <div style={{ display:'flex', alignItems:'center', gap:'0.65rem' }}>
                 <button type="button" onClick={() => setForm(f => ({ ...f, requires_special_handling: !f.requires_special_handling }))}
                   style={{ width:38, height:22, borderRadius:99, border:'none', cursor:'pointer', background: form.requires_special_handling ? 'var(--clr-accent)' : 'rgba(255,255,255,0.12)', transition:'background 0.2s', flexShrink:0, position:'relative' }}>
@@ -1940,14 +2104,16 @@ function AdminCargoTypesSection() {
 
 // ─── Admin Pricing Rules Section ──────────────────────────────────────────────
 
-interface PricingRule { id: number; vehicle_type: string; base_fare: number; per_km_rate: number; city_surcharge: number; min_distance_km: number | null; is_active: number }
+interface PricingRule { id: number; vehicle_type: string; base_fare: number; per_km_rate: number; per_kg_rate: number; city_surcharge: number; min_distance_km: number | null; is_active: number; additional_fees: string | null }
 
 function AdminPricingRulesSection() {
   const [items, setItems] = useState<PricingRule[]>([])
   const [loading, setLoading] = useState(false)
   const [modal, setModal] = useState<'create' | 'edit' | null>(null)
   const [editTarget, setEditTarget] = useState<PricingRule | null>(null)
-  const [form, setForm] = useState({ vehicle_type:'', base_fare:'', per_km_rate:'', city_surcharge:'0', min_distance_km:'', is_active: true })
+  const [form, setForm] = useState({ vehicle_type:'', base_fare:'', per_km_rate:'', per_kg_rate:'0', min_distance_km:'', is_active: true })
+  const [fees, setFees] = useState<Array<{name:string;value:string;type:'fixed'|'percent'}>>([])
+  const [newFee, setNewFee] = useState({ name:'', value:'', type:'fixed' as 'fixed'|'percent' })
   const [formErr, setFormErr] = useState('')
   const [saving, setSaving] = useState(false)
   const [toast, setToast] = useState('')
@@ -1962,15 +2128,21 @@ function AdminPricingRulesSection() {
 
   useEffect(() => { load() }, []) // eslint-disable-line
 
-  const openCreate = () => { setForm({ vehicle_type:'', base_fare:'', per_km_rate:'', city_surcharge:'0', min_distance_km:'', is_active:true }); setFormErr(''); setEditTarget(null); setModal('create') }
-  const openEdit = (p: PricingRule) => { setForm({ vehicle_type:p.vehicle_type, base_fare:String(p.base_fare), per_km_rate:String(p.per_km_rate), city_surcharge:String(p.city_surcharge), min_distance_km:p.min_distance_km != null ? String(p.min_distance_km) : '', is_active:!!p.is_active }); setFormErr(''); setEditTarget(p); setModal('edit') }
+  const openCreate = () => { setForm({ vehicle_type:'', base_fare:'', per_km_rate:'', per_kg_rate:'0', min_distance_km:'', is_active:true }); setFees([]); setNewFee({name:'',value:'',type:'fixed'}); setFormErr(''); setEditTarget(null); setModal('create') }
+  const openEdit = (p: PricingRule) => {
+    const parsedFees = p.additional_fees ? (typeof p.additional_fees === 'string' ? JSON.parse(p.additional_fees) : p.additional_fees) : []
+    setForm({ vehicle_type:p.vehicle_type, base_fare:String(p.base_fare), per_km_rate:String(p.per_km_rate), per_kg_rate:String(p.per_kg_rate ?? 0), min_distance_km:p.min_distance_km != null ? String(p.min_distance_km) : '', is_active:!!p.is_active })
+    setFees(parsedFees.map((f: any) => ({ name:f.name, value:String(f.value), type:f.type })))
+    setNewFee({name:'',value:'',type:'fixed'}); setFormErr(''); setEditTarget(p); setModal('edit')
+  }
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!form.vehicle_type.trim()) { setFormErr('Vehicle type required'); return }
     setFormErr(''); setSaving(true)
     try {
-      const payload = { vehicle_type:form.vehicle_type.trim(), base_fare:parseFloat(form.base_fare), per_km_rate:parseFloat(form.per_km_rate), city_surcharge:parseFloat(form.city_surcharge)||0, min_distance_km:form.min_distance_km ? parseFloat(form.min_distance_km) : undefined }
+      const parsedFees = fees.filter(f => f.name.trim() && f.value).map(f => ({ name:f.name.trim(), value:parseFloat(f.value), type:f.type }))
+      const payload = { vehicle_type:form.vehicle_type.trim(), base_fare:parseFloat(form.base_fare), per_km_rate:parseFloat(form.per_km_rate), per_kg_rate:parseFloat(form.per_kg_rate)||0, min_distance_km:form.min_distance_km ? parseFloat(form.min_distance_km) : undefined, additional_fees: parsedFees.length ? parsedFees : undefined }
       if (modal === 'create') { await adminOrderApi.createPricingRule(payload); showToast('Pricing rule created.') }
       else if (editTarget) { await adminOrderApi.updatePricingRule(editTarget.id, { ...payload, is_active:form.is_active }); showToast('Updated.') }
       setModal(null); load()
@@ -2000,7 +2172,7 @@ function AdminPricingRulesSection() {
                   <span style={{ fontWeight:700, fontSize:'0.875rem', color:'var(--clr-text)' }}>{p.vehicle_type}</span>
                   {!p.is_active && <span className="badge badge-red" style={{ fontSize:'0.65rem' }}>Inactive</span>}
                 </div>
-                <p style={{ fontSize:'0.73rem', color:'var(--clr-muted)' }}>Base: {p.base_fare} ETB · {p.per_km_rate} ETB/km · Surcharge: {p.city_surcharge} ETB</p>
+                <p style={{ fontSize:'0.73rem', color:'var(--clr-muted)' }}>Base: {p.base_fare} ETB · {p.per_km_rate} ETB/km · {p.per_kg_rate > 0 ? `${p.per_kg_rate} ETB/kg · ` : ''}{p.additional_fees && (typeof p.additional_fees === 'string' ? JSON.parse(p.additional_fees) : p.additional_fees).length > 0 ? `${(typeof p.additional_fees === 'string' ? JSON.parse(p.additional_fees) : p.additional_fees).length} fees` : 'No extra fees'}</p>
               </div>
               <button onClick={() => openEdit(p)} style={{ padding:'0.28rem 0.55rem', borderRadius:7, border:'1px solid rgba(255,255,255,0.12)', background:'rgba(255,255,255,0.05)', color:'var(--clr-muted)', fontFamily:'inherit', fontSize:'0.7rem', cursor:'pointer', display:'flex', alignItems:'center', gap:'0.3rem' }}><LuPencil size={11}/> Edit</button>
             </div>
@@ -2010,16 +2182,47 @@ function AdminPricingRulesSection() {
 
       {(modal === 'create' || modal === 'edit') && (
         <div className="modal-backdrop" onClick={e => { if (e.target === e.currentTarget) setModal(null) }}>
-          <div className="glass modal-box" style={{ padding:'1.75rem', maxWidth:420 }}>
+          <div className="glass modal-box" style={{ padding:'1.75rem', maxWidth:480, maxHeight:'88vh', overflowY:'auto' }}>
             <h2 style={{ fontSize:'1rem', fontWeight:800, color:'var(--clr-text)', marginBottom:'1rem' }}>{modal === 'create' ? 'Add Pricing Rule' : 'Edit Pricing Rule'}</h2>
             <form onSubmit={handleSave} style={{ display:'flex', flexDirection:'column', gap:'0.75rem' }}>
               {formErr && <div className="alert alert-error"><LuTriangleAlert size={13}/> {formErr}</div>}
-              <div><label style={labelStyle}>Vehicle Type *</label><input style={inputStyle} value={form.vehicle_type} onChange={e => setForm(f => ({ ...f, vehicle_type:e.target.value }))} placeholder="e.g. Truck" required/></div>
+              {/* Vehicle Type dropdown */}
+              <div>
+                <label style={labelStyle}>Vehicle Type *</label>
+                <select style={{ ...inputStyle, outline:'none' }} value={form.vehicle_type} onChange={e => setForm(f => ({ ...f, vehicle_type:e.target.value }))} required>
+                  <option value="" style={{ background:'#0f172a' }}>— Select vehicle type —</option>
+                  {VEHICLE_TYPES.map(t => <option key={t} value={t} style={{ background:'#0f172a' }}>{t}</option>)}
+                </select>
+              </div>
+              {/* Base fare + per km */}
               <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'0.65rem' }}>
                 <div><label style={labelStyle}>Base Fare (ETB) *</label><input style={inputStyle} type="number" min="0" step="0.01" value={form.base_fare} onChange={e => setForm(f => ({ ...f, base_fare:e.target.value }))} required/></div>
-                <div><label style={labelStyle}>Per km Rate *</label><input style={inputStyle} type="number" min="0" step="0.01" value={form.per_km_rate} onChange={e => setForm(f => ({ ...f, per_km_rate:e.target.value }))} required/></div>
-                <div><label style={labelStyle}>City Surcharge</label><input style={inputStyle} type="number" min="0" step="0.01" value={form.city_surcharge} onChange={e => setForm(f => ({ ...f, city_surcharge:e.target.value }))}/></div>
+                <div><label style={labelStyle}>Per km Rate (ETB) *</label><input style={inputStyle} type="number" min="0" step="0.01" value={form.per_km_rate} onChange={e => setForm(f => ({ ...f, per_km_rate:e.target.value }))} required/></div>
+                <div><label style={labelStyle}>Per kg Rate (ETB)</label><input style={inputStyle} type="number" min="0" step="0.0001" value={form.per_kg_rate} onChange={e => setForm(f => ({ ...f, per_kg_rate:e.target.value }))}/></div>
                 <div><label style={labelStyle}>Min Distance km</label><input style={inputStyle} type="number" min="0" step="0.1" value={form.min_distance_km} onChange={e => setForm(f => ({ ...f, min_distance_km:e.target.value }))}/></div>
+              </div>
+              {/* Additional fees manager */}
+              <div>
+                <label style={labelStyle}>Additional Fees</label>
+                <div style={{ display:'flex', flexDirection:'column', gap:'0.4rem', marginBottom:'0.5rem' }}>
+                  {fees.map((fee, idx) => (
+                    <div key={idx} style={{ display:'flex', alignItems:'center', gap:'0.4rem', padding:'0.4rem 0.65rem', borderRadius:8, background:'rgba(255,255,255,0.04)', border:'1px solid rgba(255,255,255,0.08)' }}>
+                      <span style={{ flex:1, fontSize:'0.8rem', color:'var(--clr-text)' }}>{fee.name}</span>
+                      <span style={{ fontSize:'0.8rem', color:'var(--clr-accent)', fontWeight:700 }}>{fee.type==='percent' ? `${fee.value}%` : `${fee.value} ETB`}</span>
+                      <button type="button" onClick={() => setFees(f => f.filter((_,i) => i!==idx))} style={{ background:'none', border:'none', cursor:'pointer', color:'#f87171', padding:'0.1rem', display:'flex', alignItems:'center' }}><LuX size={13}/></button>
+                    </div>
+                  ))}
+                </div>
+                {/* Add new fee row */}
+                <div style={{ display:'grid', gridTemplateColumns:'1fr auto auto auto', gap:'0.4rem', alignItems:'center' }}>
+                  <input style={{ ...inputStyle, fontSize:'0.78rem', padding:'0.45rem 0.65rem' }} placeholder="Fee name" value={newFee.name} onChange={e => setNewFee(f => ({ ...f, name:e.target.value }))}/>
+                  <input style={{ ...inputStyle, width:72, fontSize:'0.78rem', padding:'0.45rem 0.65rem' }} type="number" min="0" step="0.01" placeholder="Value" value={newFee.value} onChange={e => setNewFee(f => ({ ...f, value:e.target.value }))}/>
+                  <select style={{ ...inputStyle, width:'auto', fontSize:'0.78rem', padding:'0.45rem 0.55rem', outline:'none' }} value={newFee.type} onChange={e => setNewFee(f => ({ ...f, type:e.target.value as 'fixed'|'percent' }))}>
+                    <option value="fixed" style={{ background:'#0f172a' }}>ETB</option>
+                    <option value="percent" style={{ background:'#0f172a' }}>%</option>
+                  </select>
+                  <button type="button" onClick={() => { if (!newFee.name.trim() || !newFee.value) return; setFees(f => [...f, { ...newFee }]); setNewFee({name:'',value:'',type:'fixed'}) }} style={{ padding:'0.45rem 0.65rem', borderRadius:8, border:'none', background:'var(--clr-accent)', color:'#000', fontFamily:'inherit', fontSize:'0.78rem', fontWeight:700, cursor:'pointer', display:'flex', alignItems:'center', gap:'0.2rem' }}><LuPlus size={13}/></button>
+                </div>
               </div>
               {modal === 'edit' && (
                 <div style={{ display:'flex', alignItems:'center', gap:'0.65rem' }}>
