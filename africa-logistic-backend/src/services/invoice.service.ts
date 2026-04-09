@@ -17,7 +17,29 @@ const INVOICES_DIR = path.join(process.cwd(), 'uploads', 'invoices')
 // Ensure invoices directory exists at module load
 if (!fs.existsSync(INVOICES_DIR)) fs.mkdirSync(INVOICES_DIR, { recursive: true })
 
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+const s = (v: unknown): string =>
+  (v === null || v === undefined || v === '') ? '—' : String(v)
+
+const n = (v: unknown, decimals = 2): string => {
+  const num = Number(v)
+  return isNaN(num) ? '—' : num.toFixed(decimals)
+}
+
+const fmtDate = (v: unknown): string => {
+  if (!v) return '—'
+  const d = new Date(String(v))
+  return isNaN(d.getTime()) ? '—' : d.toLocaleDateString('en-GB', { day:'numeric', month:'long', year:'numeric' })
+}
+
+const fmtMoney = (v: unknown): string => {
+  const num = Number(v)
+  return isNaN(num) ? '—' : `ETB ${num.toLocaleString('en-ET', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+}
+
 // ─── PDF Generation ───────────────────────────────────────────────────────────
+
 
 export async function generateInvoice(db: Pool, orderId: string): Promise<string | null> {
   const order = await getOrderById(db, orderId)

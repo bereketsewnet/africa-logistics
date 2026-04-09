@@ -32,10 +32,10 @@ const truckIcon = new L.DivIcon({
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface CargoType { id: number; name: string; description: string; requires_special_handling: number; icon: string }
-interface Quote { distance_km: number; estimated_price: number; base_fare: number; per_km_charge: number; city_surcharge: number; currency: string }
+interface Quote { distance_km: number; estimated_price: number; base_fare: number; per_km_rate: number; distance_cost: number; city_surcharge: number; currency?: string }
 interface Order {
   id: string; reference_code: string; status: string
-  cargo_type_name: string; vehicle_type: string; weight_kg: number
+  cargo_type_name: string; vehicle_type_required: string; estimated_weight_kg: number
   pickup_address: string; delivery_address: string
   estimated_price: number; final_price: number | null; currency: string
   description: string | null; estimated_value: number | null
@@ -44,7 +44,7 @@ interface Order {
 }
 interface StatusHistory { id: number; status: string; notes: string | null; created_at: string }
 interface Message { id: string; sender_first_name: string; sender_last_name: string; sender_role_id: number; message: string; created_at: string }
-interface TrackInfo { success: boolean; status: string; driver?: { name: string; phone: string }; location?: { lat: number; lng: number; updated_at: string; heading: number | null; speed_kmh: number | null } }
+interface TrackInfo { success: boolean; status: string; driver?: { name: string; phone: string }; location?: { lat: number; lng: number; recorded_at: string; heading: number | null; speed_kmh: number | null } }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 const STATUS_COLOR: Record<string, string> = {
@@ -101,8 +101,98 @@ async function reverseGeocode(lat: number, lng: number): Promise<string> {
   }
 }
 
+// ─── Location Search (Nominatim autocomplete) ────────────────────────────────
+function LocationSearch({ label, dotColor, value, onSelect, onClear }: {
+  label: string; dotColor: string; value: string
+  onSelect: (lat: string, lng: string, addr: string) => void
+  onClear: () => void
+}) {
+  const [q, setQ] = useState(value)
+  const [results, setResults] = useState<Array<{ display_name: string; lat: string; lon: string }>>(
+    []
+  )
+  const [open, setOpen] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const wrapRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => { setQ(value) }, [value])
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [])
+
+  const search = (text: string) => {
+    setQ(text)
+    clearTimeout(timerRef.current ?? undefined)
+    if (!text.trim() || text.length < 2) { setResults([]); setOpen(false); return }
+    timerRef.current = setTimeout(async () => {
+      setBusy(true)
+      try {
+        const r = await fetch(
+          `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(text)}&limit=6&countrycodes=et,dj,er,so,sd,ke`,
+          { headers: { 'Accept-Language': 'en' } }
+        )
+        const d: Array<{ display_name: string; lat: string; lon: string }> = await r.json()
+        if (d.length === 0) {
+          const r2 = await fetch(
+            `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(text)}&limit=5`,
+            { headers: { 'Accept-Language': 'en' } }
+          )
+          const d2: Array<{ display_name: string; lat: string; lon: string }> = await r2.json()
+          setResults(d2); setOpen(d2.length > 0)
+        } else {
+          setResults(d); setOpen(true)
+        }
+      } catch { /* ignore */ }
+      finally { setBusy(false) }
+    }, 450)
+  }
+
+  return (
+    <div ref={wrapRef} style={{ position: 'relative' }}>
+      <div style={{ display:'flex', alignItems:'center', gap:'0.5rem', padding:'0.6rem 0.85rem', borderRadius:10, background:'rgba(255,255,255,0.05)', border:`1px solid ${dotColor}44` }}>
+        <span style={{ width:9, height:9, borderRadius:'50%', background:dotColor, flexShrink:0 }}/>
+        <span style={{ fontSize:'0.67rem', fontWeight:700, color:dotColor, width:50, flexShrink:0, textTransform:'uppercase', letterSpacing:'0.05em' }}>{label}</span>
+        <input
+          value={q}
+          onChange={e => search(e.target.value)}
+          onFocus={() => results.length > 0 && setOpen(true)}
+          placeholder={`Type ${label.toLowerCase()} address…`}
+          style={{ flex:1, background:'none', border:'none', color:'var(--clr-text)', fontFamily:'inherit', fontSize:'0.82rem', outline:'none', minWidth:0 }}
+        />
+        {busy && <span className="spinner" style={{ width:13, height:13, borderWidth:1.5, flexShrink:0 }}/>}
+        {q && !busy && (
+          <button type="button" onClick={() => { setQ(''); setResults([]); setOpen(false); onClear() }}
+            style={{ background:'none', border:'none', cursor:'pointer', color:'var(--clr-muted)', padding:0, display:'flex', alignItems:'center', flexShrink:0 }}>
+            <LuX size={12}/>
+          </button>
+        )}
+      </div>
+      {open && results.length > 0 && (
+        <div style={{ position:'absolute', top:'calc(100% + 3px)', left:0, right:0, zIndex:9999, background:'#0d1526', border:'1px solid rgba(255,255,255,0.14)', borderRadius:10, overflow:'hidden', boxShadow:'0 10px 40px rgba(0,0,0,0.7)', maxHeight:210, overflowY:'auto' }}>
+          {results.map((item, i) => (
+            <button key={i} type="button"
+              onClick={() => { setQ(item.display_name); setOpen(false); onSelect(item.lat, item.lon, item.display_name) }}
+              style={{ display:'flex', alignItems:'flex-start', gap:'0.45rem', width:'100%', textAlign:'left', padding:'0.6rem 0.85rem', background:'none', border:'none', borderBottom: i < results.length - 1 ? '1px solid rgba(255,255,255,0.05)' : 'none', color:'var(--clr-text)', fontFamily:'inherit', fontSize:'0.78rem', cursor:'pointer', lineHeight:1.4 }}
+              onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.07)')}
+              onMouseLeave={e => (e.currentTarget.style.background = 'none')}>
+              <LuMapPin size={12} style={{ color:dotColor, marginTop:2, flexShrink:0 }}/>
+              <span>{item.display_name}</span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ─── Map Click Handler ────────────────────────────────────────────────────────
-function MapClickHandler({ onPick }: { mode?: 'pickup' | 'delivery'; onPick: (lat: number, lng: number) => void }) {
+function MapClickHandler({ onPick }: { onPick: (lat: number, lng: number) => void }) {
   useMapEvents({ click: e => onPick(e.latlng.lat, e.latlng.lng) })
   return null
 }
@@ -116,6 +206,7 @@ interface MapPickerProps {
 function MapPicker({ pickupLat, pickupLng, pickupAddress, deliveryLat, deliveryLng, deliveryAddress, onChange }: MapPickerProps) {
   const [mode, setMode] = useState<'pickup' | 'delivery'>('pickup')
   const [geocoding, setGeocoding] = useState(false)
+  const [gpsLoading, setGpsLoading] = useState(false)
 
   const handlePick = async (lat: number, lng: number) => {
     setGeocoding(true)
@@ -132,35 +223,77 @@ function MapPicker({ pickupLat, pickupLng, pickupAddress, deliveryLat, deliveryL
     setGeocoding(false)
   }
 
+  const useMyLocation = () => {
+    if (!navigator.geolocation) return
+    setGpsLoading(true)
+    navigator.geolocation.getCurrentPosition(async pos => {
+      const { latitude: lat, longitude: lng } = pos.coords
+      setGpsLoading(true)
+      const addr = await reverseGeocode(lat, lng)
+      if (mode === 'pickup') {
+        onChange('pickup_lat', lat.toFixed(6)); onChange('pickup_lng', lng.toFixed(6)); onChange('pickup_address', addr)
+      } else {
+        onChange('delivery_lat', lat.toFixed(6)); onChange('delivery_lng', lng.toFixed(6)); onChange('delivery_address', addr)
+      }
+      setGpsLoading(false)
+    }, () => setGpsLoading(false))
+  }
+
   const pLat = parseFloat(pickupLat), pLng = parseFloat(pickupLng)
   const dLat = parseFloat(deliveryLat), dLng = parseFloat(deliveryLng)
   const hasPickup = !isNaN(pLat) && !isNaN(pLng)
   const hasDelivery = !isNaN(dLat) && !isNaN(dLng)
 
   return (
-    <div style={{ display:'flex', flexDirection:'column', gap:'0.65rem' }}>
-      {/* Mode toggle */}
+    <div style={{ display:'flex', flexDirection:'column', gap:'0.5rem' }}>
+      {/* Search inputs */}
+      <LocationSearch
+        label="Pickup" dotColor="#4ade80" value={pickupAddress}
+        onSelect={(lat, lng, addr) => { onChange('pickup_lat', lat); onChange('pickup_lng', lng); onChange('pickup_address', addr); setMode('delivery') }}
+        onClear={() => { onChange('pickup_lat',''); onChange('pickup_lng',''); onChange('pickup_address','') }}
+      />
+      <LocationSearch
+        label="Delivery" dotColor="#f87171" value={deliveryAddress}
+        onSelect={(lat, lng, addr) => { onChange('delivery_lat', lat); onChange('delivery_lng', lng); onChange('delivery_address', addr) }}
+        onClear={() => { onChange('delivery_lat',''); onChange('delivery_lng',''); onChange('delivery_address','') }}
+      />
+
+      {/* Map pin-mode toggle + GPS button */}
       <div style={{ display:'flex', gap:'0.4rem', background:'rgba(255,255,255,0.04)', borderRadius:10, padding:'0.25rem' }}>
-        <button type="button" onClick={() => setMode('pickup')} style={{ flex:1, padding:'0.4rem', border:'none', borderRadius:8, background: mode==='pickup' ? 'rgba(74,222,128,0.15)' : 'transparent', color: mode==='pickup' ? '#4ade80' : 'var(--clr-muted)', fontFamily:'inherit', fontSize:'0.78rem', fontWeight:700, cursor:'pointer', transition:'all 0.15s', outline: mode==='pickup' ? '1px solid rgba(74,222,128,0.3)' : 'none', display:'flex', alignItems:'center', justifyContent:'center', gap:'0.35rem' }}>
-          <span style={{ width:10, height:10, borderRadius:'50%', background:'#4ade80', flexShrink:0, display:'inline-block' }}/> Set Pickup
+        <button type="button" onClick={() => setMode('pickup')} style={{ flex:1, padding:'0.38rem', border:'none', borderRadius:8, background: mode==='pickup' ? 'rgba(74,222,128,0.15)' : 'transparent', color: mode==='pickup' ? '#4ade80' : 'var(--clr-muted)', fontFamily:'inherit', fontSize:'0.74rem', fontWeight:700, cursor:'pointer', transition:'all 0.15s', outline: mode==='pickup' ? '1px solid rgba(74,222,128,0.3)' : 'none', display:'flex', alignItems:'center', justifyContent:'center', gap:'0.3rem' }}>
+          <span style={{ width:8, height:8, borderRadius:'50%', background:mode==='pickup'?'#4ade80':'rgba(255,255,255,0.3)', flexShrink:0 }}/>
+          Pin Pickup {hasPickup && <LuCircleCheck size={10}/>}
         </button>
-        <button type="button" onClick={() => setMode('delivery')} style={{ flex:1, padding:'0.4rem', border:'none', borderRadius:8, background: mode==='delivery' ? 'rgba(248,113,113,0.15)' : 'transparent', color: mode==='delivery' ? '#f87171' : 'var(--clr-muted)', fontFamily:'inherit', fontSize:'0.78rem', fontWeight:700, cursor:'pointer', transition:'all 0.15s', outline: mode==='delivery' ? '1px solid rgba(248,113,113,0.3)' : 'none', display:'flex', alignItems:'center', justifyContent:'center', gap:'0.35rem' }}>
-          <span style={{ width:10, height:10, borderRadius:'50%', background:'#f87171', flexShrink:0, display:'inline-block' }}/> Set Delivery
+        <button type="button" onClick={() => setMode('delivery')} style={{ flex:1, padding:'0.38rem', border:'none', borderRadius:8, background: mode==='delivery' ? 'rgba(248,113,113,0.15)' : 'transparent', color: mode==='delivery' ? '#f87171' : 'var(--clr-muted)', fontFamily:'inherit', fontSize:'0.74rem', fontWeight:700, cursor:'pointer', transition:'all 0.15s', outline: mode==='delivery' ? '1px solid rgba(248,113,113,0.3)' : 'none', display:'flex', alignItems:'center', justifyContent:'center', gap:'0.3rem' }}>
+          <span style={{ width:8, height:8, borderRadius:'50%', background:mode==='delivery'?'#f87171':'rgba(255,255,255,0.3)', flexShrink:0 }}/>
+          Pin Delivery {hasDelivery && <LuCircleCheck size={10}/>}
+        </button>
+        <button type="button" onClick={useMyLocation} disabled={gpsLoading} title="Use my current location"
+          style={{ padding:'0.38rem 0.6rem', border:'none', borderRadius:8, background:'rgba(99,102,241,0.15)', color: gpsLoading ? 'var(--clr-muted)' : '#818cf8', fontFamily:'inherit', fontSize:'0.74rem', fontWeight:700, cursor: gpsLoading ? 'wait' : 'pointer', transition:'all 0.15s', outline:'1px solid rgba(99,102,241,0.25)', display:'flex', alignItems:'center', gap:'0.3rem', flexShrink:0 }}>
+          {gpsLoading ? <span className="spinner" style={{ width:11, height:11, borderWidth:1.5 }}/> : <LuNavigation size={12}/>}
+          <span style={{ display:'none' }}>GPS</span>
         </button>
       </div>
 
-      <p style={{ fontSize:'0.73rem', color:'var(--clr-muted)', textAlign:'center', margin:0 }}>
-        {geocoding ? 'Getting address…' : `Click map to set ${mode} location`}
+      {/* Same-location warning */}
+      {hasPickup && hasDelivery && pLat.toFixed(4) === dLat.toFixed(4) && pLng.toFixed(4) === dLng.toFixed(4) && (
+        <div style={{ display:'flex', alignItems:'center', gap:'0.4rem', padding:'0.5rem 0.75rem', borderRadius:9, background:'rgba(248,113,113,0.08)', border:'1px solid rgba(248,113,113,0.25)', fontSize:'0.73rem', color:'#f87171' }}>
+          <LuTriangleAlert size={12}/> Pickup and delivery are the same location — please set different points.
+        </div>
+      )}
+
+      <p style={{ fontSize:'0.7rem', color: geocoding ? 'var(--clr-accent)' : 'var(--clr-muted)', textAlign:'center', margin:0 }}>
+        {geocoding ? 'Getting address…' : `Or tap map to pin ${mode} location`}
       </p>
 
       {/* Leaflet map */}
-      <div style={{ borderRadius:12, overflow:'hidden', border:'1px solid rgba(255,255,255,0.1)', height:260 }}>
+      <div style={{ borderRadius:12, overflow:'hidden', border:'1px solid rgba(255,255,255,0.1)', height:240 }}>
         <MapContainer center={[9.0084, 38.7575]} zoom={12} style={{ width:'100%', height:'100%' }} scrollWheelZoom>
           <TileLayer
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-            attribution='&copy; <a href="https://openstreetmap.org">OpenStreetMap</a> contributors'
+            attribution='&copy; <a href="https://openstreetmap.org">OpenStreetMap</a>'
           />
-          <MapClickHandler mode={mode} onPick={handlePick} />
+          <MapClickHandler onPick={handlePick} />
           {hasPickup && (
             <Marker position={[pLat, pLng]} icon={pickupIcon}>
               <Popup>Pickup: {pickupAddress || `${pLat.toFixed(5)}, ${pLng.toFixed(5)}`}</Popup>
@@ -172,32 +305,6 @@ function MapPicker({ pickupLat, pickupLng, pickupAddress, deliveryLat, deliveryL
             </Marker>
           )}
         </MapContainer>
-      </div>
-
-      {/* Address display / manual override */}
-      <div style={{ display:'flex', flexDirection:'column', gap:'0.5rem' }}>
-        <div style={{ display:'flex', alignItems:'center', gap:'0.5rem', padding:'0.55rem 0.75rem', borderRadius:9, background:'rgba(74,222,128,0.06)', border:'1px solid rgba(74,222,128,0.15)' }}>
-          <span style={{ width:10, height:10, borderRadius:'50%', background:'#4ade80', flexShrink:0, display:'inline-block' }}/>
-          <div style={{ flex:1, minWidth:0 }}>
-            <p style={{ fontSize:'0.69rem', color:'#4ade80', fontWeight:700, margin:0, textTransform:'uppercase', letterSpacing:'0.05em' }}>Pickup</p>
-            {hasPickup
-              ? <p style={{ fontSize:'0.75rem', color:'var(--clr-text)', margin:0, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{pickupAddress || `${pLat.toFixed(5)}, ${pLng.toFixed(5)}`}</p>
-              : <p style={{ fontSize:'0.75rem', color:'var(--clr-muted)', margin:0 }}>Click map (green mode) to set</p>
-            }
-          </div>
-          {hasPickup && <button type="button" onClick={() => { onChange('pickup_lat',''); onChange('pickup_lng',''); onChange('pickup_address','') }} style={{ background:'none', border:'none', cursor:'pointer', color:'var(--clr-muted)', padding:0, display:'flex', alignItems:'center', flexShrink:0 }}><LuX size={13}/></button>}
-        </div>
-        <div style={{ display:'flex', alignItems:'center', gap:'0.5rem', padding:'0.55rem 0.75rem', borderRadius:9, background:'rgba(248,113,113,0.06)', border:'1px solid rgba(248,113,113,0.15)' }}>
-          <span style={{ width:10, height:10, borderRadius:'50%', background:'#f87171', flexShrink:0, display:'inline-block' }}/>
-          <div style={{ flex:1, minWidth:0 }}>
-            <p style={{ fontSize:'0.69rem', color:'#f87171', fontWeight:700, margin:0, textTransform:'uppercase', letterSpacing:'0.05em' }}>Delivery</p>
-            {hasDelivery
-              ? <p style={{ fontSize:'0.75rem', color:'var(--clr-text)', margin:0, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{deliveryAddress || `${dLat.toFixed(5)}, ${dLng.toFixed(5)}`}</p>
-              : <p style={{ fontSize:'0.75rem', color:'var(--clr-muted)', margin:0 }}>Click map (red mode) to set</p>
-            }
-          </div>
-          {hasDelivery && <button type="button" onClick={() => { onChange('delivery_lat',''); onChange('delivery_lng',''); onChange('delivery_address','') }} style={{ background:'none', border:'none', cursor:'pointer', color:'var(--clr-muted)', padding:0, display:'flex', alignItems:'center', flexShrink:0 }}><LuX size={13}/></button>}
-        </div>
       </div>
     </div>
   )
@@ -232,7 +339,15 @@ function PlaceOrderWizard({ cargoTypes, onDone, onClose }: WizardProps) {
     setForm(x => ({ ...x, [k]: e.target.value }))
 
   const handleGetQuote = async () => {
-    setErr(''); setLoading(true)
+    setErr('')
+    // Same-location guard
+    const pLat = parseFloat(form.pickup_lat), pLng = parseFloat(form.pickup_lng)
+    const dLat = parseFloat(form.delivery_lat), dLng = parseFloat(form.delivery_lng)
+    if (!isNaN(pLat) && !isNaN(dLat) && Math.abs(pLat - dLat) < 0.0005 && Math.abs(pLng - dLng) < 0.0005) {
+      setErr('Pickup and delivery locations cannot be the same. Please set different points.')
+      return
+    }
+    setLoading(true)
     try {
       const { data } = await orderApi.getQuote({
         cargo_type_id: Number(form.cargo_type_id),
@@ -364,10 +479,24 @@ function PlaceOrderWizard({ cargoTypes, onDone, onClose }: WizardProps) {
             <label htmlFor="val">Estimated Value ETB (optional)</label>
           </div>
 
+          {/* Missing-field hints */}
+          {(!form.weight_kg || !form.pickup_lat || !form.delivery_lat) && (
+            <div style={{ display:'flex', flexDirection:'column', gap:'0.2rem', padding:'0.55rem 0.75rem', borderRadius:9, background:'rgba(251,191,36,0.06)', border:'1px solid rgba(251,191,36,0.18)' }}>
+              {!form.weight_kg && <span style={{ fontSize:'0.73rem', color:'#fbbf24', display:'flex', alignItems:'center', gap:'0.35rem' }}><LuTriangleAlert size={11}/> Enter cargo weight</span>}
+              {!form.pickup_lat && <span style={{ fontSize:'0.73rem', color:'#fbbf24', display:'flex', alignItems:'center', gap:'0.35rem' }}><LuTriangleAlert size={11}/> Set pickup location (search or tap map)</span>}
+              {!form.delivery_lat && <span style={{ fontSize:'0.73rem', color:'#fbbf24', display:'flex', alignItems:'center', gap:'0.35rem' }}><LuTriangleAlert size={11}/> Set delivery location (search or tap map)</span>}
+            </div>
+          )}
+
           <div style={{ display:'flex', gap:'0.6rem', marginTop:'0.25rem' }}>
-            <button className="btn-outline" style={{ flex:1 }} onClick={onClose}>Cancel</button>
-            <button className="btn-primary" style={{ flex:2 }} onClick={handleGetQuote} disabled={loading || !form.weight_kg || !form.pickup_lat || !form.pickup_lng || !form.delivery_lat || !form.delivery_lng || !form.pickup_address || !form.delivery_address}>
-              {loading ? <span style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:'0.5rem' }}><Spinner/> Getting Quote…</span> : <>Get Quote <LuArrowRight size={14}/></>}
+            <button type="button" onClick={onClose}
+              style={{ flex:1, padding:'0.65rem', borderRadius:10, border:'1px solid rgba(255,255,255,0.15)', background:'rgba(255,255,255,0.04)', color:'var(--clr-muted)', fontFamily:'inherit', fontSize:'0.875rem', fontWeight:700, cursor:'pointer' }}>
+              Cancel
+            </button>
+            <button type="button" onClick={handleGetQuote}
+              disabled={loading || !form.weight_kg || !form.pickup_lat || !form.pickup_lng || !form.delivery_lat || !form.delivery_lng}
+              style={{ flex:2, padding:'0.65rem', borderRadius:10, border:'none', background: (!form.weight_kg || !form.pickup_lat || !form.delivery_lat || loading) ? 'rgba(255,255,255,0.08)' : 'var(--clr-accent)', color: (!form.weight_kg || !form.pickup_lat || !form.delivery_lat || loading) ? 'var(--clr-muted)' : '#080b14', fontFamily:'inherit', fontSize:'0.875rem', fontWeight:700, cursor: (!form.weight_kg || !form.pickup_lat || !form.delivery_lat) ? 'not-allowed' : 'pointer', transition:'all 0.2s', display:'flex', alignItems:'center', justifyContent:'center', gap:'0.4rem' }}>
+              {loading ? <><span className="spinner" style={{ width:16, height:16, borderWidth:2 }}/> Getting Quote…</> : <>Get Quote <LuArrowRight size={15}/></>}
             </button>
           </div>
         </div>
@@ -380,13 +509,13 @@ function PlaceOrderWizard({ cargoTypes, onDone, onClose }: WizardProps) {
           <div className="glass-inner" style={{ padding:'1.1rem 1.25rem' }}>
             <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'0.75rem' }}>
               <span style={{ fontSize:'0.8rem', color:'var(--clr-muted)', fontWeight:600 }}>Price Quote</span>
-              <span style={{ fontSize:'1.35rem', fontWeight:900, color:'var(--clr-accent)' }}>{quote.estimated_price.toLocaleString()} ETB</span>
+              <span style={{ fontSize:'1.35rem', fontWeight:900, color:'var(--clr-accent)' }}>{Number(quote.estimated_price).toLocaleString()} ETB</span>
             </div>
             <div style={{ display:'flex', flexDirection:'column', gap:'0.35rem', fontSize:'0.78rem', color:'var(--clr-muted)' }}>
-              <div style={{ display:'flex', justifyContent:'space-between' }}><span>Distance</span><span style={{ color:'var(--clr-text)' }}>{quote.distance_km.toFixed(2)} km</span></div>
-              <div style={{ display:'flex', justifyContent:'space-between' }}><span>Base Fare</span><span style={{ color:'var(--clr-text)' }}>{quote.base_fare} ETB</span></div>
-              <div style={{ display:'flex', justifyContent:'space-between' }}><span>Per-km Charge</span><span style={{ color:'var(--clr-text)' }}>{quote.per_km_charge.toFixed(2)} ETB</span></div>
-              {quote.city_surcharge > 0 && <div style={{ display:'flex', justifyContent:'space-between' }}><span>City Surcharge</span><span style={{ color:'var(--clr-text)' }}>{quote.city_surcharge} ETB</span></div>}
+              <div style={{ display:'flex', justifyContent:'space-between' }}><span>Distance</span><span style={{ color:'var(--clr-text)' }}>{Number(quote.distance_km).toFixed(2)} km</span></div>
+              <div style={{ display:'flex', justifyContent:'space-between' }}><span>Base Fare</span><span style={{ color:'var(--clr-text)' }}>{Number(quote.base_fare).toLocaleString()} ETB</span></div>
+              <div style={{ display:'flex', justifyContent:'space-between' }}><span>Distance Charge</span><span style={{ color:'var(--clr-text)' }}>{Number(quote.distance_cost).toLocaleString()} ETB</span></div>
+              {Number(quote.city_surcharge) > 0 && <div style={{ display:'flex', justifyContent:'space-between' }}><span>City Surcharge</span><span style={{ color:'var(--clr-text)' }}>{Number(quote.city_surcharge).toLocaleString()} ETB</span></div>}
             </div>
           </div>
 
@@ -428,19 +557,22 @@ function LiveTrackTab({ orderId, token }: { orderId: string; token: string }) {
   const [driver, setDriver] = useState<TrackInfo['driver'] | null>(null)
   const [wsState, setWsState] = useState<'connecting' | 'connected' | 'closed'>('connecting')
   const wsRef = useRef<WebSocket | null>(null)
+  const [initialLoaded, setInitialLoaded] = useState(false)
 
   // Initial REST load for current position
   useEffect(() => {
     orderApi.trackOrder(orderId).then(r => {
       const d = r.data as TrackInfo
-      if (d.location) setLoc(d.location)
+      if (d.location) setLoc({ ...d.location, lat: Number(d.location.lat), lng: Number(d.location.lng) })
       if (d.status) setStatus(d.status)
       if (d.driver) setDriver(d.driver)
-    }).catch(() => {})
+    }).catch(() => {}).finally(() => setInitialLoaded(true))
   }, [orderId])
 
-  // WebSocket for live updates
+  // WebSocket for live updates — skip for terminal order states
   useEffect(() => {
+    if (!initialLoaded) return
+    if (['DELIVERED', 'CANCELLED'].includes(status)) { setWsState('closed'); return }
     const wsBase = (import.meta.env.VITE_API_BASE_URL as string ?? '').replace(/^https/, 'wss').replace(/^http/, 'ws').replace(/\/api$/, '')
     const ws = new WebSocket(`${wsBase}/api/ws/orders/${orderId}?token=${encodeURIComponent(token)}`)
     wsRef.current = ws
@@ -452,13 +584,13 @@ function LiveTrackTab({ orderId, token }: { orderId: string; token: string }) {
         const msg = JSON.parse(e.data)
         if (msg.type === 'CONNECTED') { setStatus(msg.status ?? '') }
         if (msg.type === 'LOCATION_UPDATE') {
-          setLoc({ lat: msg.lat, lng: msg.lng, updated_at: msg.updated_at ?? new Date().toISOString(), heading: msg.heading ?? null, speed_kmh: msg.speed_kmh ?? null })
+          setLoc({ lat: Number(msg.lat), lng: Number(msg.lng), recorded_at: msg.recorded_at ?? new Date().toISOString(), heading: msg.heading ?? null, speed_kmh: msg.speed_kmh ?? null })
         }
         if (msg.type === 'STATUS_CHANGE') { setStatus(msg.status ?? '') }
       } catch { /* ignore */ }
     }
     return () => { ws.close() }
-  }, [orderId, token])
+  }, [orderId, token, initialLoaded]) // eslint-disable-line
 
   const hasLoc = loc && !isNaN(loc.lat) && !isNaN(loc.lng)
 
@@ -469,7 +601,7 @@ function LiveTrackTab({ orderId, token }: { orderId: string; token: string }) {
         <div style={{ display:'flex', alignItems:'center', gap:'0.45rem' }}>
           <span style={{ width:8, height:8, borderRadius:'50%', background: wsState==='connected' ? '#4ade80' : wsState==='connecting' ? '#fbbf24' : '#f87171', display:'inline-block', flexShrink:0, boxShadow: wsState==='connected' ? '0 0 6px #4ade80' : 'none' }}/>
           <span style={{ fontSize:'0.72rem', color:'var(--clr-muted)' }}>
-            {wsState==='connected' ? 'Live tracking active' : wsState==='connecting' ? 'Connecting…' : 'Offline — showing last known'}
+            {wsState==='connected' ? 'Live tracking active' : wsState==='connecting' ? 'Connecting…' : ['DELIVERED','CANCELLED'].includes(status) ? 'Order completed — last location shown' : 'Offline — showing last known'}
           </span>
         </div>
         {status && statusBadge(status)}
@@ -498,10 +630,10 @@ function LiveTrackTab({ orderId, token }: { orderId: string; token: string }) {
       {hasLoc && (
         <div className="glass-inner" style={{ padding:'0.85rem 1rem', display:'flex', flexDirection:'column', gap:'0.4rem', fontSize:'0.78rem' }}>
           {driver?.name && <div style={{ display:'flex', gap:'0.5rem' }}><span style={{ color:'var(--clr-muted)', width:70, flexShrink:0 }}>Driver</span><span style={{ color:'var(--clr-text)', fontWeight:600 }}>{driver.name}</span></div>}
-          <div style={{ display:'flex', gap:'0.5rem' }}><span style={{ color:'var(--clr-muted)', width:70, flexShrink:0 }}>Position</span><span style={{ color:'var(--clr-text)' }}>{loc!.lat.toFixed(5)}, {loc!.lng.toFixed(5)}</span></div>
+          <div style={{ display:'flex', gap:'0.5rem' }}><span style={{ color:'var(--clr-muted)', width:70, flexShrink:0 }}>Position</span><span style={{ color:'var(--clr-text)' }}>{Number(loc!.lat).toFixed(5)}, {Number(loc!.lng).toFixed(5)}</span></div>
           {loc!.speed_kmh != null && <div style={{ display:'flex', gap:'0.5rem' }}><span style={{ color:'var(--clr-muted)', width:70, flexShrink:0 }}>Speed</span><span style={{ color:'var(--clr-text)' }}>{loc!.speed_kmh} km/h</span></div>}
           {loc!.heading != null && <div style={{ display:'flex', gap:'0.5rem' }}><span style={{ color:'var(--clr-muted)', width:70, flexShrink:0 }}>Heading</span><span style={{ color:'var(--clr-text)' }}>{loc!.heading}°</span></div>}
-          <div style={{ display:'flex', gap:'0.5rem' }}><span style={{ color:'var(--clr-muted)', width:70, flexShrink:0 }}>Updated</span><span style={{ color:'var(--clr-text)' }}>{fmtDate(loc!.updated_at)}</span></div>
+          <div style={{ display:'flex', gap:'0.5rem' }}><span style={{ color:'var(--clr-muted)', width:70, flexShrink:0 }}>Updated</span><span style={{ color:'var(--clr-text)' }}>{fmtDate(loc!.recorded_at)}</span></div>
         </div>
       )}
 
@@ -539,6 +671,7 @@ function OrderDetailModal({ order, onClose, onCancelled }: { order: Order; onClo
   const [sending, setSending] = useState(false)
   const [cancelling, setCancelling] = useState(false)
   const [cancelErr, setCancelErr] = useState('')
+  const [invoiceDling, setInvoiceDling] = useState(false)
   const msgBottom = useRef<HTMLDivElement>(null)
 
   const loadHistory = useCallback(async () => {
@@ -580,8 +713,25 @@ function OrderDetailModal({ order, onClose, onCancelled }: { order: Order; onClo
   }
 
   const canCancel = order.status === 'PENDING' || order.status === 'ASSIGNED'
-  const invoiceUrl = orderApi.getInvoiceUrl(order.id)
-  const token = localStorage.getItem('auth_token')
+  const invoiceEndpoint = orderApi.getInvoiceUrl(order.id)
+
+  const handleDownloadInvoice = async () => {
+    setInvoiceDling(true)
+    try {
+      const token = localStorage.getItem('auth_token')
+      const res = await fetch(invoiceEndpoint, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      })
+      if (!res.ok) throw new Error('Download failed')
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url; a.download = `${order.reference_code}.pdf`
+      document.body.appendChild(a); a.click()
+      document.body.removeChild(a); URL.revokeObjectURL(url)
+    } catch { /* ignore */ }
+    finally { setInvoiceDling(false) }
+  }
 
   return (
     <div className="modal-backdrop" onClick={e => { if (e.target === e.currentTarget) onClose() }}>
@@ -620,8 +770,8 @@ function OrderDetailModal({ order, onClose, onCancelled }: { order: Order; onClo
                 <div style={{ display:'flex', flexDirection:'column', gap:'0.55rem', fontSize:'0.8rem' }}>
                   {[
                     ['Cargo Type', order.cargo_type_name],
-                    ['Vehicle', order.vehicle_type],
-                    ['Weight', `${order.weight_kg} kg`],
+                    ['Vehicle', order.vehicle_type_required],
+                    ['Weight', `${order.estimated_weight_kg} kg`],
                     ['Pickup', order.pickup_address],
                     ['Delivery', order.delivery_address],
                     ['Price', `${(order.final_price ?? order.estimated_price).toLocaleString()} ${order.currency}`],
@@ -651,10 +801,10 @@ function OrderDetailModal({ order, onClose, onCancelled }: { order: Order; onClo
 
               {/* Invoice */}
               {order.status === 'DELIVERED' && (
-                <a href={`${invoiceUrl}?token=${token}`} target="_blank" rel="noopener noreferrer"
-                  style={{ display:'flex', alignItems:'center', gap:'0.5rem', padding:'0.7rem 1rem', borderRadius:10, border:'1px solid rgba(0,229,255,0.2)', background:'rgba(0,229,255,0.05)', color:'var(--clr-accent)', textDecoration:'none', fontSize:'0.82rem', fontWeight:700 }}>
-                  <LuFileText size={15}/> Download Invoice PDF
-                </a>
+                <button type="button" onClick={handleDownloadInvoice} disabled={invoiceDling}
+                  style={{ display:'flex', alignItems:'center', gap:'0.5rem', padding:'0.7rem 1rem', borderRadius:10, border:'1px solid rgba(0,229,255,0.2)', background:'rgba(0,229,255,0.05)', color: invoiceDling ? 'var(--clr-muted)' : 'var(--clr-accent)', fontFamily:'inherit', fontSize:'0.82rem', fontWeight:700, cursor: invoiceDling ? 'wait' : 'pointer', width:'100%', justifyContent:'center' }}>
+                  {invoiceDling ? <><Spinner/> Generating…</> : <><LuFileText size={15}/> Download Invoice PDF</>}
+                </button>
               )}
 
               {/* Cancel */}
@@ -869,9 +1019,9 @@ export default function ShipperOrdersPage() {
                     <div style={{ display:'flex', gap:'0.65rem', marginTop:'0.4rem', flexWrap:'wrap' }}>
                       <span style={{ fontSize:'0.72rem', color:'var(--clr-muted)' }}>{order.cargo_type_name}</span>
                       <span style={{ fontSize:'0.72rem', color:'var(--clr-muted)' }}>·</span>
-                      <span style={{ fontSize:'0.72rem', color:'var(--clr-muted)' }}>{order.vehicle_type}</span>
+                      <span style={{ fontSize:'0.72rem', color:'var(--clr-muted)' }}>{order.vehicle_type_required}</span>
                       <span style={{ fontSize:'0.72rem', color:'var(--clr-muted)' }}>·</span>
-                      <span style={{ fontSize:'0.72rem', color:'var(--clr-muted)' }}>{order.weight_kg} kg</span>
+                      <span style={{ fontSize:'0.72rem', color:'var(--clr-muted)' }}>{order.estimated_weight_kg} kg</span>
                     </div>
                   </div>
                   <div style={{ textAlign:'right', flexShrink:0 }}>

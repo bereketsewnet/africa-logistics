@@ -9,7 +9,7 @@ import {
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface Job {
   id: string; reference_code: string; status: string
-  cargo_type_name: string; vehicle_type: string; weight_kg: number
+  cargo_type_name: string; vehicle_type_required: string; estimated_weight_kg: number
   pickup_address: string; delivery_address: string
   estimated_price: number; final_price: number | null; currency: string
   description: string | null
@@ -208,8 +208,8 @@ function JobDetailModal({ job, onClose, onRefresh }: { job: Job; onClose: () => 
                 <div className="glass-inner" style={{ padding:'1rem', display:'flex', flexDirection:'column', gap:'0.55rem', fontSize:'0.8rem' }}>
                   {[
                     ['Cargo', localJob.cargo_type_name],
-                    ['Vehicle', localJob.vehicle_type],
-                    ['Weight', `${localJob.weight_kg} kg`],
+                    ['Vehicle', localJob.vehicle_type_required],
+                    ['Weight', `${localJob.estimated_weight_kg} kg`],
                     ['Pickup', localJob.pickup_address],
                     ['Delivery', localJob.delivery_address],
                     ['Fare', `${(localJob.final_price ?? localJob.estimated_price).toLocaleString()} ${localJob.currency}`],
@@ -343,7 +343,7 @@ function GpsPingButton({ activeJobId }: { activeJobId: string | null }) {
     <div style={{ display:'flex', alignItems:'center', gap:'0.5rem', flexWrap:'wrap' }}>
       <button onClick={ping} disabled={pinging}
         style={{ display:'flex', alignItems:'center', gap:'0.4rem', padding:'0.38rem 0.75rem', borderRadius:8, border:'1px solid rgba(0,229,255,0.25)', background:'rgba(0,229,255,0.07)', color:'var(--clr-accent)', fontFamily:'inherit', fontSize:'0.76rem', fontWeight:700, cursor:'pointer' }}>
-        {pinging ? <><Spinner/> Pinging…</> : <><LuNavigation size={13}/> Send Location</>}
+        {pinging ? <><Spinner/> Pinging…</> : <><LuNavigation size={13}/> Ping My Location</>}
       </button>
       {msg && <span style={{ fontSize:'0.72rem', color: msg.includes('✓') ? '#4ade80' : '#f87171' }}>{msg}</span>}
     </div>
@@ -442,9 +442,9 @@ export default function DriverJobsPage() {
                   <div style={{ display:'flex', gap:'0.65rem', marginTop:'0.4rem', flexWrap:'wrap' }}>
                     <span style={{ fontSize:'0.72rem', color:'var(--clr-muted)' }}>{job.cargo_type_name}</span>
                     <span style={{ fontSize:'0.72rem', color:'var(--clr-muted)' }}>·</span>
-                    <span style={{ fontSize:'0.72rem', color:'var(--clr-muted)' }}>{job.vehicle_type}</span>
+                    <span style={{ fontSize:'0.72rem', color:'var(--clr-muted)' }}>{job.vehicle_type_required}</span>
                     <span style={{ fontSize:'0.72rem', color:'var(--clr-muted)' }}>·</span>
-                    <span style={{ fontSize:'0.72rem', color:'var(--clr-muted)' }}>{job.weight_kg} kg</span>
+                    <span style={{ fontSize:'0.72rem', color:'var(--clr-muted)' }}>{job.estimated_weight_kg} kg</span>
                   </div>
                 </div>
                 <div style={{ textAlign:'right', flexShrink:0 }}>
