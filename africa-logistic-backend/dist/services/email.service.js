@@ -208,3 +208,194 @@ export async function sendVerificationEmail(to, token) {
         text: `Verify your Africa Logistics email:\n${verifyUrl}\n\nLink expires in 24 hours.`,
     });
 }
+// ─── Order Status Notification ────────────────────────────────────────────────
+const STATUS_LABEL = {
+    PENDING: 'Pending',
+    ASSIGNED: 'Driver Assigned',
+    EN_ROUTE: 'Driver En Route',
+    AT_PICKUP: 'Driver At Pickup',
+    IN_TRANSIT: 'In Transit',
+    DELIVERED: 'Delivered',
+    CANCELLED: 'Cancelled',
+};
+const STATUS_COLOR = {
+    PENDING: '#fbbf24',
+    ASSIGNED: '#60a5fa',
+    EN_ROUTE: '#a78bfa',
+    AT_PICKUP: '#fb923c',
+    IN_TRANSIT: '#34d399',
+    DELIVERED: '#4ade80',
+    CANCELLED: '#f87171',
+};
+export async function sendOrderStatusEmail(to, data) {
+    const label = STATUS_LABEL[data.status] ?? data.status;
+    const color = STATUS_COLOR[data.status] ?? '#94a3b8';
+    const appUrl = `${process.env.FRONTEND_BASE_URL || 'https://afri-logistics.lula.com.et'}`;
+    const roleMsg = data.recipientRole === 'shipper'
+        ? `Your shipment <strong style="color:#1a1a2e;">${data.referenceCode}</strong> has a new status update.`
+        : `Job <strong style="color:#1a1a2e;">${data.referenceCode}</strong> has a status update.`;
+    const driverRow = data.driverName && data.recipientRole === 'shipper'
+        ? `<tr>
+        <td style="padding:6px 0;font-size:14px;color:#666666;font-family:Arial,sans-serif;width:120px;">Driver</td>
+        <td style="padding:6px 0;font-size:14px;font-weight:600;color:#1a1a2e;font-family:Arial,sans-serif;">${data.driverName}</td>
+       </tr>`
+        : '';
+    const html = buildStyledEmail({
+        title: `Order ${label} — Africa Logistics`,
+        preheader: `${data.referenceCode} is now ${label}.`,
+        bodyHtml: `
+      <h1 style="margin:0 0 8px;font-size:20px;font-weight:700;color:#1a1a2e;font-family:Arial,sans-serif;">Order Update</h1>
+      <p style="margin:0 0 20px;color:#555555;font-size:15px;font-family:Arial,sans-serif;">Hi ${data.recipientName}, ${roleMsg}</p>
+
+      <!-- Status badge row -->
+      <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 20px;">
+        <tr>
+          <td align="center">
+            <span style="display:inline-block;padding:7px 22px;background-color:${color}22;border:1px solid ${color}66;border-radius:99px;font-size:14px;font-weight:700;color:${color};font-family:Arial,sans-serif;letter-spacing:0.3px;">
+              ${label}
+            </span>
+          </td>
+        </tr>
+      </table>
+
+      <!-- Order detail table -->
+      <table width="100%" cellpadding="0" cellspacing="0" border="0"
+             style="background-color:#f9f9f9;border:1px solid #e8e8e8;border-radius:8px;padding:4px 0;margin-bottom:20px;">
+        <tr>
+          <td style="padding:10px 18px;">
+            <table width="100%" cellpadding="0" cellspacing="0" border="0">
+              <tr>
+                <td style="padding:6px 0;font-size:14px;color:#666666;font-family:Arial,sans-serif;width:120px;">Reference</td>
+                <td style="padding:6px 0;font-size:14px;font-weight:700;color:#7c3aed;font-family:Arial,sans-serif;">${data.referenceCode}</td>
+              </tr>
+              <tr>
+                <td colspan="2" style="padding:0;border-top:1px solid #eeeeee;font-size:0;">&nbsp;</td>
+              </tr>
+              <tr>
+                <td style="padding:6px 0;font-size:14px;color:#666666;font-family:Arial,sans-serif;">Pickup</td>
+                <td style="padding:6px 0;font-size:14px;color:#333333;font-family:Arial,sans-serif;">${data.pickupAddress}</td>
+              </tr>
+              <tr>
+                <td colspan="2" style="padding:0;border-top:1px solid #eeeeee;font-size:0;">&nbsp;</td>
+              </tr>
+              <tr>
+                <td style="padding:6px 0;font-size:14px;color:#666666;font-family:Arial,sans-serif;">Delivery</td>
+                <td style="padding:6px 0;font-size:14px;color:#333333;font-family:Arial,sans-serif;">${data.deliveryAddress}</td>
+              </tr>
+              ${driverRow ? `<tr><td colspan="2" style="padding:0;border-top:1px solid #eeeeee;font-size:0;">&nbsp;</td></tr>${driverRow}` : ''}
+            </table>
+          </td>
+        </tr>
+      </table>
+    `,
+        ctaUrl: appUrl,
+        ctaLabel: 'View Order',
+        footerNote: 'You received this because email notifications are enabled for your Africa Logistics account.',
+    });
+    return sendEmail({
+        to,
+        subject: `🚛 [${data.referenceCode}] ${label} — Africa Logistics`,
+        html,
+        text: `Order ${data.referenceCode} is now ${label}.\nPickup: ${data.pickupAddress}\nDelivery: ${data.deliveryAddress}\nView at: ${appUrl}`,
+    });
+}
+export async function sendOrderPlacedEmail(to, data) {
+    const appUrl = process.env.FRONTEND_BASE_URL || 'https://afri-logistics.lula.com.et';
+    const html = buildStyledEmail({
+        title: `Order Confirmed ${data.referenceCode} — Africa Logistics`,
+        preheader: `Your order ${data.referenceCode} is confirmed. Keep your OTPs safe.`,
+        bodyHtml: `
+      <h1 style="margin:0 0 8px;font-size:20px;font-weight:700;color:#1a1a2e;font-family:Arial,sans-serif;">Order Confirmed!</h1>
+      <p style="margin:0 0 20px;color:#555555;font-size:15px;font-family:Arial,sans-serif;">
+        Hi ${data.recipientName}, your shipment has been placed successfully. Here are your order details and OTPs.
+      </p>
+
+      <!-- Order details table -->
+      <table width="100%" cellpadding="0" cellspacing="0" border="0"
+             style="background-color:#f9f9f9;border:1px solid #e8e8e8;border-radius:8px;margin-bottom:20px;">
+        <tr>
+          <td style="padding:10px 18px;">
+            <table width="100%" cellpadding="0" cellspacing="0" border="0">
+              <tr>
+                <td style="padding:6px 0;font-size:14px;color:#666666;font-family:Arial,sans-serif;width:120px;">Reference</td>
+                <td style="padding:6px 0;font-size:14px;font-weight:700;color:#7c3aed;font-family:Arial,sans-serif;">${data.referenceCode}</td>
+              </tr>
+              <tr><td colspan="2" style="padding:0;border-top:1px solid #eeeeee;font-size:0;">&nbsp;</td></tr>
+              <tr>
+                <td style="padding:6px 0;font-size:14px;color:#666666;font-family:Arial,sans-serif;">Pickup</td>
+                <td style="padding:6px 0;font-size:14px;color:#333333;font-family:Arial,sans-serif;">${data.pickupAddress}</td>
+              </tr>
+              <tr><td colspan="2" style="padding:0;border-top:1px solid #eeeeee;font-size:0;">&nbsp;</td></tr>
+              <tr>
+                <td style="padding:6px 0;font-size:14px;color:#666666;font-family:Arial,sans-serif;">Delivery</td>
+                <td style="padding:6px 0;font-size:14px;color:#333333;font-family:Arial,sans-serif;">${data.deliveryAddress}</td>
+              </tr>
+              <tr><td colspan="2" style="padding:0;border-top:1px solid #eeeeee;font-size:0;">&nbsp;</td></tr>
+              <tr>
+                <td style="padding:6px 0;font-size:14px;color:#666666;font-family:Arial,sans-serif;">Price</td>
+                <td style="padding:6px 0;font-size:14px;font-weight:600;color:#1a1a2e;font-family:Arial,sans-serif;">${data.estimatedPrice}</td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+      </table>
+
+      <!-- OTP section -->
+      <p style="margin:0 0 10px;font-size:14px;font-weight:700;color:#1a1a2e;font-family:Arial,sans-serif;">Your Order OTPs</p>
+      <p style="margin:0 0 14px;font-size:13px;color:#666666;font-family:Arial,sans-serif;">
+        Share these codes with your driver at each stage — <strong style="color:#1a1a2e;">Pickup OTP</strong> when the driver arrives to collect your cargo, and <strong style="color:#1a1a2e;">Delivery OTP</strong> when they drop it off.
+      </p>
+
+      <!-- Pickup OTP box -->
+      <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom:12px;">
+        <tr>
+          <td bgcolor="#f0fdf4" style="border:1px solid #86efac;border-radius:8px;padding:14px 20px;text-align:center;">
+            <p style="margin:0 0 4px;font-size:11px;font-weight:700;color:#16a34a;letter-spacing:0.08em;text-transform:uppercase;font-family:Arial,sans-serif;">Pickup OTP</p>
+            <p style="margin:0;font-size:32px;font-weight:900;letter-spacing:0.3em;color:#15803d;font-family:Arial,sans-serif;">${data.pickupOtp}</p>
+          </td>
+        </tr>
+      </table>
+
+      <!-- Delivery OTP box -->
+      <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom:20px;">
+        <tr>
+          <td bgcolor="#eff6ff" style="border:1px solid #93c5fd;border-radius:8px;padding:14px 20px;text-align:center;">
+            <p style="margin:0 0 4px;font-size:11px;font-weight:700;color:#2563eb;letter-spacing:0.08em;text-transform:uppercase;font-family:Arial,sans-serif;">Delivery OTP</p>
+            <p style="margin:0;font-size:32px;font-weight:900;letter-spacing:0.3em;color:#1d4ed8;font-family:Arial,sans-serif;">${data.deliveryOtp}</p>
+          </td>
+        </tr>
+      </table>
+
+      <!-- Warning note -->
+      <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom:8px;">
+        <tr>
+          <td bgcolor="#fffbeb" style="border:1px solid #fcd34d;border-radius:8px;padding:12px 18px;">
+            <p style="margin:0;font-size:13px;color:#92400e;font-family:Arial,sans-serif;">
+              &#9888;&#65039; Keep these OTPs private. Do not share them until the driver is physically at the pickup or delivery location.
+            </p>
+          </td>
+        </tr>
+      </table>
+    `,
+        ctaUrl: appUrl,
+        ctaLabel: 'View My Orders',
+        footerNote: 'You received this because you placed an order on Africa Logistics.',
+    });
+    return sendEmail({
+        to,
+        subject: `✅ Order Confirmed [${data.referenceCode}] — Your OTPs Inside`,
+        html,
+        text: [
+            `Order ${data.referenceCode} confirmed!`,
+            `Pickup:   ${data.pickupAddress}`,
+            `Delivery: ${data.deliveryAddress}`,
+            `Price:    ${data.estimatedPrice}`,
+            ``,
+            `PICKUP OTP:   ${data.pickupOtp}`,
+            `DELIVERY OTP: ${data.deliveryOtp}`,
+            ``,
+            `Share these with your driver at each stage. Keep them private until the driver arrives.`,
+            `View orders: ${appUrl}`,
+        ].join('\n'),
+    });
+}

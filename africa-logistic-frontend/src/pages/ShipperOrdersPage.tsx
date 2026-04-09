@@ -7,6 +7,7 @@ import {
   LuCircleCheck, LuTriangleAlert, LuTruck, LuMapPin,
   LuFileText, LuChevronRight, LuChevronLeft,
   LuSend, LuArrowRight, LuBan, LuNavigation,
+  LuEye, LuEyeOff, LuCopy, LuMessageSquare,
 } from 'react-icons/lu'
 
 // ─── Leaflet icon fix (Vite bundler) ─────────────────────────────────────────
@@ -37,10 +38,10 @@ interface Order {
   id: string; reference_code: string; status: string
   cargo_type_name: string; vehicle_type_required: string; estimated_weight_kg: number
   pickup_address: string; delivery_address: string
-  estimated_price: number; final_price: number | null; currency: string
+  estimated_price: number; final_price: number | null; currency?: string
   description: string | null; estimated_value: number | null
   driver_first_name: string | null; driver_last_name: string | null; driver_phone: string | null
-  created_at: string; pickup_otp?: string; delivery_otp?: string
+  created_at: string; pickup_otp?: string | null; delivery_otp?: string | null
 }
 interface StatusHistory { id: number; status: string; notes: string | null; created_at: string }
 interface Message { id: string; sender_first_name: string; sender_last_name: string; sender_role_id: number; message: string; created_at: string }
@@ -368,10 +369,10 @@ function PlaceOrderWizard({ cargoTypes, onDone, onClose }: WizardProps) {
     setErr(''); setLoading(true)
     try {
       const { data } = await orderApi.placeOrder({
-        cargo_type_id:    Number(form.cargo_type_id),
-        vehicle_type:     form.vehicle_type,
-        weight_kg:        parseFloat(form.weight_kg),
-        pickup_address:   form.pickup_address,
+        cargo_type_id:       Number(form.cargo_type_id),
+        vehicle_type:        form.vehicle_type,
+        estimated_weight_kg: parseFloat(form.weight_kg) || undefined,
+        pickup_address:      form.pickup_address,
         pickup_lat:       parseFloat(form.pickup_lat),
         pickup_lng:       parseFloat(form.pickup_lng),
         delivery_address: form.delivery_address,
@@ -380,7 +381,7 @@ function PlaceOrderWizard({ cargoTypes, onDone, onClose }: WizardProps) {
         description:      form.description || undefined,
         estimated_value:  form.estimated_value ? parseFloat(form.estimated_value) : undefined,
       })
-      setPlacedOrder({ reference_code: data.order.reference_code, pickup_otp: data.pickup_otp, delivery_otp: data.delivery_otp })
+      setPlacedOrder({ reference_code: data.order.reference_code, pickup_otp: data.otps.pickup_otp, delivery_otp: data.otps.delivery_otp })
     } catch (e: any) { setErr(e.response?.data?.message ?? 'Failed to place order.') }
     finally { setLoading(false) }
   }
@@ -662,6 +663,74 @@ function TruckMarker({ lat, lng, label }: { lat: number; lng: number; label: str
   )
 }
 
+// ─── OTP Reveal Box ───────────────────────────────────────────────────────────
+function OtpRow({ label, otp, onCopy }: { label: string; otp: string | undefined; onCopy: (t: string) => void }) {
+  if (!otp) return null
+  return (
+    <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginTop:'0.5rem' }}>
+      <span style={{ fontSize:'0.75rem', color:'var(--clr-muted)' }}>{label}</span>
+      <div style={{ display:'flex', alignItems:'center', gap:'0.5rem' }}>
+        <span style={{ fontFamily:'monospace', fontSize:'1.05rem', fontWeight:900, letterSpacing:'0.25em', color:'var(--clr-accent)' }}>{otp}</span>
+        <button onClick={() => onCopy(otp)} title="Copy"
+          style={{ background:'none', border:'none', cursor:'pointer', color:'var(--clr-muted)', display:'flex', alignItems:'center', padding:'0.15rem' }}>
+          <LuCopy size={13}/>
+        </button>
+      </div>
+    </div>
+  )
+}
+
+function OtpRevealBox({ pickupOtp, deliveryOtp }: { pickupOtp?: string | null; deliveryOtp?: string | null }) {
+  const [show, setShow] = useState(false)
+  const [copied, setCopied] = useState('')
+
+  const copy = (text: string) => {
+    navigator.clipboard.writeText(text).catch(() => {})
+    setCopied(text)
+    setTimeout(() => setCopied(''), 2000)
+  }
+
+  const hasOtps = !!(pickupOtp || deliveryOtp)
+
+  return (
+    <div className="glass-inner" style={{ padding:'0.85rem 1rem' }}>
+      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'0.25rem' }}>
+        <span style={{ fontSize:'0.7rem', color:'var(--clr-muted)', fontWeight:700, letterSpacing:'0.06em', textTransform:'uppercase' }}>
+          Order OTPs
+        </span>
+        <button onClick={() => setShow(s => !s)}
+          style={{ background:'none', border:'none', cursor:'pointer', color:'var(--clr-muted)', display:'flex', alignItems:'center', gap:'0.3rem', padding:'0.2rem 0.4rem', borderRadius:6, fontSize:'0.72rem' }}>
+          {show ? <><LuEyeOff size={13}/> Hide</> : <><LuEye size={13}/> Reveal</>}
+        </button>
+      </div>
+      {show ? (
+        hasOtps ? (
+          <>
+            <OtpRow label="Pickup OTP" otp={pickupOtp ?? undefined} onCopy={copy}/>
+            <OtpRow label="Delivery OTP" otp={deliveryOtp ?? undefined} onCopy={copy}/>
+            {copied && (
+              <p style={{ fontSize:'0.7rem', color:'#4ade80', marginTop:'0.4rem', textAlign:'right' }}>Copied ✓</p>
+            )}
+          </>
+        ) : (
+          <div style={{ padding:'0.6rem 0.75rem', borderRadius:8, background:'rgba(251,191,36,0.08)', border:'1px solid rgba(251,191,36,0.2)', marginTop:'0.4rem' }}>
+            <p style={{ fontSize:'0.75rem', color:'#fbbf24', margin:0, lineHeight:1.5 }}>
+              <b>OTPs not stored for this order.</b><br/>
+              They were displayed on the order confirmation screen when you placed the order. Check your email inbox for the order confirmation, or ask the driver to contact you directly to coordinate handover.
+            </p>
+          </div>
+        )
+      ) : (
+        <p style={{ fontSize:'0.75rem', color:'var(--clr-muted)', margin:0 }}>
+          {hasOtps
+            ? <>Click <b>Reveal</b> to show OTPs — share with driver at pickup &amp; delivery.</>
+            : <>Click <b>Reveal</b> to check OTP status for this order.</> }
+        </p>
+      )}
+    </div>
+  )
+}
+
 // ─── Order Detail Modal ───────────────────────────────────────────────────────
 function OrderDetailModal({ order, onClose, onCancelled }: { order: Order; onClose: () => void; onCancelled: () => void }) {
   const [tab, setTab] = useState<'info' | 'history' | 'chat' | 'track'>('info')
@@ -771,10 +840,10 @@ function OrderDetailModal({ order, onClose, onCancelled }: { order: Order; onClo
                   {[
                     ['Cargo Type', order.cargo_type_name],
                     ['Vehicle', order.vehicle_type_required],
-                    ['Weight', `${order.estimated_weight_kg} kg`],
+                    ['Weight', order.estimated_weight_kg != null ? `${order.estimated_weight_kg} kg` : '—'],
                     ['Pickup', order.pickup_address],
                     ['Delivery', order.delivery_address],
-                    ['Price', `${(order.final_price ?? order.estimated_price).toLocaleString()} ${order.currency}`],
+                    ['Price', `${Number(order.final_price ?? order.estimated_price).toLocaleString()} ETB`],
                     ...(order.description ? [['Note', order.description]] : []),
                     ...(order.estimated_value ? [['Cargo Value', `${Number(order.estimated_value).toLocaleString()} ETB`]] : []),
                   ].map(([l, v]) => (
@@ -797,6 +866,11 @@ function OrderDetailModal({ order, onClose, onCancelled }: { order: Order; onClo
                     {order.driver_phone && <p style={{ fontSize:'0.75rem', color:'var(--clr-muted)' }}>{order.driver_phone}</p>}
                   </div>
                 </div>
+              )}
+
+              {/* OTP Reveal — always show (fallback message for old orders without stored OTPs) */}
+              {order.status !== 'CANCELLED' && (
+                <OtpRevealBox pickupOtp={order.pickup_otp} deliveryOtp={order.delivery_otp}/>
               )}
 
               {/* Invoice */}
@@ -901,8 +975,13 @@ export default function ShipperOrdersPage() {
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null)
   const [showWizard, setShowWizard] = useState(false)
   const [toast, setToast] = useState('')
+  const [unreadCounts, setUnreadCounts] = useState<Record<string, number>>({})
 
   const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(''), 3000) }
+
+  const loadUnreadCounts = useCallback(() => {
+    orderApi.getUnreadCounts().then(r => setUnreadCounts(r.data.counts ?? {})).catch(() => {})
+  }, [])
 
   const loadOrders = useCallback(async (pg = page, sf = statusFilter) => {
     setLoading(true)
@@ -919,7 +998,7 @@ export default function ShipperOrdersPage() {
   }, [])
 
   useEffect(() => {
-    if (pageTab === 'orders') loadOrders(page, statusFilter)
+    if (pageTab === 'orders') { loadOrders(page, statusFilter); loadUnreadCounts() }
   }, [pageTab, page, statusFilter]) // eslint-disable-line
 
   const totalPages = Math.max(1, Math.ceil(total / LIMIT))
@@ -1007,6 +1086,11 @@ export default function ShipperOrdersPage() {
                     <div style={{ display:'flex', alignItems:'center', gap:'0.5rem', flexWrap:'wrap', marginBottom:'0.25rem' }}>
                       <span style={{ fontWeight:700, fontSize:'0.88rem', color:'var(--clr-text)' }}>{order.reference_code}</span>
                       {statusBadge(order.status)}
+                      {(unreadCounts[order.id] ?? 0) > 0 && (
+                        <span style={{ display:'flex', alignItems:'center', gap:'0.25rem', fontSize:'0.68rem', fontWeight:700, color:'#fff', background:'#ef4444', borderRadius:99, padding:'0.12rem 0.45rem', lineHeight:1 }}>
+                          <LuMessageSquare size={10}/> {unreadCounts[order.id]}
+                        </span>
+                      )}
                     </div>
                     <div style={{ display:'flex', flexDirection:'column', gap:'0.2rem' }}>
                       <p style={{ fontSize:'0.75rem', color:'var(--clr-muted)', display:'flex', alignItems:'center', gap:'0.35rem' }}>
@@ -1021,7 +1105,7 @@ export default function ShipperOrdersPage() {
                       <span style={{ fontSize:'0.72rem', color:'var(--clr-muted)' }}>·</span>
                       <span style={{ fontSize:'0.72rem', color:'var(--clr-muted)' }}>{order.vehicle_type_required}</span>
                       <span style={{ fontSize:'0.72rem', color:'var(--clr-muted)' }}>·</span>
-                      <span style={{ fontSize:'0.72rem', color:'var(--clr-muted)' }}>{order.estimated_weight_kg} kg</span>
+                      <span style={{ fontSize:'0.72rem', color:'var(--clr-muted)' }}>{order.estimated_weight_kg != null ? `${order.estimated_weight_kg} kg` : '—'}</span>
                     </div>
                   </div>
                   <div style={{ textAlign:'right', flexShrink:0 }}>
@@ -1078,7 +1162,7 @@ export default function ShipperOrdersPage() {
       {selectedOrder && (
         <OrderDetailModal
           order={selectedOrder}
-          onClose={() => setSelectedOrder(null)}
+          onClose={() => { setSelectedOrder(null); loadUnreadCounts() }}
           onCancelled={() => { showToast('Order cancelled.'); loadOrders(page, statusFilter) }}
         />
       )}

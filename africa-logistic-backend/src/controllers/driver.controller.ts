@@ -24,6 +24,8 @@ import {
   getOrderMessages,
   createOrderMessage,
   markMessagesRead,
+  getUnreadCounts,
+  notifyOrderStatus,
   verifyOtpHash,
   markPickupOtpVerified,
   markDeliveryOtpVerified,
@@ -106,6 +108,7 @@ export async function acceptJobHandler(
 
   await updateOrderStatus(request.server.db, order.id, 'EN_ROUTE', driver.id, 'Driver accepted and is en route')
   wsManager.broadcast(order.id, 'STATUS_CHANGED', { status: 'EN_ROUTE', driver_id: driver.id })
+  notifyOrderStatus(request.server.db, order.id, 'EN_ROUTE')
 
   return reply.send({ success: true, message: 'Job accepted. Status set to EN_ROUTE.' })
 }
@@ -181,6 +184,7 @@ export async function updateJobStatusHandler(
 
   await updateOrderStatus(request.server.db, order.id, status, driver.id, notes)
   wsManager.broadcast(order.id, 'STATUS_CHANGED', { status })
+  notifyOrderStatus(request.server.db, order.id, status)
 
   // If delivered, trigger invoice generation asynchronously
   if (status === 'DELIVERED') {
@@ -212,6 +216,7 @@ export async function verifyPickupOtpHandler(
   // Automatically advance to IN_TRANSIT
   await updateOrderStatus(request.server.db, order.id, 'IN_TRANSIT', driver.id, 'Pickup OTP verified')
   wsManager.broadcast(order.id, 'STATUS_CHANGED', { status: 'IN_TRANSIT' })
+  notifyOrderStatus(request.server.db, order.id, 'IN_TRANSIT')
 
   return reply.send({ success: true, message: 'Pickup verified. Status advanced to IN_TRANSIT.' })
 }
@@ -237,6 +242,7 @@ export async function verifyDeliveryOtpHandler(
   await updateOrderStatus(request.server.db, order.id, 'DELIVERED', driver.id, 'Delivery OTP verified — completed')
   await releaseDriver(request.server.db, driver.id)
   wsManager.broadcast(order.id, 'STATUS_CHANGED', { status: 'DELIVERED' })
+  notifyOrderStatus(request.server.db, order.id, 'DELIVERED')
 
   // Generate invoice async
   generateInvoice(request.server.db, order.id)
@@ -285,6 +291,17 @@ export async function getDriverJobMessagesHandler(
   await markMessagesRead(request.server.db, request.params.id, driver.id)
 
   return reply.send({ success: true, messages })
+}
+
+/** GET /api/driver/jobs/unread-counts */
+export async function getDriverUnreadCountsHandler(
+  request: FastifyRequest,
+  reply:   FastifyReply
+) {
+  if (!requireDriver(request, reply)) return
+  const driver = request.user as any
+  const counts = await getUnreadCounts(request.server.db, driver.id)
+  return reply.send({ success: true, counts })
 }
 
 /** POST /api/driver/jobs/:id/messages */

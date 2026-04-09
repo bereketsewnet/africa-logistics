@@ -18,6 +18,7 @@ import {
   sendMessageHandler,
   cancelOrderHandler,
   downloadInvoiceHandler,
+  getUnreadCountsHandler,
 } from '../controllers/order.controller.js'
 
 export default async function orderRoutes(fastify: FastifyInstance) {
@@ -27,6 +28,9 @@ export default async function orderRoutes(fastify: FastifyInstance) {
 
   /** GET /api/orders/cargo-types — active cargo type list for order form */
   fastify.get('/cargo-types', listCargoTypesHandler)
+
+  /** GET /api/orders/unread-counts — unread message count per order for current user */
+  fastify.get('/unread-counts', getUnreadCountsHandler)
 
   // ── Quote Engine ─────────────────────────────────────────────────────────────
 

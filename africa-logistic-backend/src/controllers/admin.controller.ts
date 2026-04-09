@@ -691,6 +691,7 @@ import {
   updateOrderStatus,
   assignOrderToDriver,
   cancelOrder,
+  notifyOrderStatus,
   listAllCargoTypes,
   createCargoType,
   updateCargoType,
@@ -781,6 +782,7 @@ export async function adminAssignOrderHandler(
 
   await assignOrderToDriver(request.server.db, order.id, driver_id, vehicle_id ?? null, admin.id)
   wsManager.broadcast(order.id, 'STATUS_CHANGED', { status: 'ASSIGNED', driver_id })
+  notifyOrderStatus(request.server.db, order.id, 'ASSIGNED')
 
   return reply.send({ success: true, message: 'Driver assigned successfully.' })
 }
@@ -806,6 +808,7 @@ export async function adminUpdateOrderStatusHandler(
 
   await updateOrderStatus(request.server.db, order.id, status as any, admin.id, notes ?? 'Admin override')
   wsManager.broadcast(order.id, 'STATUS_CHANGED', { status })
+  notifyOrderStatus(request.server.db, order.id, status as any)
 
   return reply.send({ success: true, message: `Order status updated to ${status}.` })
 }

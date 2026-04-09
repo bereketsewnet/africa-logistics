@@ -4,6 +4,7 @@ import {
   LuTruck, LuRefreshCw, LuMapPin, LuCheck, LuX, LuBan,
   LuCircleCheck, LuTriangleAlert, LuChevronRight,
   LuSend, LuArrowRight, LuClock, LuCircleDot, LuNavigation,
+  LuMessageSquare, LuSquareCheck, LuSquare,
 } from 'react-icons/lu'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -11,7 +12,7 @@ interface Job {
   id: string; reference_code: string; status: string
   cargo_type_name: string; vehicle_type_required: string; estimated_weight_kg: number
   pickup_address: string; delivery_address: string
-  estimated_price: number; final_price: number | null; currency: string
+  estimated_price: number; final_price: number | null; currency?: string
   description: string | null
   shipper_first_name: string; shipper_last_name: string; shipper_phone: string
   created_at: string; assigned_at: string | null
@@ -209,7 +210,7 @@ function JobDetailModal({ job, onClose, onRefresh }: { job: Job; onClose: () => 
                   {[
                     ['Cargo', localJob.cargo_type_name],
                     ['Vehicle', localJob.vehicle_type_required],
-                    ['Weight', `${localJob.estimated_weight_kg} kg`],
+                    ['Weight', localJob.estimated_weight_kg != null ? `${localJob.estimated_weight_kg} kg` : '—'],
                     ['Pickup', localJob.pickup_address],
                     ['Delivery', localJob.delivery_address],
                     ['Fare', `${(localJob.final_price ?? localJob.estimated_price).toLocaleString()} ${localJob.currency}`],
@@ -358,6 +359,14 @@ export default function DriverJobsPage() {
   const [jobs, setJobs] = useState<Job[]>([])
   const [loading, setLoading] = useState(false)
   const [selectedJob, setSelectedJob] = useState<Job | null>(null)
+  const [selectedJobs, setSelectedJobs] = useState<Set<string>>(new Set())
+  const [unreadCounts, setUnreadCounts] = useState<Record<string, number>>({})
+  const [bulkLoading, setBulkLoading] = useState(false)
+  const [bulkMsg, setBulkMsg] = useState('')
+
+  const loadUnreadCounts = useCallback(() => {
+    driverApi.getUnreadCounts().then(r => setUnreadCounts(r.data.counts ?? {})).catch(() => {})
+  }, [])
 
   const loadJobs = useCallback(async () => {
     setLoading(true)
@@ -368,7 +377,7 @@ export default function DriverJobsPage() {
     finally { setLoading(false) }
   }, [])
 
-  useEffect(() => { loadJobs() }, []) // eslint-disable-line
+  useEffect(() => { loadJobs(); loadUnreadCounts() }, []) // eslint-disable-line
 
   const active = jobs.filter(j => !['DELIVERED','CANCELLED'].includes(j.status))
   const completed = jobs.filter(j => ['DELIVERED','CANCELLED'].includes(j.status))
@@ -376,6 +385,41 @@ export default function DriverJobsPage() {
 
   // Find any currently active job (IN_TRANSIT or AT_PICKUP) for GPS ping
   const activeJob = jobs.find(j => ['EN_ROUTE','AT_PICKUP','IN_TRANSIT'].includes(j.status)) ?? null
+
+  const toggleSelect = (id: string) => {
+    setSelectedJobs(prev => {
+      const next = new Set(prev)
+      next.has(id) ? next.delete(id) : next.add(id)
+      return next
+    })
+  }
+
+  const clearSelection = () => setSelectedJobs(new Set())
+
+  const bulkDeliver = async () => {
+    const ids = Array.from(selectedJobs)
+    setBulkLoading(true); setBulkMsg('')
+    const results = await driverApi.bulkUpdateStatus(ids, 'DELIVERED')
+    const failed = results.filter(r => r.status === 'rejected').length
+    setBulkMsg(failed === 0 ? `${ids.length} job${ids.length > 1 ? 's' : ''} marked delivered ✓` : `${ids.length - failed} succeeded, ${failed} failed`)
+    clearSelection(); loadJobs(); loadUnreadCounts()
+    setBulkLoading(false); setTimeout(() => setBulkMsg(''), 4000)
+  }
+
+  const bulkCancel = async () => {
+    const ids = Array.from(selectedJobs).filter(id => {
+      const j = jobs.find(jj => jj.id === id)
+      return j && ['PENDING','ASSIGNED'].includes(j.status)
+    })
+    if (ids.length === 0) { setBulkMsg('No PENDING/ASSIGNED jobs in selection to cancel.'); setTimeout(() => setBulkMsg(''), 3000); return }
+    if (!window.confirm(`Cancel ${ids.length} job${ids.length > 1 ? 's' : ''}?`)) return
+    setBulkLoading(true); setBulkMsg('')
+    const results = await driverApi.bulkUpdateStatus(ids, 'CANCELLED')
+    const failed = results.filter(r => r.status === 'rejected').length
+    setBulkMsg(failed === 0 ? `${ids.length} job${ids.length > 1 ? 's' : ''} cancelled ✓` : `${ids.length - failed} succeeded, ${failed} failed`)
+    clearSelection(); loadJobs(); loadUnreadCounts()
+    setBulkLoading(false); setTimeout(() => setBulkMsg(''), 4000)
+  }
 
   return (
     <div className="page-shell" style={{ alignItems:'flex-start' }}>
@@ -394,7 +438,7 @@ export default function DriverJobsPage() {
             </div>
             <div style={{ display:'flex', gap:'0.5rem', alignItems:'center', flexWrap:'wrap' }}>
               <GpsPingButton activeJobId={activeJob?.id ?? null}/>
-              <button onClick={loadJobs} disabled={loading}
+              <button onClick={() => { loadJobs(); loadUnreadCounts() }} disabled={loading}
                 style={{ display:'flex', alignItems:'center', gap:'0.35rem', padding:'0.38rem 0.75rem', borderRadius:8, border:'1px solid rgba(255,255,255,0.1)', background:'rgba(255,255,255,0.04)', color:'var(--clr-muted)', fontFamily:'inherit', fontSize:'0.76rem', fontWeight:600, cursor:'pointer' }}>
                 <LuRefreshCw size={13}/> Refresh
               </button>
@@ -404,15 +448,54 @@ export default function DriverJobsPage() {
           {/* Tab switcher */}
           <div style={{ display:'flex', gap:'0.25rem', background:'rgba(255,255,255,0.04)', borderRadius:10, padding:'0.25rem', marginTop:'1rem' }}>
             {(['active','completed'] as JobTab[]).map(t => (
-              <button key={t} onClick={() => setJobTab(t)} style={{ flex:1, padding:'0.45rem', border:'none', borderRadius:8, background: jobTab === t ? 'rgba(0,229,255,0.12)' : 'transparent', color: jobTab === t ? 'var(--clr-accent)' : 'var(--clr-muted)', fontFamily:'inherit', fontSize:'0.78rem', fontWeight:700, cursor:'pointer', transition:'all 0.15s', outline: jobTab === t ? '1px solid rgba(0,229,255,0.2)' : 'none', display:'flex', alignItems:'center', justifyContent:'center', gap:'0.35rem' }}>
+              <button key={t} onClick={() => { setJobTab(t); clearSelection() }} style={{ flex:1, padding:'0.45rem', border:'none', borderRadius:8, background: jobTab === t ? 'rgba(0,229,255,0.12)' : 'transparent', color: jobTab === t ? 'var(--clr-accent)' : 'var(--clr-muted)', fontFamily:'inherit', fontSize:'0.78rem', fontWeight:700, cursor:'pointer', transition:'all 0.15s', outline: jobTab === t ? '1px solid rgba(0,229,255,0.2)' : 'none', display:'flex', alignItems:'center', justifyContent:'center', gap:'0.35rem' }}>
                 {t === 'active' ? <><LuClock size={13}/> Active ({active.length})</> : <><LuCircleCheck size={13}/> Completed ({completed.length})</>}
               </button>
             ))}
           </div>
         </div>
 
+        {/* ── Bulk Action Bar ── */}
+        {selectedJobs.size > 0 && (
+          <div className="glass" style={{ padding:'0.75rem 1.25rem', display:'flex', alignItems:'center', gap:'0.65rem', flexWrap:'wrap', border:'1px solid rgba(0,229,255,0.2)' }}>
+            <span style={{ fontSize:'0.8rem', fontWeight:700, color:'var(--clr-accent)', flex:1, minWidth:120 }}>
+              {selectedJobs.size} job{selectedJobs.size > 1 ? 's' : ''} selected
+            </span>
+            <button onClick={bulkDeliver} disabled={bulkLoading}
+              style={{ display:'flex', alignItems:'center', gap:'0.35rem', padding:'0.4rem 0.85rem', borderRadius:8, border:'1px solid rgba(74,222,128,0.3)', background:'rgba(74,222,128,0.1)', color:'#4ade80', fontFamily:'inherit', fontSize:'0.78rem', fontWeight:700, cursor:'pointer', opacity: bulkLoading ? 0.6 : 1 }}>
+              <LuCheck size={13}/> Mark Delivered
+            </button>
+            <button onClick={bulkCancel} disabled={bulkLoading}
+              style={{ display:'flex', alignItems:'center', gap:'0.35rem', padding:'0.4rem 0.85rem', borderRadius:8, border:'1px solid rgba(248,113,113,0.3)', background:'rgba(248,113,113,0.08)', color:'#f87171', fontFamily:'inherit', fontSize:'0.78rem', fontWeight:700, cursor:'pointer', opacity: bulkLoading ? 0.6 : 1 }}>
+              <LuBan size={13}/> Cancel
+            </button>
+            <button onClick={clearSelection}
+              style={{ display:'flex', alignItems:'center', gap:'0.25rem', padding:'0.38rem 0.6rem', borderRadius:8, border:'1px solid rgba(255,255,255,0.1)', background:'none', color:'var(--clr-muted)', fontFamily:'inherit', fontSize:'0.75rem', cursor:'pointer' }}>
+              <LuX size={12}/> Clear
+            </button>
+            {bulkMsg && <span style={{ fontSize:'0.75rem', color: bulkMsg.includes('✓') ? '#4ade80' : '#fbbf24', width:'100%' }}>{bulkMsg}</span>}
+          </div>
+        )}
+        {!selectedJobs.size && bulkMsg && (
+          <div style={{ textAlign:'center', fontSize:'0.78rem', color: bulkMsg.includes('✓') ? '#4ade80' : '#fbbf24', padding:'0.4rem', background:'rgba(255,255,255,0.03)', borderRadius:8 }}>{bulkMsg}</div>
+        )}
+
         {/* ── Job List ── */}
         <div className="glass" style={{ padding:'1rem 1.25rem', display:'flex', flexDirection:'column', gap:'0.65rem' }}>
+          {/* Select all / clear */}
+          {visible.length > 1 && (
+            <div style={{ display:'flex', alignItems:'center', gap:'0.5rem', paddingBottom:'0.5rem', borderBottom:'1px solid rgba(255,255,255,0.05)' }}>
+              <button onClick={() => {
+                if (selectedJobs.size === visible.length) clearSelection()
+                else setSelectedJobs(new Set(visible.map(j => j.id)))
+              }} style={{ display:'flex', alignItems:'center', gap:'0.35rem', background:'none', border:'none', cursor:'pointer', color:'var(--clr-muted)', fontFamily:'inherit', fontSize:'0.75rem', padding:'0.15rem 0' }}>
+                {selectedJobs.size === visible.length
+                  ? <><LuSquareCheck size={14} color="var(--clr-accent)"/> Deselect All</>
+                  : <><LuSquare size={14}/> Select All</>}
+              </button>
+            </div>
+          )}
+
           {loading ? (
             <div style={{ display:'flex', justifyContent:'center', padding:'2.5rem', color:'var(--clr-muted)', gap:'0.65rem', alignItems:'center' }}>
               <Spinner/> Loading jobs…
@@ -422,41 +505,57 @@ export default function DriverJobsPage() {
               <LuTruck size={36} style={{ opacity:0.25, display:'block', margin:'0 auto 1rem' }}/>
               {jobTab === 'active' ? 'No active jobs right now.' : 'No completed jobs yet.'}
             </div>
-          ) : visible.map(job => (
-            <div key={job.id} className="glass-inner" onClick={() => setSelectedJob(job)}
-              style={{ padding:'0.9rem 1rem', cursor:'pointer', transition:'background 0.15s' }}
-              onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.04)')}
-              onMouseLeave={e => (e.currentTarget.style.background = '')}>
-              <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', gap:'0.5rem' }}>
-                <div style={{ flex:1, minWidth:0 }}>
-                  <div style={{ display:'flex', alignItems:'center', gap:'0.5rem', flexWrap:'wrap', marginBottom:'0.25rem' }}>
-                    <span style={{ fontWeight:700, fontSize:'0.88rem', color:'var(--clr-text)' }}>{job.reference_code}</span>
-                    {statusBadge(job.status)}
+          ) : visible.map(job => {
+            const isSelected = selectedJobs.has(job.id)
+            const unread = unreadCounts[job.id] ?? 0
+            return (
+              <div key={job.id} className="glass-inner"
+                style={{ padding:'0.9rem 1rem', cursor:'pointer', transition:'background 0.15s', outline: isSelected ? '2px solid rgba(0,229,255,0.35)' : 'none' }}
+                onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.04)')}
+                onMouseLeave={e => (e.currentTarget.style.background = '')}>
+                <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', gap:'0.5rem' }}>
+                  {/* Checkbox */}
+                  <button
+                    onClick={e => { e.stopPropagation(); toggleSelect(job.id) }}
+                    style={{ background:'none', border:'none', cursor:'pointer', color: isSelected ? 'var(--clr-accent)' : 'var(--clr-muted)', padding:'0.1rem 0.25rem 0 0', display:'flex', alignItems:'flex-start', flexShrink:0 }}>
+                    {isSelected ? <LuSquareCheck size={16}/> : <LuSquare size={16}/>}
+                  </button>
+
+                  <div style={{ flex:1, minWidth:0 }} onClick={() => setSelectedJob(job)}>
+                    <div style={{ display:'flex', alignItems:'center', gap:'0.5rem', flexWrap:'wrap', marginBottom:'0.25rem' }}>
+                      <span style={{ fontWeight:700, fontSize:'0.88rem', color:'var(--clr-text)' }}>{job.reference_code}</span>
+                      {statusBadge(job.status)}
+                      {unread > 0 && (
+                        <span style={{ display:'flex', alignItems:'center', gap:'0.25rem', fontSize:'0.68rem', fontWeight:700, color:'#fff', background:'#ef4444', borderRadius:99, padding:'0.12rem 0.45rem', lineHeight:1 }}>
+                          <LuMessageSquare size={10}/> {unread}
+                        </span>
+                      )}
+                    </div>
+                    <p style={{ fontSize:'0.75rem', color:'var(--clr-muted)', display:'flex', alignItems:'center', gap:'0.35rem', marginBottom:'0.15rem' }}>
+                      <LuMapPin size={11}/> {job.pickup_address}
+                    </p>
+                    <p style={{ fontSize:'0.75rem', color:'var(--clr-muted)', display:'flex', alignItems:'center', gap:'0.35rem' }}>
+                      <LuArrowRight size={11}/> {job.delivery_address}
+                    </p>
+                    <div style={{ display:'flex', gap:'0.65rem', marginTop:'0.4rem', flexWrap:'wrap' }}>
+                      <span style={{ fontSize:'0.72rem', color:'var(--clr-muted)' }}>{job.cargo_type_name}</span>
+                      <span style={{ fontSize:'0.72rem', color:'var(--clr-muted)' }}>·</span>
+                      <span style={{ fontSize:'0.72rem', color:'var(--clr-muted)' }}>{job.vehicle_type_required}</span>
+                      <span style={{ fontSize:'0.72rem', color:'var(--clr-muted)' }}>·</span>
+                      <span style={{ fontSize:'0.72rem', color:'var(--clr-muted)' }}>{job.estimated_weight_kg != null ? `${job.estimated_weight_kg} kg` : '—'}</span>
+                    </div>
                   </div>
-                  <p style={{ fontSize:'0.75rem', color:'var(--clr-muted)', display:'flex', alignItems:'center', gap:'0.35rem', marginBottom:'0.15rem' }}>
-                    <LuMapPin size={11}/> {job.pickup_address}
-                  </p>
-                  <p style={{ fontSize:'0.75rem', color:'var(--clr-muted)', display:'flex', alignItems:'center', gap:'0.35rem' }}>
-                    <LuArrowRight size={11}/> {job.delivery_address}
-                  </p>
-                  <div style={{ display:'flex', gap:'0.65rem', marginTop:'0.4rem', flexWrap:'wrap' }}>
-                    <span style={{ fontSize:'0.72rem', color:'var(--clr-muted)' }}>{job.cargo_type_name}</span>
-                    <span style={{ fontSize:'0.72rem', color:'var(--clr-muted)' }}>·</span>
-                    <span style={{ fontSize:'0.72rem', color:'var(--clr-muted)' }}>{job.vehicle_type_required}</span>
-                    <span style={{ fontSize:'0.72rem', color:'var(--clr-muted)' }}>·</span>
-                    <span style={{ fontSize:'0.72rem', color:'var(--clr-muted)' }}>{job.estimated_weight_kg} kg</span>
+                  <div style={{ textAlign:'right', flexShrink:0 }} onClick={() => setSelectedJob(job)}>
+                    <p style={{ fontSize:'0.9rem', fontWeight:800, color:'var(--clr-accent)', whiteSpace:'nowrap' }}>
+                      {(job.final_price ?? job.estimated_price).toLocaleString()} ETB
+                    </p>
+                    <p style={{ fontSize:'0.68rem', color:'var(--clr-muted)', marginTop:'0.2rem' }}>{fmtDate(job.created_at).split(',')[0]}</p>
+                    <LuChevronRight size={14} style={{ color:'var(--clr-muted)', marginTop:'0.3rem' }}/>
                   </div>
-                </div>
-                <div style={{ textAlign:'right', flexShrink:0 }}>
-                  <p style={{ fontSize:'0.9rem', fontWeight:800, color:'var(--clr-accent)', whiteSpace:'nowrap' }}>
-                    {(job.final_price ?? job.estimated_price).toLocaleString()} ETB
-                  </p>
-                  <p style={{ fontSize:'0.68rem', color:'var(--clr-muted)', marginTop:'0.2rem' }}>{fmtDate(job.created_at).split(',')[0]}</p>
-                  <LuChevronRight size={14} style={{ color:'var(--clr-muted)', marginTop:'0.3rem' }}/>
                 </div>
               </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
       </div>
 
@@ -464,7 +563,7 @@ export default function DriverJobsPage() {
       {selectedJob && (
         <JobDetailModal
           job={selectedJob}
-          onClose={() => setSelectedJob(null)}
+          onClose={() => { setSelectedJob(null); loadUnreadCounts() }}
           onRefresh={loadJobs}
         />
       )}

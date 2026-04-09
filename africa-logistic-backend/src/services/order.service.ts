@@ -14,6 +14,7 @@ import { Pool, RowDataPacket, ResultSetHeader } from 'mysql2/promise'
 import { v4 as uuidv4 } from 'uuid'
 import bcrypt from 'bcrypt'
 import crypto from 'crypto'
+import { sendOrderStatusEmail } from './email.service.js'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -66,7 +67,9 @@ export interface OrderRow extends RowDataPacket {
   final_price: number | null
   status: OrderStatus
   pickup_otp_hash: string
+  pickup_otp: string | null
   delivery_otp_hash: string
+  delivery_otp: string | null
   pickup_otp_verified_at: string | null
   delivery_otp_verified_at: string | null
   invoice_url: string | null
@@ -247,15 +250,15 @@ export async function createOrder(db: Pool, data: CreateOrderData): Promise<stri
         delivery_lat, delivery_lng, delivery_address,
         estimated_weight_kg, vehicle_type_required, special_instructions,
         distance_km, base_fare, per_km_rate, city_surcharge, estimated_price,
-        pickup_otp_hash, delivery_otp_hash
-      ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+        pickup_otp_hash, pickup_otp, delivery_otp_hash, delivery_otp
+      ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
     [
       id, refCode, data.shipperId, data.cargoTypeId,
       data.pickupLat, data.pickupLng, data.pickupAddress,
       data.deliveryLat, data.deliveryLng, data.deliveryAddress,
       data.estimatedWeightKg, data.vehicleTypeRequired, data.specialInstructions,
       data.distanceKm, data.baseFare, data.perKmRate, data.citySurcharge, data.estimatedPrice,
-      pickupHash, deliveryHash,
+      pickupHash, data.pickupOtp, deliveryHash, data.deliveryOtp,
     ]
   )
 
@@ -497,6 +500,71 @@ export async function markMessagesRead(db: Pool, orderId: string, readerId: stri
     `UPDATE order_messages SET is_read = 1 WHERE order_id = ? AND sender_id != ?`,
     [orderId, readerId]
   )
+}
+
+/** Returns unread message counts per order for the given user */
+export async function getUnreadCounts(db: Pool, userId: string): Promise<Record<string, number>> {
+  const [rows] = await db.query<RowDataPacket[]>(
+    `SELECT om.order_id, COUNT(*) AS unread_count
+     FROM order_messages om
+     JOIN orders o ON o.id = om.order_id
+     WHERE om.is_read = 0 AND om.sender_id != ?
+       AND (o.shipper_id = ? OR o.driver_id = ?)
+     GROUP BY om.order_id`,
+    [userId, userId, userId]
+  )
+  const result: Record<string, number> = {}
+  for (const r of rows) result[r.order_id] = r.unread_count as number
+  return result
+}
+
+/**
+ * Notify shipper and/or driver by email when an order status changes.
+ * Respects: is_email_verified AND notification_preferences.email_enabled AND order_updates.
+ * Fire-and-forget (errors are swallowed so they never block the main flow).
+ */
+export async function notifyOrderStatus(db: Pool, orderId: string, newStatus: OrderStatus): Promise<void> {
+  try {
+    const order = await getOrderById(db, orderId)
+    if (!order) return
+
+    interface UserNotifRow extends RowDataPacket {
+      id: string; first_name: string; last_name: string; email: string | null
+      is_email_verified: number
+      email_enabled: number | null; order_updates: number | null
+    }
+
+    const [users] = await db.query<UserNotifRow[]>(
+      `SELECT u.id, u.first_name, u.last_name, u.email, u.is_email_verified,
+              np.email_enabled, np.order_updates
+       FROM users u
+       LEFT JOIN notification_preferences np ON np.user_id = u.id
+       WHERE u.id IN (?, ?)`,
+      [order.shipper_id, order.driver_id ?? order.shipper_id]
+    )
+
+    const driverUser = users.find(u => u.id === order.driver_id)
+    const driverName = driverUser ? `${driverUser.first_name} ${driverUser.last_name}` : undefined
+
+    for (const u of users) {
+      if (!u.email) continue
+      if (!u.is_email_verified) continue
+      // Default to enabled if no prefs row exists
+      if ((u.email_enabled ?? 1) === 0) continue
+      if ((u.order_updates ?? 1) === 0) continue
+
+      const isShipper = u.id === order.shipper_id
+      await sendOrderStatusEmail(u.email, {
+        referenceCode: order.reference_code,
+        status: newStatus,
+        pickupAddress:  order.pickup_address  ?? '',
+        deliveryAddress: order.delivery_address ?? '',
+        recipientName: `${u.first_name} ${u.last_name}`,
+        recipientRole: isShipper ? 'shipper' : 'driver',
+        driverName: isShipper ? driverName : undefined,
+      }).catch(() => {/* ignore individual send failures */})
+    }
+  } catch { /* never throw — notifications must not break the main flow */ }
 }
 
 // ─── Driver job helpers ───────────────────────────────────────────────────────

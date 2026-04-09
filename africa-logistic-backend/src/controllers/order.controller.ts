@@ -28,7 +28,9 @@ import {
   markMessagesRead,
   cancelOrder,
   generateOtp,
+  getUnreadCounts,
 } from '../services/order.service.js'
+import { findUserById } from '../services/auth.service.js'
 import {
   getRouteDistanceKm,
   reverseGeocode,
@@ -36,6 +38,7 @@ import {
   calculateQuote,
 } from '../services/pricing.service.js'
 import { generateInvoice } from '../services/invoice.service.js'
+import { sendOrderPlacedEmail } from '../services/email.service.js'
 import { wsManager } from '../utils/wsManager.js'
 import fs from 'fs'
 import path from 'path'
@@ -200,6 +203,20 @@ export async function placeOrderHandler(
   })
 
   const order = await getOrderById(request.server.db, orderId)
+
+  // Fire-and-forget: send OTP confirmation email to shipper
+  findUserById(request.server.db, user.id).then(shipper => {
+    if (!shipper?.email || !shipper.is_email_verified) return
+    sendOrderPlacedEmail(shipper.email, {
+      referenceCode:   order!.reference_code,
+      recipientName:   shipper.first_name,
+      pickupAddress:   pickupAddr   ?? 'N/A',
+      deliveryAddress: deliveryAddr ?? 'N/A',
+      pickupOtp,
+      deliveryOtp,
+      estimatedPrice: `${Number(order!.estimated_price).toFixed(2)} ETB`,
+    }).catch(() => { /* never block the response */ })
+  }).catch(() => { /* never block the response */ })
 
   // Return OTPs to the shipper in plain text so they can give them to driver at pickup/delivery
   return reply.status(201).send({
@@ -394,4 +411,14 @@ export async function downloadInvoiceHandler(
     .header('Content-Type', 'application/pdf')
     .header('Content-Disposition', `attachment; filename="${order.reference_code}.pdf"`)
     .send(stream)
+}
+
+/** GET /api/orders/unread-counts — unread message counts per order for the current user */
+export async function getUnreadCountsHandler(
+  request: FastifyRequest,
+  reply:   FastifyReply
+) {
+  const user = request.user as any
+  const counts = await getUnreadCounts(request.server.db, user.id)
+  return reply.send({ success: true, counts })
 }

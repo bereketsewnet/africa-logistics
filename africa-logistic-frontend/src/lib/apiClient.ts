@@ -95,7 +95,7 @@ export const orderApi = {
   }) => apiClient.post('/orders/quote', data),
 
   placeOrder: (data: {
-    cargo_type_id: number; vehicle_type: string; weight_kg: number
+    cargo_type_id: number; vehicle_type: string; estimated_weight_kg?: number
     pickup_address: string; pickup_lat: number; pickup_lng: number
     delivery_address: string; delivery_lat: number; delivery_lng: number
     description?: string; estimated_value?: number
@@ -124,6 +124,9 @@ export const orderApi = {
 
   getInvoiceUrl: (id: string) =>
     `${BASE_URL}/orders/${id}/invoice`,
+
+  getUnreadCounts: () =>
+    apiClient.get('/orders/unread-counts'),
 }
 
 // ─── Driver API ───────────────────────────────────────────────────────────────
@@ -157,6 +160,12 @@ export const driverApi = {
 
   sendMessage: (id: string, message: string) =>
     apiClient.post(`/driver/jobs/${id}/messages`, { message }),
+
+  getUnreadCounts: () =>
+    apiClient.get('/driver/jobs/unread-counts'),
+
+  bulkUpdateStatus: (ids: string[], status: string) =>
+    Promise.allSettled(ids.map(id => apiClient.patch(`/driver/jobs/${id}/status`, { status }))),
 }
 
 // ─── Admin Order API ──────────────────────────────────────────────────────────

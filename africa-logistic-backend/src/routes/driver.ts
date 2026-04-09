@@ -17,6 +17,7 @@ import {
   pingLocationHandler,
   getDriverJobMessagesHandler,
   sendDriverMessageHandler,
+  getDriverUnreadCountsHandler,
 } from '../controllers/driver.controller.js'
 
 export default async function driverRoutes(fastify: FastifyInstance) {
@@ -35,6 +36,9 @@ export default async function driverRoutes(fastify: FastifyInstance) {
 
   /** GET /api/driver/jobs — all active + recent jobs for this driver */
   fastify.get('/jobs', getDriverJobsHandler)
+
+  /** GET /api/driver/jobs/unread-counts — unread message counts per job */
+  fastify.get('/jobs/unread-counts', getDriverUnreadCountsHandler)
 
   /** GET /api/driver/jobs/:id — single job details */
   fastify.get('/jobs/:id', getDriverJobHandler)
