@@ -4,7 +4,7 @@ import {
 } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { useNavigate } from 'react-router-dom'
-import apiClient, { authApi } from '../lib/apiClient'
+import apiClient, { authApi, adminOrderApi } from '../lib/apiClient'
 import PhoneField from '../components/PhoneField'
 import { normalisePhone } from '../lib/normalisePhone'
 import {
@@ -15,6 +15,7 @@ import {
   LuUsers, LuChartBar, LuX, LuStar, LuHistory,
   LuShieldCheck, LuPencil, LuPlus, LuFileText, LuRefreshCw,
   LuCar, LuBadgeCheck, LuUserPlus, LuBriefcase, LuSearch,
+  LuListOrdered, LuSettings, LuBox, LuBan,
 } from 'react-icons/lu'
 
 // ─── Shared UI helpers ────────────────────────────────────────────────────────
@@ -88,7 +89,7 @@ interface Stats {
   total_users: number; total_admins: number; total_shippers: number
   total_drivers: number; active_users: number; new_today: number
 }
-type AdminSection = 'overview' | 'drivers' | 'shippers' | 'staff' | 'verify-drivers' | 'vehicles' | 'profile'
+type AdminSection = 'overview' | 'drivers' | 'shippers' | 'staff' | 'verify-drivers' | 'vehicles' | 'orders' | 'cargo-types' | 'pricing-rules' | 'profile'
 type ProfileTab = 'profile' | 'security' | 'contact'
 
 interface DriverRow {
@@ -1607,6 +1608,441 @@ function VehicleManagementSection() {
   )
 }
 
+// ─── Admin Orders Section ────────────────────────────────────────────────────
+
+interface AdminOrder {
+  id: string; reference_code: string; status: string
+  cargo_type_name: string; vehicle_type: string; weight_kg: number
+  pickup_address: string; delivery_address: string
+  estimated_price: number; final_price: number | null; currency: string
+  shipper_first_name: string; shipper_last_name: string
+  driver_first_name: string | null; driver_last_name: string | null
+  created_at: string
+}
+interface OrderStats {
+  by_status: Record<string, number>
+  total_orders: number
+  total_revenue: string | number
+}
+interface AdminDriver { user_id: string; first_name: string; last_name: string; phone_number: string }
+interface AdminVehicle { id: string; plate_number: string; vehicle_type: string }
+
+const ORDER_STATUS_COLOR: Record<string, string> = {
+  PENDING: '#fbbf24', ASSIGNED: '#60a5fa', EN_ROUTE: '#a78bfa',
+  AT_PICKUP: '#fb923c', IN_TRANSIT: '#34d399', DELIVERED: '#4ade80', CANCELLED: '#f87171',
+}
+const ORDER_STATUS_LABEL: Record<string, string> = {
+  PENDING: 'Pending', ASSIGNED: 'Assigned', EN_ROUTE: 'En Route',
+  AT_PICKUP: 'At Pickup', IN_TRANSIT: 'In Transit', DELIVERED: 'Delivered', CANCELLED: 'Cancelled',
+}
+function orderBadge(status: string) {
+  const c = ORDER_STATUS_COLOR[status] ?? '#94a3b8'
+  return <span style={{ fontSize:'0.68rem', fontWeight:700, color:c, background:`${c}1a`, border:`1px solid ${c}44`, borderRadius:99, padding:'0.15rem 0.5rem', whiteSpace:'nowrap' }}>{ORDER_STATUS_LABEL[status] ?? status}</span>
+}
+
+function AdminOrdersSection() {
+  const [orders, setOrders] = useState<AdminOrder[]>([])
+  const [stats, setStats]   = useState<OrderStats | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [search, setSearch]   = useState('')
+  const [statusFilter, setStatusFilter] = useState('')
+  const [page, setPage] = useState(1)
+  const [total, setTotal] = useState(0)
+  const LIMIT = 15
+  const [toast, setToast] = useState('')
+  const showToast = (m: string) => { setToast(m); setTimeout(() => setToast(''), 3000) }
+
+  // Assign modal
+  const [assignOrder, setAssignOrder] = useState<AdminOrder | null>(null)
+  const [drivers, setDrivers] = useState<AdminDriver[]>([])
+  const [vehicles, setVehicles] = useState<AdminVehicle[]>([])
+  const [selDriver, setSelDriver] = useState('')
+  const [selVehicle, setSelVehicle] = useState('')
+  const [assigning, setAssigning] = useState(false)
+
+  const loadOrders = useCallback(async (pg = page, sf = statusFilter, q = search) => {
+    setLoading(true)
+    try {
+      const { data } = await adminOrderApi.listOrders({ page: pg, limit: LIMIT, status: sf || undefined, search: q || undefined })
+      setOrders(data.orders ?? [])
+      setTotal(data.pagination?.total ?? 0)
+    } catch { showToast('Failed to load orders') }
+    finally { setLoading(false) }
+  }, [page, statusFilter, search])
+
+  const loadStats = async () => {
+    try { const { data } = await adminOrderApi.getStats(); setStats(data.stats) }
+    catch { /* ignore */ }
+  }
+
+  useEffect(() => { loadOrders(); loadStats() }, []) // eslint-disable-line
+  useEffect(() => { loadOrders(page, statusFilter, search) }, [page, statusFilter]) // eslint-disable-line
+
+  const openAssign = async (o: AdminOrder) => {
+    setAssignOrder(o); setSelDriver(''); setSelVehicle('')
+    try {
+      const [dr, vh] = await Promise.all([apiClient.get('/admin/drivers?filter=verified'), apiClient.get('/admin/vehicles')])
+      setDrivers(dr.data.drivers ?? [])
+      setVehicles((vh.data.vehicles ?? []).filter((v: any) => v.is_active))
+    } catch { showToast('Failed to load drivers/vehicles') }
+  }
+
+  const handleAssign = async () => {
+    if (!assignOrder || !selDriver) return
+    setAssigning(true)
+    try {
+      await adminOrderApi.assignOrder(assignOrder.id, selDriver, selVehicle || undefined)
+      showToast('Driver assigned!')
+      setAssignOrder(null)
+      loadOrders(page, statusFilter, search)
+    } catch (e: any) { showToast(e.response?.data?.message ?? 'Assignment failed') }
+    finally { setAssigning(false) }
+  }
+
+  const handleCancel = async (o: AdminOrder) => {
+    if (!window.confirm(`Cancel order ${o.reference_code}?`)) return
+    try {
+      await adminOrderApi.cancelOrder(o.id, 'Cancelled by admin')
+      showToast('Order cancelled.')
+      loadOrders(page, statusFilter, search)
+    } catch (e: any) { showToast(e.response?.data?.message ?? 'Cancel failed') }
+  }
+
+  const totalPages = Math.max(1, Math.ceil(total / LIMIT))
+  const STATUSES = ['', 'PENDING', 'ASSIGNED', 'EN_ROUTE', 'AT_PICKUP', 'IN_TRANSIT', 'DELIVERED', 'CANCELLED']
+
+  return (
+    <div style={{ display:'flex', flexDirection:'column', gap:'1.25rem' }}>
+      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', flexWrap:'wrap', gap:'0.5rem' }}>
+        <h2 style={{ fontSize:'1rem', fontWeight:800, color:'var(--clr-text)', display:'flex', alignItems:'center', gap:'0.45rem' }}><LuListOrdered size={17}/> Orders</h2>
+        <button onClick={() => { loadOrders(); loadStats() }} style={{ display:'flex', alignItems:'center', gap:'0.35rem', padding:'0.3rem 0.7rem', borderRadius:8, border:'1px solid rgba(255,255,255,0.1)', background:'rgba(255,255,255,0.04)', color:'var(--clr-muted)', fontFamily:'inherit', fontSize:'0.72rem', fontWeight:600, cursor:'pointer' }}><LuRefreshCw size={12}/> Refresh</button>
+      </div>
+
+      {/* Stats */}
+      {stats && (
+        <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(110px,1fr))', gap:'0.65rem' }}>
+          {Object.entries(stats.by_status).map(([status, count]) => (
+            <div key={status} className="glass-inner" style={{ padding:'0.75rem 0.85rem', textAlign:'center', cursor:'pointer' }} onClick={() => { setStatusFilter(status); setPage(1) }}>
+              <p style={{ fontSize:'1.4rem', fontWeight:800, color: ORDER_STATUS_COLOR[status] ?? 'var(--clr-text)', lineHeight:1 }}>{count}</p>
+              <p style={{ fontSize:'0.68rem', color:'var(--clr-muted)', marginTop:'0.2rem', fontWeight:600 }}>{ORDER_STATUS_LABEL[status] ?? status}</p>
+            </div>
+          ))}
+          <div className="glass-inner" style={{ padding:'0.75rem 0.85rem', textAlign:'center' }}>
+            <p style={{ fontSize:'1.2rem', fontWeight:800, color:'var(--clr-accent)', lineHeight:1 }}>{Number(stats.total_revenue).toLocaleString()}</p>
+            <p style={{ fontSize:'0.68rem', color:'var(--clr-muted)', marginTop:'0.2rem', fontWeight:600 }}>ETB Revenue</p>
+          </div>
+        </div>
+      )}
+
+      {/* Filters */}
+      <div className="glass" style={{ padding:'0.75rem 1rem', display:'flex', gap:'0.5rem', flexWrap:'wrap', alignItems:'center' }}>
+        <div style={{ flex:1, minWidth:160, display:'flex', alignItems:'center', gap:'0.5rem', background:'rgba(255,255,255,0.04)', borderRadius:8, padding:'0.4rem 0.7rem' }}>
+          <LuSearch size={13} style={{ color:'var(--clr-muted)', flexShrink:0 }}/>
+          <input value={search} onChange={e => { setSearch(e.target.value); setPage(1) }} placeholder="Search ref / address…" style={{ background:'none', border:'none', color:'var(--clr-text)', fontFamily:'inherit', fontSize:'0.8rem', outline:'none', width:'100%' }}/>
+          {search && <button onClick={() => { setSearch(''); setPage(1) }} style={{ background:'none', border:'none', cursor:'pointer', color:'var(--clr-muted)', padding:0, display:'flex', alignItems:'center' }}><LuX size={12}/></button>}
+        </div>
+        <select value={statusFilter} onChange={e => { setStatusFilter(e.target.value); setPage(1) }}
+          style={{ padding:'0.4rem 0.6rem', borderRadius:8, border:'1px solid rgba(255,255,255,0.1)', background:'rgba(255,255,255,0.04)', color:'var(--clr-text)', fontFamily:'inherit', fontSize:'0.78rem', outline:'none' }}>
+          {STATUSES.map(s => <option key={s} value={s} style={{ background:'#0f172a' }}>{s || 'All Statuses'}</option>)}
+        </select>
+      </div>
+
+      {/* Order list */}
+      <div className="glass-inner" style={{ overflow:'hidden' }}>
+        {loading ? <LoadingSpinner /> : orders.length === 0 ? (
+          <p style={{ padding:'2rem', textAlign:'center', color:'var(--clr-muted)', fontSize:'0.875rem' }}>No orders found.</p>
+        ) : orders.map((o, i) => (
+          <div key={o.id} style={{ display:'flex', alignItems:'flex-start', gap:'0.75rem', padding:'0.85rem 1rem', borderBottom: i < orders.length-1 ? '1px solid rgba(255,255,255,0.05)' : 'none', flexWrap:'wrap' }}>
+            <div style={{ flex:1, minWidth:120 }}>
+              <div style={{ display:'flex', alignItems:'center', gap:'0.45rem', flexWrap:'wrap', marginBottom:'0.2rem' }}>
+                <span style={{ fontWeight:700, fontSize:'0.875rem', color:'var(--clr-text)' }}>{o.reference_code}</span>
+                {orderBadge(o.status)}
+              </div>
+              <p style={{ fontSize:'0.73rem', color:'var(--clr-muted)', marginBottom:'0.1rem' }}>Shipper: {o.shipper_first_name} {o.shipper_last_name}</p>
+              {o.driver_first_name && <p style={{ fontSize:'0.73rem', color:'var(--clr-muted)' }}>Driver: {o.driver_first_name} {o.driver_last_name}</p>}
+              <p style={{ fontSize:'0.7rem', color:'var(--clr-muted)', marginTop:'0.2rem' }}>{o.pickup_address} → {o.delivery_address}</p>
+            </div>
+            <div style={{ textAlign:'right', flexShrink:0, display:'flex', flexDirection:'column', gap:'0.35rem', alignItems:'flex-end' }}>
+              <span style={{ fontWeight:800, fontSize:'0.88rem', color:'var(--clr-accent)' }}>{(o.final_price ?? o.estimated_price).toLocaleString()} ETB</span>
+              {o.status === 'PENDING' && (
+                <button onClick={() => openAssign(o)} style={{ display:'flex', alignItems:'center', gap:'0.25rem', padding:'0.28rem 0.6rem', borderRadius:7, border:'none', background:'var(--clr-accent)', color:'#080b14', fontFamily:'inherit', fontSize:'0.7rem', fontWeight:700, cursor:'pointer' }}>
+                  <LuTruck size={11}/> Assign
+                </button>
+              )}
+              {['PENDING','ASSIGNED'].includes(o.status) && (
+                <button onClick={() => handleCancel(o)} style={{ display:'flex', alignItems:'center', gap:'0.25rem', padding:'0.28rem 0.6rem', borderRadius:7, border:'1px solid rgba(248,113,113,0.3)', background:'rgba(248,113,113,0.06)', color:'#f87171', fontFamily:'inherit', fontSize:'0.7rem', fontWeight:700, cursor:'pointer' }}>
+                  <LuBan size={11}/> Cancel
+                </button>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div style={{ display:'flex', justifyContent:'center', alignItems:'center', gap:'0.5rem' }}>
+          <button onClick={() => setPage(p => Math.max(1, p-1))} disabled={page===1} style={{ padding:'0.3rem 0.6rem', borderRadius:7, border:'1px solid rgba(255,255,255,0.1)', background:'rgba(255,255,255,0.04)', color:'var(--clr-muted)', cursor:'pointer', opacity:page===1?0.4:1 }}>‹</button>
+          <span style={{ fontSize:'0.78rem', color:'var(--clr-muted)' }}>Page {page} of {totalPages} · {total} total</span>
+          <button onClick={() => setPage(p => Math.min(totalPages, p+1))} disabled={page===totalPages} style={{ padding:'0.3rem 0.6rem', borderRadius:7, border:'1px solid rgba(255,255,255,0.1)', background:'rgba(255,255,255,0.04)', color:'var(--clr-muted)', cursor:'pointer', opacity:page===totalPages?0.4:1 }}>›</button>
+        </div>
+      )}
+
+      {/* Assign modal */}
+      {assignOrder && (
+        <div className="modal-backdrop" onClick={e => { if (e.target === e.currentTarget) setAssignOrder(null) }}>
+          <div className="glass modal-box" style={{ padding:'1.75rem' }}>
+            <h2 style={{ fontSize:'1rem', fontWeight:800, color:'var(--clr-text)', marginBottom:'0.35rem', display:'flex', alignItems:'center', gap:'0.45rem' }}><LuTruck size={16}/> Assign Driver</h2>
+            <p style={{ fontSize:'0.8rem', color:'var(--clr-muted)', marginBottom:'1rem' }}>Order: <strong style={{ color:'var(--clr-accent)' }}>{assignOrder.reference_code}</strong></p>
+            <div style={{ display:'flex', flexDirection:'column', gap:'0.75rem' }}>
+              <div>
+                <label style={{ fontSize:'0.75rem', color:'var(--clr-muted)', fontWeight:600, display:'block', marginBottom:'0.35rem' }}>Driver *</label>
+                <select value={selDriver} onChange={e => setSelDriver(e.target.value)} style={{ width:'100%', padding:'0.6rem', borderRadius:9, border:'1px solid rgba(255,255,255,0.15)', background:'rgba(255,255,255,0.05)', color:'var(--clr-text)', fontFamily:'inherit', fontSize:'0.85rem', outline:'none' }}>
+                  <option value="" style={{ background:'#0f172a' }}>— Select driver —</option>
+                  {drivers.map(d => <option key={d.user_id} value={d.user_id} style={{ background:'#0f172a' }}>{d.first_name} {d.last_name} · {d.phone_number}</option>)}
+                </select>
+              </div>
+              <div>
+                <label style={{ fontSize:'0.75rem', color:'var(--clr-muted)', fontWeight:600, display:'block', marginBottom:'0.35rem' }}>Vehicle (optional)</label>
+                <select value={selVehicle} onChange={e => setSelVehicle(e.target.value)} style={{ width:'100%', padding:'0.6rem', borderRadius:9, border:'1px solid rgba(255,255,255,0.15)', background:'rgba(255,255,255,0.05)', color:'var(--clr-text)', fontFamily:'inherit', fontSize:'0.85rem', outline:'none' }}>
+                  <option value="" style={{ background:'#0f172a' }}>— No vehicle —</option>
+                  {vehicles.map(v => <option key={v.id} value={v.id} style={{ background:'#0f172a' }}>{v.plate_number} · {v.vehicle_type}</option>)}
+                </select>
+              </div>
+            </div>
+            <div style={{ display:'flex', gap:'0.6rem', marginTop:'1.1rem' }}>
+              <button className="btn-outline" style={{ flex:1 }} onClick={() => setAssignOrder(null)}>Cancel</button>
+              <button className="btn-primary" style={{ flex:2 }} disabled={!selDriver || assigning} onClick={handleAssign}>
+                {assigning ? <BtnSpinner text="Assigning…" /> : 'Confirm Assignment'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {toast && <div style={{ position:'fixed', bottom:'1.25rem', right:'1.25rem', zIndex:200, background:'rgba(0,229,255,0.12)', border:'1px solid rgba(0,229,255,0.25)', color:'var(--clr-text)', padding:'0.65rem 1.1rem', borderRadius:12, fontSize:'0.85rem', fontWeight:600, backdropFilter:'blur(12px)' }}>{toast}</div>}
+    </div>
+  )
+}
+
+// ─── Admin Cargo Types Section ────────────────────────────────────────────────
+
+interface CargoType { id: number; name: string; description: string | null; requires_special_handling: number; icon: string | null; is_active: number }
+
+function AdminCargoTypesSection() {
+  const [items, setItems] = useState<CargoType[]>([])
+  const [loading, setLoading] = useState(false)
+  const [modal, setModal] = useState<'create' | 'edit' | null>(null)
+  const [editTarget, setEditTarget] = useState<CargoType | null>(null)
+  const [form, setForm] = useState({ name:'', description:'', requires_special_handling: false, icon:'', is_active: true })
+  const [formErr, setFormErr] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [toast, setToast] = useState('')
+  const showToast = (m: string) => { setToast(m); setTimeout(() => setToast(''), 3000) }
+
+  const load = async () => {
+    setLoading(true)
+    try { const { data } = await adminOrderApi.listCargoTypes(); setItems(data.cargo_types ?? []) }
+    catch { showToast('Failed to load') }
+    finally { setLoading(false) }
+  }
+
+  useEffect(() => { load() }, []) // eslint-disable-line
+
+  const openCreate = () => { setForm({ name:'', description:'', requires_special_handling:false, icon:'', is_active:true }); setFormErr(''); setEditTarget(null); setModal('create') }
+  const openEdit = (c: CargoType) => { setForm({ name:c.name, description:c.description??'', requires_special_handling:!!c.requires_special_handling, icon:c.icon??'', is_active:!!c.is_active }); setFormErr(''); setEditTarget(c); setModal('edit') }
+
+  const handleSave = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!form.name.trim()) { setFormErr('Name required'); return }
+    setFormErr(''); setSaving(true)
+    try {
+      if (modal === 'create') {
+        await adminOrderApi.createCargoType({ name:form.name.trim(), description:form.description||undefined, requires_special_handling:form.requires_special_handling, icon:form.icon||undefined })
+        showToast('Cargo type created.')
+      } else if (editTarget) {
+        await adminOrderApi.updateCargoType(editTarget.id, { name:form.name.trim(), description:form.description||undefined, requires_special_handling:form.requires_special_handling, icon:form.icon||undefined, is_active:form.is_active })
+        showToast('Updated.')
+      }
+      setModal(null); load()
+    } catch (err: any) { setFormErr(err.response?.data?.message ?? 'Failed') }
+    finally { setSaving(false) }
+  }
+
+  const inputStyle: React.CSSProperties = { width:'100%', padding:'0.6rem 0.8rem', borderRadius:9, border:'1px solid rgba(255,255,255,0.12)', background:'rgba(255,255,255,0.05)', color:'var(--clr-text)', fontFamily:'inherit', fontSize:'0.85rem', boxSizing:'border-box' }
+  const labelStyle: React.CSSProperties = { fontSize:'0.73rem', fontWeight:600, color:'var(--clr-muted)', marginBottom:'0.3rem', display:'block' }
+
+  return (
+    <div style={{ display:'flex', flexDirection:'column', gap:'1.25rem' }}>
+      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', flexWrap:'wrap', gap:'0.5rem' }}>
+        <h2 style={{ fontSize:'1rem', fontWeight:800, color:'var(--clr-text)', display:'flex', alignItems:'center', gap:'0.45rem' }}><LuBox size={17}/> Cargo Types</h2>
+        <div style={{ display:'flex', gap:'0.5rem' }}>
+          <button onClick={load} style={{ display:'flex', alignItems:'center', gap:'0.35rem', padding:'0.3rem 0.7rem', borderRadius:8, border:'1px solid rgba(255,255,255,0.1)', background:'rgba(255,255,255,0.04)', color:'var(--clr-muted)', fontFamily:'inherit', fontSize:'0.72rem', fontWeight:600, cursor:'pointer' }}><LuRefreshCw size={12}/></button>
+          <button onClick={openCreate} style={{ display:'flex', alignItems:'center', gap:'0.4rem', padding:'0.38rem 0.85rem', borderRadius:8, border:'none', background:'var(--clr-accent)', color:'#000', fontFamily:'inherit', fontSize:'0.8rem', fontWeight:700, cursor:'pointer' }}><LuPlus size={14}/> Add</button>
+        </div>
+      </div>
+      {loading ? <LoadingSpinner /> : (
+        <div className="glass-inner" style={{ overflow:'hidden' }}>
+          {items.length === 0 ? <p style={{ padding:'2rem', textAlign:'center', color:'var(--clr-muted)' }}>No cargo types.</p>
+          : items.map((c, i) => (
+            <div key={c.id} style={{ display:'flex', alignItems:'center', gap:'0.75rem', padding:'0.75rem 1rem', borderBottom: i < items.length-1 ? '1px solid rgba(255,255,255,0.05)' : 'none' }}>
+              <div style={{ flex:1, minWidth:0 }}>
+                <div style={{ display:'flex', alignItems:'center', gap:'0.4rem', flexWrap:'wrap' }}>
+                  <span style={{ fontWeight:700, fontSize:'0.875rem', color:'var(--clr-text)' }}>{c.name}</span>
+                  {!c.is_active && <span className="badge badge-red" style={{ fontSize:'0.65rem' }}>Inactive</span>}
+                  {!!c.requires_special_handling && <span className="badge badge-purple" style={{ fontSize:'0.65rem' }}>Special Handling</span>}
+                </div>
+                {c.description && <p style={{ fontSize:'0.73rem', color:'var(--clr-muted)', marginTop:'0.1rem' }}>{c.description}</p>}
+              </div>
+              <button onClick={() => openEdit(c)} style={{ padding:'0.28rem 0.55rem', borderRadius:7, border:'1px solid rgba(255,255,255,0.12)', background:'rgba(255,255,255,0.05)', color:'var(--clr-muted)', fontFamily:'inherit', fontSize:'0.7rem', cursor:'pointer', display:'flex', alignItems:'center', gap:'0.3rem' }}><LuPencil size={11}/> Edit</button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {(modal === 'create' || modal === 'edit') && (
+        <div className="modal-backdrop" onClick={e => { if (e.target === e.currentTarget) setModal(null) }}>
+          <div className="glass modal-box" style={{ padding:'1.75rem', maxWidth:420 }}>
+            <h2 style={{ fontSize:'1rem', fontWeight:800, color:'var(--clr-text)', marginBottom:'1rem' }}>{modal === 'create' ? 'Add Cargo Type' : 'Edit Cargo Type'}</h2>
+            <form onSubmit={handleSave} style={{ display:'flex', flexDirection:'column', gap:'0.75rem' }}>
+              {formErr && <div className="alert alert-error"><LuTriangleAlert size={13}/> {formErr}</div>}
+              <div><label style={labelStyle}>Name *</label><input style={inputStyle} value={form.name} onChange={e => setForm(f => ({ ...f, name:e.target.value }))} required/></div>
+              <div><label style={labelStyle}>Description</label><input style={inputStyle} value={form.description} onChange={e => setForm(f => ({ ...f, description:e.target.value }))}/></div>
+              <div><label style={labelStyle}>Icon (Lucide name, e.g. LuPackage)</label><input style={inputStyle} value={form.icon} onChange={e => setForm(f => ({ ...f, icon:e.target.value }))}/></div>
+              <div style={{ display:'flex', alignItems:'center', gap:'0.65rem' }}>
+                <button type="button" onClick={() => setForm(f => ({ ...f, requires_special_handling: !f.requires_special_handling }))}
+                  style={{ width:38, height:22, borderRadius:99, border:'none', cursor:'pointer', background: form.requires_special_handling ? 'var(--clr-accent)' : 'rgba(255,255,255,0.12)', transition:'background 0.2s', flexShrink:0, position:'relative' }}>
+                  <span style={{ position:'absolute', top:2, left: form.requires_special_handling ? 18 : 2, width:18, height:18, borderRadius:'50%', background: form.requires_special_handling ? '#080b14' : 'var(--clr-muted)', transition:'left 0.2s' }}/>
+                </button>
+                <span style={{ fontSize:'0.85rem', color:'var(--clr-text)' }}>Requires special handling</span>
+              </div>
+              {modal === 'edit' && (
+                <div style={{ display:'flex', alignItems:'center', gap:'0.65rem' }}>
+                  <button type="button" onClick={() => setForm(f => ({ ...f, is_active: !f.is_active }))}
+                    style={{ width:38, height:22, borderRadius:99, border:'none', cursor:'pointer', background: form.is_active ? 'var(--clr-accent)' : 'rgba(255,255,255,0.12)', transition:'background 0.2s', flexShrink:0, position:'relative' }}>
+                    <span style={{ position:'absolute', top:2, left: form.is_active ? 18 : 2, width:18, height:18, borderRadius:'50%', background: form.is_active ? '#080b14' : 'var(--clr-muted)', transition:'left 0.2s' }}/>
+                  </button>
+                  <span style={{ fontSize:'0.85rem', color:'var(--clr-text)' }}>Active</span>
+                </div>
+              )}
+              <div style={{ display:'flex', gap:'0.6rem', marginTop:'0.25rem' }}>
+                <button type="button" className="btn-outline" style={{ flex:1 }} onClick={() => setModal(null)}>Cancel</button>
+                <button type="submit" className="btn-primary" style={{ flex:2 }} disabled={saving}>{saving ? <BtnSpinner text="Saving…" /> : modal === 'create' ? 'Create' : 'Save Changes'}</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+      {toast && <div style={{ position:'fixed', bottom:'1.25rem', right:'1.25rem', zIndex:200, background:'rgba(0,229,255,0.12)', border:'1px solid rgba(0,229,255,0.25)', color:'var(--clr-text)', padding:'0.65rem 1.1rem', borderRadius:12, fontSize:'0.85rem', fontWeight:600, backdropFilter:'blur(12px)' }}>{toast}</div>}
+    </div>
+  )
+}
+
+// ─── Admin Pricing Rules Section ──────────────────────────────────────────────
+
+interface PricingRule { id: number; vehicle_type: string; base_fare: number; per_km_rate: number; city_surcharge: number; min_distance_km: number | null; is_active: number }
+
+function AdminPricingRulesSection() {
+  const [items, setItems] = useState<PricingRule[]>([])
+  const [loading, setLoading] = useState(false)
+  const [modal, setModal] = useState<'create' | 'edit' | null>(null)
+  const [editTarget, setEditTarget] = useState<PricingRule | null>(null)
+  const [form, setForm] = useState({ vehicle_type:'', base_fare:'', per_km_rate:'', city_surcharge:'0', min_distance_km:'', is_active: true })
+  const [formErr, setFormErr] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [toast, setToast] = useState('')
+  const showToast = (m: string) => { setToast(m); setTimeout(() => setToast(''), 3000) }
+
+  const load = async () => {
+    setLoading(true)
+    try { const { data } = await adminOrderApi.listPricingRules(); setItems(data.pricing_rules ?? []) }
+    catch { showToast('Failed to load') }
+    finally { setLoading(false) }
+  }
+
+  useEffect(() => { load() }, []) // eslint-disable-line
+
+  const openCreate = () => { setForm({ vehicle_type:'', base_fare:'', per_km_rate:'', city_surcharge:'0', min_distance_km:'', is_active:true }); setFormErr(''); setEditTarget(null); setModal('create') }
+  const openEdit = (p: PricingRule) => { setForm({ vehicle_type:p.vehicle_type, base_fare:String(p.base_fare), per_km_rate:String(p.per_km_rate), city_surcharge:String(p.city_surcharge), min_distance_km:p.min_distance_km != null ? String(p.min_distance_km) : '', is_active:!!p.is_active }); setFormErr(''); setEditTarget(p); setModal('edit') }
+
+  const handleSave = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!form.vehicle_type.trim()) { setFormErr('Vehicle type required'); return }
+    setFormErr(''); setSaving(true)
+    try {
+      const payload = { vehicle_type:form.vehicle_type.trim(), base_fare:parseFloat(form.base_fare), per_km_rate:parseFloat(form.per_km_rate), city_surcharge:parseFloat(form.city_surcharge)||0, min_distance_km:form.min_distance_km ? parseFloat(form.min_distance_km) : undefined }
+      if (modal === 'create') { await adminOrderApi.createPricingRule(payload); showToast('Pricing rule created.') }
+      else if (editTarget) { await adminOrderApi.updatePricingRule(editTarget.id, { ...payload, is_active:form.is_active }); showToast('Updated.') }
+      setModal(null); load()
+    } catch (err: any) { setFormErr(err.response?.data?.message ?? 'Failed') }
+    finally { setSaving(false) }
+  }
+
+  const inputStyle: React.CSSProperties = { width:'100%', padding:'0.6rem 0.8rem', borderRadius:9, border:'1px solid rgba(255,255,255,0.12)', background:'rgba(255,255,255,0.05)', color:'var(--clr-text)', fontFamily:'inherit', fontSize:'0.85rem', boxSizing:'border-box' }
+  const labelStyle: React.CSSProperties = { fontSize:'0.73rem', fontWeight:600, color:'var(--clr-muted)', marginBottom:'0.3rem', display:'block' }
+
+  return (
+    <div style={{ display:'flex', flexDirection:'column', gap:'1.25rem' }}>
+      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', flexWrap:'wrap', gap:'0.5rem' }}>
+        <h2 style={{ fontSize:'1rem', fontWeight:800, color:'var(--clr-text)', display:'flex', alignItems:'center', gap:'0.45rem' }}><LuSettings size={17}/> Pricing Rules</h2>
+        <div style={{ display:'flex', gap:'0.5rem' }}>
+          <button onClick={load} style={{ display:'flex', alignItems:'center', gap:'0.35rem', padding:'0.3rem 0.7rem', borderRadius:8, border:'1px solid rgba(255,255,255,0.1)', background:'rgba(255,255,255,0.04)', color:'var(--clr-muted)', fontFamily:'inherit', fontSize:'0.72rem', fontWeight:600, cursor:'pointer' }}><LuRefreshCw size={12}/></button>
+          <button onClick={openCreate} style={{ display:'flex', alignItems:'center', gap:'0.4rem', padding:'0.38rem 0.85rem', borderRadius:8, border:'none', background:'var(--clr-accent)', color:'#000', fontFamily:'inherit', fontSize:'0.8rem', fontWeight:700, cursor:'pointer' }}><LuPlus size={14}/> Add</button>
+        </div>
+      </div>
+      {loading ? <LoadingSpinner /> : (
+        <div className="glass-inner" style={{ overflow:'hidden' }}>
+          {items.length === 0 ? <p style={{ padding:'2rem', textAlign:'center', color:'var(--clr-muted)' }}>No rules.</p>
+          : items.map((p, i) => (
+            <div key={p.id} style={{ display:'flex', alignItems:'center', gap:'0.75rem', padding:'0.75rem 1rem', borderBottom: i < items.length-1 ? '1px solid rgba(255,255,255,0.05)' : 'none' }}>
+              <div style={{ flex:1, minWidth:0 }}>
+                <div style={{ display:'flex', alignItems:'center', gap:'0.4rem', flexWrap:'wrap', marginBottom:'0.15rem' }}>
+                  <span style={{ fontWeight:700, fontSize:'0.875rem', color:'var(--clr-text)' }}>{p.vehicle_type}</span>
+                  {!p.is_active && <span className="badge badge-red" style={{ fontSize:'0.65rem' }}>Inactive</span>}
+                </div>
+                <p style={{ fontSize:'0.73rem', color:'var(--clr-muted)' }}>Base: {p.base_fare} ETB · {p.per_km_rate} ETB/km · Surcharge: {p.city_surcharge} ETB</p>
+              </div>
+              <button onClick={() => openEdit(p)} style={{ padding:'0.28rem 0.55rem', borderRadius:7, border:'1px solid rgba(255,255,255,0.12)', background:'rgba(255,255,255,0.05)', color:'var(--clr-muted)', fontFamily:'inherit', fontSize:'0.7rem', cursor:'pointer', display:'flex', alignItems:'center', gap:'0.3rem' }}><LuPencil size={11}/> Edit</button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {(modal === 'create' || modal === 'edit') && (
+        <div className="modal-backdrop" onClick={e => { if (e.target === e.currentTarget) setModal(null) }}>
+          <div className="glass modal-box" style={{ padding:'1.75rem', maxWidth:420 }}>
+            <h2 style={{ fontSize:'1rem', fontWeight:800, color:'var(--clr-text)', marginBottom:'1rem' }}>{modal === 'create' ? 'Add Pricing Rule' : 'Edit Pricing Rule'}</h2>
+            <form onSubmit={handleSave} style={{ display:'flex', flexDirection:'column', gap:'0.75rem' }}>
+              {formErr && <div className="alert alert-error"><LuTriangleAlert size={13}/> {formErr}</div>}
+              <div><label style={labelStyle}>Vehicle Type *</label><input style={inputStyle} value={form.vehicle_type} onChange={e => setForm(f => ({ ...f, vehicle_type:e.target.value }))} placeholder="e.g. Truck" required/></div>
+              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'0.65rem' }}>
+                <div><label style={labelStyle}>Base Fare (ETB) *</label><input style={inputStyle} type="number" min="0" step="0.01" value={form.base_fare} onChange={e => setForm(f => ({ ...f, base_fare:e.target.value }))} required/></div>
+                <div><label style={labelStyle}>Per km Rate *</label><input style={inputStyle} type="number" min="0" step="0.01" value={form.per_km_rate} onChange={e => setForm(f => ({ ...f, per_km_rate:e.target.value }))} required/></div>
+                <div><label style={labelStyle}>City Surcharge</label><input style={inputStyle} type="number" min="0" step="0.01" value={form.city_surcharge} onChange={e => setForm(f => ({ ...f, city_surcharge:e.target.value }))}/></div>
+                <div><label style={labelStyle}>Min Distance km</label><input style={inputStyle} type="number" min="0" step="0.1" value={form.min_distance_km} onChange={e => setForm(f => ({ ...f, min_distance_km:e.target.value }))}/></div>
+              </div>
+              {modal === 'edit' && (
+                <div style={{ display:'flex', alignItems:'center', gap:'0.65rem' }}>
+                  <button type="button" onClick={() => setForm(f => ({ ...f, is_active: !f.is_active }))}
+                    style={{ width:38, height:22, borderRadius:99, border:'none', cursor:'pointer', background: form.is_active ? 'var(--clr-accent)' : 'rgba(255,255,255,0.12)', transition:'background 0.2s', flexShrink:0, position:'relative' }}>
+                    <span style={{ position:'absolute', top:2, left: form.is_active ? 18 : 2, width:18, height:18, borderRadius:'50%', background: form.is_active ? '#080b14' : 'var(--clr-muted)', transition:'left 0.2s' }}/>
+                  </button>
+                  <span style={{ fontSize:'0.85rem', color:'var(--clr-text)' }}>Active</span>
+                </div>
+              )}
+              <div style={{ display:'flex', gap:'0.6rem', marginTop:'0.25rem' }}>
+                <button type="button" className="btn-outline" style={{ flex:1 }} onClick={() => setModal(null)}>Cancel</button>
+                <button type="submit" className="btn-primary" style={{ flex:2 }} disabled={saving}>{saving ? <BtnSpinner text="Saving…" /> : modal === 'create' ? 'Create' : 'Save Changes'}</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+      {toast && <div style={{ position:'fixed', bottom:'1.25rem', right:'1.25rem', zIndex:200, background:'rgba(0,229,255,0.12)', border:'1px solid rgba(0,229,255,0.25)', color:'var(--clr-text)', padding:'0.65rem 1.1rem', borderRadius:12, fontSize:'0.85rem', fontWeight:600, backdropFilter:'blur(12px)' }}>{toast}</div>}
+    </div>
+  )
+}
+
 // ─── Main Admin Dashboard ─────────────────────────────────────────────────────
 
 export default function AdminDashboardPage() {
@@ -1655,6 +2091,9 @@ export default function AdminDashboardPage() {
     { id: 'staff',          icon: <LuBriefcase size={16}/>,    label: 'Staff Users',     count: staffUsers.length },
     { id: 'verify-drivers', icon: <LuShieldCheck size={16}/>,  label: 'Verify Drivers'   },
     { id: 'vehicles',       icon: <LuCar size={16}/>,          label: 'Vehicles'         },
+    { id: 'orders',         icon: <LuListOrdered size={16}/>,  label: 'Orders'           },
+    { id: 'cargo-types',    icon: <LuBox size={16}/>,          label: 'Cargo Types'      },
+    { id: 'pricing-rules',  icon: <LuSettings size={16}/>,     label: 'Pricing Rules'    },
     { id: 'profile',        icon: <LuUser size={16}/>,         label: 'My Profile'       },
   ]
 
@@ -1754,6 +2193,9 @@ export default function AdminDashboardPage() {
           {section === 'staff'          && <StaffManagementSection            allUsers={staffUsers} loading={usersLoading} onToggleActive={handleToggleActive} onRefresh={loadUsers} />}
           {section === 'verify-drivers' && <DriverVerificationSection />}
           {section === 'vehicles'       && <VehicleManagementSection />}
+          {section === 'orders'         && <AdminOrdersSection />}
+          {section === 'cargo-types'    && <AdminCargoTypesSection />}
+          {section === 'pricing-rules'  && <AdminPricingRulesSection />}
           {section === 'profile'        && <ProfileSection />}
         </main>
       </div>

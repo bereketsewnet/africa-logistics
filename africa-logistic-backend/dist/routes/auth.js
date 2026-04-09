@@ -9,7 +9,7 @@
  *  - The corresponding controller handler
  *  - For /me: the JWT authenticate hook to protect the route
  */
-import { requestOtpHandler, verifyOtpHandler, loginHandler, telegramAuthHandler, meHandler, changePasswordHandler, requestEmailLinkHandler, verifyEmailHandler, requestPhoneChangeHandler, verifyPhoneChangeHandler, updateProfileHandler, deleteProfilePhotoHandler, } from '../controllers/auth.controller.js';
+import { requestOtpHandler, verifyOtpHandler, loginHandler, loginEmailHandler, telegramAuthHandler, meHandler, changePasswordHandler, requestEmailLinkHandler, verifyEmailHandler, requestPhoneChangeHandler, verifyPhoneChangeHandler, updateProfileHandler, deleteProfilePhotoHandler, forgotPasswordEmailHandler, resetPasswordEmailHandler, forgotPasswordRequestOtpHandler, forgotPasswordResetHandler, } from '../controllers/auth.controller.js';
 export default async function authRoutes(fastify) {
     // ── POST /api/auth/register/request-otp ────────────────────────────────────
     // Step 1: User submits their phone number → OTP sent via Twilio
@@ -123,4 +123,68 @@ export default async function authRoutes(fastify) {
     fastify.delete('/api/auth/profile/photo', {
         onRequest: [fastify.authenticate],
     }, deleteProfilePhotoHandler);
+    // POST /api/auth/login-email — email + password login (email must be verified)
+    fastify.post('/api/auth/login-email', {
+        schema: {
+            body: {
+                type: 'object',
+                required: ['email', 'password'],
+                properties: {
+                    email: { type: 'string', format: 'email' },
+                    password: { type: 'string', minLength: 1 },
+                },
+            },
+        },
+    }, loginEmailHandler);
+    // POST /api/auth/forgot-password/request-otp — send OTP to registered phone for password reset
+    fastify.post('/api/auth/forgot-password/request-otp', {
+        schema: {
+            body: {
+                type: 'object',
+                required: ['phone_number'],
+                properties: {
+                    phone_number: { type: 'string', minLength: 7, maxLength: 20 },
+                },
+            },
+        },
+    }, forgotPasswordRequestOtpHandler);
+    // POST /api/auth/forgot-password/reset — verify OTP and set new password
+    fastify.post('/api/auth/forgot-password/reset', {
+        schema: {
+            body: {
+                type: 'object',
+                required: ['phone_number', 'otp', 'new_password'],
+                properties: {
+                    phone_number: { type: 'string', minLength: 7, maxLength: 20 },
+                    otp: { type: 'string', minLength: 6, maxLength: 6, pattern: '^[0-9]{6}$' },
+                    new_password: { type: 'string', minLength: 6 },
+                },
+            },
+        },
+    }, forgotPasswordResetHandler);
+    // POST /api/auth/forgot-password-email — send reset link to verified email
+    fastify.post('/api/auth/forgot-password-email', {
+        schema: {
+            body: {
+                type: 'object',
+                required: ['email'],
+                properties: {
+                    email: { type: 'string', format: 'email' },
+                },
+            },
+        },
+    }, forgotPasswordEmailHandler);
+    // POST /api/auth/reset-password-email — verify JWT reset token and update password
+    fastify.post('/api/auth/reset-password-email', {
+        schema: {
+            body: {
+                type: 'object',
+                required: ['token', 'new_password'],
+                properties: {
+                    token: { type: 'string', minLength: 1 },
+                    new_password: { type: 'string', minLength: 6 },
+                },
+            },
+        },
+    }, resetPasswordEmailHandler);
 }

@@ -681,3 +681,265 @@ export async function adminReviewVehicleSubmissionHandler(
   return reply.send({ success: true, message: `Vehicle submission ${action.toLowerCase()}.` })
 }
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// ── ORDER MANAGEMENT (Admin) ──────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════════
+
+import {
+  listOrders,
+  getOrderById,
+  updateOrderStatus,
+  assignOrderToDriver,
+  cancelOrder,
+  listAllCargoTypes,
+  createCargoType,
+  updateCargoType,
+  listActiveCargoTypes,
+} from '../services/order.service.js'
+
+import {
+  listPricingRules,
+  type PricingRuleRow,
+} from '../services/pricing.service.js'
+
+import { wsManager } from '../utils/wsManager.js'
+
+// ─── Admin Order Handlers ─────────────────────────────────────────────────────
+
+interface AdminOrderListQuery {
+  status?: string
+  shipper_id?: string
+  driver_id?: string
+  page?: string
+  limit?: string
+  search?: string
+  date_from?: string
+  date_to?: string
+}
+
+interface AdminAssignBody {
+  driver_id: string
+  vehicle_id?: string
+}
+
+interface AdminOrderStatusBody {
+  status: string
+  notes?: string
+}
+
+/** GET /api/admin/orders */
+export async function adminListOrdersHandler(
+  request: FastifyRequest<{ Querystring: AdminOrderListQuery }>,
+  reply:   FastifyReply
+) {
+  const q     = request.query
+  const page  = parseInt(q.page  ?? '1',  10)
+  const limit = parseInt(q.limit ?? '25', 10)
+
+  const { orders, total } = await listOrders(request.server.db, {
+    status:    q.status,
+    shipperId: q.shipper_id,
+    driverId:  q.driver_id,
+    page,
+    limit,
+    search:   q.search,
+    dateFrom: q.date_from,
+    dateTo:   q.date_to,
+  })
+
+  return reply.send({
+    success: true,
+    orders,
+    pagination: { total, page, limit, pages: Math.ceil(total / limit) },
+  })
+}
+
+/** GET /api/admin/orders/:id */
+export async function adminGetOrderHandler(
+  request: FastifyRequest<{ Params: { id: string } }>,
+  reply:   FastifyReply
+) {
+  const order = await getOrderById(request.server.db, request.params.id)
+  if (!order) return reply.status(404).send({ success: false, message: 'Order not found.' })
+  return reply.send({ success: true, order })
+}
+
+/** PATCH /api/admin/orders/:id/assign — Assign driver to a pending order */
+export async function adminAssignOrderHandler(
+  request: FastifyRequest<{ Params: { id: string }; Body: AdminAssignBody }>,
+  reply:   FastifyReply
+) {
+  const admin  = request.user as any
+  const { driver_id, vehicle_id } = request.body
+  const order  = await getOrderById(request.server.db, request.params.id)
+
+  if (!order)   return reply.status(404).send({ success: false, message: 'Order not found.' })
+  if (!['PENDING', 'ASSIGNED'].includes(order.status)) {
+    return reply.status(400).send({ success: false, message: `Cannot assign driver to order in status: ${order.status}` })
+  }
+  if (!driver_id) return reply.status(400).send({ success: false, message: 'driver_id is required.' })
+
+  await assignOrderToDriver(request.server.db, order.id, driver_id, vehicle_id ?? null, admin.id)
+  wsManager.broadcast(order.id, 'STATUS_CHANGED', { status: 'ASSIGNED', driver_id })
+
+  return reply.send({ success: true, message: 'Driver assigned successfully.' })
+}
+
+/** PATCH /api/admin/orders/:id/status — Manual override order status */
+export async function adminUpdateOrderStatusHandler(
+  request: FastifyRequest<{ Params: { id: string }; Body: AdminOrderStatusBody }>,
+  reply:   FastifyReply
+) {
+  const admin  = request.user as any
+  const { status, notes } = request.body
+  const order  = await getOrderById(request.server.db, request.params.id)
+
+  if (!order) return reply.status(404).send({ success: false, message: 'Order not found.' })
+
+  const validStatuses = [
+    'PENDING','ASSIGNED','EN_ROUTE','AT_PICKUP','IN_TRANSIT',
+    'AT_BORDER','IN_CUSTOMS','CUSTOMS_CLEARED','DELIVERED','COMPLETED','CANCELLED','FAILED',
+  ]
+  if (!validStatuses.includes(status)) {
+    return reply.status(400).send({ success: false, message: `Invalid status: ${status}` })
+  }
+
+  await updateOrderStatus(request.server.db, order.id, status as any, admin.id, notes ?? 'Admin override')
+  wsManager.broadcast(order.id, 'STATUS_CHANGED', { status })
+
+  return reply.send({ success: true, message: `Order status updated to ${status}.` })
+}
+
+/** POST /api/admin/orders/:id/cancel */
+export async function adminCancelOrderHandler(
+  request: FastifyRequest<{ Params: { id: string } }>,
+  reply:   FastifyReply
+) {
+  const admin  = request.user as any
+  const order  = await getOrderById(request.server.db, request.params.id)
+  if (!order) return reply.status(404).send({ success: false, message: 'Order not found.' })
+
+  await cancelOrder(request.server.db, order.id, admin.id)
+  wsManager.broadcast(order.id, 'STATUS_CHANGED', { status: 'CANCELLED' })
+
+  return reply.send({ success: true, message: 'Order cancelled.' })
+}
+
+// ─── Cargo Type Handlers ──────────────────────────────────────────────────────
+
+/** GET /api/admin/cargo-types */
+export async function adminListCargoTypesHandler(
+  request: FastifyRequest,
+  reply:   FastifyReply
+) {
+  const types = await listAllCargoTypes(request.server.db)
+  return reply.send({ success: true, cargo_types: types })
+}
+
+/** POST /api/admin/cargo-types */
+export async function adminCreateCargoTypeHandler(
+  request: FastifyRequest<{ Body: { name: string; description?: string; requires_special_handling?: boolean; icon?: string } }>,
+  reply:   FastifyReply
+) {
+  const { name, description, requires_special_handling, icon } = request.body
+  if (!name?.trim()) return reply.status(400).send({ success: false, message: 'Cargo type name is required.' })
+
+  const id = await createCargoType(request.server.db, { name: name.trim(), description, requires_special_handling, icon })
+  return reply.status(201).send({ success: true, message: 'Cargo type created.', id })
+}
+
+/** PUT /api/admin/cargo-types/:id */
+export async function adminUpdateCargoTypeHandler(
+  request: FastifyRequest<{ Params: { id: string }; Body: { name?: string; description?: string; requires_special_handling?: boolean; icon?: string; is_active?: boolean } }>,
+  reply:   FastifyReply
+) {
+  await updateCargoType(request.server.db, Number(request.params.id), request.body)
+  return reply.send({ success: true, message: 'Cargo type updated.' })
+}
+
+// ─── Pricing Rule Handlers ────────────────────────────────────────────────────
+
+interface PricingRuleBody {
+  vehicle_type: string
+  base_fare: number
+  per_km_rate: number
+  city_surcharge?: number
+  min_distance_km?: number
+  max_weight_kg?: number
+  is_active?: boolean
+}
+
+/** GET /api/admin/pricing-rules */
+export async function adminListPricingRulesHandler(
+  request: FastifyRequest,
+  reply:   FastifyReply
+) {
+  const rules = await listPricingRules(request.server.db)
+  return reply.send({ success: true, pricing_rules: rules })
+}
+
+/** POST /api/admin/pricing-rules */
+export async function adminCreatePricingRuleHandler(
+  request: FastifyRequest<{ Body: PricingRuleBody }>,
+  reply:   FastifyReply
+) {
+  const { vehicle_type, base_fare, per_km_rate, city_surcharge, min_distance_km, max_weight_kg } = request.body
+  if (!vehicle_type || base_fare === undefined || per_km_rate === undefined) {
+    return reply.status(400).send({ success: false, message: 'vehicle_type, base_fare, per_km_rate are required.' })
+  }
+  const [result] = await request.server.db.query<any>(
+    `INSERT INTO pricing_rules (vehicle_type, base_fare, per_km_rate, city_surcharge, min_distance_km, max_weight_kg)
+     VALUES (?, ?, ?, ?, ?, ?)`,
+    [vehicle_type, base_fare, per_km_rate, city_surcharge ?? 0, min_distance_km ?? 0, max_weight_kg ?? null]
+  )
+  return reply.status(201).send({ success: true, message: 'Pricing rule created.', id: result.insertId })
+}
+
+/** PUT /api/admin/pricing-rules/:id */
+export async function adminUpdatePricingRuleHandler(
+  request: FastifyRequest<{ Params: { id: string }; Body: Partial<PricingRuleBody> }>,
+  reply:   FastifyReply
+) {
+  const fields: string[] = []
+  const values: any[]   = []
+  const b = request.body
+  if (b.vehicle_type    !== undefined) { fields.push('vehicle_type = ?');    values.push(b.vehicle_type) }
+  if (b.base_fare       !== undefined) { fields.push('base_fare = ?');       values.push(b.base_fare) }
+  if (b.per_km_rate     !== undefined) { fields.push('per_km_rate = ?');     values.push(b.per_km_rate) }
+  if (b.city_surcharge  !== undefined) { fields.push('city_surcharge = ?');  values.push(b.city_surcharge) }
+  if (b.min_distance_km !== undefined) { fields.push('min_distance_km = ?'); values.push(b.min_distance_km) }
+  if (b.max_weight_kg   !== undefined) { fields.push('max_weight_kg = ?');   values.push(b.max_weight_kg) }
+  if (b.is_active       !== undefined) { fields.push('is_active = ?');       values.push(b.is_active ? 1 : 0) }
+
+  if (!fields.length) return reply.status(400).send({ success: false, message: 'No fields to update.' })
+
+  values.push(request.params.id)
+  await request.server.db.query(`UPDATE pricing_rules SET ${fields.join(', ')} WHERE id = ?`, values)
+  return reply.send({ success: true, message: 'Pricing rule updated.' })
+}
+
+/** GET /api/admin/stats/orders — summary counts by status */
+export async function adminOrderStatsHandler(
+  request: FastifyRequest,
+  reply:   FastifyReply
+) {
+  const [rows] = await request.server.db.query<any[]>(
+    `SELECT status, COUNT(*) as cnt FROM orders GROUP BY status`
+  )
+  const stats: Record<string, number> = {}
+  for (const r of rows) stats[r.status] = r.cnt
+  const [totalRow] = await request.server.db.query<any[]>(`SELECT COUNT(*) as total FROM orders`)
+  const [revenueRow] = await request.server.db.query<any[]>(
+    `SELECT SUM(COALESCE(final_price, estimated_price)) as total_revenue FROM orders WHERE status IN ('DELIVERED','COMPLETED')`
+  )
+  return reply.send({
+    success: true,
+    stats: {
+      by_status: stats,
+      total_orders: totalRow[0].total,
+      total_revenue: revenueRow[0].total_revenue ?? 0,
+    },
+  })
+}
+
+

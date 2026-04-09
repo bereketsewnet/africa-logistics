@@ -83,3 +83,117 @@ export const authApi = {
 
   me: () => apiClient.get('/auth/me'),
 }
+
+// ─── Order API (Shipper) ──────────────────────────────────────────────────────
+export const orderApi = {
+  getCargoTypes: () =>
+    apiClient.get('/orders/cargo-types'),
+
+  getQuote: (data: {
+    cargo_type_id: number; vehicle_type: string; weight_kg: number
+    pickup_lat: number; pickup_lng: number; delivery_lat: number; delivery_lng: number
+  }) => apiClient.post('/orders/quote', data),
+
+  placeOrder: (data: {
+    cargo_type_id: number; vehicle_type: string; weight_kg: number
+    pickup_address: string; pickup_lat: number; pickup_lng: number
+    delivery_address: string; delivery_lat: number; delivery_lng: number
+    description?: string; estimated_value?: number
+  }) => apiClient.post('/orders', data),
+
+  listOrders: (params?: { status?: string; page?: number; limit?: number }) =>
+    apiClient.get('/orders', { params }),
+
+  getOrder: (id: string) =>
+    apiClient.get(`/orders/${id}`),
+
+  trackOrder: (id: string) =>
+    apiClient.get(`/orders/${id}/track`),
+
+  getHistory: (id: string) =>
+    apiClient.get(`/orders/${id}/history`),
+
+  getMessages: (id: string) =>
+    apiClient.get(`/orders/${id}/messages`),
+
+  sendMessage: (id: string, message: string) =>
+    apiClient.post(`/orders/${id}/messages`, { message }),
+
+  cancelOrder: (id: string) =>
+    apiClient.post(`/orders/${id}/cancel`),
+
+  getInvoiceUrl: (id: string) =>
+    `${BASE_URL}/orders/${id}/invoice`,
+}
+
+// ─── Driver API ───────────────────────────────────────────────────────────────
+export const driverApi = {
+  pingLocation: (data: { lat: number; lng: number; order_id?: string; heading?: number; speed_kmh?: number }) =>
+    apiClient.post('/driver/location', data),
+
+  listJobs: (params?: { status?: string }) =>
+    apiClient.get('/driver/jobs', { params }),
+
+  getJob: (id: string) =>
+    apiClient.get(`/driver/jobs/${id}`),
+
+  acceptJob: (id: string) =>
+    apiClient.patch(`/driver/jobs/${id}/accept`, {}),
+
+  declineJob: (id: string) =>
+    apiClient.patch(`/driver/jobs/${id}/decline`, {}),
+
+  updateStatus: (id: string, status: string) =>
+    apiClient.patch(`/driver/jobs/${id}/status`, { status }),
+
+  verifyPickup: (id: string, otp: string) =>
+    apiClient.post(`/driver/jobs/${id}/verify-pickup`, { otp }),
+
+  verifyDelivery: (id: string, otp: string) =>
+    apiClient.post(`/driver/jobs/${id}/verify-delivery`, { otp }),
+
+  getMessages: (id: string) =>
+    apiClient.get(`/driver/jobs/${id}/messages`),
+
+  sendMessage: (id: string, message: string) =>
+    apiClient.post(`/driver/jobs/${id}/messages`, { message }),
+}
+
+// ─── Admin Order API ──────────────────────────────────────────────────────────
+export const adminOrderApi = {
+  listOrders: (params?: { status?: string; search?: string; page?: number; limit?: number }) =>
+    apiClient.get('/admin/orders', { params }),
+
+  getStats: () =>
+    apiClient.get('/admin/orders/stats'),
+
+  getOrder: (id: string) =>
+    apiClient.get(`/admin/orders/${id}`),
+
+  assignOrder: (id: string, driver_id: string, vehicle_id?: string) =>
+    apiClient.patch(`/admin/orders/${id}/assign`, { driver_id, vehicle_id }),
+
+  updateStatus: (id: string, status: string, notes?: string) =>
+    apiClient.patch(`/admin/orders/${id}/status`, { status, notes }),
+
+  cancelOrder: (id: string, notes?: string) =>
+    apiClient.post(`/admin/orders/${id}/cancel`, { notes }),
+
+  listCargoTypes: () =>
+    apiClient.get('/admin/cargo-types'),
+
+  createCargoType: (data: { name: string; description?: string; requires_special_handling?: boolean; icon?: string }) =>
+    apiClient.post('/admin/cargo-types', data),
+
+  updateCargoType: (id: number, data: { name?: string; description?: string; requires_special_handling?: boolean; icon?: string; is_active?: boolean }) =>
+    apiClient.put(`/admin/cargo-types/${id}`, data),
+
+  listPricingRules: () =>
+    apiClient.get('/admin/pricing-rules'),
+
+  createPricingRule: (data: { vehicle_type: string; base_fare: number; per_km_rate: number; city_surcharge?: number; min_distance_km?: number }) =>
+    apiClient.post('/admin/pricing-rules', data),
+
+  updatePricingRule: (id: number, data: { vehicle_type?: string; base_fare?: number; per_km_rate?: number; city_surcharge?: number; min_distance_km?: number; is_active?: boolean }) =>
+    apiClient.put(`/admin/pricing-rules/${id}`, data),
+}

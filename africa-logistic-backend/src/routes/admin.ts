@@ -17,6 +17,21 @@ import {
   adminAssignDriverToVehicleHandler,
   adminListVehicleSubmissionsHandler,
   adminReviewVehicleSubmissionHandler,
+  // ── Order Management ──────────────────────────────────────────────────────
+  adminListOrdersHandler,
+  adminGetOrderHandler,
+  adminAssignOrderHandler,
+  adminUpdateOrderStatusHandler,
+  adminCancelOrderHandler,
+  adminOrderStatsHandler,
+  // ── Cargo Types ────────────────────────────────────────────────────────────
+  adminListCargoTypesHandler,
+  adminCreateCargoTypeHandler,
+  adminUpdateCargoTypeHandler,
+  // ── Pricing Rules ──────────────────────────────────────────────────────────
+  adminListPricingRulesHandler,
+  adminCreatePricingRuleHandler,
+  adminUpdatePricingRuleHandler,
 } from '../controllers/admin.controller.js'
 
 export default async function adminRoutes(fastify: FastifyInstance) {
@@ -113,4 +128,46 @@ export default async function adminRoutes(fastify: FastifyInstance) {
    * Body: { action: 'APPROVED'|'REJECTED', reason? }
    */
   fastify.post('/vehicles/:id/review', adminReviewVehicleSubmissionHandler)
+
+  // ─── Order Management ────────────────────────────────────────────────────────
+
+  /** GET /api/admin/orders — all orders with filters */
+  fastify.get('/orders', adminListOrdersHandler)
+
+  /** GET /api/admin/orders/stats — order counts + revenue summary */
+  fastify.get('/orders/stats', adminOrderStatsHandler)
+
+  /** GET /api/admin/orders/:id — single order details */
+  fastify.get('/orders/:id', adminGetOrderHandler)
+
+  /** PATCH /api/admin/orders/:id/assign — assign driver to order */
+  fastify.patch('/orders/:id/assign', adminAssignOrderHandler)
+
+  /** PATCH /api/admin/orders/:id/status — override order status */
+  fastify.patch('/orders/:id/status', adminUpdateOrderStatusHandler)
+
+  /** POST /api/admin/orders/:id/cancel — cancel an order */
+  fastify.post('/orders/:id/cancel', adminCancelOrderHandler)
+
+  // ─── Cargo Types ─────────────────────────────────────────────────────────────
+
+  /** GET /api/admin/cargo-types — all cargo types (active + inactive) */
+  fastify.get('/cargo-types', adminListCargoTypesHandler)
+
+  /** POST /api/admin/cargo-types — create a new cargo type */
+  fastify.post('/cargo-types', adminCreateCargoTypeHandler)
+
+  /** PUT /api/admin/cargo-types/:id — update a cargo type */
+  fastify.put('/cargo-types/:id', adminUpdateCargoTypeHandler)
+
+  // ─── Pricing Rules ────────────────────────────────────────────────────────────
+
+  /** GET /api/admin/pricing-rules — list all pricing rules */
+  fastify.get('/pricing-rules', adminListPricingRulesHandler)
+
+  /** POST /api/admin/pricing-rules — create a pricing rule */
+  fastify.post('/pricing-rules', adminCreatePricingRuleHandler)
+
+  /** PUT /api/admin/pricing-rules/:id — update a pricing rule */
+  fastify.put('/pricing-rules/:id', adminUpdatePricingRuleHandler)
 }

@@ -2,6 +2,8 @@ import { useState, useRef, useEffect, type FormEvent, type ChangeEvent } from 'r
 import { useAuth } from '../context/AuthContext'
 import { useNavigate } from 'react-router-dom'
 import apiClient, { authApi } from '../lib/apiClient'
+import ShipperOrdersPage from './ShipperOrdersPage'
+import DriverJobsPage from './DriverJobsPage'
 import PhoneField from '../components/PhoneField'
 import { normalisePhone } from '../lib/normalisePhone'
 import {
@@ -477,7 +479,7 @@ export default function DashboardPage() {
     { id: 'account',   icon: <LuUser size={19}/>,          label: 'My Account'    },
     ...(user?.role_id === 3 ? [{ id: 'vehicle' as DockPage, icon: <LuCar size={19}/>, label: 'My Vehicle' }] : []),
     ...(user?.role_id === 2 ? [{ id: 'shipments' as DockPage, icon: <LuPackage size={19}/>, label: 'My Shipments' }] : []),
-    { id: 'orders',    icon: <LuPackage size={19}/>,       label: 'My Orders',    soon: true },
+    ...(user?.role_id === 3 ? [{ id: 'orders' as DockPage, icon: <LuTruck size={19}/>, label: 'My Jobs' }] : [{ id: 'orders' as DockPage, icon: <LuPackage size={19}/>, label: 'My Orders', soon: true }]),
     { id: 'payments',  icon: <LuWallet size={19}/>,        label: 'Payments',     soon: true },
     { id: 'messages',  icon: <LuMessageSquare size={19}/>, label: 'Messages',     soon: true },
     { id: 'help',      icon: <LuLifeBuoy size={19}/>,      label: 'Help & Support', soon: true },
@@ -916,60 +918,15 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {activePage === 'shipments' && user?.role_id === 2 && (
-          <div className="page-shell" style={{ alignItems:'flex-start' }}>
-            <div style={{ width:'100%', maxWidth:560, display:'flex', flexDirection:'column', gap:'1.25rem' }}>
-              {/* Shipper Hero */}
-              <div className="glass page-enter" style={{ padding:'1.75rem' }}>
-                <div style={{ display:'flex', alignItems:'center', gap:'1rem', marginBottom:'1.25rem' }}>
-                  <div style={{ width:52, height:52, borderRadius:'50%', background:'linear-gradient(135deg,var(--clr-accent2),var(--clr-accent))', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
-                    <LuPackage size={24} color="#080b14"/>
-                  </div>
-                  <div>
-                    <h2 style={{ fontSize:'1.1rem', fontWeight:800, color:'var(--clr-text)', marginBottom:'0.15rem' }}>Shipper Hub</h2>
-                    <p style={{ fontSize:'0.8rem', color:'var(--clr-muted)' }}>Welcome back, {user?.first_name}</p>
-                  </div>
-                </div>
-                {/* Quick stats */}
-                <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:'0.65rem', marginBottom:'1.25rem' }}>
-                  {([['Total Orders','0',<LuPackage size={16}/>],['Active','0',<LuTruck size={16}/>],['Completed','0',<LuCircleCheck size={16}/>]] as const).map(([label, val, icon]) => (
-                    <div key={label} className="glass-inner" style={{ padding:'0.9rem 0.65rem', textAlign:'center', display:'flex', flexDirection:'column', gap:'0.35rem', alignItems:'center' }}>
-                      <span style={{ color:'var(--clr-accent)', opacity:0.8 }}>{icon}</span>
-                      <span style={{ fontSize:'1.4rem', fontWeight:800, color:'var(--clr-text)', lineHeight:1 }}>{val}</span>
-                      <span style={{ fontSize:'0.68rem', color:'var(--clr-muted)', fontWeight:600 }}>{label}</span>
-                    </div>
-                  ))}
-                </div>
-                {/* Booking CTA */}
-                <div style={{ background:'rgba(0,229,255,0.05)', border:'1px solid rgba(0,229,255,0.15)', borderRadius:12, padding:'1rem 1.1rem', display:'flex', alignItems:'center', gap:'0.85rem' }}>
-                  <LuClock size={20} color="var(--clr-accent)" style={{ flexShrink:0 }}/>
-                  <div style={{ flex:1 }}>
-                    <p style={{ fontWeight:700, fontSize:'0.875rem', color:'var(--clr-text)', marginBottom:'0.2rem' }}>Order booking is coming soon</p>
-                    <p style={{ fontSize:'0.78rem', color:'var(--clr-muted)', lineHeight:1.5 }}>You'll be able to book trucks, track deliveries, and manage invoices all in one place.</p>
-                  </div>
-                </div>
-              </div>
-              {/* Notification reminder */}
-              <div className="glass page-enter" style={{ padding:'1.25rem 1.5rem' }}>
-                <div style={{ display:'flex', alignItems:'center', gap:'0.75rem' }}>
-                  <LuBell size={18} color="var(--clr-accent)" style={{ flexShrink:0 }}/>
-                  <div style={{ flex:1 }}>
-                    <p style={{ fontWeight:700, fontSize:'0.875rem', color:'var(--clr-text)', marginBottom:'0.15rem' }}>Stay Notified</p>
-                    <p style={{ fontSize:'0.78rem', color:'var(--clr-muted)' }}>Configure SMS, email and Telegram alerts in your preferences.</p>
-                  </div>
-                  <button onClick={() => { setActivePage('account'); setTimeout(() => setActiveTab('preferences'), 50) }}
-                    style={{ padding:'0.38rem 0.8rem', borderRadius:8, border:'1px solid rgba(0,229,255,0.25)', background:'rgba(0,229,255,0.07)', color:'var(--clr-accent)', fontFamily:'inherit', fontSize:'0.75rem', fontWeight:700, cursor:'pointer', flexShrink:0 }}>
-                    Settings
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-        {activePage === 'orders'   && <ComingSoon title="Orders" icon={<LuPackage size={30}/>} desc="Track and manage your logistics orders, delivery timelines and status updates in real time." />}
         {activePage === 'payments' && <ComingSoon title="Payments" icon={<LuWallet size={30}/>} desc="View invoices, payment history and manage your billing information securely." />}
         {activePage === 'messages' && <ComingSoon title="Messages" icon={<LuMessageSquare size={30}/>} desc="Communicate directly with drivers and dispatchers through the in-app secure messaging channel." />}
         {activePage === 'help'     && <ComingSoon title="Help & Support" icon={<LuLifeBuoy size={30}/>} desc="Access guides, FAQs and contact customer support for any platform-related issues." />}
+
+        {/* ── My Shipments (shippers only) ── */}
+        {activePage === 'shipments' && user?.role_id === 2 && <ShipperOrdersPage />}
+
+        {/* ── My Jobs (drivers only) ── */}
+        {activePage === 'orders' && user?.role_id === 3 && <DriverJobsPage />}
 
         {/* ── My Vehicle (drivers only) ── */}
         {activePage === 'vehicle' && user?.role_id === 3 && (

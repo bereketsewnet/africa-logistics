@@ -6,7 +6,7 @@ import dotenv from 'dotenv'
 // Load .env variables FIRST — before anything else reads process.env
 dotenv.config()
 
-const app = Fastify({ logger: true, bodyLimit: 52428800 }) // 50 MB – needed for multi-image base64 uploads
+const app = Fastify({ logger: true, bodyLimit: 52428800, pluginTimeout: 60000 }) // 50 MB – needed for multi-image base64 uploads; 60s plugin timeout for DB init+seeding
 
 // ─── 1. CORS ──────────────────────────────────────────────────────────────────
 // Build a list of allowed origins from FRONTEND_URL (comma-separated) plus
@@ -74,10 +74,16 @@ import healthRoutes from './routes/health.js'
 import authRoutes from './routes/auth.js'
 import adminRoutes from './routes/admin.js'
 import profileRoutes from './routes/profile.js'
+import orderRoutes from './routes/orders.js'
+import driverRoutes from './routes/driver.js'
+import wsRoutes from './routes/ws.js'
 
 app.register(healthRoutes)
 app.register(authRoutes)
-app.register(adminRoutes, { prefix: '/api/admin' })
+app.register(adminRoutes,   { prefix: '/api/admin' })
 app.register(profileRoutes, { prefix: '/api/profile' })
+app.register(orderRoutes,   { prefix: '/api/orders' })
+app.register(driverRoutes,  { prefix: '/api/driver' })
+app.register(wsRoutes,      { prefix: '/api' })
 
 export default app

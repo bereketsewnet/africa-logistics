@@ -4,7 +4,7 @@ import jwt from '@fastify/jwt';
 import dotenv from 'dotenv';
 // Load .env variables FIRST — before anything else reads process.env
 dotenv.config();
-const app = Fastify({ logger: true });
+const app = Fastify({ logger: true, bodyLimit: 52428800, pluginTimeout: 60000 }); // 50 MB – needed for multi-image base64 uploads; 60s plugin timeout for DB init+seeding
 // ─── 1. CORS ──────────────────────────────────────────────────────────────────
 // Build a list of allowed origins from FRONTEND_URL (comma-separated) plus
 // localhost variants so the browser is never blocked in any access scenario.
@@ -30,6 +30,8 @@ app.register(cors, {
         cb(new Error(`CORS blocked: ${origin}`), false);
     },
     credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
 });
 // ─── 2. JWT ───────────────────────────────────────────────────────────────────
 // Register @fastify/jwt with our secret key from .env.
@@ -52,22 +54,26 @@ app.decorate('authenticate', async function (request, reply) {
 import dbPlugin from './plugins/db.js';
 app.register(dbPlugin);
 // Serve uploaded profile photos and other static assets from /uploads
-import multipart from '@fastify/multipart';
 import path from 'path';
 import fs from 'fs';
-import fastifyStatic from '@fastify/static';
 // Ensure uploads directory exists
 const uploadsDir = path.join(process.cwd(), 'uploads');
 if (!fs.existsSync(uploadsDir))
     fs.mkdirSync(uploadsDir, { recursive: true });
-app.register(multipart, { attachFieldsToBody: true });
-app.register(fastifyStatic, {
-    root: uploadsDir,
-    prefix: '/uploads/',
-});
+// We accept base64 uploads from the client to avoid multipart plugin compatibility issues.
 // ─── 4. ROUTES ───────────────────────────────────────────────────────────────
 import healthRoutes from './routes/health.js';
 import authRoutes from './routes/auth.js';
+import adminRoutes from './routes/admin.js';
+import profileRoutes from './routes/profile.js';
+import orderRoutes from './routes/orders.js';
+import driverRoutes from './routes/driver.js';
+import wsRoutes from './routes/ws.js';
 app.register(healthRoutes);
 app.register(authRoutes);
+app.register(adminRoutes, { prefix: '/api/admin' });
+app.register(profileRoutes, { prefix: '/api/profile' });
+app.register(orderRoutes, { prefix: '/api/orders' });
+app.register(driverRoutes, { prefix: '/api/driver' });
+app.register(wsRoutes, { prefix: '/api' });
 export default app;

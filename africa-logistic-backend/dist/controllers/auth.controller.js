@@ -15,7 +15,7 @@ import { generateAndSendOtp, verifyOtp } from '../services/otp.service.js';
 import { findUserByPhone, findUserById, createUser, findOrCreateTelegramUser, } from '../services/auth.service.js';
 import { v4 as uuidv4 } from 'uuid';
 import { createEmailVerification, findEmailVerificationByToken, markEmailVerificationUsed, createPhoneChangeRequest, findPhoneChangeRequest, deletePhoneChangeRequest, updateUserProfile, updateUserPassword, updateUserEmail, updateUserPhone } from '../services/auth.service.js';
-import { sendVerificationEmail } from '../services/email.service.js';
+import { sendVerificationEmail, sendPasswordResetEmail } from '../services/email.service.js';
 import fs from 'fs';
 import path from 'path';
 // ─── Handlers ─────────────────────────────────────────────────────────────────
@@ -34,7 +34,13 @@ export async function requestOtpHandler(request, reply) {
         });
     }
     // Generate OTP and send it via Twilio SMS (or console.log in dev mode)
-    await generateAndSendOtp(phone_number);
+    try {
+        await generateAndSendOtp(phone_number);
+    }
+    catch (err) {
+        request.server.log.error({ err }, 'Failed to send OTP');
+        return reply.status(503).send({ success: false, message: 'Unable to send OTP at this time. Please try again later.' });
+    }
     return reply.send({
         success: true,
         message: `OTP sent to ${phone_number}. It expires in 10 minutes.`,
@@ -278,7 +284,13 @@ export async function requestPhoneChangeHandler(request, reply) {
     if (rows.length > 0)
         return reply.status(409).send({ success: false, message: 'Phone already in use.' });
     // Generate OTP and send to new phone
-    await generateAndSendOtp(new_phone);
+    try {
+        await generateAndSendOtp(new_phone);
+    }
+    catch (err) {
+        request.server.log.error({ err }, 'Failed to send OTP for phone change');
+        return reply.status(503).send({ success: false, message: 'Unable to send OTP at this time. Please try again later.' });
+    }
     const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString().slice(0, 19).replace('T', ' ');
     await createPhoneChangeRequest(request.server.db, userId, new_phone, expiresAt);
     return reply.send({ success: true, message: 'OTP sent to new phone. Verify to complete change.' });
@@ -339,7 +351,8 @@ export async function updateProfileHandler(request, reply) {
         const dest = path.join(process.cwd(), 'uploads', filename);
         const buffer = Buffer.from(b64data, 'base64');
         fs.writeFileSync(dest, buffer);
-        photoUrl = `${request.protocol}://${request.hostname}/uploads/${filename}`;
+        const apiBase = (process.env.API_BASE_URL || 'https://afri-logistics-api.lula.com.et').replace(/\/$/, '');
+        photoUrl = `${apiBase}/uploads/${filename}`;
     }
     await updateUserProfile(request.server.db, userId, { firstName, lastName, profilePhotoUrl: photoUrl });
     return reply.send({ success: true, message: 'Profile updated.' });
@@ -368,4 +381,130 @@ export async function deleteProfilePhotoHandler(request, reply) {
         await updateUserProfile(request.server.db, userId, { profilePhotoUrl: null });
     }
     return reply.send({ success: true, message: 'Profile photo removed.' });
+}
+/**
+ * POST /api/auth/login-email
+ * Email + password login — email must be verified (is_email_verified = 1).
+ */
+export async function loginEmailHandler(request, reply) {
+    const { email, password } = request.body;
+    const [rows] = await request.server.db.query(`SELECT u.*, r.role_name AS role_name
+       FROM users u
+       JOIN roles r ON r.id = u.role_id
+      WHERE u.email = ? AND u.is_email_verified = 1
+      LIMIT 1`, [email]);
+    const user = rows[0];
+    if (!user) {
+        return reply.status(401).send({ success: false, message: 'Email not found or not yet verified.' });
+    }
+    if (!user.is_active) {
+        return reply.status(403).send({ success: false, message: 'Your account has been suspended.' });
+    }
+    if (!user.password_hash) {
+        return reply.status(401).send({ success: false, message: 'This account uses Telegram login. No password set.' });
+    }
+    const passwordMatch = await bcrypt.compare(password, user.password_hash);
+    if (!passwordMatch) {
+        return reply.status(401).send({ success: false, message: 'Invalid credentials.' });
+    }
+    const token = request.server.jwt.sign({ id: user.id, phone_number: user.phone_number, role_id: user.role_id }, { expiresIn: process.env.JWT_EXPIRES_IN || '1d' });
+    return reply.send({
+        success: true,
+        message: 'Login successful.',
+        token,
+        user: {
+            id: user.id,
+            phone_number: user.phone_number,
+            role_id: user.role_id,
+            role_name: user.role_name,
+            first_name: user.first_name,
+            last_name: user.last_name,
+        },
+    });
+}
+/**
+ * POST /api/auth/forgot-password-email
+ * Request a password reset link sent to a verified email.
+ */
+export async function forgotPasswordEmailHandler(request, reply) {
+    const { email } = request.body;
+    const [rows] = await request.server.db.query('SELECT id, email FROM users WHERE email = ? AND is_email_verified = 1 LIMIT 1', [email]);
+    // Always return success to avoid leaking whether email is registered
+    if (!rows[0]) {
+        return reply.send({ success: true, message: 'If that email is registered and verified, a reset link has been sent.' });
+    }
+    const user = rows[0];
+    // Use a short-lived JWT as the reset token (no extra DB column needed)
+    const resetToken = request.server.jwt.sign({ id: user.id, purpose: 'email-password-reset' }, { expiresIn: '1h' });
+    const frontendBase = (process.env.FRONTEND_BASE_URL || process.env.FRONTEND_URL?.split(',')[0] || 'https://afri-logistics.lula.com.et').replace(/\/$/, '');
+    const resetUrl = `${frontendBase}/forgot-password?email_reset_token=${encodeURIComponent(resetToken)}`;
+    try {
+        await sendPasswordResetEmail(email, resetUrl);
+    }
+    catch (err) {
+        request.server.log.error({ err }, 'Failed to send password reset email');
+        return reply.status(500).send({ success: false, message: 'Failed to send reset email.' });
+    }
+    return reply.send({ success: true, message: 'If that email is registered and verified, a reset link has been sent.' });
+}
+/**
+ * POST /api/auth/forgot-password/request-otp
+ * Public: send an OTP to the user's registered phone for password reset.
+ */
+export async function forgotPasswordRequestOtpHandler(request, reply) {
+    const { phone_number } = request.body;
+    const user = await findUserByPhone(request.server.db, phone_number);
+    if (!user) {
+        // Don't reveal whether the number is registered
+        return reply.send({ success: true, message: 'If that number is registered, an OTP has been sent.' });
+    }
+    try {
+        await generateAndSendOtp(phone_number);
+    }
+    catch (err) {
+        request.server.log.error({ err }, 'Failed to send forgot-password OTP');
+        return reply.status(503).send({ success: false, message: 'Unable to send OTP at this time. Please try again later.' });
+    }
+    return reply.send({ success: true, message: 'OTP sent. It expires in 10 minutes.' });
+}
+/**
+ * POST /api/auth/forgot-password/reset
+ * Public: verify OTP and set a new password.
+ */
+export async function forgotPasswordResetHandler(request, reply) {
+    const { phone_number, otp, new_password } = request.body;
+    const isValid = verifyOtp(phone_number, otp);
+    if (!isValid) {
+        return reply.status(400).send({ success: false, message: 'Invalid or expired OTP.' });
+    }
+    const user = await findUserByPhone(request.server.db, phone_number);
+    if (!user) {
+        return reply.status(404).send({ success: false, message: 'User not found.' });
+    }
+    const newHash = await bcrypt.hash(new_password, 12);
+    await updateUserPassword(request.server.db, user.id, newHash);
+    return reply.send({ success: true, message: 'Password updated successfully.' });
+}
+/**
+ * POST /api/auth/reset-password-email
+ * Validate the JWT reset token and update the password.
+ */
+export async function resetPasswordEmailHandler(request, reply) {
+    const { token, new_password } = request.body;
+    let payload;
+    try {
+        payload = request.server.jwt.verify(token);
+    }
+    catch {
+        return reply.status(400).send({ success: false, message: 'Reset link is invalid or has expired.' });
+    }
+    if (payload?.purpose !== 'email-password-reset') {
+        return reply.status(400).send({ success: false, message: 'Invalid reset token.' });
+    }
+    const user = await findUserById(request.server.db, payload.id);
+    if (!user)
+        return reply.status(404).send({ success: false, message: 'User not found.' });
+    const newHash = await bcrypt.hash(new_password, 12);
+    await updateUserPassword(request.server.db, payload.id, newHash);
+    return reply.send({ success: true, message: 'Password updated successfully.' });
 }
