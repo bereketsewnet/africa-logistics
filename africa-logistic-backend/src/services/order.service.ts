@@ -38,6 +38,7 @@ export interface CargoTypeRow extends RowDataPacket {
   description: string | null
   requires_special_handling: number
   icon: string | null
+  icon_url: string | null
   is_active: number
   created_at: string
 }
@@ -228,7 +229,9 @@ export async function updateCargoType(
 const ORDER_SELECT = `
   SELECT
     o.*,
-    ct.name   AS cargo_type_name,
+    ct.name    AS cargo_type_name,
+    ct.icon    AS cargo_type_icon,
+    ct.icon_url AS cargo_type_icon_url,
     s.first_name AS shipper_first_name,
     s.last_name  AS shipper_last_name,
     s.phone_number AS shipper_phone,

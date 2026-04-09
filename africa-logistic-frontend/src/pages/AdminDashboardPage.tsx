@@ -21,6 +21,25 @@ import {
 
 // ─── Shared UI helpers ────────────────────────────────────────────────────────
 
+/** Maps Lucide icon name strings (as stored in DB) → React element */
+const CARGO_ICON_MAP: Record<string, React.ReactNode> = {
+  LuPackage: <LuPackage />, LuBox: <LuBox />, LuTruck: <LuTruck />,
+  LuArchive: <LuArchive />, LuHeart: <LuHeart />, LuMonitor: <LuMonitor />,
+  LuTriangleAlert: <LuTriangleAlert />, LuThermometer: <LuThermometer />,
+  LuLeaf: <LuLeaf />, LuFlame: <LuFlame />, LuGem: <LuGem />, LuFish: <LuFish />,
+}
+
+/** Renders a cargo type icon (preset Lucide or custom image) */
+function CargoIcon({ icon, iconUrl, size = 20, style }: { icon?: string | null; iconUrl?: string | null; size?: number; style?: React.CSSProperties }) {
+  if (iconUrl) {
+    return <img src={iconUrl} alt="" style={{ width: size, height: size, borderRadius: 4, objectFit: 'cover', flexShrink: 0, ...style }} />
+  }
+  if (icon && CARGO_ICON_MAP[icon]) {
+    return <span style={{ width: size, height: size, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, ...style }}>{CARGO_ICON_MAP[icon]}</span>
+  }
+  return <span style={{ width: size, height: size, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color: 'var(--clr-muted)', ...style }}><LuBox /></span>
+}
+
 function Divider() {
   return <div style={{ height: 1, background: 'rgba(255,255,255,0.07)', margin: '0.25rem 0' }} />
 }
@@ -1663,6 +1682,25 @@ function AdminOrdersSection() {
   const [detailOrder, setDetailOrder] = useState<any | null>(null)
   const [loadingDetail, setLoadingDetail] = useState(false)
 
+  // Create Order on behalf state
+  const [createOrderModal, setCreateOrderModal] = useState(false)
+  const [shippers, setShippers] = useState<Array<{id:string;first_name:string;last_name:string;phone_number:string}>>([])
+  const [cargoTypesForCreate, setCargoTypesForCreate] = useState<Array<{id:number;name:string;icon:string|null;icon_url:string|null}>>([])
+  const [coForm, setCoForm] = useState({
+    shipper_id:'', shipper_search:'',
+    cargo_type_id:'', vehicle_type:'',
+    estimated_weight_kg:'',
+    pickup_address:'', pickup_lat:'', pickup_lng:'',
+    delivery_address:'', delivery_lat:'', delivery_lng:'',
+    special_instructions:'',
+    driver_id:'', vehicle_id:'',
+  })
+  const [coQuote, setCoQuote] = useState<{estimated_price:number;distance_km:number;base_fare:number;per_km_rate:number;weight_cost?:number;fees_breakdown?:any[]} | null>(null)
+  const [coStep, setCoStep] = useState<'form'|'confirm'>('form')
+  const [coSaving, setCoSaving] = useState(false)
+  const [coErr, setCoErr] = useState('')
+  const [coGeoLoading, setCoGeoLoading] = useState<'pickup'|'delivery'|null>(null)
+
   const loadOrders = useCallback(async (pg = page, sf = statusFilter, q = search) => {
     setLoading(true)
     try {
@@ -1709,6 +1747,83 @@ function AdminOrdersSection() {
     finally { setLoadingDetail(false) }
   }
 
+  const openCreateOrder = async () => {
+    setCoForm({ shipper_id:'', shipper_search:'', cargo_type_id:'', vehicle_type:'', estimated_weight_kg:'', pickup_address:'', pickup_lat:'', pickup_lng:'', delivery_address:'', delivery_lat:'', delivery_lng:'', special_instructions:'', driver_id:'', vehicle_id:'' })
+    setCoQuote(null); setCoStep('form'); setCoErr('')
+    setCreateOrderModal(true)
+    // Load shippers + cargo types + drivers/vehicles if not loaded
+    try {
+      const [sh, ct, dr, vh] = await Promise.all([
+        adminOrderApi.getShippers(),
+        apiClient.get('/orders/cargo-types'),
+        apiClient.get('/admin/drivers?filter=verified'),
+        apiClient.get('/admin/vehicles'),
+      ])
+      setShippers((sh.data.users ?? []).filter((u: any) => u.role_id === 2))
+      setCargoTypesForCreate(ct.data.cargo_types ?? [])
+      setDrivers(dr.data.drivers ?? [])
+      setVehicles((vh.data.vehicles ?? []).filter((v: any) => v.is_active))
+    } catch { setCoErr('Failed to load data') }
+  }
+
+  const geocodeAddress = async (addr: string, field: 'pickup'|'delivery') => {
+    if (!addr.trim()) return
+    setCoGeoLoading(field)
+    try {
+      const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(addr)}&limit=1`, { headers:{'Accept-Language':'en'} })
+      const results = await res.json()
+      if (results[0]) {
+        const { lat, lon, display_name } = results[0]
+        setCoForm(f => field === 'pickup'
+          ? { ...f, pickup_lat: lat, pickup_lng: lon, pickup_address: display_name }
+          : { ...f, delivery_lat: lat, delivery_lng: lon, delivery_address: display_name }
+        )
+        setCoQuote(null)
+      } else { setCoErr('Address not found') }
+    } catch { setCoErr('Geocoding failed') }
+    finally { setCoGeoLoading(null) }
+  }
+
+  const getCoQuote = async () => {
+    setCoErr('')
+    if (!coForm.cargo_type_id || !coForm.vehicle_type || !coForm.pickup_lat || !coForm.delivery_lat) {
+      setCoErr('Fill cargo type, vehicle, pickup & delivery locations first'); return
+    }
+    try {
+      const { data } = await apiClient.post('/orders/quote', {
+        cargo_type_id: Number(coForm.cargo_type_id),
+        vehicle_type: coForm.vehicle_type,
+        estimated_weight_kg: coForm.estimated_weight_kg ? Number(coForm.estimated_weight_kg) : undefined,
+        pickup_lat: Number(coForm.pickup_lat), pickup_lng: Number(coForm.pickup_lng),
+        delivery_lat: Number(coForm.delivery_lat), delivery_lng: Number(coForm.delivery_lng),
+      })
+      setCoQuote(data.quote ?? data)
+      setCoStep('confirm')
+    } catch (e: any) { setCoErr(e.response?.data?.message ?? 'Quote failed') }
+  }
+
+  const placeCoOrder = async () => {
+    if (!coForm.shipper_id) { setCoErr('Select a shipper'); return }
+    setCoSaving(true); setCoErr('')
+    try {
+      const { data } = await adminOrderApi.createOrderOnBehalf({
+        shipper_id: coForm.shipper_id,
+        cargo_type_id: Number(coForm.cargo_type_id),
+        vehicle_type: coForm.vehicle_type,
+        estimated_weight_kg: coForm.estimated_weight_kg ? Number(coForm.estimated_weight_kg) : undefined,
+        pickup_address: coForm.pickup_address, pickup_lat: Number(coForm.pickup_lat), pickup_lng: Number(coForm.pickup_lng),
+        delivery_address: coForm.delivery_address, delivery_lat: Number(coForm.delivery_lat), delivery_lng: Number(coForm.delivery_lng),
+        special_instructions: coForm.special_instructions || undefined,
+        driver_id: coForm.driver_id || undefined,
+        vehicle_id: coForm.vehicle_id || undefined,
+      })
+      showToast(`Order ${data.order?.reference_code ?? ''} created! Pickup OTP: ${data.otps?.pickup_otp}`)
+      setCreateOrderModal(false)
+      loadOrders(page, statusFilter, search)
+    } catch (e: any) { setCoErr(e.response?.data?.message ?? 'Failed to create order') }
+    finally { setCoSaving(false) }
+  }
+
   const handleAssign = async () => {
     if (!assignOrder || !selDriver) return
     setAssigning(true)
@@ -1737,7 +1852,10 @@ function AdminOrdersSection() {
     <div style={{ display:'flex', flexDirection:'column', gap:'1.25rem' }}>
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', flexWrap:'wrap', gap:'0.5rem' }}>
         <h2 style={{ fontSize:'1rem', fontWeight:800, color:'var(--clr-text)', display:'flex', alignItems:'center', gap:'0.45rem' }}><LuListOrdered size={17}/> Orders</h2>
-        <button onClick={() => { loadOrders(); loadStats() }} style={{ display:'flex', alignItems:'center', gap:'0.35rem', padding:'0.3rem 0.7rem', borderRadius:8, border:'1px solid rgba(255,255,255,0.1)', background:'rgba(255,255,255,0.04)', color:'var(--clr-muted)', fontFamily:'inherit', fontSize:'0.72rem', fontWeight:600, cursor:'pointer' }}><LuRefreshCw size={12}/> Refresh</button>
+        <div style={{ display:'flex', gap:'0.5rem' }}>
+          <button onClick={() => { loadOrders(); loadStats() }} style={{ display:'flex', alignItems:'center', gap:'0.35rem', padding:'0.3rem 0.7rem', borderRadius:8, border:'1px solid rgba(255,255,255,0.1)', background:'rgba(255,255,255,0.04)', color:'var(--clr-muted)', fontFamily:'inherit', fontSize:'0.72rem', fontWeight:600, cursor:'pointer' }}><LuRefreshCw size={12}/> Refresh</button>
+          <button onClick={openCreateOrder} style={{ display:'flex', alignItems:'center', gap:'0.4rem', padding:'0.38rem 0.85rem', borderRadius:8, border:'none', background:'var(--clr-accent)', color:'#000', fontFamily:'inherit', fontSize:'0.8rem', fontWeight:700, cursor:'pointer' }}><LuPlus size={14}/> Create Order</button>
+        </div>
       </div>
 
       {/* Stats */}
@@ -1876,7 +1994,7 @@ function AdminOrdersSection() {
                   <div className="glass-inner" style={{ padding:'0.75rem 1rem' }}>
                     <p style={{ fontSize:'0.7rem', color:'var(--clr-muted)', fontWeight:600, marginBottom:'0.5rem' }}>SHIPMENT</p>
                     <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'0.5rem 1rem' }}>
-                      <div><p style={{ fontSize:'0.7rem', color:'var(--clr-muted)' }}>Cargo Type</p><p style={{ fontSize:'0.82rem', color:'var(--clr-text)', fontWeight:600 }}>{detailOrder.cargo_type_name ?? '—'}</p></div>
+                      <div><p style={{ fontSize:'0.7rem', color:'var(--clr-muted)' }}>Cargo Type</p><div style={{ display:'flex', alignItems:'center', gap:'0.4rem', marginTop:'0.15rem' }}><CargoIcon icon={detailOrder.cargo_type_icon} iconUrl={detailOrder.cargo_type_icon_url} size={16} style={{ color:'var(--clr-accent)' }}/><p style={{ fontSize:'0.82rem', color:'var(--clr-text)', fontWeight:600 }}>{detailOrder.cargo_type_name ?? '—'}</p></div></div>
                       <div><p style={{ fontSize:'0.7rem', color:'var(--clr-muted)' }}>Vehicle</p><p style={{ fontSize:'0.82rem', color:'var(--clr-text)', fontWeight:600 }}>{detailOrder.vehicle_type ?? '—'}</p></div>
                       <div><p style={{ fontSize:'0.7rem', color:'var(--clr-muted)' }}>Weight</p><p style={{ fontSize:'0.82rem', color:'var(--clr-text)', fontWeight:600 }}>{detailOrder.estimated_weight_kg != null ? `${detailOrder.estimated_weight_kg} kg` : '—'}</p></div>
                       <div><p style={{ fontSize:'0.7rem', color:'var(--clr-muted)' }}>Distance</p><p style={{ fontSize:'0.82rem', color:'var(--clr-text)', fontWeight:600 }}>{detailOrder.distance_km != null ? `${Number(detailOrder.distance_km).toFixed(1)} km` : '—'}</p></div>
@@ -1932,6 +2050,155 @@ function AdminOrdersSection() {
                   </div>
                 </div>
               </>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Create Order on-behalf modal */}
+      {createOrderModal && (
+        <div className="modal-backdrop" onClick={e => { if (e.target === e.currentTarget) setCreateOrderModal(false) }}>
+          <div className="glass modal-box" style={{ padding:'1.75rem', maxWidth:540, maxHeight:'90vh', overflowY:'auto' }}>
+            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'1rem' }}>
+              <h2 style={{ fontSize:'1rem', fontWeight:800, color:'var(--clr-text)', display:'flex', alignItems:'center', gap:'0.45rem' }}><LuPlus size={16}/> Create Order (Admin)</h2>
+              <button onClick={() => setCreateOrderModal(false)} style={{ background:'none', border:'none', cursor:'pointer', color:'var(--clr-muted)' }}><LuX size={18}/></button>
+            </div>
+            {coErr && <div className="alert alert-error" style={{ marginBottom:'0.75rem' }}><LuTriangleAlert size={13}/> {coErr}</div>}
+
+            {coStep === 'form' ? (
+              <div style={{ display:'flex', flexDirection:'column', gap:'0.85rem' }}>
+                {/* Shipper */}
+                <div>
+                  <label style={{ fontSize:'0.73rem', fontWeight:600, color:'var(--clr-muted)', marginBottom:'0.3rem', display:'block' }}>Shipper (customer) *</label>
+                  <input value={coForm.shipper_search} onChange={e => setCoForm(f => ({ ...f, shipper_search: e.target.value, shipper_id: '' }))} placeholder="Search by name or phone…"
+                    style={{ width:'100%', padding:'0.6rem 0.8rem', borderRadius:9, border:'1px solid rgba(255,255,255,0.12)', background:'rgba(255,255,255,0.05)', color:'var(--clr-text)', fontFamily:'inherit', fontSize:'0.85rem', boxSizing:'border-box' }}/>
+                  {coForm.shipper_search && !coForm.shipper_id && (
+                    <div style={{ marginTop:'0.25rem', border:'1px solid rgba(255,255,255,0.1)', borderRadius:8, overflow:'hidden', maxHeight:140, overflowY:'auto' }}>
+                      {shippers.filter(s => `${s.first_name} ${s.last_name} ${s.phone_number}`.toLowerCase().includes(coForm.shipper_search.toLowerCase())).map(s => (
+                        <div key={s.id} onClick={() => setCoForm(f => ({ ...f, shipper_id: s.id, shipper_search: `${s.first_name} ${s.last_name} · ${s.phone_number}` }))}
+                          style={{ padding:'0.5rem 0.75rem', cursor:'pointer', background:'rgba(255,255,255,0.04)', borderBottom:'1px solid rgba(255,255,255,0.06)', fontSize:'0.8rem', color:'var(--clr-text)' }}>
+                          {s.first_name} {s.last_name} <span style={{ color:'var(--clr-muted)' }}>{s.phone_number}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {coForm.shipper_id && <p style={{ fontSize:'0.72rem', color:'var(--clr-accent)', marginTop:'0.2rem' }}>✓ Shipper selected</p>}
+                </div>
+
+                {/* Cargo & Vehicle */}
+                <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'0.65rem' }}>
+                  <div>
+                    <label style={{ fontSize:'0.73rem', fontWeight:600, color:'var(--clr-muted)', marginBottom:'0.3rem', display:'block' }}>Cargo Type *</label>
+                    <select value={coForm.cargo_type_id} onChange={e => setCoForm(f => ({ ...f, cargo_type_id: e.target.value }))}
+                      style={{ width:'100%', padding:'0.6rem', borderRadius:9, border:'1px solid rgba(255,255,255,0.12)', background:'rgba(255,255,255,0.05)', color:'var(--clr-text)', fontFamily:'inherit', fontSize:'0.82rem', outline:'none' }}>
+                      <option value="" style={{ background:'#0f172a' }}>— Select —</option>
+                      {cargoTypesForCreate.map(ct => <option key={ct.id} value={ct.id} style={{ background:'#0f172a' }}>{ct.name}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label style={{ fontSize:'0.73rem', fontWeight:600, color:'var(--clr-muted)', marginBottom:'0.3rem', display:'block' }}>Vehicle Type *</label>
+                    <select value={coForm.vehicle_type} onChange={e => setCoForm(f => ({ ...f, vehicle_type: e.target.value }))}
+                      style={{ width:'100%', padding:'0.6rem', borderRadius:9, border:'1px solid rgba(255,255,255,0.12)', background:'rgba(255,255,255,0.05)', color:'var(--clr-text)', fontFamily:'inherit', fontSize:'0.82rem', outline:'none' }}>
+                      <option value="" style={{ background:'#0f172a' }}>— Select —</option>
+                      {VEHICLE_TYPES.map(t => <option key={t} value={t} style={{ background:'#0f172a' }}>{t}</option>)}
+                    </select>
+                  </div>
+                </div>
+                <div>
+                  <label style={{ fontSize:'0.73rem', fontWeight:600, color:'var(--clr-muted)', marginBottom:'0.3rem', display:'block' }}>Estimated Weight (kg)</label>
+                  <input type="number" min="0" step="0.1" value={coForm.estimated_weight_kg} onChange={e => setCoForm(f => ({ ...f, estimated_weight_kg: e.target.value }))} placeholder="Optional"
+                    style={{ width:'100%', padding:'0.6rem 0.8rem', borderRadius:9, border:'1px solid rgba(255,255,255,0.12)', background:'rgba(255,255,255,0.05)', color:'var(--clr-text)', fontFamily:'inherit', fontSize:'0.85rem', boxSizing:'border-box' }}/>
+                </div>
+
+                {/* Pickup */}
+                <div>
+                  <label style={{ fontSize:'0.73rem', fontWeight:600, color:'var(--clr-muted)', marginBottom:'0.3rem', display:'block' }}>Pickup Address *</label>
+                  <div style={{ display:'flex', gap:'0.4rem' }}>
+                    <input value={coForm.pickup_address} onChange={e => setCoForm(f => ({ ...f, pickup_address: e.target.value, pickup_lat:'', pickup_lng:'' }))} placeholder="Enter pickup address…" onKeyDown={e => e.key==='Enter' && geocodeAddress(coForm.pickup_address,'pickup')}
+                      style={{ flex:1, padding:'0.6rem 0.8rem', borderRadius:9, border:'1px solid rgba(255,255,255,0.12)', background:'rgba(255,255,255,0.05)', color:'var(--clr-text)', fontFamily:'inherit', fontSize:'0.82rem' }}/>
+                    <button type="button" onClick={() => geocodeAddress(coForm.pickup_address,'pickup')} disabled={coGeoLoading==='pickup'}
+                      style={{ padding:'0.6rem 0.8rem', borderRadius:9, border:'none', background:'var(--clr-accent)', color:'#000', cursor:'pointer', fontFamily:'inherit', fontSize:'0.75rem', fontWeight:700, flexShrink:0 }}>
+                      {coGeoLoading==='pickup' ? '…' : 'Locate'}
+                    </button>
+                  </div>
+                  {coForm.pickup_lat && <p style={{ fontSize:'0.7rem', color:'var(--clr-accent)', marginTop:'0.2rem' }}>✓ {coForm.pickup_lat}, {coForm.pickup_lng}</p>}
+                </div>
+
+                {/* Delivery */}
+                <div>
+                  <label style={{ fontSize:'0.73rem', fontWeight:600, color:'var(--clr-muted)', marginBottom:'0.3rem', display:'block' }}>Delivery Address *</label>
+                  <div style={{ display:'flex', gap:'0.4rem' }}>
+                    <input value={coForm.delivery_address} onChange={e => setCoForm(f => ({ ...f, delivery_address: e.target.value, delivery_lat:'', delivery_lng:'' }))} placeholder="Enter delivery address…" onKeyDown={e => e.key==='Enter' && geocodeAddress(coForm.delivery_address,'delivery')}
+                      style={{ flex:1, padding:'0.6rem 0.8rem', borderRadius:9, border:'1px solid rgba(255,255,255,0.12)', background:'rgba(255,255,255,0.05)', color:'var(--clr-text)', fontFamily:'inherit', fontSize:'0.82rem' }}/>
+                    <button type="button" onClick={() => geocodeAddress(coForm.delivery_address,'delivery')} disabled={coGeoLoading==='delivery'}
+                      style={{ padding:'0.6rem 0.8rem', borderRadius:9, border:'none', background:'var(--clr-accent)', color:'#000', cursor:'pointer', fontFamily:'inherit', fontSize:'0.75rem', fontWeight:700, flexShrink:0 }}>
+                      {coGeoLoading==='delivery' ? '…' : 'Locate'}
+                    </button>
+                  </div>
+                  {coForm.delivery_lat && <p style={{ fontSize:'0.7rem', color:'var(--clr-accent)', marginTop:'0.2rem' }}>✓ {coForm.delivery_lat}, {coForm.delivery_lng}</p>}
+                </div>
+
+                {/* Notes */}
+                <div>
+                  <label style={{ fontSize:'0.73rem', fontWeight:600, color:'var(--clr-muted)', marginBottom:'0.3rem', display:'block' }}>Notes / Instructions</label>
+                  <input value={coForm.special_instructions} onChange={e => setCoForm(f => ({ ...f, special_instructions: e.target.value }))} placeholder="Optional…"
+                    style={{ width:'100%', padding:'0.6rem 0.8rem', borderRadius:9, border:'1px solid rgba(255,255,255,0.12)', background:'rgba(255,255,255,0.05)', color:'var(--clr-text)', fontFamily:'inherit', fontSize:'0.85rem', boxSizing:'border-box' }}/>
+                </div>
+
+                {/* Assign driver (optional) */}
+                <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'0.65rem' }}>
+                  <div>
+                    <label style={{ fontSize:'0.73rem', fontWeight:600, color:'var(--clr-muted)', marginBottom:'0.3rem', display:'block' }}>Assign Driver (optional)</label>
+                    <select value={coForm.driver_id} onChange={e => {
+                      const did = e.target.value
+                      const autoVehicle = vehicles.find((v: AdminVehicle) => v.driver_id === did)
+                      setCoForm(f => ({ ...f, driver_id: did, vehicle_id: autoVehicle?.id ?? '' }))
+                    }} style={{ width:'100%', padding:'0.6rem', borderRadius:9, border:'1px solid rgba(255,255,255,0.12)', background:'rgba(255,255,255,0.05)', color:'var(--clr-text)', fontFamily:'inherit', fontSize:'0.78rem', outline:'none' }}>
+                      <option value="" style={{ background:'#0f172a' }}>— None —</option>
+                      {drivers.map(d => <option key={d.user_id} value={d.user_id} style={{ background:'#0f172a' }}>{d.first_name} {d.last_name}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label style={{ fontSize:'0.73rem', fontWeight:600, color:'var(--clr-muted)', marginBottom:'0.3rem', display:'block' }}>Vehicle (auto-filled)</label>
+                    <select value={coForm.vehicle_id} onChange={e => setCoForm(f => ({ ...f, vehicle_id: e.target.value }))}
+                      style={{ width:'100%', padding:'0.6rem', borderRadius:9, border:'1px solid rgba(255,255,255,0.12)', background:'rgba(255,255,255,0.05)', color:'var(--clr-text)', fontFamily:'inherit', fontSize:'0.78rem', outline:'none' }}>
+                      <option value="" style={{ background:'#0f172a' }}>— None —</option>
+                      {vehicles.map(v => <option key={v.id} value={v.id} style={{ background:'#0f172a' }}>{v.plate_number} · {v.vehicle_type}</option>)}
+                    </select>
+                  </div>
+                </div>
+
+                <button onClick={getCoQuote} style={{ width:'100%', padding:'0.7rem', borderRadius:10, border:'none', background:'var(--clr-accent)', color:'#000', fontFamily:'inherit', fontSize:'0.88rem', fontWeight:700, cursor:'pointer', marginTop:'0.25rem' }}>
+                  Get Quote →
+                </button>
+              </div>
+            ) : (
+              /* Confirm step */
+              <div style={{ display:'flex', flexDirection:'column', gap:'0.85rem' }}>
+                <div className="glass-inner" style={{ padding:'1rem' }}>
+                  <p style={{ fontSize:'0.7rem', color:'var(--clr-muted)', fontWeight:600, marginBottom:'0.65rem' }}>PRICE BREAKDOWN</p>
+                  {[
+                    ['Base Fare', `${Number(coQuote?.base_fare ?? 0).toFixed(2)} ETB`],
+                    ['Distance Cost', `${Number(coQuote?.distance_km ?? 0).toFixed(1)} km × ${Number(coQuote?.per_km_rate ?? 0)} ETB/km`],
+                    ...(coQuote?.weight_cost ? [['Weight Cost', `${Number(coQuote.weight_cost).toFixed(2)} ETB`]] : []),
+                    ...(coQuote?.fees_breakdown?.map(f => [f.name, `${Number(f.amount).toFixed(2)} ETB`]) ?? []),
+                  ].map(([l, v]) => (
+                    <div key={l} style={{ display:'flex', justifyContent:'space-between', fontSize:'0.82rem', marginBottom:'0.3rem' }}>
+                      <span style={{ color:'var(--clr-muted)' }}>{l}</span><span style={{ color:'var(--clr-text)' }}>{v}</span>
+                    </div>
+                  ))}
+                  <div style={{ borderTop:'1px solid rgba(255,255,255,0.1)', marginTop:'0.5rem', paddingTop:'0.5rem', display:'flex', justifyContent:'space-between' }}>
+                    <span style={{ fontWeight:700, color:'var(--clr-text)' }}>Total</span>
+                    <span style={{ fontWeight:800, fontSize:'1rem', color:'var(--clr-accent)' }}>{Number(coQuote?.estimated_price ?? 0).toLocaleString()} ETB</span>
+                  </div>
+                </div>
+                <div style={{ display:'flex', gap:'0.5rem' }}>
+                  <button onClick={() => setCoStep('form')} className="btn-outline" style={{ flex:1 }}>← Back</button>
+                  <button onClick={placeCoOrder} disabled={coSaving || !coForm.shipper_id} className="btn-primary" style={{ flex:2 }}>
+                    {coSaving ? <BtnSpinner text="Creating…"/> : 'Place Order'}
+                  </button>
+                </div>
+              </div>
             )}
           </div>
         </div>
@@ -2019,6 +2286,9 @@ function AdminCargoTypesSection() {
           {items.length === 0 ? <p style={{ padding:'2rem', textAlign:'center', color:'var(--clr-muted)' }}>No cargo types.</p>
           : items.map((c, i) => (
             <div key={c.id} style={{ display:'flex', alignItems:'center', gap:'0.75rem', padding:'0.75rem 1rem', borderBottom: i < items.length-1 ? '1px solid rgba(255,255,255,0.05)' : 'none' }}>
+              <div style={{ width:36, height:36, borderRadius:8, background:'rgba(0,229,255,0.08)', border:'1px solid rgba(0,229,255,0.15)', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, color:'var(--clr-accent)', fontSize:'1rem' }}>
+                <CargoIcon icon={c.icon} iconUrl={c.icon_url} size={18}/>
+              </div>
               <div style={{ flex:1, minWidth:0 }}>
                 <div style={{ display:'flex', alignItems:'center', gap:'0.4rem', flexWrap:'wrap' }}>
                   <span style={{ fontWeight:700, fontSize:'0.875rem', color:'var(--clr-text)' }}>{c.name}</span>

@@ -32,11 +32,12 @@ const truckIcon = new L.DivIcon({
 })
 
 // ─── Types ────────────────────────────────────────────────────────────────────
-interface CargoType { id: number; name: string; description: string; requires_special_handling: number; icon: string }
+interface CargoType { id: number; name: string; description: string; requires_special_handling: number; icon: string; icon_url?: string | null }
 interface Quote { distance_km: number; estimated_price: number; base_fare: number; per_km_rate: number; per_kg_rate?: number; distance_cost: number; weight_cost?: number; city_surcharge: number; fees_breakdown?: Array<{name:string;amount:number;type:string;rate?:number}>; currency?: string }
 interface Order {
   id: string; reference_code: string; status: string
-  cargo_type_name: string; vehicle_type_required: string; estimated_weight_kg: number
+  cargo_type_name: string; cargo_type_icon?: string | null; cargo_type_icon_url?: string | null
+  vehicle_type_required: string; estimated_weight_kg: number
   pickup_address: string; delivery_address: string
   estimated_price: number; final_price: number | null; currency?: string
   description: string | null; estimated_value: number | null
@@ -906,8 +907,18 @@ function OrderDetailModal({ order, onClose, onCancelled }: { order: Order; onClo
             <div style={{ display:'flex', flexDirection:'column', gap:'0.85rem' }}>
               <div className="glass-inner" style={{ padding:'1rem' }}>
                 <div style={{ display:'flex', flexDirection:'column', gap:'0.55rem', fontSize:'0.8rem' }}>
+                  {/* Cargo type row with icon */}
+                  <div style={{ display:'flex', gap:'0.5rem' }}>
+                    <span style={{ color:'var(--clr-muted)', width:80, flexShrink:0 }}>Cargo Type</span>
+                    <span style={{ color:'var(--clr-text)', fontWeight:500, display:'flex', alignItems:'center', gap:'0.4rem' }}>
+                      {order.cargo_type_icon_url
+                        ? <img src={order.cargo_type_icon_url} alt="" style={{ width:16, height:16, borderRadius:3, objectFit:'cover' }}/>
+                        : order.cargo_type_icon ? <span style={{ fontSize:'0.85rem', display:'flex', alignItems:'center' }}>{order.cargo_type_icon}</span> : null
+                      }
+                      {order.cargo_type_name}
+                    </span>
+                  </div>
                   {[
-                    ['Cargo Type', order.cargo_type_name],
                     ['Vehicle', order.vehicle_type_required],
                     ['Weight', order.estimated_weight_kg != null ? `${order.estimated_weight_kg} kg` : '—'],
                     ['Pickup', order.pickup_address],
@@ -1169,7 +1180,12 @@ export default function ShipperOrdersPage() {
                         <LuArrowRight size={11}/> {order.delivery_address}
                       </p>
                     </div>
-                    <div style={{ display:'flex', gap:'0.65rem', marginTop:'0.4rem', flexWrap:'wrap' }}>
+                    <div style={{ display:'flex', gap:'0.65rem', marginTop:'0.4rem', flexWrap:'wrap', alignItems:'center' }}>
+                      {(order.cargo_type_icon_url || order.cargo_type_icon) && (
+                        order.cargo_type_icon_url
+                          ? <img src={order.cargo_type_icon_url} alt="" style={{ width:14, height:14, borderRadius:2, objectFit:'cover' }}/>
+                          : <span style={{ fontSize:'0.75rem', display:'flex', alignItems:'center', color:'var(--clr-muted)' }}>{order.cargo_type_icon}</span>
+                      )}
                       <span style={{ fontSize:'0.72rem', color:'var(--clr-muted)' }}>{order.cargo_type_name}</span>
                       <span style={{ fontSize:'0.72rem', color:'var(--clr-muted)' }}>·</span>
                       <span style={{ fontSize:'0.72rem', color:'var(--clr-muted)' }}>{order.vehicle_type_required}</span>

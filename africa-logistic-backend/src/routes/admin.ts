@@ -24,6 +24,7 @@ import {
   adminUpdateOrderStatusHandler,
   adminCancelOrderHandler,
   adminOrderStatsHandler,
+  adminCreateOrderOnBehalfHandler,
   // ── Cargo Types ────────────────────────────────────────────────────────────
   adminListCargoTypesHandler,
   adminCreateCargoTypeHandler,
@@ -130,6 +131,9 @@ export default async function adminRoutes(fastify: FastifyInstance) {
   fastify.post('/vehicles/:id/review', adminReviewVehicleSubmissionHandler)
 
   // ─── Order Management ────────────────────────────────────────────────────────
+
+  /** POST /api/admin/orders — admin creates order on behalf of shipper */
+  fastify.post('/orders', adminCreateOrderOnBehalfHandler)
 
   /** GET /api/admin/orders — all orders with filters */
   fastify.get('/orders', adminListOrdersHandler)

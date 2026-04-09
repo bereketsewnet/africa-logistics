@@ -696,10 +696,16 @@ import {
   createCargoType,
   updateCargoType,
   listActiveCargoTypes,
+  createOrder,
+  generateOtp,
 } from '../services/order.service.js'
 
 import {
   listPricingRules,
+  getPricingRule,
+  calculateQuote,
+  getRouteDistanceKm,
+  reverseGeocode,
   type PricingRuleRow,
 } from '../services/pricing.service.js'
 
@@ -826,6 +832,97 @@ export async function adminCancelOrderHandler(
   wsManager.broadcast(order.id, 'STATUS_CHANGED', { status: 'CANCELLED' })
 
   return reply.send({ success: true, message: 'Order cancelled.' })
+}
+
+// ─── Admin Create Order On Behalf ─────────────────────────────────────────────
+
+interface AdminCreateOrderBody {
+  shipper_id: string
+  cargo_type_id: number
+  vehicle_type: string
+  estimated_weight_kg?: number
+  pickup_address: string
+  pickup_lat: number
+  pickup_lng: number
+  delivery_address: string
+  delivery_lat: number
+  delivery_lng: number
+  special_instructions?: string
+  estimated_value?: number
+  driver_id?: string
+  vehicle_id?: string
+}
+
+/** POST /api/admin/orders — admin creates an order on behalf of a shipper */
+export async function adminCreateOrderOnBehalfHandler(
+  request: FastifyRequest<{ Body: AdminCreateOrderBody }>,
+  reply:   FastifyReply
+) {
+  const admin = request.user as any
+  const {
+    shipper_id, cargo_type_id, vehicle_type,
+    estimated_weight_kg,
+    pickup_address, pickup_lat, pickup_lng,
+    delivery_address, delivery_lat, delivery_lng,
+    special_instructions,
+    driver_id, vehicle_id,
+  } = request.body
+
+  if (!shipper_id || !cargo_type_id || !vehicle_type || !pickup_lat || !pickup_lng || !delivery_lat || !delivery_lng) {
+    return reply.status(400).send({ success: false, message: 'shipper_id, cargo_type_id, vehicle_type, and coordinates are required.' })
+  }
+
+  const rule = await getPricingRule(request.server.db, vehicle_type)
+  if (!rule) {
+    return reply.status(400).send({ success: false, message: `No pricing rule for vehicle type: ${vehicle_type}` })
+  }
+
+  const distanceKm = await getRouteDistanceKm(pickup_lat, pickup_lng, delivery_lat, delivery_lng)
+
+  // Geocode missing addresses
+  let pickupAddr   = pickup_address   || await reverseGeocode(pickup_lat, pickup_lng) || `${pickup_lat},${pickup_lng}`
+  let deliveryAddr = delivery_address || await reverseGeocode(delivery_lat, delivery_lng) || `${delivery_lat},${delivery_lng}`
+
+  const quote      = calculateQuote(distanceKm, rule, estimated_weight_kg)
+  const pickupOtp  = generateOtp()
+  const deliveryOtp = generateOtp()
+
+  const orderId = await createOrder(request.server.db, {
+    shipperId:           shipper_id,
+    cargoTypeId:         cargo_type_id,
+    pickupLat:           pickup_lat,
+    pickupLng:           pickup_lng,
+    pickupAddress:       pickupAddr,
+    deliveryLat:         delivery_lat,
+    deliveryLng:         delivery_lng,
+    deliveryAddress:     deliveryAddr,
+    estimatedWeightKg:   estimated_weight_kg ?? null,
+    vehicleTypeRequired: vehicle_type,
+    specialInstructions: special_instructions ?? null,
+    distanceKm:          quote.distance_km,
+    baseFare:            quote.base_fare,
+    perKmRate:           quote.per_km_rate,
+    citySurcharge:       quote.city_surcharge,
+    estimatedPrice:      quote.estimated_price,
+    pickupOtp,
+    deliveryOtp,
+    orderImage1Url: null,
+    orderImage2Url: null,
+  })
+
+  // Optionally assign driver right away
+  if (driver_id) {
+    await assignOrderToDriver(request.server.db, orderId, driver_id, vehicle_id ?? null, admin.id)
+  }
+
+  const order = await getOrderById(request.server.db, orderId)
+
+  return reply.status(201).send({
+    success: true,
+    message: 'Order created successfully.',
+    order,
+    otps: { pickup_otp: pickupOtp, delivery_otp: deliveryOtp },
+  })
 }
 
 // ─── Cargo Type Handlers ──────────────────────────────────────────────────────

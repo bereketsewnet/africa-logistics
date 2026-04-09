@@ -206,4 +206,15 @@ export const adminOrderApi = {
 
   updatePricingRule: (id: number, data: { vehicle_type?: string; base_fare?: number; per_km_rate?: number; per_kg_rate?: number; city_surcharge?: number; min_distance_km?: number; is_active?: boolean; additional_fees?: Array<{name: string; value: number; type: 'fixed'|'percent'}> }) =>
     apiClient.put(`/admin/pricing-rules/${id}`, data),
+
+  createOrderOnBehalf: (data: {
+    shipper_id: string; cargo_type_id: number; vehicle_type: string
+    estimated_weight_kg?: number
+    pickup_address: string; pickup_lat: number; pickup_lng: number
+    delivery_address: string; delivery_lat: number; delivery_lng: number
+    special_instructions?: string; estimated_value?: number
+    driver_id?: string; vehicle_id?: string
+  }) => apiClient.post('/admin/orders', data),
+
+  getShippers: () => apiClient.get('/admin/users'),
 }
