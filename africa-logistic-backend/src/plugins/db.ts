@@ -198,9 +198,16 @@ export default fp(async function dbPlugin(fastify: FastifyInstance) {
     }
     await addColIfMissing('pricing_rules', 'per_kg_rate',    'DECIMAL(10,4) DEFAULT 0.0000 AFTER per_km_rate')
     await addColIfMissing('pricing_rules', 'additional_fees','JSON NULL AFTER city_surcharge')
-    await addColIfMissing('orders',        'order_image_1_url', 'VARCHAR(500) NULL')
-    await addColIfMissing('orders',        'order_image_2_url', 'VARCHAR(500) NULL')
-    await addColIfMissing('cargo_types',   'icon_url',          'VARCHAR(500) NULL')
+    await addColIfMissing('orders',        'order_image_1_url',    'VARCHAR(500) NULL')
+    await addColIfMissing('orders',        'order_image_2_url',    'VARCHAR(500) NULL')
+    await addColIfMissing('cargo_types',   'icon_url',             'VARCHAR(500) NULL')
+    // Guest order + payment/cargo image columns
+    await addColIfMissing('orders',        'cargo_image_url',      'VARCHAR(500) NULL')
+    await addColIfMissing('orders',        'payment_receipt_url',  'VARCHAR(500) NULL')
+    await addColIfMissing('orders',        'is_guest_order',       'TINYINT(1) DEFAULT 0')
+    await addColIfMissing('orders',        'guest_name',           'VARCHAR(200) NULL')
+    await addColIfMissing('orders',        'guest_phone',          'VARCHAR(50) NULL')
+    await addColIfMissing('orders',        'guest_email',          'VARCHAR(200) NULL')
 
     // ─── Seed default cargo types if table is empty ──────────────────────────
     const [ctRows] = await conn.query<any[]>('SELECT COUNT(*) as cnt FROM cargo_types')

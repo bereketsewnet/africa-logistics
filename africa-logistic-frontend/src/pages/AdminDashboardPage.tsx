@@ -7,6 +7,9 @@ import { useNavigate } from 'react-router-dom'
 import apiClient, { authApi, adminOrderApi } from '../lib/apiClient'
 import PhoneField from '../components/PhoneField'
 import { normalisePhone } from '../lib/normalisePhone'
+import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet'
+import L from 'leaflet'
+import 'leaflet/dist/leaflet.css'
 import {
   LuTruck, LuUser, LuShield, LuPackage, LuPhone, LuMail,
   LuIdCard, LuCircleCheck, LuTriangleAlert, LuCamera, LuTrash2,
@@ -17,6 +20,7 @@ import {
   LuCar, LuBadgeCheck, LuUserPlus, LuBriefcase, LuSearch,
   LuListOrdered, LuSettings, LuBox, LuBan,
   LuLeaf, LuFlame, LuThermometer, LuHeart, LuMonitor, LuArchive, LuGem, LuFish, LuImage,
+  LuMapPin, LuMessageSquare, LuSend, LuNavigation,
 } from 'react-icons/lu'
 
 // ─── Shared UI helpers ────────────────────────────────────────────────────────
@@ -109,7 +113,7 @@ interface Stats {
   total_users: number; total_admins: number; total_shippers: number
   total_drivers: number; active_users: number; new_today: number
 }
-type AdminSection = 'overview' | 'drivers' | 'shippers' | 'staff' | 'verify-drivers' | 'vehicles' | 'orders' | 'cargo-types' | 'pricing-rules' | 'profile'
+type AdminSection = 'overview' | 'drivers' | 'shippers' | 'staff' | 'verify-drivers' | 'vehicles' | 'orders' | 'live-drivers' | 'guest-orders' | 'cargo-types' | 'pricing-rules' | 'profile'
 type ProfileTab = 'profile' | 'security' | 'contact'
 
 interface DriverRow {
@@ -1700,6 +1704,14 @@ function AdminOrdersSection() {
   const [coSaving, setCoSaving] = useState(false)
   const [coErr, setCoErr] = useState('')
   const [coGeoLoading, setCoGeoLoading] = useState<'pickup'|'delivery'|null>(null)
+  // Guest mode
+  const [coIsGuest, setCoIsGuest] = useState(false)
+  const [coGuestName, setCoGuestName] = useState('')
+  const [coGuestPhone, setCoGuestPhone] = useState('')
+  const [coGuestEmail, setCoGuestEmail] = useState('')
+  // Optional image uploads
+  const [coCargoImage, setCoCargoImage] = useState<string | null>(null)
+  const [coPaymentReceipt, setCoPaymentReceipt] = useState<string | null>(null)
 
   const loadOrders = useCallback(async (pg = page, sf = statusFilter, q = search) => {
     setLoading(true)
@@ -1750,6 +1762,8 @@ function AdminOrdersSection() {
   const openCreateOrder = async () => {
     setCoForm({ shipper_id:'', shipper_search:'', cargo_type_id:'', vehicle_type:'', estimated_weight_kg:'', pickup_address:'', pickup_lat:'', pickup_lng:'', delivery_address:'', delivery_lat:'', delivery_lng:'', special_instructions:'', driver_id:'', vehicle_id:'' })
     setCoQuote(null); setCoStep('form'); setCoErr('')
+    setCoIsGuest(false); setCoGuestName(''); setCoGuestPhone(''); setCoGuestEmail('')
+    setCoCargoImage(null); setCoPaymentReceipt(null)
     setCreateOrderModal(true)
     // Load shippers + cargo types + drivers/vehicles if not loaded
     try {
@@ -1803,11 +1817,13 @@ function AdminOrdersSection() {
   }
 
   const placeCoOrder = async () => {
-    if (!coForm.shipper_id) { setCoErr('Select a shipper'); return }
+    if (!coIsGuest && !coForm.shipper_id) { setCoErr('Select a shipper or toggle Guest mode'); return }
     setCoSaving(true); setCoErr('')
     try {
       const { data } = await adminOrderApi.createOrderOnBehalf({
-        shipper_id: coForm.shipper_id,
+        ...(coIsGuest
+          ? { is_guest: true, guest_name: coGuestName || undefined, guest_phone: coGuestPhone || undefined, guest_email: coGuestEmail || undefined }
+          : { shipper_id: coForm.shipper_id }),
         cargo_type_id: Number(coForm.cargo_type_id),
         vehicle_type: coForm.vehicle_type,
         estimated_weight_kg: coForm.estimated_weight_kg ? Number(coForm.estimated_weight_kg) : undefined,
@@ -1816,6 +1832,8 @@ function AdminOrdersSection() {
         special_instructions: coForm.special_instructions || undefined,
         driver_id: coForm.driver_id || undefined,
         vehicle_id: coForm.vehicle_id || undefined,
+        cargo_image: coCargoImage ?? undefined,
+        payment_receipt: coPaymentReceipt ?? undefined,
       })
       showToast(`Order ${data.order?.reference_code ?? ''} created! Pickup OTP: ${data.otps?.pickup_otp}`)
       setCreateOrderModal(false)
@@ -2067,23 +2085,59 @@ function AdminOrdersSection() {
 
             {coStep === 'form' ? (
               <div style={{ display:'flex', flexDirection:'column', gap:'0.85rem' }}>
-                {/* Shipper */}
-                <div>
-                  <label style={{ fontSize:'0.73rem', fontWeight:600, color:'var(--clr-muted)', marginBottom:'0.3rem', display:'block' }}>Shipper (customer) *</label>
-                  <input value={coForm.shipper_search} onChange={e => setCoForm(f => ({ ...f, shipper_search: e.target.value, shipper_id: '' }))} placeholder="Search by name or phone…"
-                    style={{ width:'100%', padding:'0.6rem 0.8rem', borderRadius:9, border:'1px solid rgba(255,255,255,0.12)', background:'rgba(255,255,255,0.05)', color:'var(--clr-text)', fontFamily:'inherit', fontSize:'0.85rem', boxSizing:'border-box' }}/>
-                  {coForm.shipper_search && !coForm.shipper_id && (
-                    <div style={{ marginTop:'0.25rem', border:'1px solid rgba(255,255,255,0.1)', borderRadius:8, overflow:'hidden', maxHeight:140, overflowY:'auto' }}>
-                      {shippers.filter(s => `${s.first_name} ${s.last_name} ${s.phone_number}`.toLowerCase().includes(coForm.shipper_search.toLowerCase())).map(s => (
-                        <div key={s.id} onClick={() => setCoForm(f => ({ ...f, shipper_id: s.id, shipper_search: `${s.first_name} ${s.last_name} · ${s.phone_number}` }))}
-                          style={{ padding:'0.5rem 0.75rem', cursor:'pointer', background:'rgba(255,255,255,0.04)', borderBottom:'1px solid rgba(255,255,255,0.06)', fontSize:'0.8rem', color:'var(--clr-text)' }}>
-                          {s.first_name} {s.last_name} <span style={{ color:'var(--clr-muted)' }}>{s.phone_number}</span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                  {coForm.shipper_id && <p style={{ fontSize:'0.72rem', color:'var(--clr-accent)', marginTop:'0.2rem' }}>✓ Shipper selected</p>}
+                {/* Customer type toggle */}
+                <div style={{ display:'flex', gap:'0.4rem', padding:'0.25rem', background:'rgba(255,255,255,0.04)', borderRadius:10, border:'1px solid rgba(255,255,255,0.08)' }}>
+                  {[{ v: false, label: '👤 Registered Shipper' }, { v: true, label: '🪪 Guest Customer' }].map(({ v, label }) => (
+                    <button key={String(v)} type="button" onClick={() => setCoIsGuest(v)}
+                      style={{ flex:1, padding:'0.45rem 0.5rem', borderRadius:8, border:'none', cursor:'pointer', fontFamily:'inherit', fontSize:'0.78rem', fontWeight:700, transition:'all 0.18s',
+                        background: coIsGuest === v ? 'var(--clr-accent)' : 'transparent',
+                        color: coIsGuest === v ? '#000' : 'var(--clr-muted)' }}>
+                      {label}
+                    </button>
+                  ))}
                 </div>
+
+                {/* Shipper search (registered mode) */}
+                {!coIsGuest && (
+                  <div>
+                    <label style={{ fontSize:'0.73rem', fontWeight:600, color:'var(--clr-muted)', marginBottom:'0.3rem', display:'block' }}>Shipper (customer) *</label>
+                    <input value={coForm.shipper_search} onChange={e => setCoForm(f => ({ ...f, shipper_search: e.target.value, shipper_id: '' }))} placeholder="Search by name or phone…"
+                      style={{ width:'100%', padding:'0.6rem 0.8rem', borderRadius:9, border:'1px solid rgba(255,255,255,0.12)', background:'rgba(255,255,255,0.05)', color:'var(--clr-text)', fontFamily:'inherit', fontSize:'0.85rem', boxSizing:'border-box' }}/>
+                    {coForm.shipper_search && !coForm.shipper_id && (
+                      <div style={{ marginTop:'0.25rem', border:'1px solid rgba(255,255,255,0.1)', borderRadius:8, overflow:'hidden', maxHeight:140, overflowY:'auto' }}>
+                        {shippers.filter(s => `${s.first_name} ${s.last_name} ${s.phone_number}`.toLowerCase().includes(coForm.shipper_search.toLowerCase())).map(s => (
+                          <div key={s.id} onClick={() => setCoForm(f => ({ ...f, shipper_id: s.id, shipper_search: `${s.first_name} ${s.last_name} · ${s.phone_number}` }))}
+                            style={{ padding:'0.5rem 0.75rem', cursor:'pointer', background:'rgba(255,255,255,0.04)', borderBottom:'1px solid rgba(255,255,255,0.06)', fontSize:'0.8rem', color:'var(--clr-text)' }}>
+                            {s.first_name} {s.last_name} <span style={{ color:'var(--clr-muted)' }}>{s.phone_number}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {coForm.shipper_id && <p style={{ fontSize:'0.72rem', color:'var(--clr-accent)', marginTop:'0.2rem' }}>✓ Shipper selected</p>}
+                  </div>
+                )}
+
+                {/* Guest fields */}
+                {coIsGuest && (
+                  <div style={{ display:'flex', flexDirection:'column', gap:'0.6rem', padding:'0.85rem', borderRadius:10, border:'1px solid rgba(0,229,255,0.15)', background:'rgba(0,229,255,0.04)' }}>
+                    <p style={{ fontSize:'0.7rem', fontWeight:700, color:'var(--clr-accent)', marginBottom:'0.1rem' }}>GUEST CUSTOMER — all fields optional</p>
+                    <div>
+                      <label style={{ fontSize:'0.72rem', fontWeight:600, color:'var(--clr-muted)', marginBottom:'0.25rem', display:'block' }}>Name</label>
+                      <input value={coGuestName} onChange={e => setCoGuestName(e.target.value)} placeholder="Auto-generated if empty"
+                        style={{ width:'100%', padding:'0.6rem 0.8rem', borderRadius:9, border:'1px solid rgba(255,255,255,0.1)', background:'rgba(255,255,255,0.04)', color:'var(--clr-text)', fontFamily:'inherit', fontSize:'0.83rem', boxSizing:'border-box' }}/>
+                    </div>
+                    <div>
+                      <label style={{ fontSize:'0.72rem', fontWeight:600, color:'var(--clr-muted)', marginBottom:'0.25rem', display:'block' }}>Phone</label>
+                      <input value={coGuestPhone} onChange={e => setCoGuestPhone(e.target.value)} placeholder="Default: +251900000000"
+                        style={{ width:'100%', padding:'0.6rem 0.8rem', borderRadius:9, border:'1px solid rgba(255,255,255,0.1)', background:'rgba(255,255,255,0.04)', color:'var(--clr-text)', fontFamily:'inherit', fontSize:'0.83rem', boxSizing:'border-box' }}/>
+                    </div>
+                    <div>
+                      <label style={{ fontSize:'0.72rem', fontWeight:600, color:'var(--clr-muted)', marginBottom:'0.25rem', display:'block' }}>Email</label>
+                      <input type="email" value={coGuestEmail} onChange={e => setCoGuestEmail(e.target.value)} placeholder="Default: guest@afri-logistics.com"
+                        style={{ width:'100%', padding:'0.6rem 0.8rem', borderRadius:9, border:'1px solid rgba(255,255,255,0.1)', background:'rgba(255,255,255,0.04)', color:'var(--clr-text)', fontFamily:'inherit', fontSize:'0.83rem', boxSizing:'border-box' }}/>
+                    </div>
+                  </div>
+                )}
 
                 {/* Cargo & Vehicle */}
                 <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'0.65rem' }}>
@@ -2145,6 +2199,48 @@ function AdminOrdersSection() {
                     style={{ width:'100%', padding:'0.6rem 0.8rem', borderRadius:9, border:'1px solid rgba(255,255,255,0.12)', background:'rgba(255,255,255,0.05)', color:'var(--clr-text)', fontFamily:'inherit', fontSize:'0.85rem', boxSizing:'border-box' }}/>
                 </div>
 
+                {/* Cargo image upload (optional) */}
+                <div>
+                  <label style={{ fontSize:'0.73rem', fontWeight:600, color:'var(--clr-muted)', marginBottom:'0.3rem', display:'block' }}>Cargo Image (optional)</label>
+                  {coCargoImage ? (
+                    <div style={{ position:'relative', display:'inline-block' }}>
+                      <img src={coCargoImage} alt="Cargo" style={{ width:100, height:72, objectFit:'cover', borderRadius:8, border:'1px solid rgba(255,255,255,0.12)' }}/>
+                      <button type="button" onClick={() => setCoCargoImage(null)} style={{ position:'absolute', top:-6, right:-6, width:20, height:20, borderRadius:'50%', border:'none', background:'#ef4444', color:'#fff', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'0.65rem' }}>✕</button>
+                    </div>
+                  ) : (
+                    <label style={{ display:'flex', alignItems:'center', gap:'0.5rem', padding:'0.5rem 0.85rem', borderRadius:9, border:'1px dashed rgba(255,255,255,0.15)', background:'rgba(255,255,255,0.03)', cursor:'pointer', fontSize:'0.78rem', color:'var(--clr-muted)' }}>
+                      <LuImage size={15}/> Click to upload image
+                      <input type="file" accept="image/*" style={{ display:'none' }} onChange={e => {
+                        const file = e.target.files?.[0]; if (!file) return
+                        const reader = new FileReader()
+                        reader.onload = ev => setCoCargoImage(ev.target?.result as string)
+                        reader.readAsDataURL(file)
+                      }}/>
+                    </label>
+                  )}
+                </div>
+
+                {/* Payment receipt upload (optional) */}
+                <div>
+                  <label style={{ fontSize:'0.73rem', fontWeight:600, color:'var(--clr-muted)', marginBottom:'0.3rem', display:'block' }}>Payment Receipt (optional)</label>
+                  {coPaymentReceipt ? (
+                    <div style={{ position:'relative', display:'inline-block' }}>
+                      <img src={coPaymentReceipt} alt="Receipt" style={{ width:100, height:72, objectFit:'cover', borderRadius:8, border:'1px solid rgba(255,255,255,0.12)' }}/>
+                      <button type="button" onClick={() => setCoPaymentReceipt(null)} style={{ position:'absolute', top:-6, right:-6, width:20, height:20, borderRadius:'50%', border:'none', background:'#ef4444', color:'#fff', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'0.65rem' }}>✕</button>
+                    </div>
+                  ) : (
+                    <label style={{ display:'flex', alignItems:'center', gap:'0.5rem', padding:'0.5rem 0.85rem', borderRadius:9, border:'1px dashed rgba(255,255,255,0.15)', background:'rgba(255,255,255,0.03)', cursor:'pointer', fontSize:'0.78rem', color:'var(--clr-muted)' }}>
+                      <LuFileText size={15}/> Click to upload receipt
+                      <input type="file" accept="image/*,application/pdf" style={{ display:'none' }} onChange={e => {
+                        const file = e.target.files?.[0]; if (!file) return
+                        const reader = new FileReader()
+                        reader.onload = ev => setCoPaymentReceipt(ev.target?.result as string)
+                        reader.readAsDataURL(file)
+                      }}/>
+                    </label>
+                  )}
+                </div>
+
                 {/* Assign driver (optional) */}
                 <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'0.65rem' }}>
                   <div>
@@ -2192,13 +2288,478 @@ function AdminOrdersSection() {
                     <span style={{ fontWeight:800, fontSize:'1rem', color:'var(--clr-accent)' }}>{Number(coQuote?.estimated_price ?? 0).toLocaleString()} ETB</span>
                   </div>
                 </div>
+                {/* Show uploaded media summary */}
+                {(coCargoImage || coPaymentReceipt) && (
+                  <div style={{ display:'flex', gap:'0.65rem' }}>
+                    {coCargoImage && <div style={{ flex:1, padding:'0.5rem 0.75rem', borderRadius:8, background:'rgba(0,229,255,0.06)', border:'1px solid rgba(0,229,255,0.15)', fontSize:'0.75rem', color:'var(--clr-accent)', display:'flex', alignItems:'center', gap:'0.4rem' }}><LuImage size={13}/> Cargo image ✓</div>}
+                    {coPaymentReceipt && <div style={{ flex:1, padding:'0.5rem 0.75rem', borderRadius:8, background:'rgba(0,229,255,0.06)', border:'1px solid rgba(0,229,255,0.15)', fontSize:'0.75rem', color:'var(--clr-accent)', display:'flex', alignItems:'center', gap:'0.4rem' }}><LuFileText size={13}/> Receipt ✓</div>}
+                  </div>
+                )}
+                {coIsGuest && (
+                  <div style={{ padding:'0.6rem 0.85rem', borderRadius:8, background:'rgba(0,229,255,0.06)', border:'1px solid rgba(0,229,255,0.15)', fontSize:'0.75rem', color:'var(--clr-accent)' }}>
+                    Guest order · {coGuestName || 'Auto-name'} · {coGuestPhone || 'Default phone'} · {coGuestEmail || 'Default email'}
+                  </div>
+                )}
                 <div style={{ display:'flex', gap:'0.5rem' }}>
                   <button onClick={() => setCoStep('form')} className="btn-outline" style={{ flex:1 }}>← Back</button>
-                  <button onClick={placeCoOrder} disabled={coSaving || !coForm.shipper_id} className="btn-primary" style={{ flex:2 }}>
+                  <button onClick={placeCoOrder} disabled={coSaving || (!coIsGuest && !coForm.shipper_id)} className="btn-primary" style={{ flex:2 }}>
                     {coSaving ? <BtnSpinner text="Creating…"/> : 'Place Order'}
                   </button>
                 </div>
               </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {toast && <div style={{ position:'fixed', bottom:'1.25rem', right:'1.25rem', zIndex:200, background:'rgba(0,229,255,0.12)', border:'1px solid rgba(0,229,255,0.25)', color:'var(--clr-text)', padding:'0.65rem 1.1rem', borderRadius:12, fontSize:'0.85rem', fontWeight:600, backdropFilter:'blur(12px)' }}>{toast}</div>}
+    </div>
+  )
+}
+
+// ─── Admin Live Drivers Section ───────────────────────────────────────────────
+
+// Fix Leaflet default marker icons (broken by Webpack/Vite asset hashing)
+const DefaultIcon = L.icon({
+  iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
+  iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
+  shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
+  iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34], shadowSize: [41, 41],
+})
+L.Marker.prototype.options.icon = DefaultIcon
+
+interface LiveDriver {
+  driver_id: string; first_name: string; last_name: string; phone_number: string; profile_photo_url: string | null
+  lat: number | null; lng: number | null; heading: number | null; speed_kmh: number | null; last_seen: string | null
+  order_id: string | null; reference_code: string | null; status: string | null
+  pickup_address: string | null; delivery_address: string | null
+  cargo_type_name: string | null; cargo_type_icon: string | null; cargo_type_icon_url: string | null
+  vehicle_type: string | null; estimated_weight_kg: number | null; distance_km: number | null
+  estimated_price: number | null; final_price: number | null
+  pickup_otp: string | null; delivery_otp: string | null
+  shipper_first_name: string | null; shipper_last_name: string | null; shipper_phone: string | null
+  guest_name: string | null; is_guest_order: number | null
+}
+
+interface ChatMessage {
+  id: number; order_id: string; sender_id: string; sender_name: string
+  sender_role: string; message: string; created_at: string
+}
+
+function AdminLiveDriversSection() {
+  const [drivers, setDrivers] = useState<LiveDriver[]>([])
+  const [loading, setLoading] = useState(true)
+  const [selected, setSelected] = useState<LiveDriver | null>(null)
+  const [messages, setMessages] = useState<ChatMessage[]>([])
+  const [chatMsg, setChatMsg] = useState('')
+  const [chatSending, setChatSending] = useState(false)
+  const [toast, setToast] = useState('')
+  const chatEndRef = useRef<HTMLDivElement>(null)
+  const showToast = (m: string) => { setToast(m); setTimeout(() => setToast(''), 3000) }
+
+  const load = useCallback(async () => {
+    try {
+      const { data } = await adminOrderApi.getLiveDrivers()
+      setDrivers(data.drivers ?? [])
+    } catch { /* silently ignore polling errors */ }
+    finally { setLoading(false) }
+  }, [])
+
+  useEffect(() => {
+    load()
+    const interval = setInterval(load, 10000)
+    return () => clearInterval(interval)
+  }, [load])
+
+  const openDriver = async (d: LiveDriver) => {
+    setSelected(d)
+    if (d.order_id) {
+      try {
+        const { data } = await adminOrderApi.getOrderMessages(d.order_id)
+        setMessages(data.messages ?? [])
+      } catch { setMessages([]) }
+    } else { setMessages([]) }
+  }
+
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [messages])
+
+  const sendMsg = async () => {
+    if (!chatMsg.trim() || !selected?.order_id) return
+    setChatSending(true)
+    try {
+      await adminOrderApi.sendOrderMessage(selected.order_id, chatMsg.trim())
+      setChatMsg('')
+      const { data } = await adminOrderApi.getOrderMessages(selected.order_id)
+      setMessages(data.messages ?? [])
+    } catch { showToast('Failed to send message') }
+    finally { setChatSending(false) }
+  }
+
+  const mapDrivers = drivers.filter(d => d.lat != null && d.lng != null)
+
+  return (
+    <div style={{ display:'flex', flexDirection:'column', gap:'1.25rem' }}>
+      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', flexWrap:'wrap', gap:'0.5rem' }}>
+        <h2 style={{ fontSize:'1rem', fontWeight:800, color:'var(--clr-text)', display:'flex', alignItems:'center', gap:'0.45rem' }}>
+          <LuMapPin size={17}/> Live Driver Tracking
+          <span style={{ fontSize:'0.7rem', color:'var(--clr-muted)', fontWeight:400, marginLeft:'0.35rem' }}>auto-refreshes every 10s</span>
+        </h2>
+        <button onClick={load} style={{ display:'flex', alignItems:'center', gap:'0.35rem', padding:'0.3rem 0.7rem', borderRadius:8, border:'1px solid rgba(255,255,255,0.1)', background:'rgba(255,255,255,0.04)', color:'var(--clr-muted)', fontFamily:'inherit', fontSize:'0.72rem', fontWeight:600, cursor:'pointer' }}>
+          <LuRefreshCw size={12}/> Refresh
+        </button>
+      </div>
+
+      {loading && drivers.length === 0 ? (
+        <LoadingSpinner />
+      ) : (
+        <div style={{ display:'grid', gridTemplateColumns: selected ? '1fr 1fr' : '1fr', gap:'1rem' }}>
+          {/* Map Panel */}
+          <div style={{ display:'flex', flexDirection:'column', gap:'0.75rem' }}>
+            <div style={{ borderRadius:14, overflow:'hidden', border:'1px solid rgba(255,255,255,0.09)', height:400 }}>
+              <MapContainer center={[9.03, 38.74]} zoom={12} style={{ width:'100%', height:'100%' }}>
+                <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution="&copy; OpenStreetMap contributors" />
+                {mapDrivers.map(d => (
+                  <Marker key={d.driver_id} position={[d.lat!, d.lng!]} eventHandlers={{ click: () => openDriver(d) }}>
+                    <Popup>
+                      <strong>{d.first_name} {d.last_name}</strong><br/>
+                      {d.reference_code ? `Order: ${d.reference_code}` : 'No active order'}<br/>
+                      {d.status && <span style={{ color: ORDER_STATUS_COLOR[d.status] ?? '#888' }}>{ORDER_STATUS_LABEL[d.status] ?? d.status}</span>}
+                    </Popup>
+                  </Marker>
+                ))}
+              </MapContainer>
+            </div>
+
+            {/* Driver list */}
+            <div className="glass-inner" style={{ overflow:'hidden' }}>
+              {drivers.length === 0 ? (
+                <p style={{ padding:'1.5rem', textAlign:'center', color:'var(--clr-muted)', fontSize:'0.85rem' }}>No drivers with active location data.</p>
+              ) : drivers.map((d, i) => (
+                <div key={d.driver_id} onClick={() => openDriver(d)}
+                  style={{ display:'flex', alignItems:'center', gap:'0.75rem', padding:'0.8rem 1rem', borderBottom: i < drivers.length-1 ? '1px solid rgba(255,255,255,0.05)' : 'none', cursor:'pointer', background: selected?.driver_id === d.driver_id ? 'rgba(0,229,255,0.06)' : 'transparent', transition:'background 0.15s' }}>
+                  <div style={{ width:36, height:36, borderRadius:'50%', overflow:'hidden', flexShrink:0, background:'linear-gradient(135deg,var(--clr-accent2),var(--clr-accent))', display:'flex', alignItems:'center', justifyContent:'center' }}>
+                    {d.profile_photo_url ? <img src={d.profile_photo_url} alt="" style={{ width:'100%', height:'100%', objectFit:'cover' }}/> : <LuTruck size={16} color="#fff"/>}
+                  </div>
+                  <div style={{ flex:1, minWidth:0 }}>
+                    <p style={{ fontWeight:700, fontSize:'0.875rem', color:'var(--clr-text)', marginBottom:'0.1rem' }}>{d.first_name} {d.last_name}</p>
+                    <p style={{ fontSize:'0.72rem', color:'var(--clr-muted)' }}>{d.phone_number}</p>
+                    {d.reference_code && <p style={{ fontSize:'0.7rem', color:'var(--clr-accent)', fontWeight:600 }}>Order: {d.reference_code}</p>}
+                  </div>
+                  <div style={{ textAlign:'right', flexShrink:0 }}>
+                    {d.status ? orderBadge(d.status) : <span className="badge" style={{ fontSize:'0.65rem' }}>No order</span>}
+                    {d.lat != null && <p style={{ fontSize:'0.65rem', color:'var(--clr-muted)', marginTop:'0.2rem' }}><LuNavigation size={9}/> {d.lat.toFixed(4)}, {d.lng!.toFixed(4)}</p>}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Detail + Chat Panel */}
+          {selected && (
+            <div style={{ display:'flex', flexDirection:'column', gap:'0.75rem' }}>
+              <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+                <p style={{ fontWeight:700, fontSize:'0.875rem', color:'var(--clr-text)' }}>{selected.first_name} {selected.last_name}</p>
+                <button onClick={() => setSelected(null)} style={{ background:'none', border:'none', cursor:'pointer', color:'var(--clr-muted)' }}><LuX size={16}/></button>
+              </div>
+
+              {/* Order detail */}
+              {selected.order_id ? (
+                <div className="glass-inner" style={{ padding:'0.85rem', display:'flex', flexDirection:'column', gap:'0.65rem' }}>
+                  <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+                    <span style={{ fontWeight:700, fontSize:'0.85rem', color:'var(--clr-text)' }}>{selected.reference_code}</span>
+                    {selected.status && orderBadge(selected.status)}
+                  </div>
+                  {/* Customer */}
+                  <div>
+                    <p style={{ fontSize:'0.65rem', color:'var(--clr-muted)', fontWeight:600, marginBottom:'0.2rem' }}>CUSTOMER</p>
+                    <p style={{ fontSize:'0.82rem', color:'var(--clr-text)', fontWeight:600 }}>
+                      {selected.is_guest_order ? (selected.guest_name ?? 'Guest') : `${selected.shipper_first_name ?? ''} ${selected.shipper_last_name ?? ''}`.trim()}
+                    </p>
+                    {selected.shipper_phone && !selected.is_guest_order && <p style={{ fontSize:'0.72rem', color:'var(--clr-muted)' }}>{selected.shipper_phone}</p>}
+                  </div>
+                  {/* Route */}
+                  <div>
+                    <p style={{ fontSize:'0.65rem', color:'var(--clr-muted)', fontWeight:600, marginBottom:'0.2rem' }}>FROM</p>
+                    <p style={{ fontSize:'0.78rem', color:'var(--clr-text)', marginBottom:'0.3rem' }}>{selected.pickup_address ?? '—'}</p>
+                    <p style={{ fontSize:'0.65rem', color:'var(--clr-muted)', fontWeight:600, marginBottom:'0.2rem' }}>TO</p>
+                    <p style={{ fontSize:'0.78rem', color:'var(--clr-text)' }}>{selected.delivery_address ?? '—'}</p>
+                  </div>
+                  {/* Cargo */}
+                  <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'0.4rem' }}>
+                    <div>
+                      <p style={{ fontSize:'0.65rem', color:'var(--clr-muted)' }}>Cargo</p>
+                      <div style={{ display:'flex', alignItems:'center', gap:'0.35rem' }}>
+                        <CargoIcon icon={selected.cargo_type_icon} iconUrl={selected.cargo_type_icon_url} size={14}/>
+                        <p style={{ fontSize:'0.78rem', color:'var(--clr-text)', fontWeight:600 }}>{selected.cargo_type_name ?? '—'}</p>
+                      </div>
+                    </div>
+                    <div><p style={{ fontSize:'0.65rem', color:'var(--clr-muted)' }}>Vehicle</p><p style={{ fontSize:'0.78rem', color:'var(--clr-text)', fontWeight:600 }}>{selected.vehicle_type ?? '—'}</p></div>
+                    {selected.estimated_weight_kg != null && <div><p style={{ fontSize:'0.65rem', color:'var(--clr-muted)' }}>Weight</p><p style={{ fontSize:'0.78rem', color:'var(--clr-text)', fontWeight:600 }}>{selected.estimated_weight_kg} kg</p></div>}
+                    {selected.distance_km != null && <div><p style={{ fontSize:'0.65rem', color:'var(--clr-muted)' }}>Distance</p><p style={{ fontSize:'0.78rem', color:'var(--clr-text)', fontWeight:600 }}>{Number(selected.distance_km).toFixed(1)} km</p></div>}
+                  </div>
+                  {/* OTPs */}
+                  <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'0.5rem', padding:'0.6rem', background:'rgba(0,229,255,0.06)', borderRadius:8, border:'1px solid rgba(0,229,255,0.12)' }}>
+                    <div style={{ textAlign:'center' }}>
+                      <p style={{ fontSize:'0.65rem', color:'var(--clr-muted)', fontWeight:600, marginBottom:'0.15rem' }}>PICKUP OTP</p>
+                      <p style={{ fontSize:'1.1rem', fontWeight:900, color:'var(--clr-accent)', letterSpacing:2 }}>{selected.pickup_otp ?? '—'}</p>
+                    </div>
+                    <div style={{ textAlign:'center' }}>
+                      <p style={{ fontSize:'0.65rem', color:'var(--clr-muted)', fontWeight:600, marginBottom:'0.15rem' }}>DELIVERY OTP</p>
+                      <p style={{ fontSize:'1.1rem', fontWeight:900, color:'var(--clr-accent)', letterSpacing:2 }}>{selected.delivery_otp ?? '—'}</p>
+                    </div>
+                  </div>
+                  {/* Price */}
+                  <div style={{ display:'flex', justifyContent:'space-between' }}>
+                    <span style={{ fontSize:'0.72rem', color:'var(--clr-muted)' }}>Price</span>
+                    <span style={{ fontSize:'0.85rem', fontWeight:800, color:'var(--clr-accent)' }}>
+                      {(selected.final_price ?? selected.estimated_price ?? 0).toLocaleString()} ETB
+                    </span>
+                  </div>
+                </div>
+              ) : (
+                <div className="glass-inner" style={{ padding:'1rem', textAlign:'center', color:'var(--clr-muted)', fontSize:'0.82rem' }}>No active order</div>
+              )}
+
+              {/* Chat */}
+              {selected.order_id && (
+                <div className="glass-inner" style={{ display:'flex', flexDirection:'column', gap:'0', overflow:'hidden' }}>
+                  <div style={{ padding:'0.6rem 0.85rem', borderBottom:'1px solid rgba(255,255,255,0.07)', display:'flex', alignItems:'center', gap:'0.4rem' }}>
+                    <LuMessageSquare size={14} style={{ color:'var(--clr-accent)' }}/>
+                    <span style={{ fontSize:'0.78rem', fontWeight:700, color:'var(--clr-text)' }}>Chat with Driver</span>
+                  </div>
+                  <div style={{ height:180, overflowY:'auto', padding:'0.65rem 0.85rem', display:'flex', flexDirection:'column', gap:'0.5rem' }}>
+                    {messages.length === 0 ? (
+                      <p style={{ color:'var(--clr-muted)', fontSize:'0.78rem', textAlign:'center', margin:'auto' }}>No messages yet</p>
+                    ) : messages.map(m => (
+                      <div key={m.id} style={{ display:'flex', flexDirection:'column', alignItems: m.sender_role === 'Driver' ? 'flex-start' : 'flex-end' }}>
+                        <div style={{ maxWidth:'85%', padding:'0.45rem 0.75rem', borderRadius:10, fontSize:'0.8rem', color:'var(--clr-text)',
+                          background: m.sender_role === 'Driver' ? 'rgba(255,255,255,0.07)' : 'rgba(0,229,255,0.12)',
+                          border: m.sender_role === 'Driver' ? '1px solid rgba(255,255,255,0.09)' : '1px solid rgba(0,229,255,0.18)' }}>
+                          {m.message}
+                        </div>
+                        <span style={{ fontSize:'0.62rem', color:'var(--clr-muted)', marginTop:'0.1rem' }}>{m.sender_name}</span>
+                      </div>
+                    ))}
+                    <div ref={chatEndRef}/>
+                  </div>
+                  <div style={{ padding:'0.55rem 0.85rem', borderTop:'1px solid rgba(255,255,255,0.07)', display:'flex', gap:'0.5rem' }}>
+                    <input value={chatMsg} onChange={e => setChatMsg(e.target.value)}
+                      onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMsg() } }}
+                      placeholder="Message driver…"
+                      style={{ flex:1, padding:'0.45rem 0.7rem', borderRadius:8, border:'1px solid rgba(255,255,255,0.1)', background:'rgba(255,255,255,0.04)', color:'var(--clr-text)', fontFamily:'inherit', fontSize:'0.8rem', outline:'none' }}/>
+                    <button onClick={sendMsg} disabled={chatSending || !chatMsg.trim()}
+                      style={{ padding:'0.45rem 0.75rem', borderRadius:8, border:'none', background:'var(--clr-accent)', color:'#000', cursor:'pointer', display:'flex', alignItems:'center', gap:'0.3rem', fontFamily:'inherit', fontSize:'0.78rem', fontWeight:700, opacity: (!chatMsg.trim() || chatSending) ? 0.5 : 1 }}>
+                      <LuSend size={13}/>
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {toast && <div style={{ position:'fixed', bottom:'1.25rem', right:'1.25rem', zIndex:200, background:'rgba(0,229,255,0.12)', border:'1px solid rgba(0,229,255,0.25)', color:'var(--clr-text)', padding:'0.65rem 1.1rem', borderRadius:12, fontSize:'0.85rem', fontWeight:600, backdropFilter:'blur(12px)' }}>{toast}</div>}
+    </div>
+  )
+}
+
+// ─── Admin Guest Orders Section ───────────────────────────────────────────────
+
+function AdminGuestOrdersSection() {
+  const [orders, setOrders] = useState<AdminOrder[]>([])
+  const [loading, setLoading] = useState(false)
+  const [search, setSearch] = useState('')
+  const [page, setPage] = useState(1)
+  const [total, setTotal] = useState(0)
+  const LIMIT = 20
+  const [detailOrder, setDetailOrder] = useState<any | null>(null)
+  const [loadingDetail, setLoadingDetail] = useState(false)
+  const [toast, setToast] = useState('')
+  const showToast = (m: string) => { setToast(m); setTimeout(() => setToast(''), 3000) }
+
+  const load = useCallback(async (pg = page, q = search) => {
+    setLoading(true)
+    try {
+      const { data } = await adminOrderApi.getGuestOrders({ page: pg, limit: LIMIT, search: q || undefined })
+      setOrders(data.orders ?? [])
+      setTotal(data.pagination?.total ?? 0)
+    } catch { showToast('Failed to load guest orders') }
+    finally { setLoading(false) }
+  }, [page, search])
+
+  useEffect(() => { load() }, []) // eslint-disable-line
+  useEffect(() => { load(page, search) }, [page]) // eslint-disable-line
+
+  const openDetail = async (id: string) => {
+    setLoadingDetail(true); setDetailOrder(null)
+    try {
+      const { data } = await adminOrderApi.getOrder(id)
+      setDetailOrder(data.order ?? data)
+    } catch { showToast('Failed to load order') }
+    finally { setLoadingDetail(false) }
+  }
+
+  const totalPages = Math.max(1, Math.ceil(total / LIMIT))
+
+  return (
+    <div style={{ display:'flex', flexDirection:'column', gap:'1.25rem' }}>
+      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', flexWrap:'wrap', gap:'0.5rem' }}>
+        <h2 style={{ fontSize:'1rem', fontWeight:800, color:'var(--clr-text)', display:'flex', alignItems:'center', gap:'0.45rem' }}>
+          <LuUsers size={17}/> Guest Orders
+          {total > 0 && <span className="badge badge-cyan" style={{ fontSize:'0.67rem' }}>{total}</span>}
+        </h2>
+        <button onClick={() => load(page, search)} style={{ display:'flex', alignItems:'center', gap:'0.35rem', padding:'0.3rem 0.7rem', borderRadius:8, border:'1px solid rgba(255,255,255,0.1)', background:'rgba(255,255,255,0.04)', color:'var(--clr-muted)', fontFamily:'inherit', fontSize:'0.72rem', fontWeight:600, cursor:'pointer' }}>
+          <LuRefreshCw size={12}/> Refresh
+        </button>
+      </div>
+
+      {/* Search */}
+      <div className="glass" style={{ padding:'0.75rem 1rem', display:'flex', gap:'0.5rem', alignItems:'center' }}>
+        <LuSearch size={13} style={{ color:'var(--clr-muted)', flexShrink:0 }}/>
+        <input value={search} onChange={e => { setSearch(e.target.value); setPage(1) }}
+          onKeyDown={e => e.key === 'Enter' && load(1, search)}
+          placeholder="Search by ref code, guest name, or phone…"
+          style={{ flex:1, background:'none', border:'none', color:'var(--clr-text)', fontFamily:'inherit', fontSize:'0.8rem', outline:'none' }}/>
+        {search && <button onClick={() => { setSearch(''); setPage(1); load(1, '') }} style={{ background:'none', border:'none', cursor:'pointer', color:'var(--clr-muted)', padding:0, display:'flex', alignItems:'center' }}><LuX size={12}/></button>}
+        <button onClick={() => load(1, search)} style={{ padding:'0.3rem 0.7rem', borderRadius:7, border:'none', background:'var(--clr-accent)', color:'#000', fontFamily:'inherit', fontSize:'0.72rem', fontWeight:700, cursor:'pointer' }}>Search</button>
+      </div>
+
+      {/* List */}
+      <div className="glass-inner" style={{ overflow:'hidden' }}>
+        {loading ? <LoadingSpinner /> : orders.length === 0 ? (
+          <p style={{ padding:'2rem', textAlign:'center', color:'var(--clr-muted)', fontSize:'0.875rem' }}>No guest orders found.</p>
+        ) : orders.map((o, i) => (
+          <div key={o.id} onClick={() => openDetail(o.id)}
+            style={{ display:'flex', alignItems:'flex-start', gap:'0.75rem', padding:'0.85rem 1rem', borderBottom: i < orders.length-1 ? '1px solid rgba(255,255,255,0.05)' : 'none', cursor:'pointer', transition:'background 0.15s' }}>
+            <div style={{ flex:1, minWidth:0 }}>
+              <div style={{ display:'flex', alignItems:'center', gap:'0.45rem', flexWrap:'wrap', marginBottom:'0.2rem' }}>
+                <span style={{ fontWeight:700, fontSize:'0.875rem', color:'var(--clr-text)' }}>{o.reference_code}</span>
+                {orderBadge(o.status)}
+                <span className="badge" style={{ fontSize:'0.62rem', background:'rgba(168,85,247,0.15)', color:'#c084fc', border:'1px solid rgba(168,85,247,0.25)' }}>Guest</span>
+              </div>
+              <p style={{ fontSize:'0.73rem', color:'var(--clr-muted)', marginBottom:'0.1rem' }}>
+                {(o as any).guest_name ?? 'Unknown'} · {(o as any).guest_phone ?? '—'}
+              </p>
+              <p style={{ fontSize:'0.7rem', color:'var(--clr-muted)' }}>{o.pickup_address} → {o.delivery_address}</p>
+            </div>
+            <div style={{ textAlign:'right', flexShrink:0 }}>
+              <span style={{ fontWeight:800, fontSize:'0.88rem', color:'var(--clr-accent)' }}>{(o.final_price ?? o.estimated_price).toLocaleString()} ETB</span>
+              <p style={{ fontSize:'0.65rem', color:'var(--clr-muted)', marginTop:'0.2rem' }}>{new Date(o.created_at).toLocaleDateString()}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div style={{ display:'flex', justifyContent:'center', alignItems:'center', gap:'0.5rem' }}>
+          <button onClick={() => setPage(p => Math.max(1,p-1))} disabled={page===1} style={{ padding:'0.3rem 0.6rem', borderRadius:7, border:'1px solid rgba(255,255,255,0.1)', background:'rgba(255,255,255,0.04)', color:'var(--clr-muted)', cursor:'pointer', opacity:page===1?0.4:1 }}>‹</button>
+          <span style={{ fontSize:'0.78rem', color:'var(--clr-muted)' }}>Page {page} of {totalPages} · {total} total</span>
+          <button onClick={() => setPage(p => Math.min(totalPages,p+1))} disabled={page===totalPages} style={{ padding:'0.3rem 0.6rem', borderRadius:7, border:'1px solid rgba(255,255,255,0.1)', background:'rgba(255,255,255,0.04)', color:'var(--clr-muted)', cursor:'pointer', opacity:page===totalPages?0.4:1 }}>›</button>
+        </div>
+      )}
+
+      {/* Detail modal */}
+      {(loadingDetail || detailOrder) && (
+        <div className="modal-backdrop" onClick={e => { if (e.target === e.currentTarget) { setDetailOrder(null); setLoadingDetail(false) } }}>
+          <div className="glass modal-box" style={{ padding:'1.75rem', maxWidth:480, maxHeight:'85vh', overflowY:'auto' }}>
+            {loadingDetail && !detailOrder ? <div style={{ textAlign:'center', padding:'2rem' }}><LoadingSpinner /></div>
+            : detailOrder && (
+              <>
+                <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:'1rem' }}>
+                  <div>
+                    <h2 style={{ fontSize:'1rem', fontWeight:800, color:'var(--clr-text)', marginBottom:'0.25rem' }}>{detailOrder.reference_code}</h2>
+                    <div style={{ display:'flex', gap:'0.4rem', flexWrap:'wrap', alignItems:'center' }}>
+                      {orderBadge(detailOrder.status)}
+                      <span className="badge" style={{ fontSize:'0.62rem', background:'rgba(168,85,247,0.15)', color:'#c084fc', border:'1px solid rgba(168,85,247,0.25)' }}>Guest Order</span>
+                    </div>
+                  </div>
+                  <button onClick={() => setDetailOrder(null)} style={{ background:'none', border:'none', cursor:'pointer', color:'var(--clr-muted)', padding:'0.2rem' }}><LuX size={18}/></button>
+                </div>
+                <div style={{ display:'flex', flexDirection:'column', gap:'0.75rem' }}>
+                  {/* Guest info */}
+                  <div className="glass-inner" style={{ padding:'0.75rem 1rem' }}>
+                    <p style={{ fontSize:'0.7rem', color:'var(--clr-muted)', fontWeight:600, marginBottom:'0.35rem' }}>GUEST CUSTOMER</p>
+                    <p style={{ fontSize:'0.875rem', color:'var(--clr-text)', fontWeight:600 }}>{detailOrder.guest_name ?? 'Unknown Guest'}</p>
+                    {detailOrder.guest_phone && <p style={{ fontSize:'0.78rem', color:'var(--clr-muted)' }}>{detailOrder.guest_phone}</p>}
+                    {detailOrder.guest_email && <p style={{ fontSize:'0.78rem', color:'var(--clr-muted)' }}>{detailOrder.guest_email}</p>}
+                  </div>
+                  {/* Driver */}
+                  {detailOrder.driver_first_name && (
+                    <div className="glass-inner" style={{ padding:'0.75rem 1rem' }}>
+                      <p style={{ fontSize:'0.7rem', color:'var(--clr-muted)', fontWeight:600, marginBottom:'0.35rem' }}>DRIVER</p>
+                      <p style={{ fontSize:'0.875rem', color:'var(--clr-text)', fontWeight:600 }}>{detailOrder.driver_first_name} {detailOrder.driver_last_name}</p>
+                      {detailOrder.driver_phone && <p style={{ fontSize:'0.78rem', color:'var(--clr-muted)' }}>{detailOrder.driver_phone}</p>}
+                    </div>
+                  )}
+                  {/* Route */}
+                  <div className="glass-inner" style={{ padding:'0.75rem 1rem' }}>
+                    <p style={{ fontSize:'0.7rem', color:'var(--clr-muted)', fontWeight:600, marginBottom:'0.35rem' }}>ROUTE</p>
+                    <p style={{ fontSize:'0.78rem', color:'var(--clr-muted)', marginBottom:'0.1rem' }}>From</p>
+                    <p style={{ fontSize:'0.85rem', color:'var(--clr-text)', marginBottom:'0.4rem' }}>{detailOrder.pickup_address}</p>
+                    <p style={{ fontSize:'0.78rem', color:'var(--clr-muted)', marginBottom:'0.1rem' }}>To</p>
+                    <p style={{ fontSize:'0.85rem', color:'var(--clr-text)' }}>{detailOrder.delivery_address}</p>
+                  </div>
+                  {/* Cargo */}
+                  <div className="glass-inner" style={{ padding:'0.75rem 1rem' }}>
+                    <p style={{ fontSize:'0.7rem', color:'var(--clr-muted)', fontWeight:600, marginBottom:'0.5rem' }}>SHIPMENT</p>
+                    <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'0.5rem 1rem' }}>
+                      <div><p style={{ fontSize:'0.7rem', color:'var(--clr-muted)' }}>Cargo Type</p><div style={{ display:'flex', alignItems:'center', gap:'0.4rem', marginTop:'0.15rem' }}><CargoIcon icon={detailOrder.cargo_type_icon} iconUrl={detailOrder.cargo_type_icon_url} size={16}/><p style={{ fontSize:'0.82rem', color:'var(--clr-text)', fontWeight:600 }}>{detailOrder.cargo_type_name ?? '—'}</p></div></div>
+                      <div><p style={{ fontSize:'0.7rem', color:'var(--clr-muted)' }}>Vehicle</p><p style={{ fontSize:'0.82rem', color:'var(--clr-text)', fontWeight:600 }}>{detailOrder.vehicle_type ?? '—'}</p></div>
+                      {detailOrder.estimated_weight_kg != null && <div><p style={{ fontSize:'0.7rem', color:'var(--clr-muted)' }}>Weight</p><p style={{ fontSize:'0.82rem', color:'var(--clr-text)', fontWeight:600 }}>{detailOrder.estimated_weight_kg} kg</p></div>}
+                      {detailOrder.distance_km != null && <div><p style={{ fontSize:'0.7rem', color:'var(--clr-muted)' }}>Distance</p><p style={{ fontSize:'0.82rem', color:'var(--clr-text)', fontWeight:600 }}>{Number(detailOrder.distance_km).toFixed(1)} km</p></div>}
+                    </div>
+                  </div>
+                  {/* OTPs */}
+                  <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'0.5rem', padding:'0.7rem', background:'rgba(0,229,255,0.06)', borderRadius:8, border:'1px solid rgba(0,229,255,0.12)' }}>
+                    <div style={{ textAlign:'center' }}>
+                      <p style={{ fontSize:'0.65rem', color:'var(--clr-muted)', fontWeight:600, marginBottom:'0.2rem' }}>PICKUP OTP</p>
+                      <p style={{ fontSize:'1.1rem', fontWeight:900, color:'var(--clr-accent)', letterSpacing:2 }}>{detailOrder.pickup_otp ?? '—'}</p>
+                    </div>
+                    <div style={{ textAlign:'center' }}>
+                      <p style={{ fontSize:'0.65rem', color:'var(--clr-muted)', fontWeight:600, marginBottom:'0.2rem' }}>DELIVERY OTP</p>
+                      <p style={{ fontSize:'1.1rem', fontWeight:900, color:'var(--clr-accent)', letterSpacing:2 }}>{detailOrder.delivery_otp ?? '—'}</p>
+                    </div>
+                  </div>
+                  {/* Pricing */}
+                  <div className="glass-inner" style={{ padding:'0.75rem 1rem' }}>
+                    <p style={{ fontSize:'0.7rem', color:'var(--clr-muted)', fontWeight:600, marginBottom:'0.35rem' }}>PRICING</p>
+                    <div style={{ display:'flex', justifyContent:'space-between' }}>
+                      <span style={{ fontSize:'0.78rem', color:'var(--clr-muted)' }}>Estimated</span>
+                      <span style={{ fontSize:'0.85rem', color:'var(--clr-text)', fontWeight:700 }}>{Number(detailOrder.estimated_price ?? 0).toLocaleString()} ETB</span>
+                    </div>
+                    {detailOrder.final_price != null && (
+                      <div style={{ display:'flex', justifyContent:'space-between', marginTop:'0.25rem' }}>
+                        <span style={{ fontSize:'0.78rem', color:'var(--clr-muted)' }}>Final</span>
+                        <span style={{ fontSize:'0.9rem', color:'var(--clr-accent)', fontWeight:800 }}>{Number(detailOrder.final_price).toLocaleString()} ETB</span>
+                      </div>
+                    )}
+                  </div>
+                  {/* Media */}
+                  {(detailOrder.cargo_image_url || detailOrder.payment_receipt_url) && (
+                    <div className="glass-inner" style={{ padding:'0.75rem 1rem' }}>
+                      <p style={{ fontSize:'0.7rem', color:'var(--clr-muted)', fontWeight:600, marginBottom:'0.5rem' }}>ATTACHMENTS</p>
+                      <div style={{ display:'flex', gap:'0.65rem', flexWrap:'wrap' }}>
+                        {detailOrder.cargo_image_url && (
+                          <div style={{ textAlign:'center' }}>
+                            <img src={detailOrder.cargo_image_url} alt="Cargo" style={{ width:120, height:90, objectFit:'cover', borderRadius:8, border:'1px solid rgba(255,255,255,0.1)' }}/>
+                            <p style={{ fontSize:'0.65rem', color:'var(--clr-muted)', marginTop:'0.2rem' }}>Cargo Image</p>
+                          </div>
+                        )}
+                        {detailOrder.payment_receipt_url && (
+                          <div style={{ textAlign:'center' }}>
+                            <img src={detailOrder.payment_receipt_url} alt="Receipt" style={{ width:120, height:90, objectFit:'cover', borderRadius:8, border:'1px solid rgba(255,255,255,0.1)' }}/>
+                            <p style={{ fontSize:'0.65rem', color:'var(--clr-muted)', marginTop:'0.2rem' }}>Payment Receipt</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </>
             )}
           </div>
         </div>
@@ -2565,6 +3126,8 @@ export default function AdminDashboardPage() {
     { id: 'verify-drivers', icon: <LuShieldCheck size={16}/>,  label: 'Verify Drivers'   },
     { id: 'vehicles',       icon: <LuCar size={16}/>,          label: 'Vehicles'         },
     { id: 'orders',         icon: <LuListOrdered size={16}/>,  label: 'Orders'           },
+    { id: 'live-drivers',   icon: <LuMapPin size={16}/>,        label: 'Live Drivers'     },
+    { id: 'guest-orders',   icon: <LuUsers size={16}/>,         label: 'Guest Orders'     },
     { id: 'cargo-types',    icon: <LuBox size={16}/>,          label: 'Cargo Types'      },
     { id: 'pricing-rules',  icon: <LuSettings size={16}/>,     label: 'Pricing Rules'    },
     { id: 'profile',        icon: <LuUser size={16}/>,         label: 'My Profile'       },
@@ -2667,6 +3230,8 @@ export default function AdminDashboardPage() {
           {section === 'verify-drivers' && <DriverVerificationSection />}
           {section === 'vehicles'       && <VehicleManagementSection />}
           {section === 'orders'         && <AdminOrdersSection />}
+          {section === 'live-drivers'   && <AdminLiveDriversSection />}
+          {section === 'guest-orders'   && <AdminGuestOrdersSection />}
           {section === 'cargo-types'    && <AdminCargoTypesSection />}
           {section === 'pricing-rules'  && <AdminPricingRulesSection />}
           {section === 'profile'        && <ProfileSection />}

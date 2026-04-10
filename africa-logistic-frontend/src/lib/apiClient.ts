@@ -208,13 +208,32 @@ export const adminOrderApi = {
     apiClient.put(`/admin/pricing-rules/${id}`, data),
 
   createOrderOnBehalf: (data: {
-    shipper_id: string; cargo_type_id: number; vehicle_type: string
+    shipper_id?: string
+    is_guest?: boolean
+    guest_name?: string
+    guest_phone?: string
+    guest_email?: string
+    cargo_type_id: number; vehicle_type: string
     estimated_weight_kg?: number
     pickup_address: string; pickup_lat: number; pickup_lng: number
     delivery_address: string; delivery_lat: number; delivery_lng: number
     special_instructions?: string; estimated_value?: number
     driver_id?: string; vehicle_id?: string
+    cargo_image?: string
+    payment_receipt?: string
   }) => apiClient.post('/admin/orders', data),
+
+  getLiveDrivers: () =>
+    apiClient.get('/admin/drivers/live'),
+
+  getGuestOrders: (params?: { page?: number; limit?: number; search?: string }) =>
+    apiClient.get('/admin/orders/guest', { params }),
+
+  getOrderMessages: (id: string) =>
+    apiClient.get(`/admin/orders/${id}/messages`),
+
+  sendOrderMessage: (id: string, message: string) =>
+    apiClient.post(`/admin/orders/${id}/messages`, { message }),
 
   getShippers: () => apiClient.get('/admin/users'),
 }

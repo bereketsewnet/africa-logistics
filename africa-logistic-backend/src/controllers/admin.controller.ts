@@ -698,6 +698,10 @@ import {
   listActiveCargoTypes,
   createOrder,
   generateOtp,
+  getActiveDriversWithLocation,
+  getOrderMessages,
+  createOrderMessage,
+  markMessagesRead,
 } from '../services/order.service.js'
 
 import {
@@ -837,7 +841,14 @@ export async function adminCancelOrderHandler(
 // ─── Admin Create Order On Behalf ─────────────────────────────────────────────
 
 interface AdminCreateOrderBody {
-  shipper_id: string
+  // Registered shipper mode
+  shipper_id?: string
+  // Guest mode
+  is_guest?: boolean
+  guest_name?: string
+  guest_phone?: string
+  guest_email?: string
+  // Common
   cargo_type_id: number
   vehicle_type: string
   estimated_weight_kg?: number
@@ -851,25 +862,35 @@ interface AdminCreateOrderBody {
   estimated_value?: number
   driver_id?: string
   vehicle_id?: string
+  // Optional media (base64)
+  cargo_image?: string
+  payment_receipt?: string
 }
 
-/** POST /api/admin/orders — admin creates an order on behalf of a shipper */
+/** POST /api/admin/orders — admin creates an order on behalf of a shipper or as a guest */
 export async function adminCreateOrderOnBehalfHandler(
   request: FastifyRequest<{ Body: AdminCreateOrderBody }>,
   reply:   FastifyReply
 ) {
   const admin = request.user as any
   const {
-    shipper_id, cargo_type_id, vehicle_type,
+    shipper_id, is_guest,
+    guest_name, guest_phone, guest_email,
+    cargo_type_id, vehicle_type,
     estimated_weight_kg,
     pickup_address, pickup_lat, pickup_lng,
     delivery_address, delivery_lat, delivery_lng,
     special_instructions,
     driver_id, vehicle_id,
+    cargo_image, payment_receipt,
   } = request.body
 
-  if (!shipper_id || !cargo_type_id || !vehicle_type || !pickup_lat || !pickup_lng || !delivery_lat || !delivery_lng) {
-    return reply.status(400).send({ success: false, message: 'shipper_id, cargo_type_id, vehicle_type, and coordinates are required.' })
+  // Either a registered shipper OR guest mode must be provided
+  if (!is_guest && !shipper_id) {
+    return reply.status(400).send({ success: false, message: 'shipper_id is required (or set is_guest=true for a guest order).' })
+  }
+  if (!cargo_type_id || !vehicle_type || !pickup_lat || !pickup_lng || !delivery_lat || !delivery_lng) {
+    return reply.status(400).send({ success: false, message: 'cargo_type_id, vehicle_type, and coordinates are required.' })
   }
 
   const rule = await getPricingRule(request.server.db, vehicle_type)
@@ -880,15 +901,30 @@ export async function adminCreateOrderOnBehalfHandler(
   const distanceKm = await getRouteDistanceKm(pickup_lat, pickup_lng, delivery_lat, delivery_lng)
 
   // Geocode missing addresses
-  let pickupAddr   = pickup_address   || await reverseGeocode(pickup_lat, pickup_lng) || `${pickup_lat},${pickup_lng}`
-  let deliveryAddr = delivery_address || await reverseGeocode(delivery_lat, delivery_lng) || `${delivery_lat},${delivery_lng}`
+  const pickupAddr   = pickup_address   || await reverseGeocode(pickup_lat, pickup_lng) || `${pickup_lat},${pickup_lng}`
+  const deliveryAddr = delivery_address || await reverseGeocode(delivery_lat, delivery_lng) || `${delivery_lat},${delivery_lng}`
 
-  const quote      = calculateQuote(distanceKm, rule, estimated_weight_kg)
-  const pickupOtp  = generateOtp()
+  const quote       = calculateQuote(distanceKm, rule, estimated_weight_kg)
+  const pickupOtp   = generateOtp()
   const deliveryOtp = generateOtp()
 
+  // Save optional media files
+  let cargoImageUrl:     string | null = null
+  let paymentReceiptUrl: string | null = null
+  if (cargo_image) {
+    try { cargoImageUrl = saveFile(cargo_image, 'order-images', `cargo_${Date.now()}`) } catch { /* ignore */ }
+  }
+  if (payment_receipt) {
+    try { paymentReceiptUrl = saveFile(payment_receipt, 'order-receipts', `receipt_${Date.now()}`) } catch { /* ignore */ }
+  }
+
+  // Resolve guest fields
+  const resolvedGuestName  = is_guest ? (guest_name?.trim() || `Guest-${Date.now()}`) : null
+  const resolvedGuestPhone = is_guest ? (guest_phone?.trim() || process.env.GUEST_DEFAULT_PHONE || '') : null
+  const resolvedGuestEmail = is_guest ? (guest_email?.trim() || process.env.GUEST_DEFAULT_EMAIL || '') : null
+
   const orderId = await createOrder(request.server.db, {
-    shipperId:           shipper_id,
+    shipperId:           is_guest ? null : (shipper_id ?? null),
     cargoTypeId:         cargo_type_id,
     pickupLat:           pickup_lat,
     pickupLng:           pickup_lng,
@@ -908,6 +944,12 @@ export async function adminCreateOrderOnBehalfHandler(
     deliveryOtp,
     orderImage1Url: null,
     orderImage2Url: null,
+    cargoImageUrl,
+    paymentReceiptUrl,
+    isGuestOrder:   is_guest ? true : false,
+    guestName:      resolvedGuestName,
+    guestPhone:     resolvedGuestPhone,
+    guestEmail:     resolvedGuestEmail,
   })
 
   // Optionally assign driver right away
@@ -1043,6 +1085,80 @@ export async function adminOrderStatsHandler(
       total_orders: totalRow[0].total,
       total_revenue: revenueRow[0].total_revenue ?? 0,
     },
+  })
+}
+
+// ─── Live Driver Tracking ─────────────────────────────────────────────────────
+
+/** GET /api/admin/drivers/live — all drivers with latest location + active order */
+export async function adminLiveDriversHandler(
+  request: FastifyRequest,
+  reply:   FastifyReply
+) {
+  const drivers = await getActiveDriversWithLocation(request.server.db)
+  return reply.send({ success: true, drivers })
+}
+
+// ─── Admin Order Messages (chat) ──────────────────────────────────────────────
+
+/** GET /api/admin/orders/:id/messages */
+export async function adminGetOrderMessagesHandler(
+  request: FastifyRequest<{ Params: { id: string } }>,
+  reply:   FastifyReply
+) {
+  const admin = request.user as any
+  const messages = await getOrderMessages(request.server.db, request.params.id)
+  await markMessagesRead(request.server.db, request.params.id, admin.id)
+  return reply.send({ success: true, messages })
+}
+
+/** POST /api/admin/orders/:id/messages */
+export async function adminSendOrderMessageHandler(
+  request: FastifyRequest<{ Params: { id: string }; Body: { message: string } }>,
+  reply:   FastifyReply
+) {
+  const admin = request.user as any
+  if (!request.body.message?.trim()) return reply.status(400).send({ success: false, message: 'Message required.' })
+  const msg = await createOrderMessage(request.server.db, request.params.id, admin.id, request.body.message.trim())
+  wsManager.broadcast(request.params.id, 'NEW_MESSAGE', { message: msg })
+  return reply.status(201).send({ success: true, message: msg })
+}
+
+/** GET /api/admin/orders/guest — list guest orders only */
+export async function adminListGuestOrdersHandler(
+  request: FastifyRequest<{ Querystring: { page?: string; limit?: string; search?: string } }>,
+  reply:   FastifyReply
+) {
+  const page  = parseInt(request.query.page  ?? '1',  10)
+  const limit = parseInt(request.query.limit ?? '25', 10)
+  const offset = (page - 1) * limit
+  const search = request.query.search?.trim()
+
+  const conditions = ['o.is_guest_order = 1']
+  const params: any[] = []
+  if (search) {
+    conditions.push('(o.reference_code LIKE ? OR o.guest_name LIKE ? OR o.guest_phone LIKE ?)')
+    params.push(`%${search}%`, `%${search}%`, `%${search}%`)
+  }
+
+  const where = `WHERE ${conditions.join(' AND ')}`
+  const [rows] = await request.server.db.query<any[]>(
+    `SELECT o.*, ct.name AS cargo_type_name, ct.icon AS cargo_type_icon, ct.icon_url AS cargo_type_icon_url,
+            d.first_name AS driver_first_name, d.last_name AS driver_last_name, d.phone_number AS driver_phone
+       FROM orders o
+       LEFT JOIN cargo_types ct ON ct.id = o.cargo_type_id
+       LEFT JOIN users d ON d.id = o.driver_id
+       ${where}
+       ORDER BY o.created_at DESC LIMIT ? OFFSET ?`,
+    [...params, limit, offset]
+  )
+  const [countRow] = await request.server.db.query<any[]>(
+    `SELECT COUNT(*) as total FROM orders o ${where}`, params
+  )
+  return reply.send({
+    success: true,
+    orders: rows,
+    pagination: { total: countRow[0].total, page, limit, pages: Math.ceil(countRow[0].total / limit) }
   })
 }
 

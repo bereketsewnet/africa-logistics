@@ -127,7 +127,7 @@ export interface LocationRow extends RowDataPacket {
 }
 
 export interface CreateOrderData {
-  shipperId: string
+  shipperId: string | null         // null for guest orders
   cargoTypeId: number
   pickupLat: number
   pickupLng: number
@@ -147,6 +147,13 @@ export interface CreateOrderData {
   deliveryOtp: string  // plain text — we hash it here
   orderImage1Url?: string | null
   orderImage2Url?: string | null
+  cargoImageUrl?: string | null
+  paymentReceiptUrl?: string | null
+  // Guest order fields (when shipperId is null)
+  isGuestOrder?: boolean
+  guestName?: string | null
+  guestPhone?: string | null
+  guestEmail?: string | null
 }
 
 // ─── OTP Utilities ────────────────────────────────────────────────────────────
@@ -259,23 +266,28 @@ export async function createOrder(db: Pool, data: CreateOrderData): Promise<stri
         estimated_weight_kg, vehicle_type_required, special_instructions,
         distance_km, base_fare, per_km_rate, city_surcharge, estimated_price,
         pickup_otp_hash, pickup_otp, delivery_otp_hash, delivery_otp,
-        order_image_1_url, order_image_2_url
-      ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+        order_image_1_url, order_image_2_url,
+        cargo_image_url, payment_receipt_url,
+        is_guest_order, guest_name, guest_phone, guest_email
+      ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
     [
-      id, refCode, data.shipperId, data.cargoTypeId,
+      id, refCode, data.shipperId ?? null, data.cargoTypeId,
       data.pickupLat, data.pickupLng, data.pickupAddress,
       data.deliveryLat, data.deliveryLng, data.deliveryAddress,
       data.estimatedWeightKg, data.vehicleTypeRequired, data.specialInstructions,
       data.distanceKm, data.baseFare, data.perKmRate, data.citySurcharge, data.estimatedPrice,
       pickupHash, data.pickupOtp, deliveryHash, data.deliveryOtp,
       data.orderImage1Url ?? null, data.orderImage2Url ?? null,
+      data.cargoImageUrl ?? null, data.paymentReceiptUrl ?? null,
+      data.isGuestOrder ? 1 : 0, data.guestName ?? null, data.guestPhone ?? null, data.guestEmail ?? null,
     ]
   )
 
   // Record initial status in history
+  const historyCreator = data.shipperId ?? 'guest'
   await db.query(
     `INSERT INTO order_status_history (order_id, status, changed_by, notes) VALUES (?, 'PENDING', ?, 'Order placed')`,
-    [id, data.shipperId]
+    [id, historyCreator === 'guest' ? null : historyCreator]
   )
 
   return id
@@ -470,6 +482,28 @@ export async function getOrderTrackingInfo(
     [orderId]
   )
   return rows[0] ?? null
+}
+
+/** Returns all active/on-job drivers with their latest location ping */
+export async function getActiveDriversWithLocation(db: Pool): Promise<any[]> {
+  const [rows] = await db.query<RowDataPacket[]>(
+    `SELECT
+       u.id AS driver_id,
+       u.first_name, u.last_name, u.phone_number, u.profile_photo_url,
+       dl.lat, dl.lng, dl.heading, dl.speed_kmh, dl.recorded_at AS location_at,
+       o.id AS order_id, o.reference_code, o.status AS order_status,
+       o.pickup_address, o.delivery_address,
+       o.pickup_otp, o.delivery_otp
+     FROM users u
+     JOIN (
+       SELECT driver_id, MAX(recorded_at) AS max_at FROM driver_locations GROUP BY driver_id
+     ) latest ON latest.driver_id = u.id
+     JOIN driver_locations dl ON dl.driver_id = u.id AND dl.recorded_at = latest.max_at
+     LEFT JOIN orders o ON o.driver_id = u.id AND o.status IN ('ASSIGNED','EN_ROUTE','AT_PICKUP','IN_TRANSIT')
+     WHERE u.role_id = 3
+     ORDER BY dl.recorded_at DESC`
+  )
+  return rows as any[]
 }
 
 // ─── In-App Chat Messages ─────────────────────────────────────────────────────

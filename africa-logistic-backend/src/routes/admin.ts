@@ -33,6 +33,13 @@ import {
   adminListPricingRulesHandler,
   adminCreatePricingRuleHandler,
   adminUpdatePricingRuleHandler,
+  // ── Live Drivers ───────────────────────────────────────────────────────────
+  adminLiveDriversHandler,
+  // ── Guest Orders ───────────────────────────────────────────────────────────
+  adminListGuestOrdersHandler,
+  // ── Order Chat ─────────────────────────────────────────────────────────────
+  adminGetOrderMessagesHandler,
+  adminSendOrderMessageHandler,
 } from '../controllers/admin.controller.js'
 
 export default async function adminRoutes(fastify: FastifyInstance) {
@@ -130,9 +137,14 @@ export default async function adminRoutes(fastify: FastifyInstance) {
    */
   fastify.post('/vehicles/:id/review', adminReviewVehicleSubmissionHandler)
 
+  // ─── Driver Live Tracking ─────────────────────────────────────────────────────
+
+  /** GET /api/admin/drivers/live — all drivers with latest GPS + active order */
+  fastify.get('/drivers/live', adminLiveDriversHandler)
+
   // ─── Order Management ────────────────────────────────────────────────────────
 
-  /** POST /api/admin/orders — admin creates order on behalf of shipper */
+  /** POST /api/admin/orders — admin creates order on behalf of shipper or guest */
   fastify.post('/orders', adminCreateOrderOnBehalfHandler)
 
   /** GET /api/admin/orders — all orders with filters */
@@ -141,8 +153,20 @@ export default async function adminRoutes(fastify: FastifyInstance) {
   /** GET /api/admin/orders/stats — order counts + revenue summary */
   fastify.get('/orders/stats', adminOrderStatsHandler)
 
+  /**
+   * GET /api/admin/orders/guest — list guest-only orders
+   * MUST be registered BEFORE /orders/:id to avoid route conflict.
+   */
+  fastify.get('/orders/guest', adminListGuestOrdersHandler)
+
   /** GET /api/admin/orders/:id — single order details */
   fastify.get('/orders/:id', adminGetOrderHandler)
+
+  /** GET /api/admin/orders/:id/messages — chat messages for an order */
+  fastify.get('/orders/:id/messages', adminGetOrderMessagesHandler)
+
+  /** POST /api/admin/orders/:id/messages — send a message to driver */
+  fastify.post('/orders/:id/messages', adminSendOrderMessageHandler)
 
   /** PATCH /api/admin/orders/:id/assign — assign driver to order */
   fastify.patch('/orders/:id/assign', adminAssignOrderHandler)
