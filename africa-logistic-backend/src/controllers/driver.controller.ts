@@ -287,7 +287,11 @@ export async function getDriverJobMessagesHandler(
   if (!order)                        return reply.status(404).send({ success: false, message: 'Job not found.' })
   if (order.driver_id !== driver.id) return reply.status(403).send({ success: false, message: 'Not your job.' })
 
-  const messages = await getOrderMessages(request.server.db, request.params.id)
+  // Drivers can only see: main (driver↔shipper) and driver (admin↔driver) channels
+  const channelParam = (request.query as any).channel as string | undefined
+  const allowedChannels = ['main', 'driver']
+  const channel = channelParam && allowedChannels.includes(channelParam) ? channelParam : undefined
+  const messages = await getOrderMessages(request.server.db, request.params.id, channel)
   await markMessagesRead(request.server.db, request.params.id, driver.id)
 
   return reply.send({ success: true, messages })
@@ -319,7 +323,11 @@ export async function sendDriverMessageHandler(
   const { message } = request.body
   if (!message?.trim()) return reply.status(400).send({ success: false, message: 'Message cannot be empty.' })
 
-  const msg = await createOrderMessage(request.server.db, order.id, driver.id, message.trim())
+  // Restrict driver to main/driver channels only
+  const allowedCh = ['main', 'driver']
+  const channelBody = (request.body as any).channel
+  const channel = channelBody && allowedCh.includes(channelBody) ? channelBody : 'main'
+  const msg = await createOrderMessage(request.server.db, order.id, driver.id, message.trim(), channel)
   wsManager.broadcast(order.id, 'NEW_MESSAGE', { message: msg })
 
   return reply.status(201).send({ success: true, message: msg })

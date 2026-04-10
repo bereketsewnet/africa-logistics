@@ -114,11 +114,11 @@ export const orderApi = {
   getHistory: (id: string) =>
     apiClient.get(`/orders/${id}/history`),
 
-  getMessages: (id: string) =>
-    apiClient.get(`/orders/${id}/messages`),
+  getMessages: (id: string, channel?: string) =>
+    apiClient.get(`/orders/${id}/messages`, channel ? { params: { channel } } : undefined),
 
-  sendMessage: (id: string, message: string) =>
-    apiClient.post(`/orders/${id}/messages`, { message }),
+  sendMessage: (id: string, message: string, channel = 'main') =>
+    apiClient.post(`/orders/${id}/messages`, { message, channel }),
 
   cancelOrder: (id: string) =>
     apiClient.post(`/orders/${id}/cancel`),
@@ -156,11 +156,11 @@ export const driverApi = {
   verifyDelivery: (id: string, otp: string) =>
     apiClient.post(`/driver/jobs/${id}/verify-delivery`, { otp }),
 
-  getMessages: (id: string) =>
-    apiClient.get(`/driver/jobs/${id}/messages`),
+  getMessages: (id: string, channel?: string) =>
+    apiClient.get(`/driver/jobs/${id}/messages`, channel ? { params: { channel } } : undefined),
 
-  sendMessage: (id: string, message: string) =>
-    apiClient.post(`/driver/jobs/${id}/messages`, { message }),
+  sendMessage: (id: string, message: string, channel = 'main') =>
+    apiClient.post(`/driver/jobs/${id}/messages`, { message, channel }),
 
   getUnreadCounts: () =>
     apiClient.get('/driver/jobs/unread-counts'),

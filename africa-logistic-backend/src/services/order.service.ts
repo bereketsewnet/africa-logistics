@@ -108,12 +108,16 @@ export interface MessageRow extends RowDataPacket {
   order_id: string
   sender_id: string
   message: string
-  channel: string   // 'main' | 'driver'
+  channel: string   // 'main' | 'driver' | 'shipper'
   is_read: number
   created_at: string
+  // raw fields
   sender_first_name?: string
   sender_last_name?: string
   sender_role_id?: number
+  // computed in SELECT
+  sender_name?: string
+  sender_role?: string
 }
 
 export interface LocationRow extends RowDataPacket {
@@ -543,7 +547,11 @@ export async function getOrderMessages(
     params.push(channel)
   }
   const [rows] = await db.query<MessageRow[]>(
-    `SELECT m.*, u.first_name AS sender_first_name, u.last_name AS sender_last_name, u.role_id AS sender_role_id
+    `SELECT m.*,
+        u.first_name AS sender_first_name, u.last_name AS sender_last_name,
+        u.role_id AS sender_role_id,
+        CONCAT(u.first_name, ' ', u.last_name) AS sender_name,
+        CASE u.role_id WHEN 1 THEN 'Admin' WHEN 2 THEN 'Shipper' WHEN 3 THEN 'Driver' ELSE 'User' END AS sender_role
        FROM order_messages m
        JOIN users u ON u.id = m.sender_id
       WHERE m.order_id = ?${channelClause}
@@ -566,7 +574,11 @@ export async function createOrderMessage(
     [id, orderId, senderId, message, channel]
   )
   const [rows] = await db.query<MessageRow[]>(
-    `SELECT m.*, u.first_name AS sender_first_name, u.last_name AS sender_last_name, u.role_id AS sender_role_id
+    `SELECT m.*,
+        u.first_name AS sender_first_name, u.last_name AS sender_last_name,
+        u.role_id AS sender_role_id,
+        CONCAT(u.first_name, ' ', u.last_name) AS sender_name,
+        CASE u.role_id WHEN 1 THEN 'Admin' WHEN 2 THEN 'Shipper' WHEN 3 THEN 'Driver' ELSE 'User' END AS sender_role
        FROM order_messages m JOIN users u ON u.id = m.sender_id WHERE m.id = ?`,
     [id]
   )

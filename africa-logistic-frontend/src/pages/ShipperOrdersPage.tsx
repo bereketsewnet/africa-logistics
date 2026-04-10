@@ -45,7 +45,7 @@ interface Order {
   created_at: string; pickup_otp?: string | null; delivery_otp?: string | null
 }
 interface StatusHistory { id: number; status: string; notes: string | null; created_at: string }
-interface Message { id: string; sender_first_name: string; sender_last_name: string; sender_role_id: number; message: string; created_at: string }
+interface Message { id: string; sender_first_name: string; sender_last_name: string; sender_role_id: number; message: string; created_at: string; sender_name?: string; sender_role?: string; channel?: string }
 interface TrackInfo { success: boolean; status: string; driver?: { name: string; phone: string }; location?: { lat: number; lng: number; recorded_at: string; heading: number | null; speed_kmh: number | null } }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -804,6 +804,7 @@ function OtpRevealBox({ pickupOtp, deliveryOtp }: { pickupOtp?: string | null; d
 // ─── Order Detail Modal ───────────────────────────────────────────────────────
 function OrderDetailModal({ order, onClose, onCancelled }: { order: Order; onClose: () => void; onCancelled: () => void }) {
   const [tab, setTab] = useState<'info' | 'history' | 'chat' | 'track'>('info')
+  const [chatChannel, setChatChannel] = useState<'main' | 'shipper'>('main')
   const [history, setHistory] = useState<StatusHistory[]>([])
   const [messages, setMessages] = useState<Message[]>([])
   const [msgText, setMsgText] = useState('')
@@ -819,21 +820,25 @@ function OrderDetailModal({ order, onClose, onCancelled }: { order: Order; onClo
   }, [order.id])
 
   const loadMessages = useCallback(async () => {
-    const { data } = await orderApi.getMessages(order.id)
+    const { data } = await orderApi.getMessages(order.id, chatChannel)
     setMessages(data.messages ?? [])
     setTimeout(() => msgBottom.current?.scrollIntoView({ behavior:'smooth' }), 100)
-  }, [order.id])
+  }, [order.id, chatChannel])
 
   useEffect(() => {
     if (tab === 'history') loadHistory()
     if (tab === 'chat') loadMessages()
   }, [tab]) // eslint-disable-line
 
+  useEffect(() => {
+    if (tab === 'chat') loadMessages()
+  }, [chatChannel]) // eslint-disable-line
+
   const handleSend = async () => {
     if (!msgText.trim()) return
     setSending(true)
     try {
-      await orderApi.sendMessage(order.id, msgText.trim())
+      await orderApi.sendMessage(order.id, msgText.trim(), chatChannel)
       setMsgText('')
       await loadMessages()
     } catch { /* silent */ }
@@ -1000,17 +1005,33 @@ function OrderDetailModal({ order, onClose, onCancelled }: { order: Order; onClo
           {/* ── Chat tab ── */}
           {tab === 'chat' && (
             <div style={{ display:'flex', flexDirection:'column', height:'100%' }}>
+              {/* Channel toggle */}
+              <div style={{ display:'flex', gap:'0.4rem', marginBottom:'0.6rem', flexShrink:0 }}>
+                {([{ v: 'main', label: '🚚 Driver Chat' }, { v: 'shipper', label: '🛡️ Admin Chat' }] as const).map(({ v, label }) => (
+                  <button key={v} onClick={() => setChatChannel(v)}
+                    style={{ flex:1, padding:'0.35rem 0.5rem', borderRadius:8, border:'none', cursor:'pointer', fontFamily:'inherit', fontSize:'0.75rem', fontWeight:700, transition:'all 0.15s',
+                      background: chatChannel === v ? 'var(--clr-accent)' : 'rgba(255,255,255,0.06)',
+                      color: chatChannel === v ? '#000' : 'var(--clr-muted)' }}>
+                    {label}
+                  </button>
+                ))}
+              </div>
               <div style={{ flex:1, display:'flex', flexDirection:'column', gap:'0.6rem', minHeight:200, maxHeight:340, overflowY:'auto', padding:'0.25rem 0' }}>
                 {messages.length === 0 ? (
                   <div style={{ textAlign:'center', color:'var(--clr-muted)', padding:'2rem', fontSize:'0.85rem' }}>No messages yet. Start the conversation!</div>
                 ) : messages.map(m => {
+                  const role = m.sender_role ?? (m.sender_role_id === 1 ? 'Admin' : m.sender_role_id === 2 ? 'Shipper' : 'Driver')
                   const isMe = m.sender_role_id === 2
+                  const roleColor = role === 'Admin' ? '#00e5ff' : role === 'Shipper' ? '#f59e0b' : '#a78bfa'
+                  const roleBg = role === 'Admin' ? 'rgba(0,229,255,0.12)' : role === 'Shipper' ? 'rgba(245,158,11,0.09)' : 'rgba(167,139,250,0.1)'
+                  const roleBorder = role === 'Admin' ? '1px solid rgba(0,229,255,0.2)' : role === 'Shipper' ? '1px solid rgba(245,158,11,0.2)' : '1px solid rgba(167,139,250,0.2)'
+                  const displayName = m.sender_name ?? `${m.sender_first_name} ${m.sender_last_name}`.trim()
                   return (
                     <div key={m.id} style={{ display:'flex', flexDirection:'column', alignItems: isMe ? 'flex-end' : 'flex-start' }}>
-                      <div style={{ maxWidth:'80%', background: isMe ? 'rgba(0,229,255,0.12)' : 'rgba(255,255,255,0.05)', border: isMe ? '1px solid rgba(0,229,255,0.2)' : '1px solid rgba(255,255,255,0.08)', borderRadius:12, padding:'0.55rem 0.85rem' }}>
+                      <div style={{ maxWidth:'80%', background: roleBg, border: roleBorder, borderRadius:12, padding:'0.55rem 0.85rem' }}>
                         <p style={{ fontSize:'0.8rem', color:'var(--clr-text)', lineHeight:1.5, wordBreak:'break-word' }}>{m.message}</p>
                       </div>
-                      <p style={{ fontSize:'0.65rem', color:'var(--clr-muted)', marginTop:'0.15rem', paddingInline:'0.25rem' }}>{m.sender_first_name} · {fmtDate(m.created_at)}</p>
+                      <p style={{ fontSize:'0.65rem', color: roleColor, marginTop:'0.15rem', paddingInline:'0.25rem', fontWeight:600 }}>{displayName} · {role} · {fmtDate(m.created_at)}</p>
                     </div>
                   )
                 })}

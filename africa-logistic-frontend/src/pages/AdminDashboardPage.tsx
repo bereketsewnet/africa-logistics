@@ -1691,6 +1691,13 @@ function AdminOrdersSection() {
   const [detailOrder, setDetailOrder] = useState<any | null>(null)
   const [loadingDetail, setLoadingDetail] = useState(false)
 
+  // Order detail chat (admin ↔ shipper / admin ↔ driver)
+  const [detailChatChannel, setDetailChatChannel] = useState<'shipper' | 'driver'>('shipper')
+  const [detailMessages, setDetailMessages] = useState<ChatMessage[]>([])
+  const [detailChatMsg, setDetailChatMsg] = useState('')
+  const [detailChatSending, setDetailChatSending] = useState(false)
+  const detailChatEndRef = useRef<HTMLDivElement>(null)
+
   // Create Order on behalf state
   const [createOrderModal, setCreateOrderModal] = useState(false)
   const [shippers, setShippers] = useState<Array<{id:string;first_name:string;last_name:string;phone_number:string}>>([])
@@ -1757,11 +1764,40 @@ function AdminOrdersSection() {
   const openOrderDetail = async (id: string) => {
     setLoadingDetail(true)
     setDetailOrder(null)
+    setDetailChatChannel('shipper')
+    setDetailMessages([])
     try {
       const { data } = await adminOrderApi.getOrder(id)
       setDetailOrder(data.order ?? data)
     } catch { showToast('Failed to load order details') }
     finally { setLoadingDetail(false) }
+  }
+
+  // Load detail chat messages when order or channel changes
+  useEffect(() => {
+    if (detailOrder?.id) {
+      adminOrderApi.getOrderMessages(detailOrder.id, detailChatChannel)
+        .then(({ data }) => setDetailMessages(data.messages ?? []))
+        .catch(() => setDetailMessages([]))
+    } else {
+      setDetailMessages([])
+    }
+  }, [detailOrder?.id, detailChatChannel]) // eslint-disable-line
+
+  useEffect(() => {
+    detailChatEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [detailMessages])
+
+  const sendDetailMsg = async () => {
+    if (!detailChatMsg.trim() || !detailOrder?.id || detailChatSending) return
+    setDetailChatSending(true)
+    try {
+      await adminOrderApi.sendOrderMessage(detailOrder.id, detailChatMsg.trim(), detailChatChannel)
+      setDetailChatMsg('')
+      const { data } = await adminOrderApi.getOrderMessages(detailOrder.id, detailChatChannel)
+      setDetailMessages(data.messages ?? [])
+    } catch { showToast('Failed to send') }
+    finally { setDetailChatSending(false) }
   }
 
   const openCreateOrder = async () => {
@@ -2087,6 +2123,53 @@ function AdminOrdersSection() {
                       <button onClick={() => { handleCancel(detailOrder); setDetailOrder(null) }} style={{ display:'flex', alignItems:'center', gap:'0.3rem', padding:'0.45rem 0.9rem', borderRadius:8, border:'1px solid rgba(248,113,113,0.3)', background:'rgba(248,113,113,0.06)', color:'#f87171', fontFamily:'inherit', fontSize:'0.8rem', fontWeight:700, cursor:'pointer' }}><LuBan size={13}/> Cancel Order</button>
                     )}
                   </div>
+                  {/* Order Chat */}
+                  <div className="glass-inner" style={{ display:'flex', flexDirection:'column', overflow:'hidden' }}>
+                    {/* Channel tabs */}
+                    <div style={{ display:'flex', alignItems:'center', padding:'0.3rem 0.5rem 0.3rem 0.75rem', borderBottom:'1px solid rgba(255,255,255,0.07)', gap:'0.4rem' }}>
+                      <LuMessageSquare size={13} style={{ color:'var(--clr-accent)', flexShrink:0 }}/>
+                      <div style={{ display:'flex', flex:1, gap:'0.3rem' }}>
+                        {(['shipper','driver'] as const).map(ch => (
+                          <button key={ch} onClick={() => setDetailChatChannel(ch)}
+                            style={{ flex:1, padding:'0.3rem 0.4rem', borderRadius:6, border:'none', cursor:'pointer', fontFamily:'inherit', fontSize:'0.7rem', fontWeight:700, transition:'all 0.15s',
+                              background: detailChatChannel === ch ? 'var(--clr-accent)' : 'rgba(255,255,255,0.06)',
+                              color: detailChatChannel === ch ? '#000' : 'var(--clr-muted)' }}>
+                            {ch === 'shipper' ? 'Shipper Chat' : 'Driver Chat'}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    {/* Messages */}
+                    <div style={{ height:220, overflowY:'auto', padding:'0.65rem 0.85rem', display:'flex', flexDirection:'column', gap:'0.5rem' }}>
+                      {detailMessages.length === 0 ? (
+                        <p style={{ color:'var(--clr-muted)', fontSize:'0.78rem', textAlign:'center', margin:'auto' }}>No messages yet in this channel</p>
+                      ) : detailMessages.map(m => (
+                        <div key={m.id} style={{ display:'flex', flexDirection:'column', alignItems: m.sender_role === 'Admin' ? 'flex-end' : 'flex-start' }}>
+                          <div style={{ maxWidth:'85%', padding:'0.4rem 0.7rem', borderRadius:10, fontSize:'0.8rem', color:'var(--clr-text)',
+                            background: m.sender_role === 'Admin' ? 'rgba(0,229,255,0.12)' : m.sender_role === 'Shipper' ? 'rgba(245,158,11,0.09)' : 'rgba(167,139,250,0.1)',
+                            border: `1px solid ${m.sender_role === 'Admin' ? 'rgba(0,229,255,0.22)' : m.sender_role === 'Shipper' ? 'rgba(245,158,11,0.22)' : 'rgba(167,139,250,0.22)'}` }}>
+                            {m.message}
+                          </div>
+                          <span style={{ fontSize:'0.6rem', marginTop:'0.15rem', fontWeight:600,
+                            color: m.sender_role === 'Admin' ? '#00e5ff' : m.sender_role === 'Shipper' ? '#f59e0b' : '#a78bfa' }}>
+                            {m.sender_name ?? `${(m as any).sender_first_name ?? ''} ${(m as any).sender_last_name ?? ''}`.trim()} · {m.sender_role ?? 'User'}
+                          </span>
+                        </div>
+                      ))}
+                      <div ref={detailChatEndRef}/>
+                    </div>
+                    {/* Input */}
+                    <div style={{ padding:'0.5rem 0.75rem', borderTop:'1px solid rgba(255,255,255,0.07)', display:'flex', gap:'0.45rem' }}>
+                      <input value={detailChatMsg} onChange={e => setDetailChatMsg(e.target.value)}
+                        onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendDetailMsg() } }}
+                        placeholder={`Message ${detailChatChannel}…`}
+                        style={{ flex:1, padding:'0.4rem 0.65rem', borderRadius:8, border:'1px solid rgba(255,255,255,0.1)', background:'rgba(255,255,255,0.04)', color:'var(--clr-text)', fontFamily:'inherit', fontSize:'0.8rem', outline:'none' }}/>
+                      <button onClick={sendDetailMsg} disabled={detailChatSending || !detailChatMsg.trim()}
+                        style={{ padding:'0.4rem 0.7rem', borderRadius:8, border:'none', background:'var(--clr-accent)', color:'#000', cursor:'pointer', opacity: (!detailChatMsg.trim() || detailChatSending) ? 0.5 : 1 }}>
+                        <LuSend size={13}/>
+                      </button>
+                    </div>
+                  </div>
                 </div>
               </>
             )}
@@ -2375,6 +2458,7 @@ function AdminLiveDriversSection() {
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [chatMsg, setChatMsg] = useState('')
   const [chatSending, setChatSending] = useState(false)
+  const [driverChatChannel, setDriverChatChannel] = useState<'driver' | 'main'>('driver')
   const [toast, setToast] = useState('')
   const chatEndRef = useRef<HTMLDivElement>(null)
   const showToast = (m: string) => { setToast(m); setTimeout(() => setToast(''), 3000) }
@@ -2395,6 +2479,7 @@ function AdminLiveDriversSection() {
 
   const openDriver = async (d: LiveDriver) => {
     setSelected(d)
+    setDriverChatChannel('driver')
     if (d.order_id) {
       try {
         const { data } = await adminOrderApi.getOrderMessages(d.order_id, 'driver')
@@ -2402,6 +2487,15 @@ function AdminLiveDriversSection() {
       } catch { setMessages([]) }
     } else { setMessages([]) }
   }
+
+  // Reload messages when channel tab changes
+  useEffect(() => {
+    if (selected?.order_id) {
+      adminOrderApi.getOrderMessages(selected.order_id, driverChatChannel)
+        .then(({ data }) => setMessages(data.messages ?? []))
+        .catch(() => setMessages([]))
+    }
+  }, [driverChatChannel]) // eslint-disable-line
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -2411,9 +2505,9 @@ function AdminLiveDriversSection() {
     if (!chatMsg.trim() || !selected?.order_id) return
     setChatSending(true)
     try {
-      await adminOrderApi.sendOrderMessage(selected.order_id, chatMsg.trim(), 'driver')
+      await adminOrderApi.sendOrderMessage(selected.order_id, chatMsg.trim(), driverChatChannel)
       setChatMsg('')
-      const { data } = await adminOrderApi.getOrderMessages(selected.order_id, 'driver')
+      const { data } = await adminOrderApi.getOrderMessages(selected.order_id, driverChatChannel)
       setMessages(data.messages ?? [])
     } catch { showToast('Failed to send message') }
     finally { setChatSending(false) }
@@ -2617,21 +2711,34 @@ function AdminLiveDriversSection() {
               {/* Chat */}
               {selected.order_id && (
                 <div className="glass-inner" style={{ display:'flex', flexDirection:'column', gap:'0', overflow:'hidden' }}>
-                  <div style={{ padding:'0.6rem 0.85rem', borderBottom:'1px solid rgba(255,255,255,0.07)', display:'flex', alignItems:'center', gap:'0.4rem' }}>
-                    <LuMessageSquare size={14} style={{ color:'var(--clr-accent)' }}/>
-                    <span style={{ fontSize:'0.78rem', fontWeight:700, color:'var(--clr-text)' }}>Chat with Driver</span>
+                  {/* Channel tabs */}
+                  <div style={{ display:'flex', alignItems:'center', padding:'0.3rem 0.5rem 0.3rem 0.75rem', borderBottom:'1px solid rgba(255,255,255,0.07)', gap:'0.4rem' }}>
+                    <LuMessageSquare size={13} style={{ color:'var(--clr-accent)', flexShrink:0 }}/>
+                    <div style={{ display:'flex', flex:1, gap:'0.3rem' }}>
+                      {([{ v: 'driver', label: 'Driver Chat' }, { v: 'main', label: 'Shipper Chat' }] as const).map(({ v, label }) => (
+                        <button key={v} onClick={() => setDriverChatChannel(v)}
+                          style={{ flex:1, padding:'0.3rem 0.4rem', borderRadius:6, border:'none', cursor:'pointer', fontFamily:'inherit', fontSize:'0.7rem', fontWeight:700, transition:'all 0.15s',
+                            background: driverChatChannel === v ? 'var(--clr-accent)' : 'rgba(255,255,255,0.06)',
+                            color: driverChatChannel === v ? '#000' : 'var(--clr-muted)' }}>
+                          {label}
+                        </button>
+                      ))}
+                    </div>
                   </div>
                   <div style={{ height:180, overflowY:'auto', padding:'0.65rem 0.85rem', display:'flex', flexDirection:'column', gap:'0.5rem' }}>
                     {messages.length === 0 ? (
                       <p style={{ color:'var(--clr-muted)', fontSize:'0.78rem', textAlign:'center', margin:'auto' }}>No messages yet</p>
                     ) : messages.map(m => (
-                      <div key={m.id} style={{ display:'flex', flexDirection:'column', alignItems: m.sender_role === 'Driver' ? 'flex-start' : 'flex-end' }}>
+                      <div key={m.id} style={{ display:'flex', flexDirection:'column', alignItems: m.sender_role === 'Admin' ? 'flex-end' : 'flex-start' }}>
                         <div style={{ maxWidth:'85%', padding:'0.45rem 0.75rem', borderRadius:10, fontSize:'0.8rem', color:'var(--clr-text)',
-                          background: m.sender_role === 'Driver' ? 'rgba(255,255,255,0.07)' : 'rgba(0,229,255,0.12)',
-                          border: m.sender_role === 'Driver' ? '1px solid rgba(255,255,255,0.09)' : '1px solid rgba(0,229,255,0.18)' }}>
+                          background: m.sender_role === 'Admin' ? 'rgba(0,229,255,0.12)' : m.sender_role === 'Shipper' ? 'rgba(245,158,11,0.09)' : 'rgba(167,139,250,0.1)',
+                          border: `1px solid ${m.sender_role === 'Admin' ? 'rgba(0,229,255,0.22)' : m.sender_role === 'Shipper' ? 'rgba(245,158,11,0.22)' : 'rgba(167,139,250,0.22)'}` }}>
                           {m.message}
                         </div>
-                        <span style={{ fontSize:'0.62rem', color:'var(--clr-muted)', marginTop:'0.1rem' }}>{m.sender_name}</span>
+                        <span style={{ fontSize:'0.6rem', marginTop:'0.12rem', fontWeight:600,
+                          color: m.sender_role === 'Admin' ? '#00e5ff' : m.sender_role === 'Shipper' ? '#f59e0b' : '#a78bfa' }}>
+                          {m.sender_name ?? `${(m as any).sender_first_name ?? ''} ${(m as any).sender_last_name ?? ''}`.trim()} · {m.sender_role ?? 'User'}
+                        </span>
                       </div>
                     ))}
                     <div ref={chatEndRef}/>
@@ -2639,7 +2746,7 @@ function AdminLiveDriversSection() {
                   <div style={{ padding:'0.55rem 0.85rem', borderTop:'1px solid rgba(255,255,255,0.07)', display:'flex', gap:'0.5rem' }}>
                     <input value={chatMsg} onChange={e => setChatMsg(e.target.value)}
                       onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMsg() } }}
-                      placeholder="Message driver…"
+                      placeholder={driverChatChannel === 'driver' ? 'Message driver…' : 'Message shipper channel…'}
                       style={{ flex:1, padding:'0.45rem 0.7rem', borderRadius:8, border:'1px solid rgba(255,255,255,0.1)', background:'rgba(255,255,255,0.04)', color:'var(--clr-text)', fontFamily:'inherit', fontSize:'0.8rem', outline:'none' }}/>
                     <button onClick={sendMsg} disabled={chatSending || !chatMsg.trim()}
                       style={{ padding:'0.45rem 0.75rem', borderRadius:8, border:'none', background:'var(--clr-accent)', color:'#000', cursor:'pointer', display:'flex', alignItems:'center', gap:'0.3rem', fontFamily:'inherit', fontSize:'0.78rem', fontWeight:700, opacity: (!chatMsg.trim() || chatSending) ? 0.5 : 1 }}>

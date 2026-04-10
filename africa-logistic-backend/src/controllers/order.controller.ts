@@ -355,7 +355,11 @@ export async function getMessagesHandler(
   const isParty = order.shipper_id === user.id || order.driver_id === user.id || user.role_id <= 2
   if (!isParty) return reply.status(403).send({ success: false, message: 'Access denied.' })
 
-  const messages = await getOrderMessages(request.server.db, request.params.id)
+  // Shippers can only see their channels: main (driver↔shipper) and shipper (admin↔shipper)
+  const channelParam = (request.query as any).channel as string | undefined
+  const allowedChannels = ['main', 'shipper']
+  const channel = channelParam && allowedChannels.includes(channelParam) ? channelParam : undefined
+  const messages = await getOrderMessages(request.server.db, request.params.id, channel)
   await markMessagesRead(request.server.db, request.params.id, user.id)
 
   return reply.send({ success: true, messages })
@@ -363,7 +367,7 @@ export async function getMessagesHandler(
 
 /** POST /api/orders/:id/messages */
 export async function sendMessageHandler(
-  request: FastifyRequest<{ Params: OrderParams; Body: SendMessageBody }>,
+  request: FastifyRequest<{ Params: OrderParams; Body: SendMessageBody & { channel?: string } }>,
   reply:   FastifyReply
 ) {
   const user  = request.user as any
@@ -376,7 +380,10 @@ export async function sendMessageHandler(
   const { message } = request.body
   if (!message?.trim()) return reply.status(400).send({ success: false, message: 'Message cannot be empty.' })
 
-  const msg = await createOrderMessage(request.server.db, request.params.id, user.id, message.trim())
+  // Restrict shipper to main/shipper channels only
+  const allowedCh = ['main', 'shipper']
+  const channel = request.body.channel && allowedCh.includes(request.body.channel) ? request.body.channel : 'main'
+  const msg = await createOrderMessage(request.server.db, request.params.id, user.id, message.trim(), channel)
 
   // Broadcast to WS subscribers
   wsManager.broadcast(request.params.id, 'NEW_MESSAGE', { message: msg })
