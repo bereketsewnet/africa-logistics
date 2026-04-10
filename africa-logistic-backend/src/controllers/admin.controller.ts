@@ -1103,23 +1103,25 @@ export async function adminLiveDriversHandler(
 
 /** GET /api/admin/orders/:id/messages */
 export async function adminGetOrderMessagesHandler(
-  request: FastifyRequest<{ Params: { id: string } }>,
+  request: FastifyRequest<{ Params: { id: string }; Querystring: { channel?: string } }>,
   reply:   FastifyReply
 ) {
   const admin = request.user as any
-  const messages = await getOrderMessages(request.server.db, request.params.id)
+  const channel = request.query.channel ?? undefined
+  const messages = await getOrderMessages(request.server.db, request.params.id, channel)
   await markMessagesRead(request.server.db, request.params.id, admin.id)
   return reply.send({ success: true, messages })
 }
 
 /** POST /api/admin/orders/:id/messages */
 export async function adminSendOrderMessageHandler(
-  request: FastifyRequest<{ Params: { id: string }; Body: { message: string } }>,
+  request: FastifyRequest<{ Params: { id: string }; Body: { message: string; channel?: string } }>,
   reply:   FastifyReply
 ) {
   const admin = request.user as any
   if (!request.body.message?.trim()) return reply.status(400).send({ success: false, message: 'Message required.' })
-  const msg = await createOrderMessage(request.server.db, request.params.id, admin.id, request.body.message.trim())
+  const channel = request.body.channel ?? 'main'
+  const msg = await createOrderMessage(request.server.db, request.params.id, admin.id, request.body.message.trim(), channel)
   wsManager.broadcast(request.params.id, 'NEW_MESSAGE', { message: msg })
   return reply.status(201).send({ success: true, message: msg })
 }

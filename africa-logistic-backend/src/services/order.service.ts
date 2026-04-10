@@ -108,6 +108,7 @@ export interface MessageRow extends RowDataPacket {
   order_id: string
   sender_id: string
   message: string
+  channel: string   // 'main' | 'driver'
   is_read: number
   created_at: string
   sender_first_name?: string
@@ -493,7 +494,7 @@ export async function getActiveDriversWithLocation(db: Pool): Promise<any[]> {
        CAST(dl.lat AS DOUBLE) AS lat,
        CAST(dl.lng AS DOUBLE) AS lng,
        dl.heading, dl.speed_kmh, dl.recorded_at AS location_at,
-       o.id AS order_id, o.reference_code, o.status AS order_status,
+       o.id AS order_id, o.reference_code, o.status,
        o.pickup_address, o.delivery_address,
        CAST(o.pickup_lat  AS DOUBLE) AS pickup_lat,
        CAST(o.pickup_lng  AS DOUBLE) AS pickup_lng,
@@ -511,10 +512,15 @@ export async function getActiveDriversWithLocation(db: Pool): Promise<any[]> {
        s.phone_number AS shipper_phone
      FROM users u
      JOIN (
-       SELECT driver_id, MAX(recorded_at) AS max_at FROM driver_locations GROUP BY driver_id
-     ) latest ON latest.driver_id = u.id
-     JOIN driver_locations dl ON dl.driver_id = u.id AND dl.recorded_at = latest.max_at
-     LEFT JOIN orders o ON o.driver_id = u.id AND o.status IN ('ASSIGNED','EN_ROUTE','AT_PICKUP','IN_TRANSIT')
+       SELECT dl_inner.*,
+              ROW_NUMBER() OVER (PARTITION BY dl_inner.driver_id ORDER BY dl_inner.recorded_at DESC, dl_inner.id DESC) AS rn
+       FROM driver_locations dl_inner
+     ) dl ON dl.driver_id = u.id AND dl.rn = 1
+     LEFT JOIN orders o ON o.id = (
+       SELECT id FROM orders
+       WHERE driver_id = u.id AND status IN ('ASSIGNED','EN_ROUTE','AT_PICKUP','IN_TRANSIT')
+       ORDER BY created_at DESC LIMIT 1
+     )
      LEFT JOIN cargo_types ct ON ct.id = o.cargo_type_id
      LEFT JOIN users s ON s.id = o.shipper_id
      WHERE u.role_id = 3
@@ -525,14 +531,24 @@ export async function getActiveDriversWithLocation(db: Pool): Promise<any[]> {
 
 // ─── In-App Chat Messages ─────────────────────────────────────────────────────
 
-export async function getOrderMessages(db: Pool, orderId: string): Promise<MessageRow[]> {
+export async function getOrderMessages(
+  db: Pool,
+  orderId: string,
+  channel?: string
+): Promise<MessageRow[]> {
+  const params: any[] = [orderId]
+  let channelClause = ''
+  if (channel) {
+    channelClause = ' AND m.channel = ?'
+    params.push(channel)
+  }
   const [rows] = await db.query<MessageRow[]>(
     `SELECT m.*, u.first_name AS sender_first_name, u.last_name AS sender_last_name, u.role_id AS sender_role_id
        FROM order_messages m
        JOIN users u ON u.id = m.sender_id
-      WHERE m.order_id = ?
+      WHERE m.order_id = ?${channelClause}
       ORDER BY m.created_at ASC`,
-    [orderId]
+    params
   )
   return rows
 }
@@ -541,12 +557,13 @@ export async function createOrderMessage(
   db: Pool,
   orderId: string,
   senderId: string,
-  message: string
+  message: string,
+  channel = 'main'
 ): Promise<MessageRow> {
   const id = uuidv4()
   await db.query(
-    `INSERT INTO order_messages (id, order_id, sender_id, message) VALUES (?, ?, ?, ?)`,
-    [id, orderId, senderId, message]
+    `INSERT INTO order_messages (id, order_id, sender_id, message, channel) VALUES (?, ?, ?, ?, ?)`,
+    [id, orderId, senderId, message, channel]
   )
   const [rows] = await db.query<MessageRow[]>(
     `SELECT m.*, u.first_name AS sender_first_name, u.last_name AS sender_last_name, u.role_id AS sender_role_id

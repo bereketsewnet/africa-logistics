@@ -229,11 +229,11 @@ export const adminOrderApi = {
   getGuestOrders: (params?: { page?: number; limit?: number; search?: string }) =>
     apiClient.get('/admin/orders/guest', { params }),
 
-  getOrderMessages: (id: string) =>
-    apiClient.get(`/admin/orders/${id}/messages`),
+  getOrderMessages: (id: string, channel?: string) =>
+    apiClient.get(`/admin/orders/${id}/messages`, channel ? { params: { channel } } : undefined),
 
-  sendOrderMessage: (id: string, message: string) =>
-    apiClient.post(`/admin/orders/${id}/messages`, { message }),
+  sendOrderMessage: (id: string, message: string, channel?: string) =>
+    apiClient.post(`/admin/orders/${id}/messages`, { message, ...(channel ? { channel } : {}) }),
 
   getShippers: () => apiClient.get('/admin/users'),
 }

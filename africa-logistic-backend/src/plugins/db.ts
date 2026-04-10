@@ -208,6 +208,8 @@ export default fp(async function dbPlugin(fastify: FastifyInstance) {
     await addColIfMissing('orders',        'guest_name',           'VARCHAR(200) NULL')
     await addColIfMissing('orders',        'guest_phone',          'VARCHAR(50) NULL')
     await addColIfMissing('orders',        'guest_email',          'VARCHAR(200) NULL')
+    // Chat channel separation: 'main' = shipper+driver visible, 'driver' = admin↔driver only
+    await addColIfMissing('order_messages', 'channel',             "VARCHAR(20) NOT NULL DEFAULT 'main'")
 
     // ─── Make shipper_id nullable for guest orders ───────────────────────────
     // Drop FK first (if still NOT NULL), then modify column, then re-add FK

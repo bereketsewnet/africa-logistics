@@ -2397,7 +2397,7 @@ function AdminLiveDriversSection() {
     setSelected(d)
     if (d.order_id) {
       try {
-        const { data } = await adminOrderApi.getOrderMessages(d.order_id)
+        const { data } = await adminOrderApi.getOrderMessages(d.order_id, 'driver')
         setMessages(data.messages ?? [])
       } catch { setMessages([]) }
     } else { setMessages([]) }
@@ -2411,9 +2411,9 @@ function AdminLiveDriversSection() {
     if (!chatMsg.trim() || !selected?.order_id) return
     setChatSending(true)
     try {
-      await adminOrderApi.sendOrderMessage(selected.order_id, chatMsg.trim())
+      await adminOrderApi.sendOrderMessage(selected.order_id, chatMsg.trim(), 'driver')
       setChatMsg('')
-      const { data } = await adminOrderApi.getOrderMessages(selected.order_id)
+      const { data } = await adminOrderApi.getOrderMessages(selected.order_id, 'driver')
       setMessages(data.messages ?? [])
     } catch { showToast('Failed to send message') }
     finally { setChatSending(false) }
@@ -2507,16 +2507,17 @@ function AdminLiveDriversSection() {
               ) : drivers.map((d, i) => (
                 <div key={d.driver_id} onClick={() => openDriver(d)}
                   style={{ display:'flex', alignItems:'center', gap:'0.75rem', padding:'0.8rem 1rem', borderBottom: i < drivers.length-1 ? '1px solid rgba(255,255,255,0.05)' : 'none', cursor:'pointer', background: selected?.driver_id === d.driver_id ? 'rgba(0,229,255,0.06)' : 'transparent', transition:'background 0.15s' }}>
-                  <div style={{ width:36, height:36, borderRadius:'50%', overflow:'hidden', flexShrink:0, background:'linear-gradient(135deg,var(--clr-accent2),var(--clr-accent))', display:'flex', alignItems:'center', justifyContent:'center' }}>
+                  <div style={{ width:36, height:36, borderRadius:'50%', overflow:'hidden', flexShrink:0, background: vehicleColor[d.vehicle_type ?? ''] ?? 'linear-gradient(135deg,var(--clr-accent2),var(--clr-accent))', display:'flex', alignItems:'center', justifyContent:'center' }}>
                     {d.profile_photo_url ? <img src={d.profile_photo_url} alt="" style={{ width:'100%', height:'100%', objectFit:'cover' }}/> : <LuTruck size={16} color="#fff"/>}
                   </div>
                   <div style={{ flex:1, minWidth:0 }}>
-                    <p style={{ fontWeight:700, fontSize:'0.875rem', color:'var(--clr-text)', marginBottom:'0.1rem' }}>{d.first_name} {d.last_name}</p>
+                    <p style={{ fontWeight:600, fontSize:'0.875rem', color:'var(--clr-text)', marginBottom:'0.1rem' }}>{d.first_name} {d.last_name}</p>
                     <p style={{ fontSize:'0.72rem', color:'var(--clr-muted)' }}>{d.phone_number}</p>
+                    {d.vehicle_type && <p style={{ fontSize:'0.68rem', color: vehicleColor[d.vehicle_type] ?? 'var(--clr-muted)', fontWeight:600 }}>{d.vehicle_type}</p>}
                     {d.reference_code && <p style={{ fontSize:'0.7rem', color:'var(--clr-accent)', fontWeight:600 }}>Order: {d.reference_code}</p>}
                   </div>
                   <div style={{ textAlign:'right', flexShrink:0 }}>
-                    {d.status ? orderBadge(d.status) : <span className="badge" style={{ fontSize:'0.65rem' }}>No order</span>}
+                    {d.status ? orderBadge(d.status) : <span className="badge" style={{ fontSize:'0.65rem' }}>Idle</span>}
                     {d.lat != null && <p style={{ fontSize:'0.65rem', color:'var(--clr-muted)', marginTop:'0.2rem' }}><LuNavigation size={9}/> {Number(d.lat).toFixed(4)}, {Number(d.lng!).toFixed(4)}</p>}
                   </div>
                 </div>
@@ -2836,13 +2837,13 @@ function AdminGuestOrdersSection() {
                       <div style={{ display:'flex', gap:'0.65rem', flexWrap:'wrap' }}>
                         {detailOrder.cargo_image_url && (
                           <div style={{ textAlign:'center' }}>
-                            <img src={detailOrder.cargo_image_url} alt="Cargo" style={{ width:120, height:90, objectFit:'cover', borderRadius:8, border:'1px solid rgba(255,255,255,0.1)' }}/>
+                            <img src={getUploadUrl(detailOrder.cargo_image_url)!} alt="Cargo" style={{ width:120, height:90, objectFit:'cover', borderRadius:8, border:'1px solid rgba(255,255,255,0.1)' }}/>
                             <p style={{ fontSize:'0.65rem', color:'var(--clr-muted)', marginTop:'0.2rem' }}>Cargo Image</p>
                           </div>
                         )}
                         {detailOrder.payment_receipt_url && (
                           <div style={{ textAlign:'center' }}>
-                            <img src={detailOrder.payment_receipt_url} alt="Receipt" style={{ width:120, height:90, objectFit:'cover', borderRadius:8, border:'1px solid rgba(255,255,255,0.1)' }}/>
+                            <img src={getUploadUrl(detailOrder.payment_receipt_url)!} alt="Receipt" style={{ width:120, height:90, objectFit:'cover', borderRadius:8, border:'1px solid rgba(255,255,255,0.1)' }}/>
                             <p style={{ fontSize:'0.65rem', color:'var(--clr-muted)', marginTop:'0.2rem' }}>Payment Receipt</p>
                           </div>
                         )}
