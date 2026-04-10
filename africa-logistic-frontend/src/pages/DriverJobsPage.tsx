@@ -327,18 +327,103 @@ function JobDetailModal({ job, onClose, onRefresh }: { job: Job; onClose: () => 
 function GpsPingButton({ activeJobId }: { activeJobId: string | null }) {
   const [pinging, setPinging] = useState(false)
   const [msg, setMsg] = useState('')
+  const [autoPing, setAutoPing] = useState(true)
+  const [intervalSec, setIntervalSec] = useState<10 | 20 | 30>(20)
+  const [geoPerm, setGeoPerm] = useState<'granted' | 'denied' | 'prompt' | 'unknown'>('unknown')
+  const timerRef = useRef<number | null>(null)
+  const inFlightRef = useRef(false)
 
-  const ping = () => {
-    if (!navigator.geolocation) { setMsg('Geolocation not supported.'); return }
-    setPinging(true); setMsg('')
-    navigator.geolocation.getCurrentPosition(async pos => {
-      try {
-        await driverApi.pingLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude, order_id: activeJobId ?? undefined, heading: pos.coords.heading ?? undefined, speed_kmh: pos.coords.speed != null ? pos.coords.speed * 3.6 : undefined })
-        setMsg('Location updated ✓')
-      } catch { setMsg('Ping failed.') }
-      finally { setPinging(false); setTimeout(() => setMsg(''), 3000) }
-    }, () => { setMsg('Location access denied.'); setPinging(false) })
-  }
+  const clearTimer = useCallback(() => {
+    if (timerRef.current != null) {
+      window.clearInterval(timerRef.current)
+      timerRef.current = null
+    }
+  }, [])
+
+  const ping = useCallback(() => {
+    if (!navigator.geolocation) {
+      setMsg('Geolocation not supported on this device/browser.')
+      return
+    }
+    if (inFlightRef.current) return
+
+    inFlightRef.current = true
+    setPinging(true)
+    setMsg('')
+
+    navigator.geolocation.getCurrentPosition(
+      async pos => {
+        try {
+          await driverApi.pingLocation({
+            lat: pos.coords.latitude,
+            lng: pos.coords.longitude,
+            order_id: activeJobId ?? undefined,
+            heading: pos.coords.heading ?? undefined,
+            speed_kmh: pos.coords.speed != null ? pos.coords.speed * 3.6 : undefined,
+          })
+          setGeoPerm('granted')
+          setMsg('Location updated ✓')
+        } catch {
+          setMsg('Ping failed. Please try again.')
+        } finally {
+          setPinging(false)
+          inFlightRef.current = false
+          setTimeout(() => setMsg(''), 3000)
+        }
+      },
+      err => {
+        setPinging(false)
+        inFlightRef.current = false
+        if (err.code === 1) {
+          setGeoPerm('denied')
+          setMsg('Location permission denied. Please allow location to share live tracking.')
+        } else {
+          setMsg('Could not get current location.')
+          setTimeout(() => setMsg(''), 3000)
+        }
+      },
+      { enableHighAccuracy: true, timeout: 12000, maximumAge: 5000 }
+    )
+  }, [activeJobId])
+
+  useEffect(() => {
+    if (!navigator.permissions?.query) return
+    let mounted = true
+    navigator.permissions
+      .query({ name: 'geolocation' as PermissionName })
+      .then(status => {
+        if (!mounted) return
+        setGeoPerm(status.state as 'granted' | 'denied' | 'prompt')
+        status.onchange = () => setGeoPerm(status.state as 'granted' | 'denied' | 'prompt')
+      })
+      .catch(() => {})
+    return () => { mounted = false }
+  }, [])
+
+  useEffect(() => {
+    clearTimer()
+    if (!autoPing) return
+    if (!navigator.geolocation) {
+      setMsg('Geolocation not supported on this device/browser.')
+      return
+    }
+    if (geoPerm === 'denied') {
+      setMsg('Please allow location permission to enable live tracking.')
+      return
+    }
+
+    // Trigger immediately, then continue at the selected interval.
+    ping()
+    timerRef.current = window.setInterval(() => {
+      ping()
+    }, intervalSec * 1000)
+
+    return clearTimer
+  }, [autoPing, intervalSec, geoPerm, ping, clearTimer])
+
+  useEffect(() => {
+    return clearTimer
+  }, [clearTimer])
 
   return (
     <div style={{ display:'flex', alignItems:'center', gap:'0.5rem', flexWrap:'wrap' }}>
@@ -346,6 +431,22 @@ function GpsPingButton({ activeJobId }: { activeJobId: string | null }) {
         style={{ display:'flex', alignItems:'center', gap:'0.4rem', padding:'0.38rem 0.75rem', borderRadius:8, border:'1px solid rgba(0,229,255,0.25)', background:'rgba(0,229,255,0.07)', color:'var(--clr-accent)', fontFamily:'inherit', fontSize:'0.76rem', fontWeight:700, cursor:'pointer' }}>
         {pinging ? <><Spinner/> Pinging…</> : <><LuNavigation size={13}/> Ping My Location</>}
       </button>
+      <button onClick={() => setAutoPing(v => !v)}
+        style={{ padding:'0.38rem 0.65rem', borderRadius:8, border:'1px solid rgba(255,255,255,0.12)', background:autoPing ? 'rgba(74,222,128,0.14)' : 'rgba(255,255,255,0.05)', color:autoPing ? '#4ade80' : 'var(--clr-muted)', fontFamily:'inherit', fontSize:'0.72rem', fontWeight:700, cursor:'pointer' }}>
+        Auto: {autoPing ? 'ON' : 'OFF'}
+      </button>
+      <select
+        value={intervalSec}
+        onChange={e => setIntervalSec(Number(e.target.value) as 10 | 20 | 30)}
+        style={{ padding:'0.35rem 0.5rem', borderRadius:8, border:'1px solid rgba(255,255,255,0.12)', background:'rgba(255,255,255,0.04)', color:'var(--clr-text)', fontFamily:'inherit', fontSize:'0.72rem', fontWeight:600 }}
+      >
+        <option value={10}>10s</option>
+        <option value={20}>20s</option>
+        <option value={30}>30s</option>
+      </select>
+      {autoPing && geoPerm === 'prompt' && (
+        <span style={{ fontSize:'0.72rem', color:'#fbbf24' }}>Please allow location when your browser asks.</span>
+      )}
       {msg && <span style={{ fontSize:'0.72rem', color: msg.includes('✓') ? '#4ade80' : '#f87171' }}>{msg}</span>}
     </div>
   )
