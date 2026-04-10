@@ -11,7 +11,7 @@ export default defineConfig({
   expect: { timeout: 10_000 },
 
   use: {
-    baseURL: process.env.BASE_URL ?? 'https://afri-logistics.lula.com.et',
+    baseURL: process.env.BASE_URL ?? 'https://africa-logistics.lula.com.et',
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
     // Accept self-signed certs in local dev if needed

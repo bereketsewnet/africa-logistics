@@ -207,7 +207,7 @@ export async function generateInvoice(db: Pool, orderId: string): Promise<string
     const footerY = doc.page.height - 60
     doc.moveTo(50, footerY).lineTo(doc.page.width - 50, footerY).lineWidth(0.5).strokeColor(dividerColor).stroke()
     doc.fontSize(8).font('Helvetica').fillColor(mutedColor)
-       .text('Africa Logistics Platform · support@africa-logistics.com · www.africa-logistics.com',
+      .text('Africa Logistics Platform · support@africa-logistics.lula.com.et · www.africa-logistics.lula.com.et',
              50, footerY + 10, { align: 'center', width: doc.page.width - 100 })
     doc.fontSize(7).fillColor(dividerColor)
        .text(`Generated on ${new Date().toLocaleString('en-GB')} · Ref: ${order.reference_code}`,

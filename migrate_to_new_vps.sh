@@ -107,6 +107,30 @@ trim() {
   printf "%s" "$s"
 }
 
+is_valid_ipv4() {
+  local ip="$1"
+  local -a parts
+
+  [[ "$ip" =~ ^([0-9]{1,3}\.){3}[0-9]{1,3}$ ]] || return 1
+  IFS='.' read -r -a parts <<< "$ip"
+  [[ "${#parts[@]}" -eq 4 ]] || return 1
+
+  local idx part
+  for idx in "${!parts[@]}"; do
+    part="${parts[$idx]}"
+    [[ "$part" =~ ^[0-9]+$ ]] || return 1
+    (( part >= 0 && part <= 255 )) || return 1
+
+    # Reject ambiguous values like 04 that commonly come from version strings.
+    if [[ "${#part}" -gt 1 && "$part" == 0* ]]; then
+      return 1
+    fi
+  done
+
+  # Reject invalid/publicly unusable first octet 0.
+  [[ "${parts[0]}" -ne 0 ]] || return 1
+}
+
 normalize_url() {
   local raw
   raw="$(trim "$1")"
@@ -186,7 +210,12 @@ detect_current_values() {
     --exclude-dir=dist \
     --exclude='*.png' --exclude='*.jpg' --exclude='*.jpeg' --exclude='*.gif' --exclude='*.svg' \
     | grep -Ev '^(127\.0\.0\.1|0\.0\.0\.0|255\.255\.255\.255)$' \
-    | head -n1 || true)"
+    | while IFS= read -r candidate; do
+        if is_valid_ipv4 "$candidate"; then
+          printf '%s\n' "$candidate"
+          break
+        fi
+      done || true)"
 
   OLD_FRONTEND_URL="$(normalize_url "$OLD_FRONTEND_URL")"
   if [[ -z "$OLD_BACKEND_API_URL" && -n "$OLD_BACKEND_DOMAIN" ]]; then
@@ -336,6 +365,8 @@ show_summary() {
   echo "  1) ./migrate_to_new_vps.sh"
   echo "  2) docker compose build"
   echo "  3) docker compose up -d"
+  echo
+  warn "Use 'docker compose' (plugin), not 'docker-compose' (legacy binary)."
 }
 
 main() {

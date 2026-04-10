@@ -2,7 +2,7 @@
 --
 -- Host: localhost    Database: africa_logistics
 -- ------------------------------------------------------
--- Server version	8.0.45-0ubuntu0.24.04.1
+-- Server version	8.0.45-0ubuntu16.171.249.71
 
 /*!40101 SET @OLD_CHARACTER_SET_CLIENT=@@CHARACTER_SET_CLIENT */;
 /*!40101 SET @OLD_CHARACTER_SET_RESULTS=@@CHARACTER_SET_RESULTS */;
