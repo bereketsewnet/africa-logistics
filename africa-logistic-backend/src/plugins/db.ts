@@ -209,6 +209,33 @@ export default fp(async function dbPlugin(fastify: FastifyInstance) {
     await addColIfMissing('orders',        'guest_phone',          'VARCHAR(50) NULL')
     await addColIfMissing('orders',        'guest_email',          'VARCHAR(200) NULL')
 
+    // ─── Make shipper_id nullable for guest orders ───────────────────────────
+    // Drop FK first (if still NOT NULL), then modify column, then re-add FK
+    const [shipperColRows] = await conn.query<any[]>(
+      `SELECT IS_NULLABLE FROM information_schema.COLUMNS
+       WHERE TABLE_SCHEMA = ? AND TABLE_NAME = 'orders' AND COLUMN_NAME = 'shipper_id'`,
+      [dbName]
+    )
+    if (shipperColRows[0]?.IS_NULLABLE === 'NO') {
+      // Drop existing FK so we can alter the column
+      const [fkRows] = await conn.query<any[]>(
+        `SELECT CONSTRAINT_NAME FROM information_schema.TABLE_CONSTRAINTS
+         WHERE TABLE_SCHEMA = ? AND TABLE_NAME = 'orders'
+           AND CONSTRAINT_TYPE = 'FOREIGN KEY' AND CONSTRAINT_NAME = 'orders_fk_shipper'`,
+        [dbName]
+      )
+      if (fkRows.length > 0) {
+        await conn.query(`ALTER TABLE orders DROP FOREIGN KEY orders_fk_shipper`)
+      }
+      await conn.query(`ALTER TABLE orders MODIFY COLUMN shipper_id CHAR(36) NULL`)
+      // Re-add FK allowing NULL (ON DELETE SET NULL so orphaned rows are handled)
+      await conn.query(
+        `ALTER TABLE orders ADD CONSTRAINT orders_fk_shipper
+           FOREIGN KEY (shipper_id) REFERENCES users(id) ON DELETE SET NULL`
+      )
+      fastify.log.info('✅ orders.shipper_id made nullable for guest orders.')
+    }
+
     // ─── Seed default cargo types if table is empty ──────────────────────────
     const [ctRows] = await conn.query<any[]>('SELECT COUNT(*) as cnt FROM cargo_types')
     if (ctRows[0].cnt === 0) {

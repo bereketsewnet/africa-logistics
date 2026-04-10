@@ -7,7 +7,7 @@ import { useNavigate } from 'react-router-dom'
 import apiClient, { authApi, adminOrderApi } from '../lib/apiClient'
 import PhoneField from '../components/PhoneField'
 import { normalisePhone } from '../lib/normalisePhone'
-import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet'
+import { MapContainer, TileLayer, Marker, Popup, Polyline } from 'react-leaflet'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import {
@@ -22,6 +22,11 @@ import {
   LuLeaf, LuFlame, LuThermometer, LuHeart, LuMonitor, LuArchive, LuGem, LuFish, LuImage,
   LuMapPin, LuMessageSquare, LuSend, LuNavigation,
 } from 'react-icons/lu'
+
+// ─── Upload URL helper ───────────────────────────────────────────────────────
+const _API_UPLOAD_BASE = (import.meta.env.VITE_API_BASE_URL as string ?? '').replace(/\/api$/, '')
+const getUploadUrl = (path: string | null | undefined): string | null =>
+  path ? (_API_UPLOAD_BASE + (path.startsWith('/') ? path : '/' + path)) : null
 
 // ─── Shared UI helpers ────────────────────────────────────────────────────────
 
@@ -2040,6 +2045,22 @@ function AdminOrdersSection() {
                       </div>
                     )}
                   </div>
+                  {/* OTPs */}
+                  {(detailOrder.pickup_otp || detailOrder.delivery_otp) && (
+                    <div className="glass-inner" style={{ padding:'0.75rem 1rem' }}>
+                      <p style={{ fontSize:'0.7rem', color:'var(--clr-muted)', fontWeight:600, marginBottom:'0.5rem' }}>ORDER OTPs</p>
+                      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'0.5rem' }}>
+                        <div style={{ textAlign:'center', padding:'0.5rem', background:'rgba(0,229,255,0.06)', borderRadius:8, border:'1px solid rgba(0,229,255,0.12)' }}>
+                          <p style={{ fontSize:'0.65rem', color:'var(--clr-muted)', fontWeight:600, marginBottom:'0.15rem' }}>PICKUP OTP</p>
+                          <p style={{ fontSize:'1.2rem', fontWeight:900, color:'var(--clr-accent)', letterSpacing:3 }}>{detailOrder.pickup_otp ?? '—'}</p>
+                        </div>
+                        <div style={{ textAlign:'center', padding:'0.5rem', background:'rgba(0,229,255,0.06)', borderRadius:8, border:'1px solid rgba(0,229,255,0.12)' }}>
+                          <p style={{ fontSize:'0.65rem', color:'var(--clr-muted)', fontWeight:600, marginBottom:'0.15rem' }}>DELIVERY OTP</p>
+                          <p style={{ fontSize:'1.2rem', fontWeight:900, color:'var(--clr-accent)', letterSpacing:3 }}>{detailOrder.delivery_otp ?? '—'}</p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                   {/* Description */}
                   {detailOrder.description && (
                     <div className="glass-inner" style={{ padding:'0.75rem 1rem' }}>
@@ -2052,8 +2073,8 @@ function AdminOrdersSection() {
                     <div className="glass-inner" style={{ padding:'0.75rem 1rem' }}>
                       <p style={{ fontSize:'0.7rem', color:'var(--clr-muted)', fontWeight:600, marginBottom:'0.5rem' }}>ORDER IMAGES</p>
                       <div style={{ display:'flex', gap:'0.65rem', flexWrap:'wrap' }}>
-                        {detailOrder.order_image_1_url && <img src={detailOrder.order_image_1_url} alt="Order image 1" style={{ width:120, height:90, objectFit:'cover', borderRadius:8, border:'1px solid rgba(255,255,255,0.1)' }}/>}
-                        {detailOrder.order_image_2_url && <img src={detailOrder.order_image_2_url} alt="Order image 2" style={{ width:120, height:90, objectFit:'cover', borderRadius:8, border:'1px solid rgba(255,255,255,0.1)' }}/>}
+                        {detailOrder.order_image_1_url && <img src={getUploadUrl(detailOrder.order_image_1_url)!} alt="Order image 1" style={{ width:120, height:90, objectFit:'cover', borderRadius:8, border:'1px solid rgba(255,255,255,0.1)' }}/>}
+                        {detailOrder.order_image_2_url && <img src={getUploadUrl(detailOrder.order_image_2_url)!} alt="Order image 2" style={{ width:120, height:90, objectFit:'cover', borderRadius:8, border:'1px solid rgba(255,255,255,0.1)' }}/>}
                       </div>
                     </div>
                   )}
@@ -2087,7 +2108,7 @@ function AdminOrdersSection() {
               <div style={{ display:'flex', flexDirection:'column', gap:'0.85rem' }}>
                 {/* Customer type toggle */}
                 <div style={{ display:'flex', gap:'0.4rem', padding:'0.25rem', background:'rgba(255,255,255,0.04)', borderRadius:10, border:'1px solid rgba(255,255,255,0.08)' }}>
-                  {[{ v: false, label: '👤 Registered Shipper' }, { v: true, label: '🪪 Guest Customer' }].map(({ v, label }) => (
+                  {[{ v: false, label: '👤 Registered Shipper' }, { v: true, label: 'Guest Customer' }].map(({ v, label }) => (
                     <button key={String(v)} type="button" onClick={() => setCoIsGuest(v)}
                       style={{ flex:1, padding:'0.45rem 0.5rem', borderRadius:8, border:'none', cursor:'pointer', fontFamily:'inherit', fontSize:'0.78rem', fontWeight:700, transition:'all 0.18s',
                         background: coIsGuest === v ? 'var(--clr-accent)' : 'transparent',
@@ -2333,6 +2354,7 @@ interface LiveDriver {
   lat: number | null; lng: number | null; heading: number | null; speed_kmh: number | null; last_seen: string | null
   order_id: string | null; reference_code: string | null; status: string | null
   pickup_address: string | null; delivery_address: string | null
+  pickup_lat: number | null; pickup_lng: number | null; delivery_lat: number | null; delivery_lng: number | null
   cargo_type_name: string | null; cargo_type_icon: string | null; cargo_type_icon_url: string | null
   vehicle_type: string | null; estimated_weight_kg: number | null; distance_km: number | null
   estimated_price: number | null; final_price: number | null
@@ -2399,6 +2421,38 @@ function AdminLiveDriversSection() {
 
   const mapDrivers = drivers.filter(d => d.lat != null && d.lng != null)
 
+  /** Haversine great-circle distance in km */
+  function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number) {
+    const R = 6371, toRad = (d: number) => d * Math.PI / 180
+    const dLat = toRad(lat2 - lat1), dLng = toRad(lng2 - lng1)
+    const a = Math.sin(dLat/2)**2 + Math.cos(toRad(lat1))*Math.cos(toRad(lat2))*Math.sin(dLng/2)**2
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+  }
+
+  /** Returns km-left, km-driven, and progress % for a driver */
+  function driverProgress(d: LiveDriver) {
+    if (!d.lat || !d.lng || !d.delivery_lat || !d.delivery_lng || !d.distance_km) return null
+    const kmLeft = haversineKm(d.lat, d.lng, d.delivery_lat, d.delivery_lng)
+    const total = Number(d.distance_km)
+    const kmDriven = Math.max(0, total - kmLeft)
+    const pct = Math.min(100, Math.round((kmDriven / total) * 100))
+    return { kmLeft: Math.max(0, kmLeft), kmDriven, total, pct }
+  }
+
+  /** Vehicle colour for map icons */
+  const vehicleColor: Record<string, string> = {
+    Truck: '#f97316', 'Mini Truck': '#f59e0b', Van: '#3b82f6', Pickup: '#8b5cf6',
+    Motorcycle: '#10b981', 'Cargo Bike': '#6ee7b7', Trailer: '#ef4444',
+  }
+  function makeDriverIcon(d: LiveDriver) {
+    const bg = vehicleColor[d.vehicle_type ?? ''] ?? '#00e5ff'
+    return L.divIcon({
+      className: '',
+      html: `<div style="background:${bg};width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;border:2px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,0.45);font-size:13px">🚚</div>`,
+      iconSize: [28, 28], iconAnchor: [14, 14],
+    })
+  }
+
   return (
     <div style={{ display:'flex', flexDirection:'column', gap:'1.25rem' }}>
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', flexWrap:'wrap', gap:'0.5rem' }}>
@@ -2421,13 +2475,27 @@ function AdminLiveDriversSection() {
               <MapContainer center={[9.03, 38.74]} zoom={12} style={{ width:'100%', height:'100%' }}>
                 <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution="&copy; OpenStreetMap contributors" />
                 {mapDrivers.map(d => (
-                  <Marker key={d.driver_id} position={[d.lat!, d.lng!]} eventHandlers={{ click: () => openDriver(d) }}>
+                  <Marker key={d.driver_id} position={[Number(d.lat!), Number(d.lng!)]} icon={makeDriverIcon(d)} eventHandlers={{ click: () => openDriver(d) }}>
                     <Popup>
                       <strong>{d.first_name} {d.last_name}</strong><br/>
                       {d.reference_code ? `Order: ${d.reference_code}` : 'No active order'}<br/>
                       {d.status && <span style={{ color: ORDER_STATUS_COLOR[d.status] ?? '#888' }}>{ORDER_STATUS_LABEL[d.status] ?? d.status}</span>}
                     </Popup>
                   </Marker>
+                ))}
+                {/* Route lines for drivers with active orders */}
+                {mapDrivers.filter(d => d.pickup_lat && d.delivery_lat).map(d => (
+                  <Polyline key={`route-${d.driver_id}`}
+                    positions={[[Number(d.pickup_lat), Number(d.pickup_lng)], [Number(d.delivery_lat), Number(d.delivery_lng)]]}
+                    pathOptions={{ color: vehicleColor[d.vehicle_type ?? ''] ?? '#00e5ff', weight: 2, opacity: 0.35, dashArray: '6 4' }}
+                  />
+                ))}
+                {/* Driver → delivery remaining line */}
+                {mapDrivers.filter(d => d.delivery_lat && d.status === 'IN_TRANSIT').map(d => (
+                  <Polyline key={`remaining-${d.driver_id}`}
+                    positions={[[Number(d.lat), Number(d.lng)], [Number(d.delivery_lat), Number(d.delivery_lng)]]}
+                    pathOptions={{ color: '#00e5ff', weight: 2.5, opacity: 0.75 }}
+                  />
                 ))}
               </MapContainer>
             </div>
@@ -2449,7 +2517,7 @@ function AdminLiveDriversSection() {
                   </div>
                   <div style={{ textAlign:'right', flexShrink:0 }}>
                     {d.status ? orderBadge(d.status) : <span className="badge" style={{ fontSize:'0.65rem' }}>No order</span>}
-                    {d.lat != null && <p style={{ fontSize:'0.65rem', color:'var(--clr-muted)', marginTop:'0.2rem' }}><LuNavigation size={9}/> {d.lat.toFixed(4)}, {d.lng!.toFixed(4)}</p>}
+                    {d.lat != null && <p style={{ fontSize:'0.65rem', color:'var(--clr-muted)', marginTop:'0.2rem' }}><LuNavigation size={9}/> {Number(d.lat).toFixed(4)}, {Number(d.lng!).toFixed(4)}</p>}
                   </div>
                 </div>
               ))}
@@ -2499,6 +2567,29 @@ function AdminLiveDriversSection() {
                     {selected.estimated_weight_kg != null && <div><p style={{ fontSize:'0.65rem', color:'var(--clr-muted)' }}>Weight</p><p style={{ fontSize:'0.78rem', color:'var(--clr-text)', fontWeight:600 }}>{selected.estimated_weight_kg} kg</p></div>}
                     {selected.distance_km != null && <div><p style={{ fontSize:'0.65rem', color:'var(--clr-muted)' }}>Distance</p><p style={{ fontSize:'0.78rem', color:'var(--clr-text)', fontWeight:600 }}>{Number(selected.distance_km).toFixed(1)} km</p></div>}
                   </div>
+                  {/* Progress */}
+                  {(() => {
+                    const prog = driverProgress(selected)
+                    if (!prog) return null
+                    return (
+                      <div style={{ background:'rgba(0,229,255,0.05)', borderRadius:8, border:'1px solid rgba(0,229,255,0.12)', padding:'0.5rem 0.65rem' }}>
+                        <div style={{ display:'flex', justifyContent:'space-between', marginBottom:'0.35rem' }}>
+                          <span style={{ fontSize:'0.65rem', color:'var(--clr-muted)', fontWeight:600 }}>TRIP PROGRESS</span>
+                          <span style={{ fontSize:'0.72rem', color:'var(--clr-accent)', fontWeight:800 }}>{prog.pct}%</span>
+                        </div>
+                        <div style={{ height:6, borderRadius:3, background:'rgba(255,255,255,0.08)', overflow:'hidden' }}>
+                          <div style={{ height:'100%', width:`${prog.pct}%`, background:'var(--clr-accent)', borderRadius:3, transition:'width 0.4s' }}/>
+                        </div>
+                        <div style={{ display:'flex', justifyContent:'space-between', marginTop:'0.35rem' }}>
+                          <span style={{ fontSize:'0.65rem', color:'var(--clr-muted)' }}>Driven: <strong style={{ color:'var(--clr-text)' }}>{prog.kmDriven.toFixed(1)} km</strong></span>
+                          <span style={{ fontSize:'0.65rem', color:'var(--clr-muted)' }}>Left: <strong style={{ color:'var(--clr-accent)' }}>{prog.kmLeft.toFixed(1)} km</strong></span>
+                        </div>
+                        {selected.speed_kmh != null && (
+                          <p style={{ fontSize:'0.65rem', color:'var(--clr-muted)', marginTop:'0.2rem' }}>Speed: <strong style={{ color:'var(--clr-text)' }}>{Number(selected.speed_kmh).toFixed(0)} km/h</strong></p>
+                        )}
+                      </div>
+                    )
+                  })()}
                   {/* OTPs */}
                   <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'0.5rem', padding:'0.6rem', background:'rgba(0,229,255,0.06)', borderRadius:8, border:'1px solid rgba(0,229,255,0.12)' }}>
                     <div style={{ textAlign:'center' }}>

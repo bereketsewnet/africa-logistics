@@ -490,16 +490,33 @@ export async function getActiveDriversWithLocation(db: Pool): Promise<any[]> {
     `SELECT
        u.id AS driver_id,
        u.first_name, u.last_name, u.phone_number, u.profile_photo_url,
-       dl.lat, dl.lng, dl.heading, dl.speed_kmh, dl.recorded_at AS location_at,
+       CAST(dl.lat AS DOUBLE) AS lat,
+       CAST(dl.lng AS DOUBLE) AS lng,
+       dl.heading, dl.speed_kmh, dl.recorded_at AS location_at,
        o.id AS order_id, o.reference_code, o.status AS order_status,
        o.pickup_address, o.delivery_address,
-       o.pickup_otp, o.delivery_otp
+       CAST(o.pickup_lat  AS DOUBLE) AS pickup_lat,
+       CAST(o.pickup_lng  AS DOUBLE) AS pickup_lng,
+       CAST(o.delivery_lat AS DOUBLE) AS delivery_lat,
+       CAST(o.delivery_lng AS DOUBLE) AS delivery_lng,
+       o.pickup_otp, o.delivery_otp,
+       CAST(o.distance_km AS DOUBLE) AS distance_km,
+       CAST(o.estimated_price AS DOUBLE) AS estimated_price,
+       CAST(o.final_price AS DOUBLE) AS final_price,
+       CAST(o.estimated_weight_kg AS DOUBLE) AS estimated_weight_kg,
+       o.vehicle_type_required AS vehicle_type,
+       o.is_guest_order, o.guest_name,
+       ct.name AS cargo_type_name, ct.icon AS cargo_type_icon, ct.icon_url AS cargo_type_icon_url,
+       s.first_name AS shipper_first_name, s.last_name AS shipper_last_name,
+       s.phone_number AS shipper_phone
      FROM users u
      JOIN (
        SELECT driver_id, MAX(recorded_at) AS max_at FROM driver_locations GROUP BY driver_id
      ) latest ON latest.driver_id = u.id
      JOIN driver_locations dl ON dl.driver_id = u.id AND dl.recorded_at = latest.max_at
      LEFT JOIN orders o ON o.driver_id = u.id AND o.status IN ('ASSIGNED','EN_ROUTE','AT_PICKUP','IN_TRANSIT')
+     LEFT JOIN cargo_types ct ON ct.id = o.cargo_type_id
+     LEFT JOIN users s ON s.id = o.shipper_id
      WHERE u.role_id = 3
      ORDER BY dl.recorded_at DESC`
   )
