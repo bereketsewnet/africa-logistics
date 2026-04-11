@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react'
 import apiClient from '../lib/apiClient'
+import jsPDF from 'jspdf'
 import {
   LuArrowDownLeft, LuArrowUpRight, LuTrendingUp, LuWallet,
-  LuSearch, LuChevronLeft, LuChevronRight, LuTriangleAlert,
+  LuSearch, LuChevronLeft, LuChevronRight, LuTriangleAlert, LuDownload,
 } from 'react-icons/lu'
 
 interface Transaction {
@@ -135,6 +136,31 @@ export default function TransactionHistoryPage() {
     return labels[type] || type
   }
 
+  const downloadReceipt = (tx: Transaction) => {
+    const doc = new jsPDF()
+    const isCredit = ['CREDIT', 'BONUS', 'REFUND'].includes(tx.type)
+    const amountLine = `${isCredit ? '+' : '-'} ${formatCurrency(tx.amount)}`
+
+    doc.setFontSize(18)
+    doc.text('Africa Logistics', 20, 20)
+    doc.setFontSize(12)
+    doc.text('Wallet Transaction Receipt', 20, 30)
+
+    doc.setFontSize(11)
+    doc.text(`Receipt ID: ${tx.id}`, 20, 45)
+    doc.text(`Date: ${new Date(tx.created_at).toLocaleString('en-ET')}`, 20, 53)
+    doc.text(`Type: ${getTransactionLabel(tx.type)}`, 20, 61)
+    doc.text(`Status: ${tx.status ?? 'PROCESSED'}`, 20, 69)
+    doc.text(`Amount: ${amountLine}`, 20, 77)
+    doc.text(`Description: ${tx.description}`, 20, 85)
+    doc.text(`Reference: ${tx.reference_code ?? 'N/A'}`, 20, 93)
+
+    doc.setFontSize(9)
+    doc.text('This is a system-generated receipt.', 20, 110)
+
+    doc.save(`wallet-receipt-${tx.id}.pdf`)
+  }
+
   if (loading) {
     return (
       <div style={{ padding: '1.5rem', textAlign: 'center' }}>
@@ -248,11 +274,26 @@ export default function TransactionHistoryPage() {
                   </div>
                 </div>
                 <div style={{
-                  fontSize: '1.1rem', fontWeight: 700,
-                  color: ['CREDIT', 'BONUS', 'REFUND'].includes(tx.type) ? 'var(--clr-neon)' : 'var(--clr-danger)',
-                  minWidth: '120px', textAlign: 'right'
+                  display: 'flex', alignItems: 'center', gap: '0.5rem', minWidth: '220px', justifyContent: 'flex-end'
                 }}>
-                  {['CREDIT', 'BONUS', 'REFUND'].includes(tx.type) ? '+' : '-'}{formatCurrency(tx.amount)}
+                  <div style={{
+                    fontSize: '1.1rem', fontWeight: 700,
+                    color: ['CREDIT', 'BONUS', 'REFUND'].includes(tx.type) ? 'var(--clr-neon)' : 'var(--clr-danger)',
+                    minWidth: '120px', textAlign: 'right'
+                  }}>
+                    {['CREDIT', 'BONUS', 'REFUND'].includes(tx.type) ? '+' : '-'}{formatCurrency(tx.amount)}
+                  </div>
+                  <button
+                    onClick={() => downloadReceipt(tx)}
+                    style={{
+                      padding: '0.45rem 0.7rem', borderRadius: '8px', border: '1px solid rgba(0,229,255,0.25)',
+                      background: 'rgba(0,229,255,0.08)', color: 'var(--clr-accent)', cursor: 'pointer',
+                      display: 'flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.8rem', fontWeight: 700
+                    }}
+                    className="hover-lift"
+                  >
+                    <LuDownload size={14} /> Receipt
+                  </button>
                 </div>
               </div>
             ))}

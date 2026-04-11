@@ -399,16 +399,52 @@ export async function approveManualPayment(
 
   // Create wallet transaction if not already created
   if (!record.transaction_id) {
+    const amount = Number(record.amount)
+    const isUserCredit = ['DEPOSIT', 'REFUND'].includes(record.action_type)
+
+    // Mirror transfer on admin wallet so platform balance is tracked.
+    if (isUserCredit) {
+      const adminWallet = await getOrCreateWallet(db, approvedBy)
+      const hasBalance = await checkSufficientBalance(db, approvedBy, amount)
+      if (!hasBalance) {
+        throw new Error('Admin wallet has insufficient balance for this approval')
+      }
+
+      await addWalletTransaction(
+        db,
+        approvedBy,
+        'DEBIT',
+        amount,
+        `Transfer to user wallet approval (${record.action_type})`,
+        undefined,
+        recordId,
+        userId,
+        { source: 'admin_wallet', target_wallet_id: record.wallet_id, admin_wallet_id: adminWallet.id }
+      )
+    } else {
+      await addWalletTransaction(
+        db,
+        approvedBy,
+        'CREDIT',
+        amount,
+        `Transfer from user wallet approval (${record.action_type})`,
+        undefined,
+        recordId,
+        userId,
+        { source: 'user_wallet', target_wallet_id: record.wallet_id }
+      )
+    }
+
     const txId = await addWalletTransaction(
       db,
       userId,
-      record.action_type === 'DEPOSIT' ? 'CREDIT' : 'DEBIT',
-      record.amount,
+      isUserCredit ? 'CREDIT' : 'DEBIT',
+      amount,
       `Admin ${record.action_type}: ${record.reason}`,
       undefined,
       undefined,
-      undefined,
-      { manual_payment_record_id: recordId, approved_by: approvedBy }
+      approvedBy,
+      { manual_payment_record_id: recordId, approved_by: approvedBy, balanced_against_admin_wallet: true }
     )
 
     await db.query(

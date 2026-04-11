@@ -31,11 +31,11 @@ export default function AdminPerformanceBonus() {
 
   const ITEMS_PER_PAGE = 20
 
-  const fetchMetrics = async (offset: number) => {
+  const fetchMetrics = async (offset: number, sortOverride?: 'bonus' | 'trips' | 'rating') => {
     try {
       setError('')
       const { data } = await apiClient.get('/admin/drivers/performance-metrics', {
-        params: { limit: ITEMS_PER_PAGE, offset, sort_by: sortBy }
+        params: { limit: ITEMS_PER_PAGE, offset, sort_by: sortOverride ?? sortBy }
       })
       setMetrics(data.metrics || [])
       setHasMore(data.has_more || false)
@@ -53,14 +53,14 @@ export default function AdminPerformanceBonus() {
 
   const handleSort = (newSort: 'bonus' | 'trips' | 'rating') => {
     setSortBy(newSort)
-    fetchMetrics(0)
+    fetchMetrics(0, newSort)
   }
 
   const handleProcessBonuses = async () => {
     setProcessing(true)
     try {
       const { data } = await apiClient.post('/admin/bonuses/process')
-      alert(`Bonuses processed! ${data.processed_count} drivers received bonuses.`)
+      alert(`Bonuses processed! ${data.processed} drivers received bonuses.`)
       fetchMetrics(0)
     } catch (err: any) {
       alert(err.response?.data?.message || 'Failed to process bonuses')
@@ -339,13 +339,16 @@ export default function AdminPerformanceBonus() {
       }}>
         <LuTriangleAlert size={18} style={{ color: 'var(--clr-accent)', flexShrink: 0, marginTop: '0.1rem' }} />
         <div style={{ fontSize: '0.85rem', color: 'var(--clr-muted)', lineHeight: 1.5 }}>
-          <strong>Bonus Tiers:</strong>
+          <strong>System Bonus Tiers (Admin-run):</strong>
           <ul style={{ marginLeft: '1.2rem', marginTop: '0.3rem' }}>
             <li><strong>TIER_1:</strong> 500 ብር - 50+ trips, 90%+ on-time, 4.5+ rating</li>
             <li><strong>TIER_2:</strong> 200 ብር - 20+ trips, 80%+ on-time, 4.0+ rating</li>
             <li><strong>TIER_3:</strong> 50 ብር - 10+ trips, 70%+ on-time, 3.5+ rating</li>
             <li><strong>Streak Bonus:</strong> +50 ብር per day for consecutive deliveries</li>
           </ul>
+          <p style={{ marginTop: '0.45rem' }}>
+            Shipper tips are separate and controlled by the shipper from order details after delivery.
+          </p>
         </div>
       </div>
     </div>

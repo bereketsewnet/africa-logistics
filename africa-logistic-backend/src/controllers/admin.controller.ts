@@ -134,10 +134,15 @@ export async function adminGetUsersHandler(
       u.profile_photo_url,
       r.id        AS role_id,
       r.role_name AS role_name,
-      dp.is_verified AS is_driver_verified
+      dp.is_verified AS is_driver_verified,
+      w.id        AS wallet_id,
+      COALESCE(w.balance, 0) AS current_balance,
+      COALESCE(w.total_earned, 0) AS total_earned,
+      COALESCE(w.total_spent, 0) AS total_spent
     FROM users u
     LEFT JOIN roles r ON r.id = u.role_id
     LEFT JOIN driver_profiles dp ON dp.user_id = u.id
+    LEFT JOIN wallets w ON w.user_id = u.id
     ORDER BY u.created_at DESC
   `)
 
@@ -1630,6 +1635,9 @@ export async function approveManualPaymentHandler(
     })
   } catch (err) {
     request.server.log.error(err)
+    if (err instanceof Error && err.message.includes('insufficient balance')) {
+      return reply.status(400).send({ success: false, message: err.message })
+    }
     return reply.status(500).send({ success: false, message: 'Failed to approve payment' })
   }
 }
@@ -1735,24 +1743,46 @@ export async function adminAdjustWalletHandler(
   }
 
   try {
-    const { getOrCreateWallet, addWalletTransaction } = await import('../services/wallet.service.js')
+    const { getOrCreateWallet, addWalletTransaction, checkSufficientBalance } = await import('../services/wallet.service.js')
     const { sendPushToUser } = await import('../services/push.service.js')
     const { sendEmail } = await import('../services/email.service.js')
 
     const wallet = await getOrCreateWallet(request.server.db, userId)
+    const adminWallet = await getOrCreateWallet(request.server.db, admin.id)
+    const isCreditToUser = ['DEPOSIT', 'REFUND'].includes(action)
+
+    if (isCreditToUser) {
+      const hasAdminBalance = await checkSufficientBalance(request.server.db, admin.id, Number(amount))
+      if (!hasAdminBalance) {
+        return reply.status(400).send({ success: false, message: 'Admin wallet has insufficient balance for this transfer' })
+      }
+    }
+
+    // Mirror transfer on admin wallet for complete accounting.
+    await addWalletTransaction(
+      request.server.db,
+      admin.id,
+      isCreditToUser ? 'DEBIT' : 'CREDIT',
+      Number(amount),
+      `Admin wallet ${isCreditToUser ? 'transfer out' : 'transfer in'}: ${action} for user ${userId}`,
+      undefined,
+      undefined,
+      userId,
+      { admin_adjustment: true, reason, admin_id: admin.id, user_wallet_id: wallet.id, admin_wallet_id: adminWallet.id }
+    )
 
     // Create transaction
-    const txType = ['DEPOSIT', 'REFUND'].includes(action) ? 'CREDIT' : 'DEBIT'
+    const txType = isCreditToUser ? 'CREDIT' : 'DEBIT'
     const txId = await addWalletTransaction(
       request.server.db,
       userId,
       txType as any,
-      amount,
+      Number(amount),
       `Admin ${action}: ${reason}`,
       undefined,
       undefined,
       admin.id,
-      { admin_adjustment: true, reason, admin_id: admin.id }
+      { admin_adjustment: true, reason, admin_id: admin.id, balanced_against_admin_wallet: true }
     )
 
     // Send notifications
@@ -1763,7 +1793,7 @@ export async function adminAdjustWalletHandler(
 
     await sendPushToUser(request.server.db, userId, {
       title: 'Wallet Adjusted',
-      body: `Admin adjustment: ${action === 'DEPOSIT' || action === 'REFUND' ? '+' : '-'}${amount.toFixed(2)} ETB`,
+      body: `Admin adjustment: ${action === 'DEPOSIT' || action === 'REFUND' ? '+' : '-'}${Number(amount).toFixed(2)} ETB`,
       url: '/wallet',
       data: { type: 'wallet_adjusted', transaction_id: txId }
     }).catch(() => {})
@@ -1772,7 +1802,7 @@ export async function adminAdjustWalletHandler(
       sendEmail({
         to: user.email,
         subject: `Wallet Adjusted - ${action}`,
-        text: `Your wallet has been adjusted by admin.\n\nAction: ${action}\nAmount: ${amount.toFixed(2)} ETB\nReason: ${reason}`
+        text: `Your wallet has been adjusted by admin.\n\nAction: ${action}\nAmount: ${Number(amount).toFixed(2)} ETB\nReason: ${reason}`
       }).catch(() => {})
     }
 
@@ -1787,6 +1817,115 @@ export async function adminAdjustWalletHandler(
   } catch (err) {
     request.server.log.error(err)
     return reply.status(500).send({ success: false, message: 'Failed to adjust wallet' })
+  }
+}
+
+/**
+ * GET /api/admin/wallet
+ * Get current admin wallet balance and summary
+ */
+export async function getAdminWalletHandler(request: FastifyRequest, reply: FastifyReply) {
+  const admin = request.user as any
+
+  try {
+    const { getOrCreateWallet } = await import('../services/wallet.service.js')
+    const wallet = await getOrCreateWallet(request.server.db, admin.id)
+
+    return reply.send({
+      success: true,
+      wallet: {
+        id: wallet.id,
+        balance: Number(wallet.balance),
+        currency: wallet.currency,
+        total_earned: Number(wallet.total_earned),
+        total_spent: Number(wallet.total_spent),
+        is_locked: Boolean(wallet.is_locked),
+        lock_reason: wallet.lock_reason,
+      },
+    })
+  } catch (err) {
+    request.server.log.error(err)
+    return reply.status(500).send({ success: false, message: 'Failed to fetch admin wallet' })
+  }
+}
+
+/**
+ * GET /api/admin/wallet/transactions?limit=50&offset=0
+ * Get admin wallet transactions
+ */
+export async function getAdminWalletTransactionsHandler(request: FastifyRequest, reply: FastifyReply) {
+  const admin = request.user as any
+  const { limit = 50, offset = 0 } = request.query as { limit: number; offset: number }
+
+  try {
+    const { getWalletTransactionHistory } = await import('../services/wallet.service.js')
+    const { transactions, total } = await getWalletTransactionHistory(
+      request.server.db,
+      admin.id,
+      Math.min(Number(limit), 100),
+      Number(offset)
+    )
+
+    return reply.send({
+      success: true,
+      transactions: transactions.map((t: any) => ({
+        id: t.id,
+        type: t.transaction_type,
+        amount: Number(t.amount),
+        description: t.description,
+        reference_code: t.reference_code,
+        status: t.status,
+        created_at: t.created_at,
+      })),
+      total,
+      limit: Number(limit),
+      offset: Number(offset),
+    })
+  } catch (err) {
+    request.server.log.error(err)
+    return reply.status(500).send({ success: false, message: 'Failed to fetch admin wallet transactions' })
+  }
+}
+
+/**
+ * POST /api/admin/wallet/refill
+ * Refill admin wallet and record transaction history
+ */
+export async function refillAdminWalletHandler(
+  request: FastifyRequest<{ Body: { amount: number; reason?: string } }>,
+  reply: FastifyReply
+) {
+  const admin = request.user as any
+  const { amount, reason } = request.body
+
+  if (!amount || amount <= 0) {
+    return reply.status(400).send({ success: false, message: 'Amount must be positive' })
+  }
+
+  try {
+    const { addWalletTransaction, getOrCreateWallet } = await import('../services/wallet.service.js')
+    await getOrCreateWallet(request.server.db, admin.id)
+
+    const txId = await addWalletTransaction(
+      request.server.db,
+      admin.id,
+      'CREDIT',
+      Number(amount),
+      `Admin wallet refill${reason?.trim() ? `: ${reason.trim()}` : ''}`,
+      undefined,
+      undefined,
+      admin.id,
+      { source: 'admin_refill' }
+    )
+
+    return reply.send({
+      success: true,
+      message: 'Admin wallet refilled successfully',
+      transaction_id: txId,
+    })
+  } catch (err) {
+    request.server.log.error(err)
+    return reply.status(500).send({ success: false, message: 'Failed to refill admin wallet' })
   }
 }
 
@@ -1853,33 +1992,42 @@ export async function getWalletStatsHandler(request: FastifyRequest, reply: Fast
  * Get all drivers' performance metrics for dashboard
  */
 export async function getPerformanceMetricsHandler(request: FastifyRequest, reply: FastifyReply) {
-  const { limit = 50, offset = 0 } = request.query as { limit: number; offset: number }
+  const { limit = 50, offset = 0, sort_by = 'rating' } = request.query as {
+    limit: number
+    offset: number
+    sort_by?: 'bonus' | 'trips' | 'rating'
+  }
 
   try {
     const { getAllDriverMetrics } = await import('../services/performance.service.js')
 
     const { metrics, total } = await getAllDriverMetrics(
       request.server.db,
-      Math.min(limit, 100),
-      offset
+      Math.min(Number(limit), 100),
+      Number(offset),
+      sort_by === 'bonus' || sort_by === 'trips' || sort_by === 'rating' ? sort_by : 'rating'
     )
 
     return reply.send({
       success: true,
-      drivers: metrics.map((m: any) => ({
-        driver_id: m.driver_id,
-        name: `${m.first_name} ${m.last_name}`,
-        phone: m.phone_number,
+      metrics: metrics.map((m: any) => ({
+        user_id: m.driver_id,
+        first_name: m.first_name,
+        last_name: m.last_name,
+        email: m.email ?? '',
+        phone_number: m.phone_number,
         total_trips: m.total_trips,
-        on_time_trips: m.on_time_trips,
-        on_time_percentage: Number(m.on_time_percentage).toFixed(2),
-        average_rating: Number(m.average_rating).toFixed(2),
-        bonus_earned: Number(m.bonus_earned),
+        on_time_delivery_rate: Number(m.on_time_percentage) / 100,
+        average_rating: Number(m.average_rating),
+        eligible_bonus_amount: Number(m.bonus_earned),
+        eligible_bonus_tier: Number(m.bonus_earned) >= 500 ? 'TIER_1' : Number(m.bonus_earned) >= 200 ? 'TIER_2' : Number(m.bonus_earned) > 0 ? 'TIER_3' : 'NOT_ELIGIBLE',
         streak_days: m.streak_days,
+        last_delivery_date: m.last_trip_date ?? null,
       })),
+      has_more: total > Number(offset) + Math.min(Number(limit), 100),
       total,
-      limit,
-      offset,
+      limit: Number(limit),
+      offset: Number(offset),
     })
   } catch (err) {
     request.server.log.error(err)

@@ -7,7 +7,7 @@ import {
   LuCircleCheck, LuTriangleAlert, LuTruck, LuMapPin,
   LuFileText, LuChevronRight, LuChevronLeft,
   LuSend, LuArrowRight, LuBan, LuNavigation,
-  LuEye, LuEyeOff, LuCopy, LuMessageSquare, LuCamera, LuTrash2,
+  LuEye, LuEyeOff, LuCopy, LuMessageSquare, LuCamera, LuTrash2, LuStar,
 } from 'react-icons/lu'
 
 // ─── Leaflet icon fix (Vite bundler) ─────────────────────────────────────────
@@ -47,6 +47,7 @@ interface Order {
 interface StatusHistory { id: number; status: string; notes: string | null; created_at: string }
 interface Message { id: string; sender_first_name: string; sender_last_name: string; sender_role_id: number; message: string; created_at: string; sender_name?: string; sender_role?: string; channel?: string }
 interface TrackInfo { success: boolean; status: string; driver?: { name: string; phone: string }; location?: { lat: number; lng: number; recorded_at: string; heading: number | null; speed_kmh: number | null } }
+interface OrderCharge { id: string; type: string; amount: number; description?: string; status?: string }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 const STATUS_COLOR: Record<string, string> = {
@@ -812,6 +813,14 @@ function OrderDetailModal({ order, onClose, onCancelled }: { order: Order; onClo
   const [cancelling, setCancelling] = useState(false)
   const [cancelErr, setCancelErr] = useState('')
   const [invoiceDling, setInvoiceDling] = useState(false)
+  const [hasRated, setHasRated] = useState(false)
+  const [ratingStars, setRatingStars] = useState(5)
+  const [ratingComment, setRatingComment] = useState('')
+  const [ratingBusy, setRatingBusy] = useState(false)
+  const [tipAmount, setTipAmount] = useState('')
+  const [tipBusy, setTipBusy] = useState(false)
+  const [tipMsg, setTipMsg] = useState('')
+  const [charges, setCharges] = useState<OrderCharge[]>([])
   const msgBottom = useRef<HTMLDivElement>(null)
 
   const loadHistory = useCallback(async () => {
@@ -857,7 +866,64 @@ function OrderDetailModal({ order, onClose, onCancelled }: { order: Order; onClo
   }
 
   const canCancel = order.status === 'PENDING' || order.status === 'ASSIGNED'
+  const deliveredOrCompleted = order.status === 'DELIVERED' || order.status === 'COMPLETED'
   const invoiceEndpoint = orderApi.getInvoiceUrl(order.id)
+
+  const loadDeliveryFeedbackState = useCallback(async () => {
+    if (!deliveredOrCompleted) return
+    try {
+      const [{ data: ratedData }, { data: chargesData }] = await Promise.all([
+        orderApi.hasRated(order.id),
+        orderApi.getCharges(order.id),
+      ])
+      setHasRated(Boolean(ratedData.has_rated))
+      setCharges(chargesData.charges ?? [])
+    } catch {
+      // Keep details modal usable even if these optional requests fail.
+    }
+  }, [order.id, deliveredOrCompleted])
+
+  useEffect(() => {
+    loadDeliveryFeedbackState()
+  }, [loadDeliveryFeedbackState])
+
+  const submitRating = async () => {
+    if (hasRated || !deliveredOrCompleted) return
+    setRatingBusy(true)
+    try {
+      await orderApi.rateDriver(order.id, ratingStars, ratingComment.trim() || undefined)
+      setHasRated(true)
+      setTipMsg('Rating submitted. Thank you!')
+    } catch (e: any) {
+      setTipMsg(e.response?.data?.message || 'Failed to submit rating')
+    } finally {
+      setRatingBusy(false)
+    }
+  }
+
+  const submitTip = async () => {
+    const amount = Number(tipAmount)
+    if (!amount || amount <= 0) {
+      setTipMsg('Enter a valid tip amount')
+      return
+    }
+    if (!deliveredOrCompleted) {
+      setTipMsg('Tips are available after delivery')
+      return
+    }
+
+    setTipBusy(true)
+    try {
+      await orderApi.addTip(order.id, amount, ratingStars)
+      setTipAmount('')
+      setTipMsg(`Tip of ${amount.toFixed(2)} ETB added`)
+      await loadDeliveryFeedbackState()
+    } catch (e: any) {
+      setTipMsg(e.response?.data?.message || 'Failed to add tip')
+    } finally {
+      setTipBusy(false)
+    }
+  }
 
   const handleDownloadInvoice = async () => {
     setInvoiceDling(true)
@@ -959,11 +1025,104 @@ function OrderDetailModal({ order, onClose, onCancelled }: { order: Order; onClo
               )}
 
               {/* Invoice */}
-              {order.status === 'DELIVERED' && (
+              {deliveredOrCompleted && (
                 <button type="button" onClick={handleDownloadInvoice} disabled={invoiceDling}
                   style={{ display:'flex', alignItems:'center', gap:'0.5rem', padding:'0.7rem 1rem', borderRadius:10, border:'1px solid rgba(0,229,255,0.2)', background:'rgba(0,229,255,0.05)', color: invoiceDling ? 'var(--clr-muted)' : 'var(--clr-accent)', fontFamily:'inherit', fontSize:'0.82rem', fontWeight:700, cursor: invoiceDling ? 'wait' : 'pointer', width:'100%', justifyContent:'center' }}>
                   {invoiceDling ? <><Spinner/> Generating…</> : <><LuFileText size={15}/> Download Invoice PDF</>}
                 </button>
+              )}
+
+              {/* Rating + Tip (shipper-controlled) */}
+              {deliveredOrCompleted && order.driver_first_name && (
+                <div className="glass-inner" style={{ padding:'0.9rem 1rem', display:'flex', flexDirection:'column', gap:'0.75rem' }}>
+                  <div>
+                    <p style={{ fontSize:'0.78rem', color:'var(--clr-muted)', marginBottom:'0.35rem', textTransform:'uppercase', letterSpacing:'0.05em', fontWeight:700 }}>
+                      Driver Rating (one time)
+                    </p>
+                    {hasRated ? (
+                      <p style={{ fontSize:'0.8rem', color:'#4ade80', fontWeight:700 }}>You already rated this order.</p>
+                    ) : (
+                      <>
+                        <div style={{ display:'flex', gap:'0.35rem', marginBottom:'0.55rem' }}>
+                          {[1,2,3,4,5].map((s) => (
+                            <button
+                              key={s}
+                              type="button"
+                              onClick={() => setRatingStars(s)}
+                              style={{
+                                border:'none', background:'none', padding:0, cursor:'pointer',
+                                color: s <= ratingStars ? '#fbbf24' : 'rgba(255,255,255,0.28)'
+                              }}
+                            >
+                              <LuStar size={20} fill={s <= ratingStars ? '#fbbf24' : 'transparent'} />
+                            </button>
+                          ))}
+                        </div>
+                        <textarea
+                          value={ratingComment}
+                          onChange={(e) => setRatingComment(e.target.value)}
+                          placeholder="Optional comment about delivery"
+                          style={{ width:'100%', minHeight:64, resize:'vertical', background:'rgba(255,255,255,0.04)', border:'1px solid rgba(255,255,255,0.1)', borderRadius:8, color:'var(--clr-text)', fontFamily:'inherit', fontSize:'0.78rem', padding:'0.55rem 0.65rem', outline:'none' }}
+                        />
+                        <button
+                          type="button"
+                          onClick={submitRating}
+                          disabled={ratingBusy}
+                          style={{ marginTop:'0.5rem', padding:'0.5rem 0.8rem', border:'none', borderRadius:8, background:'rgba(251,191,36,0.16)', color:'#fbbf24', fontWeight:700, cursor: ratingBusy ? 'not-allowed' : 'pointer', fontSize:'0.78rem' }}
+                          className="hover-lift"
+                        >
+                          {ratingBusy ? 'Submitting...' : 'Submit Rating'}
+                        </button>
+                      </>
+                    )}
+                  </div>
+
+                  <div style={{ borderTop:'1px solid rgba(255,255,255,0.08)', paddingTop:'0.7rem' }}>
+                    <p style={{ fontSize:'0.78rem', color:'var(--clr-muted)', marginBottom:'0.35rem', textTransform:'uppercase', letterSpacing:'0.05em', fontWeight:700 }}>
+                      Tip Driver (unlimited)
+                    </p>
+                    <div style={{ display:'flex', gap:'0.4rem', flexWrap:'wrap', marginBottom:'0.5rem' }}>
+                      {[50, 100, 200, 500].map((v) => (
+                        <button key={v} type="button" onClick={() => setTipAmount(String(v))}
+                          style={{ padding:'0.3rem 0.55rem', borderRadius:7, border:'1px solid rgba(0,229,255,0.18)', background:'rgba(0,229,255,0.06)', color:'var(--clr-accent)', cursor:'pointer', fontSize:'0.72rem', fontWeight:700 }}>
+                          {v} ETB
+                        </button>
+                      ))}
+                    </div>
+                    <div style={{ display:'flex', gap:'0.45rem', alignItems:'center' }}>
+                      <input
+                        type="number"
+                        min="1"
+                        value={tipAmount}
+                        onChange={(e) => setTipAmount(e.target.value)}
+                        placeholder="Tip amount"
+                        style={{ flex:1, padding:'0.5rem 0.7rem', borderRadius:8, border:'1px solid rgba(255,255,255,0.1)', background:'rgba(255,255,255,0.04)', color:'var(--clr-text)', fontFamily:'inherit', fontSize:'0.8rem', outline:'none' }}
+                      />
+                      <button
+                        type="button"
+                        onClick={submitTip}
+                        disabled={tipBusy}
+                        style={{ padding:'0.5rem 0.8rem', border:'none', borderRadius:8, background:'linear-gradient(135deg,#7c3aed,#0ea5e9)', color:'#fff', fontWeight:700, cursor: tipBusy ? 'not-allowed' : 'pointer', fontSize:'0.78rem' }}
+                        className="hover-lift"
+                      >
+                        {tipBusy ? 'Adding...' : 'Add Tip'}
+                      </button>
+                    </div>
+
+                    {tipMsg && <p style={{ marginTop:'0.45rem', fontSize:'0.74rem', color:'var(--clr-muted)' }}>{tipMsg}</p>}
+
+                    {charges.filter(c => c.type === 'TIP').length > 0 && (
+                      <div style={{ marginTop:'0.55rem', display:'flex', flexDirection:'column', gap:'0.3rem' }}>
+                        {charges.filter(c => c.type === 'TIP').slice(0, 5).map((tip) => (
+                          <div key={tip.id} style={{ display:'flex', justifyContent:'space-between', fontSize:'0.75rem', color:'var(--clr-muted)' }}>
+                            <span>{tip.description || 'Tip'}</span>
+                            <span style={{ color:'var(--clr-neon)', fontWeight:700 }}>+{Number(tip.amount).toFixed(2)} ETB</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
               )}
 
               {/* Cancel */}

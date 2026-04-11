@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import apiClient from '../lib/apiClient'
 import { LuSearch, LuTriangleAlert, LuPlus, LuMinus, LuSettings } from 'react-icons/lu'
 
@@ -14,11 +14,30 @@ interface UserWallet {
   total_spent: number
 }
 
+interface AdminWallet {
+  id: string
+  balance: number
+  currency: string
+  total_earned: number
+  total_spent: number
+  is_locked: boolean
+}
+
+interface AdminWalletTx {
+  id: string
+  type: 'CREDIT' | 'DEBIT' | 'COMMISSION' | 'TIP' | 'REFUND' | 'BONUS' | 'ADMIN_ADJUSTMENT'
+  amount: number
+  description: string
+  status?: string
+  created_at: string
+}
+
 type AdjustmentType = 'DEPOSIT' | 'WITHDRAWAL' | 'REFUND' | 'ADJUSTMENT'
 
 export default function AdminWalletAdjustment() {
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedUser, setSelectedUser] = useState<UserWallet | null>(null)
+  const [allUsers, setAllUsers] = useState<UserWallet[]>([])
   const [users, setUsers] = useState<UserWallet[]>([])
   const [searched, setSearched] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -30,46 +49,100 @@ export default function AdminWalletAdjustment() {
   const [adjustmentNotes, setAdjustmentNotes] = useState('')
   const [processing, setProcessing] = useState(false)
   const [success, setSuccess] = useState(false)
+  const [adminWallet, setAdminWallet] = useState<AdminWallet | null>(null)
+  const [adminTransactions, setAdminTransactions] = useState<AdminWalletTx[]>([])
+  const [refillAmount, setRefillAmount] = useState('')
+  const [refillReason, setRefillReason] = useState('')
+  const [refilling, setRefilling] = useState(false)
+
+  const mapUsers = (raw: any[]): UserWallet[] => raw.map((u: any) => ({
+    user_id: u.id,
+    wallet_id: u.wallet_id ?? '',
+    first_name: u.first_name,
+    last_name: u.last_name,
+    email: u.email ?? '',
+    phone_number: u.phone_number ?? '',
+    current_balance: Number(u.current_balance ?? 0),
+    total_earned: Number(u.total_earned ?? 0),
+    total_spent: Number(u.total_spent ?? 0),
+  }))
+
+  const fetchAdminWalletData = async () => {
+    try {
+      const [{ data: walletData }, { data: txData }] = await Promise.all([
+        apiClient.get('/admin/wallet'),
+        apiClient.get('/admin/wallet/transactions', { params: { limit: 8, offset: 0 } })
+      ])
+      setAdminWallet(walletData.wallet ?? null)
+      setAdminTransactions(txData.transactions ?? [])
+    } catch {
+      // Keep wallet panel resilient; main error banner is reserved for primary actions.
+    }
+  }
 
   const handleSearch = async () => {
-    const q = searchTerm.trim().toLowerCase()
-    if (!q) {
-      setError('Please enter a name, email or phone number')
-      return
-    }
-
     setLoading(true)
     setError('')
-    setUsers([])
 
     try {
       const { data } = await apiClient.get('/admin/users')
-      const allUsers: any[] = data.users ?? []
-      const matched = allUsers.filter((u: any) =>
-        (u.email ?? '').toLowerCase().includes(q) ||
-        (u.phone_number ?? '').toLowerCase().includes(q) ||
-        (`${u.first_name} ${u.last_name}`).toLowerCase().includes(q)
-      )
-      if (matched.length === 0) {
-        setError('No users found matching that search.')
-      } else {
-        setUsers(matched.map((u: any) => ({
-          user_id: u.id,
-          wallet_id: '',
-          first_name: u.first_name,
-          last_name: u.last_name,
-          email: u.email ?? '',
-          phone_number: u.phone_number ?? '',
-          current_balance: 0,
-          total_earned: 0,
-          total_spent: 0,
-        })))
-      }
+      const mapped = mapUsers(data.users ?? [])
+      setAllUsers(mapped)
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to search users')
     } finally {
       setLoading(false)
       setSearched(true)
+    }
+  }
+
+  useEffect(() => {
+    handleSearch()
+    fetchAdminWalletData()
+  }, [])
+
+  useEffect(() => {
+    const q = searchTerm.trim().toLowerCase()
+    if (!q) {
+      setUsers([])
+      setError('')
+      return
+    }
+
+    const matched = allUsers.filter((u) => {
+      const fullName = `${u.first_name} ${u.last_name}`.toLowerCase()
+      return fullName.includes(q) ||
+        (u.email ?? '').toLowerCase().includes(q) ||
+        (u.phone_number ?? '').toLowerCase().includes(q)
+    })
+
+    setUsers(matched)
+    setSearched(true)
+    setError(matched.length === 0 ? 'No users found matching that search.' : '')
+  }, [searchTerm, allUsers])
+
+  const canSearch = useMemo(() => searchTerm.trim().length > 0, [searchTerm])
+
+  const handleAdminRefill = async () => {
+    if (!refillAmount || Number(refillAmount) <= 0) {
+      setError('Please enter a valid refill amount')
+      return
+    }
+
+    setRefilling(true)
+    setError('')
+    try {
+      await apiClient.post('/admin/wallet/refill', {
+        amount: Number(refillAmount),
+        reason: refillReason || 'Manual admin refill'
+      })
+      setRefillAmount('')
+      setRefillReason('')
+      fetchAdminWalletData()
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Failed to refill admin wallet')
+    } finally {
+      setRefilling(false)
     }
   }
 
@@ -84,10 +157,21 @@ export default function AdminWalletAdjustment() {
 
     try {
       await apiClient.post(`/admin/wallets/${selectedUser.user_id}/adjust`, {
-        adjustment_type: adjustmentType,
+        action: adjustmentType,
         amount: Number(adjustmentAmount),
-        notes: adjustmentNotes || undefined
+        reason: adjustmentNotes || `${adjustmentType} by admin`
       })
+
+      const amountNum = Number(adjustmentAmount)
+      const isCredit = adjustmentType === 'DEPOSIT' || adjustmentType === 'REFUND'
+      const newBalance = isCredit
+        ? selectedUser.current_balance + amountNum
+        : selectedUser.current_balance - amountNum
+
+      setAllUsers((prev) => prev.map((u) => u.user_id === selectedUser.user_id ? { ...u, current_balance: newBalance } : u))
+      setUsers((prev) => prev.map((u) => u.user_id === selectedUser.user_id ? { ...u, current_balance: newBalance } : u))
+      setSelectedUser((prev) => prev ? { ...prev, current_balance: newBalance } : prev)
+      fetchAdminWalletData()
 
       setSuccess(true)
       setTimeout(() => {
@@ -345,6 +429,84 @@ export default function AdminWalletAdjustment() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+      {/* Admin Wallet */}
+      <div className="glass" style={{ padding: '1.5rem' }}>
+        <h3 style={{ fontSize: '1.2rem', fontWeight: 800, color: 'var(--clr-text)', marginBottom: '1rem' }}>
+          Admin Wallet
+        </h3>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))', gap: '0.75rem', marginBottom: '1rem' }}>
+          <div style={{ padding: '0.9rem', borderRadius: '10px', background: 'rgba(0,229,255,0.08)', border: '1px solid rgba(0,229,255,0.2)' }}>
+            <p style={{ fontSize: '0.8rem', color: 'var(--clr-muted)' }}>Current Balance</p>
+            <p style={{ fontSize: '1.2rem', fontWeight: 800, color: 'var(--clr-accent)' }}>
+              {formatCurrency(adminWallet?.balance ?? 0)}
+            </p>
+          </div>
+          <div style={{ padding: '0.9rem', borderRadius: '10px', background: 'rgba(57,255,20,0.08)', border: '1px solid rgba(57,255,20,0.2)' }}>
+            <p style={{ fontSize: '0.8rem', color: 'var(--clr-muted)' }}>Total In</p>
+            <p style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--clr-neon)' }}>
+              {formatCurrency(adminWallet?.total_earned ?? 0)}
+            </p>
+          </div>
+          <div style={{ padding: '0.9rem', borderRadius: '10px', background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)' }}>
+            <p style={{ fontSize: '0.8rem', color: 'var(--clr-muted)' }}>Total Out</p>
+            <p style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--clr-danger)' }}>
+              {formatCurrency(adminWallet?.total_spent ?? 0)}
+            </p>
+          </div>
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto', gap: '0.6rem', alignItems: 'center', marginBottom: '1rem' }}>
+          <input
+            type="number"
+            placeholder="Refill amount"
+            value={refillAmount}
+            onChange={(e) => setRefillAmount(e.target.value)}
+            style={{
+              padding: '0.7rem 0.85rem', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)',
+              borderRadius: '8px', color: 'var(--clr-text)', fontFamily: 'inherit', outline: 'none'
+            }}
+          />
+          <input
+            type="text"
+            placeholder="Refill reason"
+            value={refillReason}
+            onChange={(e) => setRefillReason(e.target.value)}
+            style={{
+              padding: '0.7rem 0.85rem', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)',
+              borderRadius: '8px', color: 'var(--clr-text)', fontFamily: 'inherit', outline: 'none'
+            }}
+          />
+          <button
+            onClick={handleAdminRefill}
+            disabled={refilling}
+            style={{
+              padding: '0.7rem 1rem', background: 'linear-gradient(135deg,#7c3aed,#0ea5e9)', border: 'none', borderRadius: '8px',
+              color: '#fff', fontWeight: 700, cursor: refilling ? 'not-allowed' : 'pointer', opacity: refilling ? 0.7 : 1
+            }}
+            className="hover-lift"
+          >
+            {refilling ? 'Refilling...' : 'Refill'}
+          </button>
+        </div>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+          {adminTransactions.slice(0, 6).map((tx) => (
+            <div key={tx.id} style={{
+              display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem',
+              padding: '0.65rem 0.8rem', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.02)'
+            }}>
+              <div>
+                <p style={{ fontSize: '0.83rem', color: 'var(--clr-text)', fontWeight: 600 }}>{tx.description}</p>
+                <p style={{ fontSize: '0.75rem', color: 'var(--clr-muted)' }}>{new Date(tx.created_at).toLocaleString('en-ET')}</p>
+              </div>
+              <p style={{ fontSize: '0.92rem', fontWeight: 800, color: tx.type === 'CREDIT' ? 'var(--clr-neon)' : 'var(--clr-danger)' }}>
+                {tx.type === 'CREDIT' ? '+' : '-'}{formatCurrency(tx.amount)}
+              </p>
+            </div>
+          ))}
+        </div>
+      </div>
+
       {/* Header */}
       <div className="glass" style={{ padding: '1.5rem' }}>
         <h3 style={{ fontSize: '1.3rem', fontWeight: 800, color: 'var(--clr-text)', marginBottom: '1rem' }}>
@@ -364,7 +526,7 @@ export default function AdminWalletAdjustment() {
             <LuSearch size={18} style={{ color: 'var(--clr-muted)' }} />
             <input
               type="text"
-              placeholder="Search by email or phone..."
+              placeholder="Type name, phone, or email..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
@@ -377,16 +539,16 @@ export default function AdminWalletAdjustment() {
           </div>
           <button
             onClick={handleSearch}
-            disabled={loading}
+            disabled={loading || !canSearch}
             style={{
               padding: '0.75rem 1.5rem', background: 'linear-gradient(135deg,#7c3aed,#0ea5e9)',
               border: 'none', borderRadius: '10px', color: '#fff',
-              fontWeight: 600, cursor: loading ? 'not-allowed' : 'pointer',
+              fontWeight: 600, cursor: loading || !canSearch ? 'not-allowed' : 'pointer',
               fontSize: '0.95rem', fontFamily: 'inherit', transition: 'all 0.3s'
             }}
             className="hover-lift"
           >
-            {loading ? 'Searching...' : 'Search'}
+            {loading ? 'Loading...' : 'Refresh'}
           </button>
         </div>
       </div>

@@ -230,18 +230,26 @@ export async function updateStreakDays(db: Pool, driverId: string): Promise<numb
 export async function getAllDriverMetrics(
   db: Pool,
   limit: number = 100,
-  offset: number = 0
+  offset: number = 0,
+  sortBy: 'bonus' | 'trips' | 'rating' = 'rating'
 ): Promise<{ metrics: DriverPerformanceMetrics[]; total: number }> {
+  const orderClause =
+    sortBy === 'bonus'
+      ? 'dpm.bonus_earned DESC, dpm.average_rating DESC'
+      : sortBy === 'trips'
+        ? 'dpm.total_trips DESC, dpm.average_rating DESC'
+        : 'dpm.average_rating DESC, dpm.total_trips DESC'
+
   const [totalRows] = await db.query<any[]>(
     `SELECT COUNT(*) as total FROM driver_performance_metrics WHERE total_trips > 0`
   )
 
   const [metrics] = await db.query<DriverPerformanceMetrics[]>(
-    `SELECT dpm.*, u.first_name, u.last_name, u.phone_number
+    `SELECT dpm.*, u.first_name, u.last_name, u.phone_number, u.email
      FROM driver_performance_metrics dpm
      JOIN users u ON u.id = dpm.driver_id
      WHERE dpm.total_trips > 0
-     ORDER BY dpm.average_rating DESC, dpm.total_trips DESC
+     ORDER BY ${orderClause}
      LIMIT ? OFFSET ?`,
     [limit, offset]
   )

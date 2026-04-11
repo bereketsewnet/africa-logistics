@@ -135,6 +135,12 @@ export const orderApi = {
   hasRated: (orderId: string) =>
     apiClient.get(`/orders/${orderId}/has-rated`),
 
+  addTip: (orderId: string, tip_amount: number, rating_stars?: number) =>
+    apiClient.post(`/orders/${orderId}/add-tip`, { tip_amount, rating_stars }),
+
+  getCharges: (orderId: string) =>
+    apiClient.get(`/orders/${orderId}/charges`),
+
   getDriverRatingSummary: (driverId: string) =>
     apiClient.get(`/orders/drivers/${driverId}/rating-summary`),
 }

@@ -55,6 +55,9 @@ import {
   rejectManualPaymentHandler,
   adminAdjustWalletHandler,
   getWalletStatsHandler,
+  getAdminWalletHandler,
+  refillAdminWalletHandler,
+  getAdminWalletTransactionsHandler,
   // ── Performance Bonuses ────────────────────────────────────────────────────
   getPerformanceMetricsHandler,
   processPerfBonusesHandler,
@@ -253,6 +256,15 @@ export default async function adminRoutes(fastify: FastifyInstance) {
 
   /** POST /api/admin/wallets/:userId/adjust — manually adjust user wallet (emergency correction) */
   fastify.post('/wallets/:userId/adjust', adminAdjustWalletHandler)
+
+  /** GET /api/admin/wallet — current admin wallet summary */
+  fastify.get('/wallet', getAdminWalletHandler)
+
+  /** POST /api/admin/wallet/refill — refill admin wallet and record history */
+  fastify.post('/wallet/refill', refillAdminWalletHandler)
+
+  /** GET /api/admin/wallet/transactions — admin wallet transaction history */
+  fastify.get('/wallet/transactions', getAdminWalletTransactionsHandler)
 
   /** GET /api/admin/wallet-stats — overall wallet and financial statistics */
   fastify.get('/wallet-stats', getWalletStatsHandler)

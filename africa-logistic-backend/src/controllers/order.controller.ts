@@ -579,14 +579,18 @@ export async function addTipHandler(
     return reply.status(403).send({ success: false, message: 'Only shipper can add tip' })
   }
 
-  if (order.status !== 'DELIVERED') {
+  if (!['DELIVERED', 'COMPLETED'].includes(order.status)) {
     return reply.status(400).send({ success: false, message: 'Can only add tip to delivered orders' })
+  }
+
+  if (!order.driver_id) {
+    return reply.status(400).send({ success: false, message: 'Driver not assigned to this order' })
   }
 
   const { tip_amount, rating_stars = 5 } = request.body
 
-  if (typeof tip_amount !== 'number' || tip_amount < 0 || tip_amount > 50000) {
-    return reply.status(400).send({ success: false, message: 'Tip must be between 0 and 50,000 ETB' })
+  if (typeof tip_amount !== 'number' || tip_amount <= 0 || tip_amount > 50000) {
+    return reply.status(400).send({ success: false, message: 'Tip must be between 1 and 50,000 ETB' })
   }
 
   if (!Number.isInteger(rating_stars) || rating_stars < 1 || rating_stars > 5) {
@@ -595,7 +599,13 @@ export async function addTipHandler(
 
   try {
     const { addOrderCharge, applyOrderCharge } = await import('../services/payment.service.js')
+    const { checkSufficientBalance, addWalletTransaction } = await import('../services/wallet.service.js')
     const { sendPushToUser } = await import('../services/push.service.js')
+
+    const hasBalance = await checkSufficientBalance(request.server.db, user.id, tip_amount)
+    if (!hasBalance) {
+      return reply.status(400).send({ success: false, message: 'Insufficient wallet balance for this tip' })
+    }
 
     // Add tip as charge
     const chargeId = await addOrderCharge(
@@ -610,6 +620,31 @@ export async function addTipHandler(
 
     // Auto-apply the charge
     await applyOrderCharge(request.server.db, chargeId, user.id)
+
+    // Wallet ledger transfer (shipper -> driver)
+    await addWalletTransaction(
+      request.server.db,
+      user.id,
+      'TIP',
+      tip_amount,
+      `Tip paid to driver - ${order.reference_code}`,
+      request.params.id,
+      order.reference_code,
+      String(order.driver_id),
+      { type: 'tip_payment', charge_id: chargeId }
+    )
+
+    await addWalletTransaction(
+      request.server.db,
+      String(order.driver_id),
+      'CREDIT',
+      tip_amount,
+      `Tip received from shipper - ${order.reference_code}`,
+      request.params.id,
+      order.reference_code,
+      user.id,
+      { type: 'tip_income', charge_id: chargeId }
+    )
 
     // Notify driver immediately
     const driverId = String(order.driver_id)
