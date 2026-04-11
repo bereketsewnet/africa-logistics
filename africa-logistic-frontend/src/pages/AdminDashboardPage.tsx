@@ -2432,7 +2432,14 @@ function AdminOrdersSection({ initialDriverFilter, initialStatusFilter }: { init
       showToast(`Order ${data.order?.reference_code ?? ''} created! Pickup OTP: ${data.otps?.pickup_otp}`)
       setCreateOrderModal(false)
       loadOrders(page, statusFilter, search)
-    } catch (e: any) { setCoErr(e.response?.data?.message ?? 'Failed to create order') }
+    } catch (e: any) {
+      const data = e.response?.data
+      if (e.response?.status === 402 && data?.shortfall !== undefined) {
+        setCoErr(`Insufficient wallet balance. Shortfall: ${Number(data.shortfall).toFixed(2)} ETB. Please recharge the shipper wallet first.`)
+      } else {
+        setCoErr(data?.message ?? 'Failed to create order')
+      }
+    }
     finally { setCoSaving(false) }
   }
 

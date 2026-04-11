@@ -1117,6 +1117,9 @@ export async function adminCreateOrderOnBehalfHandler(
   } = request.body
 
   // Either a registered shipper OR guest mode must be provided
+  if (is_guest && shipper_id) {
+    return reply.status(400).send({ success: false, message: 'Provide either shipper_id or guest mode, not both.' })
+  }
   if (!is_guest && !shipper_id) {
     return reply.status(400).send({ success: false, message: 'shipper_id is required (or set is_guest=true for a guest order).' })
   }
@@ -1138,6 +1141,23 @@ export async function adminCreateOrderOnBehalfHandler(
   const quote       = calculateQuote(distanceKm, rule, estimated_weight_kg)
   const pickupOtp   = generateOtp()
   const deliveryOtp = generateOtp()
+
+  // For registered shippers, require enough wallet balance to cover the order.
+  if (shipper_id) {
+    const { validateOrderPayment } = await import('../services/payment.service.js')
+    const paymentValidation = await validateOrderPayment(request.server.db, shipper_id, quote.estimated_price)
+
+    if (!paymentValidation.hasSufficientBalance) {
+      return reply.status(402).send({
+        success: false,
+        message: `Insufficient wallet balance. You need ${paymentValidation.shortfall.toFixed(2)} ETB more.`,
+        current_balance: paymentValidation.currentBalance,
+        required_balance: quote.estimated_price,
+        shortfall: paymentValidation.shortfall,
+        action: 'RECHARGE_WALLET',
+      })
+    }
+  }
 
   // Save optional media files
   let cargoImageUrl:     string | null = null
