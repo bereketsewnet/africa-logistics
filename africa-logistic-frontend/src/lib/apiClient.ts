@@ -309,10 +309,16 @@ export const adminOrderApi = {
   // ── RBAC Role Management (9.4) ───────────────────────────────────────────
   getMyPermissions: () =>
     apiClient.get('/admin/me/permissions'),
+  getStaffRoles: () =>
+    apiClient.get('/admin/staff-roles'),
   getRoleManagement: () =>
     apiClient.get('/admin/role-management'),
   updateRolePermissions: (roleId: number, permissions: string[]) =>
     apiClient.put(`/admin/roles/${roleId}/permissions`, { permissions }),
+  createRole: (data: { role_name: string; description?: string }) =>
+    apiClient.post('/admin/roles', data),
+  deleteRole: (id: number) =>
+    apiClient.delete(`/admin/roles/${id}`),
 
   // ── Security Events (Module 9) ───────────────────────────────────────────
   getSecurityEvents: (params?: { page?: number; limit?: number; event_type?: string; role_id?: number }) =>

@@ -615,11 +615,11 @@ export default fp(async function dbPlugin(fastify) {
         CONSTRAINT rp_fk_permission FOREIGN KEY (permission_key) REFERENCES permissions(permission_key) ON DELETE CASCADE
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     `);
-        // Ensure staff roles exist in legacy databases.
+        // Ensure staff roles exist — 4=Cashier (finance), 5=Dispatcher (operations).
         await conn.query(`
       INSERT IGNORE INTO roles (id, role_name, description) VALUES
-        (4, 'DISPATCHER', 'Operations dispatcher handling order assignment and dispatch flow'),
-        (5, 'CASHIER', 'Finance/cashier role handling payment approvals and wallet operations')
+        (4, 'Cashier',    'Finance/cashier role handling payment approvals and wallet operations'),
+        (5, 'Dispatcher', 'Operations dispatcher handling order assignment and dispatch flow')
     `).catch(() => { });
         await conn.query(`
       INSERT IGNORE INTO permissions (permission_key, label, description) VALUES
@@ -643,20 +643,22 @@ export default fp(async function dbPlugin(fastify) {
       INSERT IGNORE INTO role_permissions (role_id, permission_key, is_allowed)
       SELECT 1, p.permission_key, 1 FROM permissions p
     `);
-        // Default permissions for dispatcher role (4).
+        // Default permissions for Cashier role (4) — financial/payments only.
+        // Use INSERT IGNORE so custom edits made in the UI are preserved on restart.
         await conn.query(`
       INSERT IGNORE INTO role_permissions (role_id, permission_key, is_allowed) VALUES
-        (4, 'overview.view', 1),
-        (4, 'orders.manage', 1),
-        (4, 'dispatch.manage', 1),
-        (4, 'vehicles.manage', 1)
+        (4, 'overview.view',    1),
+        (4, 'payments.approve', 1),
+        (4, 'wallet.manage',    1)
     `);
-        // Default permissions for cashier role (5).
+        // Default permissions for Dispatcher role (5) — order/dispatch/ops only.
         await conn.query(`
       INSERT IGNORE INTO role_permissions (role_id, permission_key, is_allowed) VALUES
-        (5, 'overview.view', 1),
-        (5, 'payments.approve', 1),
-        (5, 'wallet.manage', 1)
+        (5, 'overview.view',   1),
+        (5, 'orders.manage',   1),
+        (5, 'dispatch.manage', 1),
+        (5, 'vehicles.manage', 1),
+        (5, 'drivers.verify',  1)
     `);
         conn.release(); // Return the connection back to the pool
     }

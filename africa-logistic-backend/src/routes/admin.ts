@@ -79,6 +79,9 @@ import {
   adminGetMyPermissionsHandler,
   adminGetRoleManagementHandler,
   adminUpdateRolePermissionsHandler,
+  adminListStaffRolesHandler,
+  adminCreateRoleHandler,
+  adminDeleteRoleHandler,
   // ── Security Events (Module 9) ────────────────────────────────────────────────
   adminGetSecurityEventsHandler,
 } from '../controllers/admin.controller.js'
@@ -122,8 +125,10 @@ export default async function adminRoutes(fastify: FastifyInstance) {
     if (url.includes('/me/permissions')) return null
   // Security events is super-admin only — handler enforces it; no staff permission needed.
   if (url.includes('/security-events')) return null
+  // Staff roles list is a helper for populating forms; any staff can call it.
+  if (url.includes('/staff-roles')) return null
 
-    if (url.includes('/role-management') || url.includes('/roles/')) return 'roles.manage'
+    if (url.includes('/role-management') || url.includes('/roles')) return 'roles.manage'
     if (url.includes('/system-config') || url.includes('/countries') || url.includes('/vehicle-types')) return 'settings.manage'
     if (url.includes('/notification-settings')) return 'notifications.manage'
     if (url.includes('/pricing-rules')) return 'pricing.manage'
@@ -144,8 +149,8 @@ export default async function adminRoutes(fastify: FastifyInstance) {
     const user = request.user as { id: string; role_id: number }
     if (user.role_id === 1) return
 
-    // Only staff roles can access /api/admin.
-    if (![4, 5].includes(user.role_id)) {
+    // Only Shippers (2) and Drivers (3) are blocked from admin. Custom roles and staff roles are allowed.
+    if ([2, 3].includes(user.role_id)) {
       await logSecurityEvent({
         eventType: 'ADMIN_ACCESS_DENIED_ROLE',
         userId: user.id,
@@ -424,9 +429,12 @@ export default async function adminRoutes(fastify: FastifyInstance) {
   fastify.put('/system-config',     adminUpdateSystemConfigHandler)
 
   // ─── Role Management (9.4) ────────────────────────────────────────────────
-  fastify.get('/me/permissions',        adminGetMyPermissionsHandler)
-  fastify.get('/role-management',       adminGetRoleManagementHandler)
+  fastify.get('/me/permissions',            adminGetMyPermissionsHandler)
+  fastify.get('/staff-roles',               adminListStaffRolesHandler)
+  fastify.get('/role-management',           adminGetRoleManagementHandler)
+  fastify.post('/roles',                    adminCreateRoleHandler)
   fastify.put('/roles/:roleId/permissions', adminUpdateRolePermissionsHandler)
+  fastify.delete('/roles/:id',              adminDeleteRoleHandler)
 
   // ─── Security Events (Module 9) ───────────────────────────────────────────
   /** GET /api/admin/security-events — audit log, super-admin only */

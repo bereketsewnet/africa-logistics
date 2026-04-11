@@ -814,13 +814,23 @@ function AdminMaintenanceSection() {
 // ─── Admin Role Management Section (9.4) ────────────────────────────────────
 
 function AdminRoleManagementSection() {
+  const { user } = useAuth()
+  const isSuperAdmin = user?.role_id === 1
   const [roles, setRoles] = useState<Array<{ id: number; role_name: string; description: string | null }>>([])
   const [permissions, setPermissions] = useState<Array<{ permission_key: string; label: string; description: string | null }>>([])
   const [matrix, setMatrix] = useState<Record<number, Record<string, boolean>>>({})
   const [loading, setLoading] = useState(true)
   const [savingRole, setSavingRole] = useState<number | null>(null)
+  const [deletingRole, setDeletingRole] = useState<number | null>(null)
   const [toast, setToast] = useState('')
-  const showToast = (m: string) => { setToast(m); setTimeout(() => setToast(''), 3000) }
+  // Create role form
+  const [showCreate, setShowCreate] = useState(false)
+  const [newRoleName, setNewRoleName] = useState('')
+  const [newRoleDesc, setNewRoleDesc] = useState('')
+  const [creating, setCreating] = useState(false)
+  const [createErr, setCreateErr] = useState('')
+
+  const showToast = (m: string) => { setToast(m); setTimeout(() => setToast(''), 3500) }
 
   const load = async () => {
     setLoading(true)
@@ -866,34 +876,85 @@ function AdminRoleManagementSection() {
     }
   }
 
+  const handleCreateRole = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!newRoleName.trim()) { setCreateErr('Role name is required'); return }
+    setCreateErr(''); setCreating(true)
+    try {
+      await adminOrderApi.createRole({ role_name: newRoleName.trim(), description: newRoleDesc.trim() || undefined })
+      setNewRoleName(''); setNewRoleDesc(''); setShowCreate(false)
+      showToast('Role created')
+      await load()
+    } catch (err: any) {
+      setCreateErr(err.response?.data?.message ?? 'Failed to create role')
+    } finally {
+      setCreating(false)
+    }
+  }
+
+  const handleDeleteRole = async (roleId: number, roleName: string) => {
+    if (!window.confirm(`Delete role "${roleName}"? This cannot be undone.`)) return
+    setDeletingRole(roleId)
+    try {
+      await adminOrderApi.deleteRole(roleId)
+      showToast('Role deleted')
+      await load()
+    } catch (err: any) {
+      showToast(err.response?.data?.message ?? 'Failed to delete role')
+    } finally {
+      setDeletingRole(null)
+    }
+  }
+
+  const inputStyle: React.CSSProperties = { width: '100%', padding: '0.6rem 0.8rem', borderRadius: 10, border: '1px solid rgba(255,255,255,0.12)', background: 'rgba(255,255,255,0.05)', color: 'var(--clr-text)', fontFamily: 'inherit', fontSize: '0.85rem', boxSizing: 'border-box' }
+  const labelStyle: React.CSSProperties = { fontSize: '0.75rem', fontWeight: 600, color: 'var(--clr-muted)', marginBottom: '0.35rem', display: 'block' }
+
   if (loading) return <LoadingSpinner />
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-      <h2 style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--clr-text)', display: 'flex', alignItems: 'center', gap: '0.45rem' }}><LuKey size={17}/> Role Management</h2>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+        <h2 style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--clr-text)', display: 'flex', alignItems: 'center', gap: '0.45rem', flex: 1 }}><LuKey size={17}/> Role Management</h2>
+        {isSuperAdmin && (
+          <button onClick={() => { setCreateErr(''); setShowCreate(true) }} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', padding: '0.42rem 0.9rem', borderRadius: 9, border: 'none', background: 'var(--clr-accent)', color: '#000', fontFamily: 'inherit', fontSize: '0.82rem', fontWeight: 700, cursor: 'pointer' }}>
+            <LuPlus size={14}/> New Role
+          </button>
+        )}
+      </div>
       <p style={{ fontSize: '0.78rem', color: 'var(--clr-muted)', marginTop: '-0.6rem' }}>Configure what each staff role can do. Super admin always has full access.</p>
 
       {roles.map(role => (
         <div key={role.id} className="glass-inner" style={{ padding: '0.9rem 1rem' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.65rem', gap: '0.5rem', flexWrap: 'wrap' }}>
             <div>
-              <p style={{ fontSize: '0.88rem', fontWeight: 700, color: 'var(--clr-text)' }}>{role.role_name}</p>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <p style={{ fontSize: '0.88rem', fontWeight: 700, color: 'var(--clr-text)' }}>{role.role_name}</p>
+                {role.id > 5 && <span className="badge" style={{ fontSize: '0.62rem', padding: '0.1rem 0.45rem', borderRadius: 6, background: 'rgba(168,85,247,0.15)', color: '#c084fc', border: '1px solid rgba(168,85,247,0.3)' }}>Custom</span>}
+              </div>
               {role.description && <p style={{ fontSize: '0.72rem', color: 'var(--clr-muted)' }}>{role.description}</p>}
             </div>
-            {role.id !== 1 && (
-              <button onClick={() => saveRole(role.id)} disabled={savingRole === role.id}
-                style={{ padding: '0.38rem 0.8rem', borderRadius: 8, border: 'none', background: 'var(--clr-accent)', color: '#000', fontFamily: 'inherit', fontSize: '0.76rem', fontWeight: 700, cursor: 'pointer' }}>
-                {savingRole === role.id ? 'Saving…' : 'Save'}
-              </button>
-            )}
+            <div style={{ display: 'flex', gap: '0.45rem', alignItems: 'center' }}>
+              {role.id !== 1 && isSuperAdmin && (
+                <button onClick={() => saveRole(role.id)} disabled={savingRole === role.id}
+                  style={{ padding: '0.38rem 0.8rem', borderRadius: 8, border: 'none', background: 'var(--clr-accent)', color: '#000', fontFamily: 'inherit', fontSize: '0.76rem', fontWeight: 700, cursor: 'pointer' }}>
+                  {savingRole === role.id ? 'Saving…' : 'Save'}
+                </button>
+              )}
+              {role.id > 5 && isSuperAdmin && (
+                <button onClick={() => handleDeleteRole(role.id, role.role_name)} disabled={deletingRole === role.id}
+                  style={{ padding: '0.38rem 0.7rem', borderRadius: 8, border: '1px solid rgba(239,68,68,0.35)', background: 'rgba(239,68,68,0.08)', color: '#fca5a5', fontFamily: 'inherit', fontSize: '0.76rem', fontWeight: 700, cursor: 'pointer' }}>
+                  {deletingRole === role.id ? 'Deleting…' : 'Delete'}
+                </button>
+              )}
+            </div>
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(230px, 1fr))', gap: '0.45rem' }}>
             {permissions.map(p => {
               const on = !!matrix[role.id]?.[p.permission_key]
               return (
-                <button key={`${role.id}-${p.permission_key}`} type="button" onClick={() => toggle(role.id, p.permission_key)} disabled={role.id === 1}
-                  style={{ padding: '0.55rem 0.65rem', borderRadius: 9, border: `1px solid ${on ? 'rgba(0,229,255,0.35)' : 'rgba(255,255,255,0.1)'}`, background: on ? 'rgba(0,229,255,0.1)' : 'rgba(255,255,255,0.03)', color: on ? 'var(--clr-accent)' : 'var(--clr-muted)', fontFamily: 'inherit', fontSize: '0.74rem', textAlign: 'left', cursor: role.id === 1 ? 'not-allowed' : 'pointer', opacity: role.id === 1 ? 0.7 : 1 }}>
+                <button key={`${role.id}-${p.permission_key}`} type="button" onClick={() => toggle(role.id, p.permission_key)} disabled={role.id === 1 || !isSuperAdmin}
+                  style={{ padding: '0.55rem 0.65rem', borderRadius: 9, border: `1px solid ${on ? 'rgba(0,229,255,0.35)' : 'rgba(255,255,255,0.1)'}`, background: on ? 'rgba(0,229,255,0.1)' : 'rgba(255,255,255,0.03)', color: on ? 'var(--clr-accent)' : 'var(--clr-muted)', fontFamily: 'inherit', fontSize: '0.74rem', textAlign: 'left', cursor: (role.id === 1 || !isSuperAdmin) ? 'not-allowed' : 'pointer', opacity: (role.id === 1 || !isSuperAdmin) ? 0.7 : 1 }}>
                   <p style={{ fontWeight: 700, marginBottom: '0.1rem' }}>{p.label}</p>
                   {p.description && <p style={{ fontSize: '0.68rem', lineHeight: 1.45 }}>{p.description}</p>}
                 </button>
@@ -902,6 +963,37 @@ function AdminRoleManagementSection() {
           </div>
         </div>
       ))}
+
+      {/* Create Role Modal */}
+      {showCreate && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 60, background: 'rgba(0,0,0,0.72)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }} onClick={() => setShowCreate(false)}>
+          <div className="glass" style={{ borderRadius: 18, padding: '1.5rem', maxWidth: 420, width: '100%', position: 'relative', boxShadow: '0 24px 64px rgba(0,0,0,0.5)' }} onClick={e => e.stopPropagation()}>
+            <button onClick={() => setShowCreate(false)} style={{ position: 'absolute', top: '0.85rem', right: '0.85rem', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--clr-muted)' }}><LuX size={18}/></button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '1.25rem' }}>
+              <LuKey size={20} color="var(--clr-accent)"/>
+              <h3 style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--clr-text)' }}>Create Custom Role</h3>
+            </div>
+            <form onSubmit={handleCreateRole} style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
+              <div>
+                <label style={labelStyle}>Role Name *</label>
+                <input style={inputStyle} placeholder="e.g. Finance Manager" value={newRoleName} onChange={e => setNewRoleName(e.target.value)} required />
+              </div>
+              <div>
+                <label style={labelStyle}>Description (optional)</label>
+                <input style={inputStyle} placeholder="Brief description of this role" value={newRoleDesc} onChange={e => setNewRoleDesc(e.target.value)} />
+              </div>
+              <p style={{ fontSize: '0.76rem', color: 'var(--clr-muted)' }}>After creating, set permissions using the permission grid below.</p>
+              {createErr && <p style={{ color: '#fca5a5', fontSize: '0.8rem', margin: 0 }}>{createErr}</p>}
+              <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.25rem' }}>
+                <button type="button" onClick={() => setShowCreate(false)} style={{ flex: 1, padding: '0.6rem', borderRadius: 10, border: '1px solid rgba(255,255,255,0.12)', background: 'rgba(255,255,255,0.04)', color: 'var(--clr-muted)', fontFamily: 'inherit', fontSize: '0.85rem', fontWeight: 600, cursor: 'pointer' }}>Cancel</button>
+                <button type="submit" disabled={creating} style={{ flex: 2, padding: '0.6rem', borderRadius: 10, border: 'none', background: 'var(--clr-accent)', color: '#000', fontFamily: 'inherit', fontSize: '0.85rem', fontWeight: 700, cursor: creating ? 'not-allowed' : 'pointer', opacity: creating ? 0.6 : 1 }}>
+                  {creating ? 'Creating…' : 'Create Role'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {toast && <div style={{ position:'fixed', bottom:'1.25rem', right:'1.25rem', zIndex:200, background:'rgba(0,229,255,0.12)', border:'1px solid rgba(0,229,255,0.25)', color:'var(--clr-text)', padding:'0.65rem 1.1rem', borderRadius:12, fontSize:'0.85rem', fontWeight:600, backdropFilter:'blur(12px)' }}>{toast}</div>}
     </div>
@@ -1230,12 +1322,6 @@ function CustomerSection({ title, allUsers, loading, onToggleActive, onRefresh }
 
 // ─── Staff management section ─────────────────────────────────────────────────
 
-const STAFF_ROLE_OPTIONS = [
-  { id: 1, label: 'Admin' },
-  { id: 4, label: 'Cashier' },
-  { id: 5, label: 'Dispatcher' },
-]
-
 function StaffManagementSection({ allUsers, loading, onToggleActive, onRefresh }: {
   allUsers: UserRow[]; loading: boolean
   onToggleActive: (u: UserRow) => void; onRefresh: () => void
@@ -1245,6 +1331,17 @@ function StaffManagementSection({ allUsers, loading, onToggleActive, onRefresh }
   const [editTarget, setEditTarget] = useState<UserRow | null>(null)
   const [formErr, setFormErr] = useState('')
   const [saving, setSaving] = useState(false)
+  const [staffRoleOptions, setStaffRoleOptions] = useState<{ id: number; label: string }[]>([])
+
+  // Load available staff roles dynamically from API
+  useEffect(() => {
+    adminOrderApi.getStaffRoles().then(({ data }) => {
+      setStaffRoleOptions((data.roles ?? []).map((r: { id: number; role_name: string }) => ({ id: r.id, label: r.role_name })))
+    }).catch(() => {
+      // fallback to system defaults if API fails
+      setStaffRoleOptions([{ id: 1, label: 'Admin' }, { id: 4, label: 'Cashier' }, { id: 5, label: 'Dispatcher' }])
+    })
+  }, [])
 
   // Create form state
   const [cFirst, setCFirst] = useState(''); const [cLast, setCLast] = useState('')
@@ -1371,7 +1468,7 @@ function StaffManagementSection({ allUsers, loading, onToggleActive, onRefresh }
               </div>
               <div>
                 <label style={labelStyle}>Role *</label>
-                <CustomSelect value={cRole} onChange={setCRole} options={STAFF_ROLE_OPTIONS} />
+                <CustomSelect value={cRole} onChange={setCRole} options={staffRoleOptions} />
               </div>
               <div>
                 <label style={labelStyle}>Password *</label>
@@ -1420,7 +1517,7 @@ function StaffManagementSection({ allUsers, loading, onToggleActive, onRefresh }
               </div>
               <div>
                 <label style={labelStyle}>Role</label>
-                <CustomSelect value={eRole} onChange={setERole} options={STAFF_ROLE_OPTIONS} />
+                <CustomSelect value={eRole} onChange={setERole} options={staffRoleOptions} />
               </div>
               <div>
                 <label style={labelStyle}>New Password (leave blank to keep current)</label>

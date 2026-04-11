@@ -116,7 +116,7 @@ export async function adminGetUsersHandler(
 
   // Verify caller is admin (role_id = 1)
   const caller = request.user as { id: string; role_id: number }
-  if (![1, 4, 5].includes(caller.role_id)) {
+  if ([2, 3].includes(caller.role_id)) {
     return reply.status(403).send({ message: 'Admin access required.' })
   }
 
@@ -172,7 +172,7 @@ export async function adminToggleActiveHandler(
   const db = request.server.db
   const caller = request.user as { id: string; role_id: number }
 
-  if (![1, 4, 5].includes(caller.role_id)) {
+  if ([2, 3].includes(caller.role_id)) {
     return reply.status(403).send({ message: 'Admin access required.' })
   }
 
@@ -210,7 +210,7 @@ export async function adminListDriversHandler(
   reply: FastifyReply
 ) {
   const caller = request.user as { id: string; role_id: number }
-  if (![1, 4, 5].includes(caller.role_id)) return reply.status(403).send({ message: 'Admin access required.' })
+  if ([2, 3].includes(caller.role_id)) return reply.status(403).send({ message: 'Admin access required.' })
 
   const filter = (request.query.filter ?? 'all') as 'all' | 'pending' | 'verified' | 'rejected'
   const drivers = await listDriversForAdmin(request.server.db, filter)
@@ -226,7 +226,7 @@ export async function adminGetDriverHandler(
   reply: FastifyReply
 ) {
   const caller = request.user as { id: string; role_id: number }
-  if (![1, 4, 5].includes(caller.role_id)) return reply.status(403).send({ message: 'Admin access required.' })
+  if ([2, 3].includes(caller.role_id)) return reply.status(403).send({ message: 'Admin access required.' })
 
   const db = request.server.db
   const profile = await getDriverProfile(db, request.params.id)
@@ -263,7 +263,7 @@ export async function adminReviewDocumentHandler(
   reply: FastifyReply
 ) {
   const caller = request.user as { id: string; role_id: number }
-  if (![1, 4, 5].includes(caller.role_id)) return reply.status(403).send({ message: 'Admin access required.' })
+  if ([2, 3].includes(caller.role_id)) return reply.status(403).send({ message: 'Admin access required.' })
 
   const { document_type, action, reason } = request.body
 
@@ -311,7 +311,7 @@ export async function adminVerifyDriverHandler(
   reply: FastifyReply
 ) {
   const caller = request.user as { id: string; role_id: number }
-  if (![1, 4, 5].includes(caller.role_id)) return reply.status(403).send({ message: 'Admin access required.' })
+  if ([2, 3].includes(caller.role_id)) return reply.status(403).send({ message: 'Admin access required.' })
 
   const db = request.server.db
   const profile = await getDriverProfile(db, request.params.id)
@@ -340,7 +340,7 @@ export async function adminRejectDriverHandler(
   reply: FastifyReply
 ) {
   const caller = request.user as { id: string; role_id: number }
-  if (![1, 4, 5].includes(caller.role_id)) return reply.status(403).send({ message: 'Admin access required.' })
+  if ([2, 3].includes(caller.role_id)) return reply.status(403).send({ message: 'Admin access required.' })
 
   const { reason } = request.body
   if (!reason) return reply.status(400).send({ message: 'reason is required.' })
@@ -378,7 +378,7 @@ export async function adminListVehiclesHandler(
   reply: FastifyReply
 ) {
   const caller = request.user as { id: string; role_id: number }
-  if (![1, 4, 5].includes(caller.role_id)) return reply.status(403).send({ message: 'Admin access required.' })
+  if ([2, 3].includes(caller.role_id)) return reply.status(403).send({ message: 'Admin access required.' })
 
   const activeOnly = request.query.all !== '1'
   const vehicles = await listVehicles(request.server.db, activeOnly)
@@ -394,7 +394,7 @@ export async function adminGetVehicleHandler(
   reply: FastifyReply
 ) {
   const caller = request.user as { id: string; role_id: number }
-  if (![1, 4, 5].includes(caller.role_id)) return reply.status(403).send({ message: 'Admin access required.' })
+  if ([2, 3].includes(caller.role_id)) return reply.status(403).send({ message: 'Admin access required.' })
 
   const vehicle = await getVehicleById(request.server.db, request.params.id)
   if (!vehicle) return reply.status(404).send({ success: false, message: 'Vehicle not found.' })
@@ -411,7 +411,7 @@ export async function adminCreateVehicleHandler(
   reply: FastifyReply
 ) {
   const caller = request.user as { id: string; role_id: number }
-  if (![1, 4, 5].includes(caller.role_id)) return reply.status(403).send({ message: 'Admin access required.' })
+  if ([2, 3].includes(caller.role_id)) return reply.status(403).send({ message: 'Admin access required.' })
 
   const { plate_number, vehicle_type, max_capacity_kg, is_company_owned, vehicle_photo, vehicle_images, libre_file, description } = request.body
 
@@ -456,7 +456,7 @@ export async function adminUpdateVehicleHandler(
   reply: FastifyReply
 ) {
   const caller = request.user as { id: string; role_id: number }
-  if (![1, 4, 5].includes(caller.role_id)) return reply.status(403).send({ message: 'Admin access required.' })
+  if ([2, 3].includes(caller.role_id)) return reply.status(403).send({ message: 'Admin access required.' })
 
   const db = request.server.db
   const existing = await getVehicleById(db, request.params.id)
@@ -501,7 +501,7 @@ export async function adminDeleteVehicleHandler(
   reply: FastifyReply
 ) {
   const caller = request.user as { id: string; role_id: number }
-  if (![1, 4, 5].includes(caller.role_id)) return reply.status(403).send({ message: 'Admin access required.' })
+  if ([2, 3].includes(caller.role_id)) return reply.status(403).send({ message: 'Admin access required.' })
 
   const db = request.server.db
   const existing = await getVehicleById(db, request.params.id)
@@ -521,7 +521,7 @@ export async function adminAssignDriverToVehicleHandler(
   reply: FastifyReply
 ) {
   const caller = request.user as { id: string; role_id: number }
-  if (![1, 4, 5].includes(caller.role_id)) return reply.status(403).send({ message: 'Admin access required.' })
+  if ([2, 3].includes(caller.role_id)) return reply.status(403).send({ message: 'Admin access required.' })
 
   const db = request.server.db
   const { driver_id } = request.body ?? {}
@@ -574,19 +574,29 @@ export async function adminCreateStaffHandler(
   reply: FastifyReply
 ) {
   const caller = request.user as { id: string; role_id: number }
-  if (![1, 4, 5].includes(caller.role_id)) return reply.status(403).send({ message: 'Admin access required.' })
+  if ([2, 3].includes(caller.role_id)) return reply.status(403).send({ message: 'Admin access required.' })
 
   const { first_name, last_name, phone_number, password, email, role_id } = request.body
 
-  const staffRoles = [1, 4, 5]
-  if (!staffRoles.includes(role_id)) {
-    return reply.status(400).send({ message: 'role_id must be 1 (Admin), 4 (Cashier), or 5 (Dispatcher).' })
-  }
   if (!first_name?.trim() || !phone_number?.trim() || !password?.trim()) {
     return reply.status(400).send({ message: 'first_name, phone_number and password are required.' })
   }
 
   const db = request.server.db
+
+  // Validate role_id is a valid staff role (not Shipper=2 or Driver=3)
+  const [[validRole]] = await db.query<any[]>(
+    'SELECT id, role_name FROM roles WHERE id = ? AND id NOT IN (2, 3) LIMIT 1',
+    [role_id]
+  )
+  if (!validRole) {
+    return reply.status(400).send({ message: 'Invalid role_id. Must be a valid staff role (not Shipper or Driver).' })
+  }
+  // Only super-admin can create another admin
+  if (role_id === 1 && caller.role_id !== 1) {
+    return reply.status(403).send({ message: 'Only super admin can create another admin user.' })
+  }
+
   const [[existing]] = await db.query<any[]>(
     'SELECT id FROM users WHERE phone_number = ? LIMIT 1',
     [phone_number]
@@ -619,7 +629,7 @@ export async function adminUpdateUserHandler(
   reply: FastifyReply
 ) {
   const caller = request.user as { id: string; role_id: number }
-  if (![1, 4, 5].includes(caller.role_id)) return reply.status(403).send({ message: 'Admin access required.' })
+  if ([2, 3].includes(caller.role_id)) return reply.status(403).send({ message: 'Admin access required.' })
 
   const db = request.server.db
   const { id } = request.params
@@ -661,7 +671,7 @@ export async function adminListVehicleSubmissionsHandler(
   reply: FastifyReply
 ) {
   const caller = request.user as { id: string; role_id: number }
-  if (![1, 4, 5].includes(caller.role_id)) return reply.status(403).send({ message: 'Admin access required.' })
+  if ([2, 3].includes(caller.role_id)) return reply.status(403).send({ message: 'Admin access required.' })
 
   const vehicles = await listPendingDriverVehicles(request.server.db)
   return reply.send({ success: true, vehicles, total: vehicles.length })
@@ -677,7 +687,7 @@ export async function adminReviewVehicleSubmissionHandler(
   reply: FastifyReply
 ) {
   const caller = request.user as { id: string; role_id: number }
-  if (![1, 4, 5].includes(caller.role_id)) return reply.status(403).send({ message: 'Admin access required.' })
+  if ([2, 3].includes(caller.role_id)) return reply.status(403).send({ message: 'Admin access required.' })
 
   const { action, reason } = request.body
   if (action !== 'APPROVED' && action !== 'REJECTED') {
@@ -2387,13 +2397,18 @@ export async function adminGetRoleManagementHandler(
 
   const db = request.server.db
   const [roles] = await db.query<any[]>(
-    `SELECT id, role_name, description FROM roles WHERE id IN (1,4,5) ORDER BY id ASC`
+    `SELECT id, role_name, description FROM roles WHERE id NOT IN (2,3) ORDER BY id ASC`
   )
   const [permissions] = await db.query<any[]>(
     `SELECT permission_key, label, description FROM permissions WHERE is_active = 1 ORDER BY permission_key ASC`
   )
+  // Get all role IDs except Shipper/Driver for the matrix
+  const staffRoleIds = roles.map((r: any) => Number(r.id))
   const [rows] = await db.query<any[]>(
-    `SELECT role_id, permission_key, is_allowed FROM role_permissions WHERE role_id IN (1,4,5)`
+    staffRoleIds.length
+      ? `SELECT role_id, permission_key, is_allowed FROM role_permissions WHERE role_id IN (${staffRoleIds.map(() => '?').join(',')})`
+      : 'SELECT role_id, permission_key, is_allowed FROM role_permissions WHERE 1=0',
+    staffRoleIds
   )
 
   const matrix: Record<number, Record<string, boolean>> = {}
@@ -2424,15 +2439,21 @@ export async function adminUpdateRolePermissionsHandler(
   }
 
   const roleId = Number(request.params.roleId)
-  if (![1, 4, 5].includes(roleId)) {
-    return reply.status(400).send({ success: false, message: 'Unsupported role id.' })
-  }
+  const db = request.server.db
+
   if (roleId === 1) {
     return reply.status(400).send({ success: false, message: 'Super admin permissions are fixed to full access.' })
   }
+  // Validate roleId is a staff role (not Shipper=2, Driver=3)
+  const [[validRole]] = await db.query<any[]>(
+    'SELECT id FROM roles WHERE id = ? AND id NOT IN (1, 2, 3) LIMIT 1',
+    [roleId]
+  )
+  if (!validRole) {
+    return reply.status(400).send({ success: false, message: 'Unsupported role id. Must be a staff role (not Super Admin, Shipper, or Driver).' })
+  }
 
   const next = Array.isArray(request.body?.permissions) ? request.body.permissions : []
-  const db = request.server.db
 
   const [validRows] = await db.query<any[]>(
     'SELECT permission_key FROM permissions WHERE is_active = 1 ORDER BY permission_key ASC'
@@ -2455,6 +2476,80 @@ export async function adminUpdateRolePermissionsHandler(
   }
 
   return reply.send({ success: true, message: 'Role permissions updated.', role_id: roleId, permissions: requested })
+}
+
+// ─── Custom Role CRUD ─────────────────────────────────────────────────────────
+
+/** GET /api/admin/staff-roles — all roles except Shipper(2) and Driver(3) */
+export async function adminListStaffRolesHandler(
+  request: FastifyRequest,
+  reply: FastifyReply
+) {
+  const db = request.server.db
+  const [rows] = await db.query<any[]>(
+    `SELECT id, role_name, description FROM roles WHERE id NOT IN (2,3) ORDER BY id ASC`
+  )
+  return reply.send({ success: true, roles: rows })
+}
+
+/** POST /api/admin/roles — create a custom staff role. Super-admin only. */
+export async function adminCreateRoleHandler(
+  request: FastifyRequest<{ Body: { role_name: string; description?: string } }>,
+  reply: FastifyReply
+) {
+  const caller = request.user as { id: string; role_id: number }
+  if (caller.role_id !== 1) {
+    return reply.status(403).send({ success: false, message: 'Super admin access required.' })
+  }
+  const { role_name, description } = request.body
+  if (!role_name?.trim()) {
+    return reply.status(400).send({ success: false, message: 'role_name is required.' })
+  }
+  const db = request.server.db
+  const [[existing]] = await db.query<any[]>(
+    'SELECT id FROM roles WHERE LOWER(role_name) = LOWER(?) LIMIT 1',
+    [role_name.trim()]
+  )
+  if (existing) {
+    return reply.status(409).send({ success: false, message: 'A role with that name already exists.' })
+  }
+  const [result] = await db.query<any>(
+    'INSERT INTO roles (role_name, description) VALUES (?, ?)',
+    [role_name.trim(), description?.trim() ?? null]
+  )
+  return reply.status(201).send({
+    success: true,
+    role: { id: result.insertId, role_name: role_name.trim(), description: description?.trim() ?? null },
+  })
+}
+
+/** DELETE /api/admin/roles/:id — delete a custom role. Cannot delete system roles 1-5. */
+export async function adminDeleteRoleHandler(
+  request: FastifyRequest<{ Params: { id: string } }>,
+  reply: FastifyReply
+) {
+  const caller = request.user as { id: string; role_id: number }
+  if (caller.role_id !== 1) {
+    return reply.status(403).send({ success: false, message: 'Super admin access required.' })
+  }
+  const roleId = Number(request.params.id)
+  if ([1, 2, 3, 4, 5].includes(roleId)) {
+    return reply.status(400).send({ success: false, message: 'Cannot delete system roles (1–5).' })
+  }
+  const db = request.server.db
+  const [[role]] = await db.query<any[]>('SELECT id FROM roles WHERE id = ? LIMIT 1', [roleId])
+  if (!role) return reply.status(404).send({ success: false, message: 'Role not found.' })
+
+  const [[{ cnt }]] = await db.query<any[]>(
+    'SELECT COUNT(*) AS cnt FROM users WHERE role_id = ?',
+    [roleId]
+  )
+  if (Number(cnt) > 0) {
+    return reply.status(409).send({ success: false, message: 'Cannot delete a role that has assigned users. Reassign them first.' })
+  }
+  await db.query('DELETE FROM role_permissions WHERE role_id = ?', [roleId])
+  await db.query('DELETE FROM roles WHERE id = ?', [roleId])
+  return reply.send({ success: true, message: 'Role deleted.' })
 }
 
 // ─── Security Events (Module 9) ───────────────────────────────────────────────
