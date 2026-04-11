@@ -17,6 +17,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { createEmailVerification, findEmailVerificationByToken, markEmailVerificationUsed, createPhoneChangeRequest, findPhoneChangeRequest, deletePhoneChangeRequest, updateUserProfile, updateUserPassword, updateUserEmail, updateUserPhone } from '../services/auth.service.js';
 import { sendVerificationEmail, sendPasswordResetEmail } from '../services/email.service.js';
 import { notifyAdminsOfEvent } from '../services/push.service.js';
+import { consumeWindowLimit, getOtpLockState, recordOtpFailure, clearOtpFailures } from '../utils/securityRateLimit.js';
 import fs from 'fs';
 import path from 'path';
 // ─── Handlers ─────────────────────────────────────────────────────────────────
@@ -26,6 +27,20 @@ import path from 'path';
  */
 export async function requestOtpHandler(request, reply) {
     const { phone_number } = request.body;
+    const ipLimit = consumeWindowLimit(`auth:register:request:ip:${request.ip}`, 15, 15 * 60 * 1000);
+    if (!ipLimit.allowed) {
+        return reply
+            .status(429)
+            .header('Retry-After', String(ipLimit.retryAfterSeconds))
+            .send({ success: false, message: 'Too many OTP requests from this network. Please try again later.' });
+    }
+    const phoneLimit = consumeWindowLimit(`auth:register:request:phone:${phone_number}`, 5, 15 * 60 * 1000);
+    if (!phoneLimit.allowed) {
+        return reply
+            .status(429)
+            .header('Retry-After', String(phoneLimit.retryAfterSeconds))
+            .send({ success: false, message: 'Too many OTP requests for this phone number. Please try again later.' });
+    }
     // Check if this phone number is already registered
     const existing = await findUserByPhone(request.server.db, phone_number);
     if (existing) {
@@ -55,6 +70,14 @@ export async function verifyOtpHandler(request, reply) {
     const { phone_number, otp, new_password, role_id = 2, // Default to Shipper if not specified
     first_name = 'User', // Defaults; client should ideally provide these
     last_name = '', } = request.body;
+    const otpKey = `auth:register:verify:phone:${phone_number}`;
+    const lock = getOtpLockState(otpKey);
+    if (lock.locked) {
+        return reply
+            .status(429)
+            .header('Retry-After', String(lock.retryAfterSeconds))
+            .send({ success: false, message: 'Too many failed OTP attempts. Please try again later.' });
+    }
     // Validate role_id — only 2 (Shipper) or 3 (Driver) allowed for self-registration
     if (![2, 3].includes(role_id)) {
         return reply.status(400).send({ success: false, message: 'Invalid role_id. Use 2 (Shipper) or 3 (Driver).' });
@@ -62,11 +85,19 @@ export async function verifyOtpHandler(request, reply) {
     // Verify the OTP submitted by the user
     const isValid = verifyOtp(phone_number, otp);
     if (!isValid) {
+        const state = recordOtpFailure(otpKey, 5, 15 * 60 * 1000, 30 * 60 * 1000);
+        if (state.locked) {
+            return reply
+                .status(429)
+                .header('Retry-After', String(state.retryAfterSeconds))
+                .send({ success: false, message: 'Too many failed OTP attempts. Verification is temporarily locked.' });
+        }
         return reply.status(400).send({
             success: false,
             message: 'Invalid or expired OTP. Please request a new one.',
         });
     }
+    clearOtpFailures(otpKey);
     // Hash the password with bcrypt (12 salt rounds = secure but not slow)
     const passwordHash = await bcrypt.hash(new_password, 12);
     // Create the user in the database
@@ -455,6 +486,20 @@ export async function forgotPasswordEmailHandler(request, reply) {
  */
 export async function forgotPasswordRequestOtpHandler(request, reply) {
     const { phone_number } = request.body;
+    const ipLimit = consumeWindowLimit(`auth:forgot:request:ip:${request.ip}`, 15, 15 * 60 * 1000);
+    if (!ipLimit.allowed) {
+        return reply
+            .status(429)
+            .header('Retry-After', String(ipLimit.retryAfterSeconds))
+            .send({ success: false, message: 'Too many OTP requests from this network. Please try again later.' });
+    }
+    const phoneLimit = consumeWindowLimit(`auth:forgot:request:phone:${phone_number}`, 5, 15 * 60 * 1000);
+    if (!phoneLimit.allowed) {
+        return reply
+            .status(429)
+            .header('Retry-After', String(phoneLimit.retryAfterSeconds))
+            .send({ success: false, message: 'Too many OTP requests for this phone number. Please try again later.' });
+    }
     const user = await findUserByPhone(request.server.db, phone_number);
     if (!user) {
         // Don't reveal whether the number is registered
@@ -475,10 +520,26 @@ export async function forgotPasswordRequestOtpHandler(request, reply) {
  */
 export async function forgotPasswordResetHandler(request, reply) {
     const { phone_number, otp, new_password } = request.body;
+    const otpKey = `auth:forgot:verify:phone:${phone_number}`;
+    const lock = getOtpLockState(otpKey);
+    if (lock.locked) {
+        return reply
+            .status(429)
+            .header('Retry-After', String(lock.retryAfterSeconds))
+            .send({ success: false, message: 'Too many failed OTP attempts. Please try again later.' });
+    }
     const isValid = verifyOtp(phone_number, otp);
     if (!isValid) {
+        const state = recordOtpFailure(otpKey, 5, 15 * 60 * 1000, 30 * 60 * 1000);
+        if (state.locked) {
+            return reply
+                .status(429)
+                .header('Retry-After', String(state.retryAfterSeconds))
+                .send({ success: false, message: 'Too many failed OTP attempts. Reset is temporarily locked.' });
+        }
         return reply.status(400).send({ success: false, message: 'Invalid or expired OTP.' });
     }
+    clearOtpFailures(otpKey);
     const user = await findUserByPhone(request.server.db, phone_number);
     if (!user) {
         return reply.status(404).send({ success: false, message: 'User not found.' });

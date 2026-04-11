@@ -44,7 +44,7 @@ export default function LoginPage() {
       }
       await login(data.token)
       const roleId = data.user?.role_id
-      navigate(roleId === 1 ? '/admin' : '/dashboard')
+      navigate([1, 4, 5].includes(roleId) ? '/admin' : '/dashboard')
     } catch (err: any) {
       setError(err.response?.data?.message || 'Login failed. Please try again.')
     } finally {

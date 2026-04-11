@@ -16,6 +16,7 @@ import bcrypt from 'bcrypt'
 import crypto from 'crypto'
 import { sendOrderStatusEmail } from './email.service.js'
 import { sendPushToRole, sendPushToUser } from './push.service.js'
+import { sanitizeChatContent } from '../utils/privacy.js'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -625,9 +626,10 @@ export async function createOrderMessage(
   channel = 'main'
 ): Promise<MessageRow> {
   const id = uuidv4()
+  const safeMessage = sanitizeChatContent(message)
   await db.query(
     `INSERT INTO order_messages (id, order_id, sender_id, message, channel) VALUES (?, ?, ?, ?, ?)`,
-    [id, orderId, senderId, message, channel]
+    [id, orderId, senderId, safeMessage, channel]
   )
   const [rows] = await db.query<MessageRow[]>(
     `SELECT m.*,

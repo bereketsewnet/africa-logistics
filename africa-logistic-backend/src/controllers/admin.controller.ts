@@ -116,7 +116,7 @@ export async function adminGetUsersHandler(
 
   // Verify caller is admin (role_id = 1)
   const caller = request.user as { id: string; role_id: number }
-  if (caller.role_id !== 1) {
+  if (![1, 4, 5].includes(caller.role_id)) {
     return reply.status(403).send({ message: 'Admin access required.' })
   }
 
@@ -172,7 +172,7 @@ export async function adminToggleActiveHandler(
   const db = request.server.db
   const caller = request.user as { id: string; role_id: number }
 
-  if (caller.role_id !== 1) {
+  if (![1, 4, 5].includes(caller.role_id)) {
     return reply.status(403).send({ message: 'Admin access required.' })
   }
 
@@ -210,7 +210,7 @@ export async function adminListDriversHandler(
   reply: FastifyReply
 ) {
   const caller = request.user as { id: string; role_id: number }
-  if (caller.role_id !== 1) return reply.status(403).send({ message: 'Admin access required.' })
+  if (![1, 4, 5].includes(caller.role_id)) return reply.status(403).send({ message: 'Admin access required.' })
 
   const filter = (request.query.filter ?? 'all') as 'all' | 'pending' | 'verified' | 'rejected'
   const drivers = await listDriversForAdmin(request.server.db, filter)
@@ -226,7 +226,7 @@ export async function adminGetDriverHandler(
   reply: FastifyReply
 ) {
   const caller = request.user as { id: string; role_id: number }
-  if (caller.role_id !== 1) return reply.status(403).send({ message: 'Admin access required.' })
+  if (![1, 4, 5].includes(caller.role_id)) return reply.status(403).send({ message: 'Admin access required.' })
 
   const db = request.server.db
   const profile = await getDriverProfile(db, request.params.id)
@@ -263,7 +263,7 @@ export async function adminReviewDocumentHandler(
   reply: FastifyReply
 ) {
   const caller = request.user as { id: string; role_id: number }
-  if (caller.role_id !== 1) return reply.status(403).send({ message: 'Admin access required.' })
+  if (![1, 4, 5].includes(caller.role_id)) return reply.status(403).send({ message: 'Admin access required.' })
 
   const { document_type, action, reason } = request.body
 
@@ -311,7 +311,7 @@ export async function adminVerifyDriverHandler(
   reply: FastifyReply
 ) {
   const caller = request.user as { id: string; role_id: number }
-  if (caller.role_id !== 1) return reply.status(403).send({ message: 'Admin access required.' })
+  if (![1, 4, 5].includes(caller.role_id)) return reply.status(403).send({ message: 'Admin access required.' })
 
   const db = request.server.db
   const profile = await getDriverProfile(db, request.params.id)
@@ -340,7 +340,7 @@ export async function adminRejectDriverHandler(
   reply: FastifyReply
 ) {
   const caller = request.user as { id: string; role_id: number }
-  if (caller.role_id !== 1) return reply.status(403).send({ message: 'Admin access required.' })
+  if (![1, 4, 5].includes(caller.role_id)) return reply.status(403).send({ message: 'Admin access required.' })
 
   const { reason } = request.body
   if (!reason) return reply.status(400).send({ message: 'reason is required.' })
@@ -378,7 +378,7 @@ export async function adminListVehiclesHandler(
   reply: FastifyReply
 ) {
   const caller = request.user as { id: string; role_id: number }
-  if (caller.role_id !== 1) return reply.status(403).send({ message: 'Admin access required.' })
+  if (![1, 4, 5].includes(caller.role_id)) return reply.status(403).send({ message: 'Admin access required.' })
 
   const activeOnly = request.query.all !== '1'
   const vehicles = await listVehicles(request.server.db, activeOnly)
@@ -394,7 +394,7 @@ export async function adminGetVehicleHandler(
   reply: FastifyReply
 ) {
   const caller = request.user as { id: string; role_id: number }
-  if (caller.role_id !== 1) return reply.status(403).send({ message: 'Admin access required.' })
+  if (![1, 4, 5].includes(caller.role_id)) return reply.status(403).send({ message: 'Admin access required.' })
 
   const vehicle = await getVehicleById(request.server.db, request.params.id)
   if (!vehicle) return reply.status(404).send({ success: false, message: 'Vehicle not found.' })
@@ -411,7 +411,7 @@ export async function adminCreateVehicleHandler(
   reply: FastifyReply
 ) {
   const caller = request.user as { id: string; role_id: number }
-  if (caller.role_id !== 1) return reply.status(403).send({ message: 'Admin access required.' })
+  if (![1, 4, 5].includes(caller.role_id)) return reply.status(403).send({ message: 'Admin access required.' })
 
   const { plate_number, vehicle_type, max_capacity_kg, is_company_owned, vehicle_photo, vehicle_images, libre_file, description } = request.body
 
@@ -456,7 +456,7 @@ export async function adminUpdateVehicleHandler(
   reply: FastifyReply
 ) {
   const caller = request.user as { id: string; role_id: number }
-  if (caller.role_id !== 1) return reply.status(403).send({ message: 'Admin access required.' })
+  if (![1, 4, 5].includes(caller.role_id)) return reply.status(403).send({ message: 'Admin access required.' })
 
   const db = request.server.db
   const existing = await getVehicleById(db, request.params.id)
@@ -501,7 +501,7 @@ export async function adminDeleteVehicleHandler(
   reply: FastifyReply
 ) {
   const caller = request.user as { id: string; role_id: number }
-  if (caller.role_id !== 1) return reply.status(403).send({ message: 'Admin access required.' })
+  if (![1, 4, 5].includes(caller.role_id)) return reply.status(403).send({ message: 'Admin access required.' })
 
   const db = request.server.db
   const existing = await getVehicleById(db, request.params.id)
@@ -521,7 +521,7 @@ export async function adminAssignDriverToVehicleHandler(
   reply: FastifyReply
 ) {
   const caller = request.user as { id: string; role_id: number }
-  if (caller.role_id !== 1) return reply.status(403).send({ message: 'Admin access required.' })
+  if (![1, 4, 5].includes(caller.role_id)) return reply.status(403).send({ message: 'Admin access required.' })
 
   const db = request.server.db
   const { driver_id } = request.body ?? {}
@@ -574,7 +574,7 @@ export async function adminCreateStaffHandler(
   reply: FastifyReply
 ) {
   const caller = request.user as { id: string; role_id: number }
-  if (caller.role_id !== 1) return reply.status(403).send({ message: 'Admin access required.' })
+  if (![1, 4, 5].includes(caller.role_id)) return reply.status(403).send({ message: 'Admin access required.' })
 
   const { first_name, last_name, phone_number, password, email, role_id } = request.body
 
@@ -619,7 +619,7 @@ export async function adminUpdateUserHandler(
   reply: FastifyReply
 ) {
   const caller = request.user as { id: string; role_id: number }
-  if (caller.role_id !== 1) return reply.status(403).send({ message: 'Admin access required.' })
+  if (![1, 4, 5].includes(caller.role_id)) return reply.status(403).send({ message: 'Admin access required.' })
 
   const db = request.server.db
   const { id } = request.params
@@ -661,7 +661,7 @@ export async function adminListVehicleSubmissionsHandler(
   reply: FastifyReply
 ) {
   const caller = request.user as { id: string; role_id: number }
-  if (caller.role_id !== 1) return reply.status(403).send({ message: 'Admin access required.' })
+  if (![1, 4, 5].includes(caller.role_id)) return reply.status(403).send({ message: 'Admin access required.' })
 
   const vehicles = await listPendingDriverVehicles(request.server.db)
   return reply.send({ success: true, vehicles, total: vehicles.length })
@@ -677,7 +677,7 @@ export async function adminReviewVehicleSubmissionHandler(
   reply: FastifyReply
 ) {
   const caller = request.user as { id: string; role_id: number }
-  if (caller.role_id !== 1) return reply.status(403).send({ message: 'Admin access required.' })
+  if (![1, 4, 5].includes(caller.role_id)) return reply.status(403).send({ message: 'Admin access required.' })
 
   const { action, reason } = request.body
   if (action !== 'APPROVED' && action !== 'REJECTED') {
@@ -742,6 +742,7 @@ import {
 } from '../services/pricing.service.js'
 
 import { wsManager } from '../utils/wsManager.js'
+import { sanitizeChatContent } from '../utils/privacy.js'
 import { sendPushToUser } from '../services/push.service.js'
 
 // ─── Admin Order Handlers ─────────────────────────────────────────────────────
@@ -1361,7 +1362,8 @@ export async function adminGetOrderMessagesHandler(
   const channel = request.query.channel ?? undefined
   const messages = await getOrderMessages(request.server.db, request.params.id, channel)
   await markMessagesRead(request.server.db, request.params.id, admin.id)
-  return reply.send({ success: true, messages })
+  const sanitized = messages.map((m: any) => ({ ...m, message: sanitizeChatContent(String(m.message ?? '')) }))
+  return reply.send({ success: true, messages: sanitized })
 }
 
 /** POST /api/admin/orders/:id/messages */
@@ -1375,14 +1377,15 @@ export async function adminSendOrderMessageHandler(
   const order = await getOrderById(request.server.db, request.params.id)
   if (!order) return reply.status(404).send({ success: false, message: 'Order not found.' })
 
-  const msg = await createOrderMessage(request.server.db, request.params.id, admin.id, request.body.message.trim(), channel)
+  const cleanedMessage = sanitizeChatContent(request.body.message.trim())
+  const msg = await createOrderMessage(request.server.db, request.params.id, admin.id, cleanedMessage, channel)
   wsManager.broadcast(request.params.id, 'NEW_MESSAGE', { message: msg })
 
   if (channel === 'main' || channel === 'shipper') {
     if (order.shipper_id) {
       await sendPushToUser(request.server.db, order.shipper_id, {
         title: `Admin Message: ${order.reference_code}`,
-        body: request.body.message.trim().slice(0, 120),
+        body: cleanedMessage.slice(0, 120),
         url: '/dashboard',
         data: { order_id: order.id, reference_code: order.reference_code, channel, type: 'NEW_CHAT_MESSAGE' },
       }).catch(() => {})
@@ -1393,7 +1396,7 @@ export async function adminSendOrderMessageHandler(
     if (order.driver_id) {
       await sendPushToUser(request.server.db, order.driver_id, {
         title: `Admin Message: ${order.reference_code}`,
-        body: request.body.message.trim().slice(0, 120),
+        body: cleanedMessage.slice(0, 120),
         url: '/driver/jobs',
         data: { order_id: order.id, reference_code: order.reference_code, channel, type: 'NEW_CHAT_MESSAGE' },
       }).catch(() => {})
@@ -2338,4 +2341,174 @@ export async function adminUpdateSystemConfigHandler(
     )
   }
   return reply.send({ success: true, message: 'Configuration updated.' })
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ─── ROLE MANAGEMENT (9.4 RBAC) ─────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** GET /api/admin/me/permissions */
+export async function adminGetMyPermissionsHandler(
+  request: FastifyRequest,
+  reply: FastifyReply
+) {
+  const db = request.server.db
+  const user = request.user as { id: string; role_id: number }
+
+  // Super admin has all permissions.
+  if (user.role_id === 1) {
+    const [all] = await db.query<any[]>(
+      'SELECT permission_key FROM permissions WHERE is_active = 1 ORDER BY permission_key ASC'
+    )
+    return reply.send({ success: true, role_id: user.role_id, permissions: all.map(r => r.permission_key) })
+  }
+
+  const [rows] = await db.query<any[]>(
+    `SELECT rp.permission_key
+     FROM role_permissions rp
+     JOIN permissions p ON p.permission_key = rp.permission_key
+     WHERE rp.role_id = ? AND rp.is_allowed = 1 AND p.is_active = 1
+     ORDER BY rp.permission_key ASC`,
+    [user.role_id]
+  )
+
+  return reply.send({ success: true, role_id: user.role_id, permissions: rows.map(r => r.permission_key) })
+}
+
+/** GET /api/admin/role-management */
+export async function adminGetRoleManagementHandler(
+  request: FastifyRequest,
+  reply: FastifyReply
+) {
+  const caller = request.user as { id: string; role_id: number }
+  if (caller.role_id !== 1) {
+    return reply.status(403).send({ success: false, message: 'Super admin access required.' })
+  }
+
+  const db = request.server.db
+  const [roles] = await db.query<any[]>(
+    `SELECT id, role_name, description FROM roles WHERE id IN (1,4,5) ORDER BY id ASC`
+  )
+  const [permissions] = await db.query<any[]>(
+    `SELECT permission_key, label, description FROM permissions WHERE is_active = 1 ORDER BY permission_key ASC`
+  )
+  const [rows] = await db.query<any[]>(
+    `SELECT role_id, permission_key, is_allowed FROM role_permissions WHERE role_id IN (1,4,5)`
+  )
+
+  const matrix: Record<number, Record<string, boolean>> = {}
+  for (const role of roles) matrix[Number(role.id)] = {}
+  for (const perm of permissions) {
+    for (const role of roles) {
+      matrix[Number(role.id)][String(perm.permission_key)] = Number(role.id) === 1
+    }
+  }
+  for (const row of rows) {
+    const rid = Number(row.role_id)
+    const key = String(row.permission_key)
+    if (!matrix[rid]) matrix[rid] = {}
+    matrix[rid][key] = Number(row.is_allowed) === 1
+  }
+
+  return reply.send({ success: true, roles, permissions, matrix })
+}
+
+/** PUT /api/admin/roles/:roleId/permissions */
+export async function adminUpdateRolePermissionsHandler(
+  request: FastifyRequest<{ Params: { roleId: string }; Body: { permissions: string[] } }>,
+  reply: FastifyReply
+) {
+  const caller = request.user as { id: string; role_id: number }
+  if (caller.role_id !== 1) {
+    return reply.status(403).send({ success: false, message: 'Super admin access required.' })
+  }
+
+  const roleId = Number(request.params.roleId)
+  if (![1, 4, 5].includes(roleId)) {
+    return reply.status(400).send({ success: false, message: 'Unsupported role id.' })
+  }
+  if (roleId === 1) {
+    return reply.status(400).send({ success: false, message: 'Super admin permissions are fixed to full access.' })
+  }
+
+  const next = Array.isArray(request.body?.permissions) ? request.body.permissions : []
+  const db = request.server.db
+
+  const [validRows] = await db.query<any[]>(
+    'SELECT permission_key FROM permissions WHERE is_active = 1 ORDER BY permission_key ASC'
+  )
+  const valid = new Set(validRows.map(r => String(r.permission_key)))
+  const requested = Array.from(new Set(next.filter(k => valid.has(k))))
+
+  await db.query('DELETE FROM role_permissions WHERE role_id = ?', [roleId])
+
+  if (requested.length) {
+    const valuesSql = requested.map(() => '(?, ?, 1)').join(', ')
+    const params: any[] = []
+    for (const p of requested) {
+      params.push(roleId, p)
+    }
+    await db.query(
+      `INSERT INTO role_permissions (role_id, permission_key, is_allowed) VALUES ${valuesSql}`,
+      params
+    )
+  }
+
+  return reply.send({ success: true, message: 'Role permissions updated.', role_id: roleId, permissions: requested })
+}
+
+// ─── Security Events (Module 9) ───────────────────────────────────────────────
+
+/**
+ * GET /api/admin/security-events
+ * Returns paginated security audit log. Super-admin only.
+ * Query: ?page=1&limit=50&event_type=&role_id=
+ */
+export async function adminGetSecurityEventsHandler(
+  request: FastifyRequest<{ Querystring: { page?: string; limit?: string; event_type?: string; role_id?: string } }>,
+  reply: FastifyReply
+) {
+  const caller = request.user as { id: string; role_id: number }
+  if (caller.role_id !== 1) {
+    return reply.status(403).send({ success: false, message: 'Super admin access required.' })
+  }
+
+  const db = request.server.db
+  const page  = Math.max(1, Number(request.query.page)  || 1)
+  const limit = Math.min(200, Math.max(1, Number(request.query.limit) || 50))
+  const offset = (page - 1) * limit
+
+  const filters: string[] = []
+  const params: any[] = []
+
+  if (request.query.event_type) {
+    filters.push('event_type = ?')
+    params.push(request.query.event_type)
+  }
+  if (request.query.role_id) {
+    filters.push('role_id = ?')
+    params.push(Number(request.query.role_id))
+  }
+
+  const where = filters.length ? `WHERE ${filters.join(' AND ')}` : ''
+
+  const [countRows] = await db.query<any[]>(
+    `SELECT COUNT(*) AS total FROM security_events ${where}`,
+    params
+  )
+  const total = Number(countRows[0]?.total ?? 0)
+
+  const [rows] = await db.query<any[]>(
+    `SELECT id, event_type, user_id, role_id, ip_address, method, endpoint, reason, metadata, created_at
+     FROM security_events ${where}
+     ORDER BY created_at DESC
+     LIMIT ? OFFSET ?`,
+    [...params, limit, offset]
+  )
+
+  return reply.send({
+    success: true,
+    events: rows,
+    pagination: { page, limit, total, pages: Math.ceil(total / limit) },
+  })
 }

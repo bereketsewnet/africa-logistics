@@ -201,6 +201,22 @@ export default fp(async function dbPlugin(fastify) {
         changed_at TIMESTAMP(6) DEFAULT CURRENT_TIMESTAMP(6)
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     `);
+        await conn.query(`
+      CREATE TABLE IF NOT EXISTS security_events (
+        id BIGINT AUTO_INCREMENT PRIMARY KEY,
+        event_type VARCHAR(80) NOT NULL,
+        user_id CHAR(36) NULL,
+        role_id INT NULL,
+        ip_address VARCHAR(64) NULL,
+        method VARCHAR(10) NULL,
+        endpoint VARCHAR(255) NULL,
+        reason VARCHAR(255) NULL,
+        metadata JSON NULL,
+        created_at TIMESTAMP(6) DEFAULT CURRENT_TIMESTAMP(6),
+        INDEX idx_security_event_type_created (event_type, created_at),
+        INDEX idx_security_user_created (user_id, created_at)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    `);
         // ─── Schema migrations (add columns introduced after initial deploy) ──────
         // MySQL 8.0 does not support ADD COLUMN IF NOT EXISTS — check information_schema instead
         const dbName = process.env.DB_NAME ?? 'africa_logistics';
@@ -498,6 +514,150 @@ export default fp(async function dbPlugin(fastify) {
             }
             fastify.log.info('✅ Initialized wallets for all existing users.');
         }
+        // ─── System Notification Settings (7.5 Admin Control Panel) ──────────────
+        await conn.query(`
+      CREATE TABLE IF NOT EXISTS system_notification_settings (
+        id                      INT        NOT NULL DEFAULT 1 PRIMARY KEY,
+        email_order_updates     TINYINT(1) NOT NULL DEFAULT 1,
+        email_payment_alerts    TINYINT(1) NOT NULL DEFAULT 1,
+        push_order_updates      TINYINT(1) NOT NULL DEFAULT 1,
+        push_driver_job_alerts  TINYINT(1) NOT NULL DEFAULT 1,
+        push_admin_alerts       TINYINT(1) NOT NULL DEFAULT 1,
+        email_admin_alerts      TINYINT(1) NOT NULL DEFAULT 1,
+        updated_at              TIMESTAMP  DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        updated_by              CHAR(36)   NULL
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    `);
+        await conn.query(`INSERT IGNORE INTO system_notification_settings (id) VALUES (1)`);
+        // ─── Module 8: System Configuration ──────────────────────────────────────
+        // 8.1 / 8.4 — Vehicle Types (dynamic, replaces all static dropdowns)
+        await conn.query(`
+      CREATE TABLE IF NOT EXISTS vehicle_types (
+        id              INT AUTO_INCREMENT PRIMARY KEY,
+        name            VARCHAR(100) NOT NULL UNIQUE,
+        max_capacity_kg DECIMAL(10,2),
+        icon            VARCHAR(80),
+        icon_url        VARCHAR(500),
+        is_active       TINYINT(1)   DEFAULT 1,
+        sort_order      INT          DEFAULT 0,
+        created_at      TIMESTAMP    DEFAULT CURRENT_TIMESTAMP
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    `);
+        const [vtRows] = await conn.query('SELECT COUNT(*) as cnt FROM vehicle_types');
+        if (vtRows[0].cnt === 0) {
+            await conn.query(`
+        INSERT INTO vehicle_types (name, icon, sort_order) VALUES
+          ('Truck',       'LuTruck',   1),
+          ('Mini Truck',  'LuTruck',   2),
+          ('Van',         'LuCar',     3),
+          ('Pickup',      'LuCar',     4),
+          ('Motorcycle',  'LuBike',    5),
+          ('Cargo Bike',  'LuBike',    6),
+          ('Trailer',     'LuTruck',   7),
+          ('Other',       'LuPackage', 8)
+      `);
+            fastify.log.info('✅ Default vehicle types seeded.');
+        }
+        // 8.1 — Countries (geographic expansion management)
+        await conn.query(`
+      CREATE TABLE IF NOT EXISTS countries (
+        id         INT AUTO_INCREMENT PRIMARY KEY,
+        name       VARCHAR(100) NOT NULL,
+        iso_code   CHAR(2) NOT NULL UNIQUE,
+        is_active  TINYINT(1)  DEFAULT 0,
+        created_at TIMESTAMP   DEFAULT CURRENT_TIMESTAMP
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    `);
+        const [cRows] = await conn.query('SELECT COUNT(*) as cnt FROM countries');
+        if (cRows[0].cnt === 0) {
+            await conn.query(`
+        INSERT INTO countries (name, iso_code, is_active) VALUES
+          ('Ethiopia',  'et', 1),
+          ('Djibouti',  'dj', 0),
+          ('Eritrea',   'er', 0),
+          ('Kenya',     'ke', 0),
+          ('Sudan',     'sd', 0),
+          ('Somalia',   'so', 0)
+      `);
+            fastify.log.info('✅ Default countries seeded (Ethiopia active).');
+        }
+        // 8.3 — System Configuration (maintenance mode + app versioning)
+        await conn.query(`
+      CREATE TABLE IF NOT EXISTS system_config (
+        config_key   VARCHAR(100) NOT NULL PRIMARY KEY,
+        config_value TEXT,
+        updated_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    `);
+        await conn.query(`
+      INSERT IGNORE INTO system_config (config_key, config_value) VALUES
+        ('maintenance_mode',    '0'),
+        ('maintenance_message', 'The platform is currently under maintenance. We will be back shortly.'),
+        ('app_version',         '1.0.0')
+    `);
+        // 9.4 — RBAC permission model (role → permission matrix)
+        await conn.query(`
+      CREATE TABLE IF NOT EXISTS permissions (
+        permission_key VARCHAR(100) NOT NULL PRIMARY KEY,
+        label          VARCHAR(120) NOT NULL,
+        description    VARCHAR(255) NULL,
+        is_active      TINYINT(1)   DEFAULT 1,
+        created_at     TIMESTAMP    DEFAULT CURRENT_TIMESTAMP
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    `);
+        await conn.query(`
+      CREATE TABLE IF NOT EXISTS role_permissions (
+        role_id         INT          NOT NULL,
+        permission_key  VARCHAR(100) NOT NULL,
+        is_allowed      TINYINT(1)   NOT NULL DEFAULT 1,
+        updated_at      TIMESTAMP    DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        PRIMARY KEY (role_id, permission_key),
+        CONSTRAINT rp_fk_permission FOREIGN KEY (permission_key) REFERENCES permissions(permission_key) ON DELETE CASCADE
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    `);
+        // Ensure staff roles exist in legacy databases.
+        await conn.query(`
+      INSERT IGNORE INTO roles (id, role_name, description) VALUES
+        (4, 'DISPATCHER', 'Operations dispatcher handling order assignment and dispatch flow'),
+        (5, 'CASHIER', 'Finance/cashier role handling payment approvals and wallet operations')
+    `).catch(() => { });
+        await conn.query(`
+      INSERT IGNORE INTO permissions (permission_key, label, description) VALUES
+        ('overview.view',       'Overview Access',            'View admin overview dashboard widgets and totals'),
+        ('orders.manage',       'Orders Management',          'View and manage order lifecycle, chat, status and details'),
+        ('dispatch.manage',     'Dispatch Operations',        'Assign drivers/vehicles and live dispatch operations'),
+        ('drivers.verify',      'Driver Verification',        'Approve/reject driver documents and verification states'),
+        ('vehicles.manage',     'Vehicle Management',         'Manage fleet vehicles and submissions'),
+        ('cargo.manage',        'Cargo Types Management',     'Manage cargo categories and handling flags'),
+        ('pricing.manage',      'Pricing Rules Management',   'Manage pricing rules, fares and dynamic fees'),
+        ('payments.approve',    'Payment Approvals',          'Approve/reject manual payment requests'),
+        ('wallet.manage',       'Wallet Management',          'Adjust wallets and manage platform financial actions'),
+        ('bonuses.manage',      'Performance Bonuses',        'View/process driver performance bonuses'),
+        ('notifications.manage','Notification Controls',      'Manage global push/email notification settings'),
+        ('settings.manage',     'System Settings',            'Manage countries, vehicle types and maintenance config'),
+        ('users.manage',        'User Management',            'Manage users and staff accounts'),
+        ('roles.manage',        'Role Management',            'Manage role-permission assignments')
+    `);
+        // Default permissions for role 1 (super admin) — all permissions.
+        await conn.query(`
+      INSERT IGNORE INTO role_permissions (role_id, permission_key, is_allowed)
+      SELECT 1, p.permission_key, 1 FROM permissions p
+    `);
+        // Default permissions for dispatcher role (4).
+        await conn.query(`
+      INSERT IGNORE INTO role_permissions (role_id, permission_key, is_allowed) VALUES
+        (4, 'overview.view', 1),
+        (4, 'orders.manage', 1),
+        (4, 'dispatch.manage', 1),
+        (4, 'vehicles.manage', 1)
+    `);
+        // Default permissions for cashier role (5).
+        await conn.query(`
+      INSERT IGNORE INTO role_permissions (role_id, permission_key, is_allowed) VALUES
+        (5, 'overview.view', 1),
+        (5, 'payments.approve', 1),
+        (5, 'wallet.manage', 1)
+    `);
         conn.release(); // Return the connection back to the pool
     }
     catch (err) {

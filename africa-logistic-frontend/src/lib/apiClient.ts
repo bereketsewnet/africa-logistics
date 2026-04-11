@@ -305,6 +305,18 @@ export const adminOrderApi = {
     apiClient.get('/admin/system-config'),
   updateSystemConfig: (data: { maintenance_mode?: boolean; maintenance_message?: string; app_version?: string }) =>
     apiClient.put('/admin/system-config', data),
+
+  // ── RBAC Role Management (9.4) ───────────────────────────────────────────
+  getMyPermissions: () =>
+    apiClient.get('/admin/me/permissions'),
+  getRoleManagement: () =>
+    apiClient.get('/admin/role-management'),
+  updateRolePermissions: (roleId: number, permissions: string[]) =>
+    apiClient.put(`/admin/roles/${roleId}/permissions`, { permissions }),
+
+  // ── Security Events (Module 9) ───────────────────────────────────────────
+  getSecurityEvents: (params?: { page?: number; limit?: number; event_type?: string; role_id?: number }) =>
+    apiClient.get('/admin/security-events', { params }),
 }
 
 // ─── Public Config API (no auth required) ────────────────────────────────────

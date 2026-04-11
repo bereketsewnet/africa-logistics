@@ -24,7 +24,7 @@ import {
   LuListOrdered, LuSettings, LuBox, LuBan,
   LuLeaf, LuFlame, LuThermometer, LuHeart, LuMonitor, LuArchive, LuGem, LuFish, LuImage,
   LuMapPin, LuMessageSquare, LuSend, LuNavigation, LuBell,
-  LuGlobe, LuWrench, LuBike,
+  LuGlobe, LuWrench, LuBike, LuKey,
 } from 'react-icons/lu'
 
 // ─── Upload URL helper ───────────────────────────────────────────────────────
@@ -178,7 +178,7 @@ interface Stats {
   total_users: number; total_admins: number; total_shippers: number
   total_drivers: number; active_users: number; new_today: number
 }
-type AdminSection = 'overview' | 'drivers' | 'shippers' | 'staff' | 'verify-drivers' | 'vehicles' | 'orders' | 'live-drivers' | 'guest-orders' | 'cargo-types' | 'pricing-rules' | 'profile' | 'payments' | 'wallet-adjustment' | 'performance-bonus' | 'notif-settings' | 'settings' | 'vehicle-types' | 'countries' | 'maintenance-mode'
+type AdminSection = 'overview' | 'drivers' | 'shippers' | 'staff' | 'verify-drivers' | 'vehicles' | 'orders' | 'live-drivers' | 'guest-orders' | 'cargo-types' | 'pricing-rules' | 'profile' | 'payments' | 'wallet-adjustment' | 'performance-bonus' | 'notif-settings' | 'settings' | 'vehicle-types' | 'countries' | 'maintenance-mode' | 'role-management' | 'security-events'
 type ProfileTab = 'profile' | 'security' | 'contact'
 
 interface DriverRow {
@@ -811,6 +811,242 @@ function AdminMaintenanceSection() {
   )
 }
 
+// ─── Admin Role Management Section (9.4) ────────────────────────────────────
+
+function AdminRoleManagementSection() {
+  const [roles, setRoles] = useState<Array<{ id: number; role_name: string; description: string | null }>>([])
+  const [permissions, setPermissions] = useState<Array<{ permission_key: string; label: string; description: string | null }>>([])
+  const [matrix, setMatrix] = useState<Record<number, Record<string, boolean>>>({})
+  const [loading, setLoading] = useState(true)
+  const [savingRole, setSavingRole] = useState<number | null>(null)
+  const [toast, setToast] = useState('')
+  const showToast = (m: string) => { setToast(m); setTimeout(() => setToast(''), 3000) }
+
+  const load = async () => {
+    setLoading(true)
+    try {
+      const { data } = await adminOrderApi.getRoleManagement()
+      setRoles(data.roles ?? [])
+      setPermissions(data.permissions ?? [])
+      setMatrix(data.matrix ?? {})
+    } catch {
+      showToast('Failed to load role permissions')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => { load() }, []) // eslint-disable-line
+
+  const toggle = (roleId: number, key: string) => {
+    if (roleId === 1) return
+    setMatrix(prev => ({
+      ...prev,
+      [roleId]: {
+        ...(prev[roleId] ?? {}),
+        [key]: !(prev[roleId]?.[key] ?? false),
+      },
+    }))
+  }
+
+  const saveRole = async (roleId: number) => {
+    if (roleId === 1) return
+    setSavingRole(roleId)
+    try {
+      const selected = permissions
+        .filter(p => matrix[roleId]?.[p.permission_key])
+        .map(p => p.permission_key)
+      await adminOrderApi.updateRolePermissions(roleId, selected)
+      showToast('Permissions saved')
+      await load()
+    } catch {
+      showToast('Failed to save permissions')
+    } finally {
+      setSavingRole(null)
+    }
+  }
+
+  if (loading) return <LoadingSpinner />
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+      <h2 style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--clr-text)', display: 'flex', alignItems: 'center', gap: '0.45rem' }}><LuKey size={17}/> Role Management</h2>
+      <p style={{ fontSize: '0.78rem', color: 'var(--clr-muted)', marginTop: '-0.6rem' }}>Configure what each staff role can do. Super admin always has full access.</p>
+
+      {roles.map(role => (
+        <div key={role.id} className="glass-inner" style={{ padding: '0.9rem 1rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.65rem', gap: '0.5rem', flexWrap: 'wrap' }}>
+            <div>
+              <p style={{ fontSize: '0.88rem', fontWeight: 700, color: 'var(--clr-text)' }}>{role.role_name}</p>
+              {role.description && <p style={{ fontSize: '0.72rem', color: 'var(--clr-muted)' }}>{role.description}</p>}
+            </div>
+            {role.id !== 1 && (
+              <button onClick={() => saveRole(role.id)} disabled={savingRole === role.id}
+                style={{ padding: '0.38rem 0.8rem', borderRadius: 8, border: 'none', background: 'var(--clr-accent)', color: '#000', fontFamily: 'inherit', fontSize: '0.76rem', fontWeight: 700, cursor: 'pointer' }}>
+                {savingRole === role.id ? 'Saving…' : 'Save'}
+              </button>
+            )}
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(230px, 1fr))', gap: '0.45rem' }}>
+            {permissions.map(p => {
+              const on = !!matrix[role.id]?.[p.permission_key]
+              return (
+                <button key={`${role.id}-${p.permission_key}`} type="button" onClick={() => toggle(role.id, p.permission_key)} disabled={role.id === 1}
+                  style={{ padding: '0.55rem 0.65rem', borderRadius: 9, border: `1px solid ${on ? 'rgba(0,229,255,0.35)' : 'rgba(255,255,255,0.1)'}`, background: on ? 'rgba(0,229,255,0.1)' : 'rgba(255,255,255,0.03)', color: on ? 'var(--clr-accent)' : 'var(--clr-muted)', fontFamily: 'inherit', fontSize: '0.74rem', textAlign: 'left', cursor: role.id === 1 ? 'not-allowed' : 'pointer', opacity: role.id === 1 ? 0.7 : 1 }}>
+                  <p style={{ fontWeight: 700, marginBottom: '0.1rem' }}>{p.label}</p>
+                  {p.description && <p style={{ fontSize: '0.68rem', lineHeight: 1.45 }}>{p.description}</p>}
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      ))}
+
+      {toast && <div style={{ position:'fixed', bottom:'1.25rem', right:'1.25rem', zIndex:200, background:'rgba(0,229,255,0.12)', border:'1px solid rgba(0,229,255,0.25)', color:'var(--clr-text)', padding:'0.65rem 1.1rem', borderRadius:12, fontSize:'0.85rem', fontWeight:600, backdropFilter:'blur(12px)' }}>{toast}</div>}
+    </div>
+  )
+}
+
+// ─── Security Events Section ─────────────────────────────────────────────────
+
+function AdminSecurityEventsSection() {
+  const [events, setEvents] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  const [page, setPage] = useState(1)
+  const [pages, setPages] = useState(1)
+  const [filter, setFilter] = useState('')
+  const [toast, setToast] = useState('')
+  const showToast = (m: string) => { setToast(m); setTimeout(() => setToast(''), 3000) }
+
+  const load = async (p = page, evtType = filter) => {
+    setLoading(true)
+    try {
+      const { data } = await adminOrderApi.getSecurityEvents({ page: p, limit: 50, ...(evtType ? { event_type: evtType } : {}) })
+      setEvents(data.events ?? [])
+      setPages(data.pagination?.pages ?? 1)
+    } catch {
+      showToast('Failed to load security events')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => { load(1, filter) }, []) // eslint-disable-line
+
+  const EVENT_TYPES = ['ADMIN_ACCESS_DENIED_ROLE', 'ADMIN_ACCESS_DENIED_PERMISSION', 'OTP_LIMIT_REACHED', 'OTP_LOCKED']
+
+  const inputStyle: React.CSSProperties = {
+    padding: '0.5rem 0.75rem', borderRadius: 9, border: '1px solid rgba(255,255,255,0.12)',
+    background: 'rgba(255,255,255,0.05)', color: 'var(--clr-text)', fontFamily: 'inherit',
+    fontSize: '0.82rem', outline: 'none',
+  }
+
+  const handleFilter = (v: string) => {
+    setFilter(v); setPage(1); load(1, v)
+  }
+
+  const handlePage = (p: number) => {
+    setPage(p); load(p, filter)
+  }
+
+  const COLOUR: Record<string, string> = {
+    ADMIN_ACCESS_DENIED_ROLE:       '#f87171',
+    ADMIN_ACCESS_DENIED_PERMISSION: '#fb923c',
+    OTP_LIMIT_REACHED:              '#facc15',
+    OTP_LOCKED:                     '#f87171',
+  }
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+      <h2 style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--clr-text)', display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+        <LuShieldCheck size={17}/> Security Events
+      </h2>
+      <p style={{ fontSize: '0.78rem', color: 'var(--clr-muted)', marginTop: '-0.6rem' }}>
+        Audit log of denied access attempts, OTP lockouts, and security violations.
+      </p>
+
+      {/* Filter bar */}
+      <div style={{ display: 'flex', gap: '0.6rem', flexWrap: 'wrap', alignItems: 'center' }}>
+        <select value={filter} onChange={e => handleFilter(e.target.value)} style={{ ...inputStyle, minWidth: 230 }}>
+          <option value="" style={{ background: '#0f172a' }}>— All event types —</option>
+          {EVENT_TYPES.map(t => <option key={t} value={t} style={{ background: '#0f172a' }}>{t.replaceAll('_', ' ')}</option>)}
+        </select>
+        <button className="btn-outline" style={{ fontSize: '0.78rem', padding: '0.45rem 0.85rem' }} onClick={() => { setFilter(''); setPage(1); load(1, '') }}>
+          <LuRefreshCw size={13}/>
+        </button>
+      </div>
+
+      {loading ? <LoadingSpinner /> : (
+        <>
+          <div className="glass-inner" style={{ overflow: 'hidden' }}>
+            {events.length === 0 ? (
+              <p style={{ padding: '2rem', textAlign: 'center', color: 'var(--clr-muted)', fontSize: '0.85rem' }}>No security events found.</p>
+            ) : (
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.78rem' }}>
+                  <thead>
+                    <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.09)' }}>
+                      {['Time', 'Event Type', 'Role', 'Method', 'Endpoint', 'Reason', 'IP'].map(h => (
+                        <th key={h} style={{ padding: '0.6rem 0.75rem', textAlign: 'left', color: 'var(--clr-muted)', fontWeight: 600, whiteSpace: 'nowrap' }}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {events.map((ev, i) => (
+                      <tr key={ev.id} style={{ borderBottom: i < events.length - 1 ? '1px solid rgba(255,255,255,0.05)' : 'none' }}>
+                        <td style={{ padding: '0.55rem 0.75rem', color: 'var(--clr-muted)', whiteSpace: 'nowrap' }}>
+                          {new Date(ev.created_at).toLocaleString()}
+                        </td>
+                        <td style={{ padding: '0.55rem 0.75rem', whiteSpace: 'nowrap' }}>
+                          <span style={{ color: COLOUR[ev.event_type] ?? 'var(--clr-text)', fontWeight: 700, fontSize: '0.72rem' }}>
+                            {ev.event_type.replaceAll('_', ' ')}
+                          </span>
+                        </td>
+                        <td style={{ padding: '0.55rem 0.75rem', color: 'var(--clr-muted)' }}>
+                          {ev.role_id ?? '—'}
+                        </td>
+                        <td style={{ padding: '0.55rem 0.75rem', color: 'var(--clr-muted)' }}>
+                          {ev.method ?? '—'}
+                        </td>
+                        <td style={{ padding: '0.55rem 0.75rem', color: 'var(--clr-text)', maxWidth: 220, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {ev.endpoint ?? '—'}
+                        </td>
+                        <td style={{ padding: '0.55rem 0.75rem', color: 'var(--clr-muted)', maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {ev.reason ?? '—'}
+                        </td>
+                        <td style={{ padding: '0.55rem 0.75rem', color: 'var(--clr-muted)', whiteSpace: 'nowrap', fontFamily: 'monospace', fontSize: '0.72rem' }}>
+                          {ev.ip_address ?? '—'}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+
+          {/* Pagination */}
+          {pages > 1 && (
+            <div style={{ display: 'flex', gap: '0.4rem', justifyContent: 'center', flexWrap: 'wrap' }}>
+              {Array.from({ length: pages }, (_, i) => i + 1).map(p => (
+                <button key={p} onClick={() => handlePage(p)}
+                  style={{ padding: '0.3rem 0.65rem', borderRadius: 7, border: 'none', fontFamily: 'inherit', fontSize: '0.78rem', cursor: 'pointer',
+                    background: p === page ? 'var(--clr-accent)' : 'rgba(255,255,255,0.08)',
+                    color: p === page ? '#000' : 'var(--clr-text)', fontWeight: p === page ? 700 : 400 }}>
+                  {p}
+                </button>
+              ))}
+            </div>
+          )}
+        </>
+      )}
+
+      {toast && <div style={{ position:'fixed', bottom:'1.25rem', right:'1.25rem', zIndex:200, background:'rgba(0,229,255,0.12)', border:'1px solid rgba(0,229,255,0.25)', color:'var(--clr-text)', padding:'0.65rem 1.1rem', borderRadius:12, fontSize:'0.85rem', fontWeight:600, backdropFilter:'blur(12px)' }}>{toast}</div>}
+    </div>
+  )
+}
+
 // ─── Admin Settings Hub (8.x landing page) ────────────────────────────────────
 
 function AdminSettingsHub({ onNav }: { onNav: (s: AdminSection) => void }) {
@@ -820,6 +1056,7 @@ function AdminSettingsHub({ onNav }: { onNav: (s: AdminSection) => void }) {
     { id: 'vehicle-types',  icon: <LuTruck size={22}/>,    label: 'Vehicle Types',     desc: 'Manage all vehicle types with icons — feeds every dropdown platform-wide.', accent: 'rgba(251,146,60,0.12)' },
     { id: 'countries',      icon: <LuGlobe size={22}/>,    label: 'Countries',         desc: 'Enable or disable operational countries. Controls map search scope.',   accent: 'rgba(74,222,128,0.12)' },
     { id: 'notif-settings', icon: <LuBell size={22}/>,     label: 'Notifications',     desc: 'Global on/off switches for push and email notification channels.',      accent: 'rgba(250,204,21,0.10)' },
+    { id: 'role-management', icon: <LuKey size={22}/>,      label: 'Role Management',   desc: 'Set exactly what cashier and dispatcher accounts are allowed to do.',   accent: 'rgba(14,165,233,0.10)' },
     { id: 'maintenance-mode', icon: <LuWrench size={22}/>, label: 'Maintenance',       desc: 'Activate maintenance kill-switch and manage app version string.',       accent: 'rgba(239,68,68,0.10)' },
   ]
   return (
@@ -4649,6 +4886,7 @@ export default function AdminDashboardPage() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [pinned, setPinned] = useState<boolean>(() => localStorage.getItem('admin-sidebar-pinned') === 'true')
   const [users, setUsers]           = useState<UserRow[]>([])
+  const [myPermissions, setMyPermissions] = useState<string[]>([])
   const [stats, setStats]           = useState<Stats | null>(null)
   const [usersLoading, setUsersLoading] = useState(false)
   const [toastMsg, setToastMsg]     = useState('')
@@ -4668,6 +4906,12 @@ export default function AdminDashboardPage() {
 
   useEffect(() => { loadUsers() }, [loadUsers])
 
+  useEffect(() => {
+    adminOrderApi.getMyPermissions()
+      .then(({ data }) => setMyPermissions(data.permissions ?? []))
+      .catch(() => setMyPermissions([]))
+  }, [])
+
   const handleToggleActive = async (u: UserRow) => {
     try {
       await apiClient.patch(`/admin/users/${u.id}/toggle-active`)
@@ -4680,22 +4924,37 @@ export default function AdminDashboardPage() {
   const shippers   = users.filter(u => u.role_id === 2)
   const staffUsers = users.filter(u => [1, 4, 5].includes(u.role_id))
 
+  const can = (perm: string) => user?.role_id === 1 || myPermissions.includes(perm)
   const navItems: { id: AdminSection; icon: React.ReactNode; label: string; count?: number }[] = [
-    { id: 'overview',       icon: <LuChartBar size={16}/>,     label: 'Overview'         },
-    { id: 'orders',         icon: <LuListOrdered size={16}/>,  label: 'Orders'           },
-    { id: 'live-drivers',   icon: <LuMapPin size={16}/>,       label: 'Live Drivers'     },
-    { id: 'guest-orders',   icon: <LuUsers size={16}/>,        label: 'Guest Orders'     },
-    { id: 'drivers',        icon: <LuTruck size={16}/>,        label: 'Drivers',         count: drivers.length  },
-    { id: 'verify-drivers', icon: <LuShieldCheck size={16}/>,  label: 'Verify Drivers'   },
-    { id: 'vehicles',       icon: <LuCar size={16}/>,          label: 'Vehicles'         },
-    { id: 'settings',       icon: <LuSettings size={16}/>,     label: 'Settings'         },
-    { id: 'shippers',       icon: <LuPackage size={16}/>,      label: 'Shippers',        count: shippers.length },
-    { id: 'staff',          icon: <LuBriefcase size={16}/>,    label: 'Staff Users',     count: staffUsers.length },
-    { id: 'profile',        icon: <LuUser size={16}/>,         label: 'My Profile'       },
-      { id: 'payments',       icon: <LuFileText size={16}/>,     label: 'Payment Reviews'  },
-      { id: 'wallet-adjustment', icon: <LuSettings size={16}/>, label: 'Wallet Adjust'    },
-      { id: 'performance-bonus', icon: <LuStar size={16}/>,     label: 'Bonuses'          },
+    // 1. Dashboard overview — always first
+    ...(can('overview.view') ? [{ id: 'overview' as AdminSection, icon: <LuChartBar size={16}/>, label: 'Overview' }] : []),
+    // 2. Orders & dispatch — highest daily-use
+    ...(can('orders.manage') ? [{ id: 'orders' as AdminSection, icon: <LuListOrdered size={16}/>, label: 'Orders' }] : []),
+    ...(can('dispatch.manage') ? [{ id: 'live-drivers' as AdminSection, icon: <LuMapPin size={16}/>, label: 'Live Drivers' }] : []),
+    ...(can('orders.manage') ? [{ id: 'guest-orders' as AdminSection, icon: <LuUsers size={16}/>, label: 'Guest Orders' }] : []),
+    // 3. Payments & finance
+    ...(can('payments.approve') ? [{ id: 'payments' as AdminSection, icon: <LuFileText size={16}/>, label: 'Payment Reviews' }] : []),
+    ...(can('wallet.manage') ? [{ id: 'wallet-adjustment' as AdminSection, icon: <LuHistory size={16}/>, label: 'Wallet Adjust' }] : []),
+    ...(can('bonuses.manage') ? [{ id: 'performance-bonus' as AdminSection, icon: <LuStar size={16}/>, label: 'Bonuses' }] : []),
+    // 4. Driver management
+    ...(can('drivers.verify') ? [{ id: 'drivers' as AdminSection, icon: <LuTruck size={16}/>, label: 'Drivers', count: drivers.length }] : []),
+    ...(can('drivers.verify') ? [{ id: 'verify-drivers' as AdminSection, icon: <LuBadgeCheck size={16}/>, label: 'Verify Drivers' }] : []),
+    // 5. Vehicles & users
+    ...(can('vehicles.manage') ? [{ id: 'vehicles' as AdminSection, icon: <LuCar size={16}/>, label: 'Vehicles' }] : []),
+    ...(can('users.manage') ? [{ id: 'shippers' as AdminSection, icon: <LuPackage size={16}/>, label: 'Shippers', count: shippers.length }] : []),
+    ...(can('users.manage') ? [{ id: 'staff' as AdminSection, icon: <LuBriefcase size={16}/>, label: 'Staff Users', count: staffUsers.length }] : []),
+    // 6. Security events — super-admin only
+    ...(user?.role_id === 1 ? [{ id: 'security-events' as AdminSection, icon: <LuShieldCheck size={16}/>, label: 'Security Events' }] : []),
+    // 7. Settings — least frequent
+    ...(can('settings.manage') || can('notifications.manage') || can('roles.manage') || can('pricing.manage') || can('cargo.manage') ? [{ id: 'settings' as AdminSection, icon: <LuSettings size={16}/>, label: 'Settings' }] : []),
+    { id: 'profile', icon: <LuUser size={16}/>, label: 'My Profile' },
   ]
+
+  useEffect(() => {
+    if (!navItems.length) return
+    const exists = navItems.some(n => n.id === section)
+    if (!exists) setSection(navItems[0].id)
+  }, [section, navItems])
 
   const handleViewDriverOrders = (driverId: string, filterType?: string) => {
     let sf = ''
@@ -4707,13 +4966,15 @@ export default function AdminDashboardPage() {
   }
 
   const sectionTitle = navItems.find(n => n.id === section) ?? ({
-    'cargo-types': { icon: <LuBox size={16}/>, label: 'Cargo Types' },
-    'pricing-rules': { icon: <LuSettings size={16}/>, label: 'Pricing Rules' },
-    'vehicle-types': { icon: <LuTruck size={16}/>, label: 'Vehicle Types' },
-    'countries': { icon: <LuGlobe size={16}/>, label: 'Countries' },
-    'notif-settings': { icon: <LuBell size={16}/>, label: 'Notifications' },
-    'maintenance-mode': { icon: <LuWrench size={16}/>, label: 'Maintenance' },
-    'settings': { icon: <LuSettings size={16}/>, label: 'Settings' },
+    'cargo-types':     { icon: <LuBox size={16}/>,         label: 'Cargo Types' },
+    'pricing-rules':   { icon: <LuSettings size={16}/>,    label: 'Pricing Rules' },
+    'vehicle-types':   { icon: <LuTruck size={16}/>,       label: 'Vehicle Types' },
+    'countries':       { icon: <LuGlobe size={16}/>,       label: 'Countries' },
+    'notif-settings':  { icon: <LuBell size={16}/>,        label: 'Notifications' },
+    'maintenance-mode':{ icon: <LuWrench size={16}/>,      label: 'Maintenance' },
+    'role-management': { icon: <LuKey size={16}/>,         label: 'Role Management' },
+    'security-events': { icon: <LuShieldCheck size={16}/>, label: 'Security Events' },
+    'settings':        { icon: <LuSettings size={16}/>,    label: 'Settings' },
   } as Record<string, { icon: React.ReactNode; label: string }>)[section]
 
   return (
@@ -4819,6 +5080,8 @@ export default function AdminDashboardPage() {
           {section === 'vehicle-types'  && <AdminVehicleTypesSection />}
           {section === 'countries'      && <AdminCountriesSection />}
           {section === 'maintenance-mode' && <AdminMaintenanceSection />}
+          {section === 'role-management' && <AdminRoleManagementSection />}
+          {section === 'security-events' && <AdminSecurityEventsSection />}
           {section === 'profile'        && <ProfileSection />}
             {section === 'payments'       && <AdminPaymentReview />}
             {section === 'wallet-adjustment' && <AdminWalletAdjustment />}

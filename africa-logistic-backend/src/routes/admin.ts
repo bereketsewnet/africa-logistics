@@ -1,4 +1,5 @@
 import { FastifyInstance } from 'fastify'
+import { redactContactFields } from '../utils/privacy.js'
 import {
   adminGetUsersHandler,
   adminToggleActiveHandler,
@@ -74,11 +75,124 @@ import {
   // ── System Config (8.3) ───────────────────────────────────────────────────────
   adminGetSystemConfigHandler,
   adminUpdateSystemConfigHandler,
+  // ── Role Management (9.4) ─────────────────────────────────────────────────────
+  adminGetMyPermissionsHandler,
+  adminGetRoleManagementHandler,
+  adminUpdateRolePermissionsHandler,
+  // ── Security Events (Module 9) ────────────────────────────────────────────────
+  adminGetSecurityEventsHandler,
 } from '../controllers/admin.controller.js'
 
 export default async function adminRoutes(fastify: FastifyInstance) {
   // All admin routes require a valid JWT
   fastify.addHook('onRequest', fastify.authenticate)
+
+  const logSecurityEvent = async (payload: {
+    eventType: string
+    userId?: string | null
+    roleId?: number | null
+    ipAddress?: string | null
+    method?: string | null
+    endpoint?: string | null
+    reason?: string | null
+    metadata?: unknown
+  }) => {
+    try {
+      await fastify.db.query(
+        `INSERT INTO security_events (event_type, user_id, role_id, ip_address, method, endpoint, reason, metadata)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          payload.eventType,
+          payload.userId ?? null,
+          payload.roleId ?? null,
+          payload.ipAddress ?? null,
+          payload.method ?? null,
+          payload.endpoint ?? null,
+          payload.reason ?? null,
+          payload.metadata ? JSON.stringify(payload.metadata) : null,
+        ]
+      )
+    } catch {
+      // Security logging must not break request handling paths.
+    }
+  }
+
+  const resolvePermissionKey = (url: string): string | null => {
+    // Always allow this lightweight endpoint to build UI permissions.
+    if (url.includes('/me/permissions')) return null
+  // Security events is super-admin only — handler enforces it; no staff permission needed.
+  if (url.includes('/security-events')) return null
+
+    if (url.includes('/role-management') || url.includes('/roles/')) return 'roles.manage'
+    if (url.includes('/system-config') || url.includes('/countries') || url.includes('/vehicle-types')) return 'settings.manage'
+    if (url.includes('/notification-settings')) return 'notifications.manage'
+    if (url.includes('/pricing-rules')) return 'pricing.manage'
+    if (url.includes('/cargo-types')) return 'cargo.manage'
+    if (url.includes('/payments/')) return 'payments.approve'
+    if (url.includes('/wallet') || url.includes('/wallets') || url.includes('/wallet-stats')) return 'wallet.manage'
+    if (url.includes('/drivers/performance-metrics') || url.includes('/bonuses/')) return 'bonuses.manage'
+    if (url.includes('/drivers/live') || url.includes('/suggest-drivers') || url.includes('/orders/') && url.includes('/assign')) return 'dispatch.manage'
+    if (url.includes('/vehicles')) return 'vehicles.manage'
+    if (url.includes('/drivers/') && (url.includes('/review-document') || url.includes('/verify') || url.includes('/reject') || url.includes('/status'))) return 'drivers.verify'
+    if (url.includes('/users') || url.includes('/staff')) return 'users.manage'
+    if (url.includes('/orders')) return 'orders.manage'
+    return 'overview.view'
+  }
+
+  // RBAC middleware for staff users (dispatcher/cashier). Super admin bypasses.
+  fastify.addHook('onRequest', async (request, reply) => {
+    const user = request.user as { id: string; role_id: number }
+    if (user.role_id === 1) return
+
+    // Only staff roles can access /api/admin.
+    if (![4, 5].includes(user.role_id)) {
+      await logSecurityEvent({
+        eventType: 'ADMIN_ACCESS_DENIED_ROLE',
+        userId: user.id,
+        roleId: user.role_id,
+        ipAddress: request.ip,
+        method: request.method,
+        endpoint: request.url,
+        reason: 'Non-staff role attempted admin endpoint access',
+      })
+      return reply.status(403).send({ success: false, message: 'Admin access denied for your role.' })
+    }
+
+    const permissionKey = resolvePermissionKey(request.url)
+    if (!permissionKey) return
+
+    const [rows] = await fastify.db.query<any[]>(
+      `SELECT is_allowed FROM role_permissions WHERE role_id = ? AND permission_key = ? LIMIT 1`,
+      [user.role_id, permissionKey]
+    )
+    const allowed = rows[0] ? Number(rows[0].is_allowed) === 1 : false
+
+    if (!allowed) {
+      await logSecurityEvent({
+        eventType: 'ADMIN_ACCESS_DENIED_PERMISSION',
+        userId: user.id,
+        roleId: user.role_id,
+        ipAddress: request.ip,
+        method: request.method,
+        endpoint: request.url,
+        reason: 'Missing required permission',
+        metadata: { required_permission: permissionKey },
+      })
+      return reply.status(403).send({
+        success: false,
+        message: 'You do not have permission to access this admin function.',
+        required_permission: permissionKey,
+      })
+    }
+  })
+
+  // PII masking: non-super-admin staff should not receive raw phone/email fields.
+  fastify.addHook('preSerialization', async (request, _reply, payload) => {
+    const user = request.user as { role_id: number }
+    if (user?.role_id === 1) return payload
+    if (!payload || typeof payload !== 'object') return payload
+    return redactContactFields(payload)
+  })
 
   // ─── User Management ────────────────────────────────────────────────────────
 
@@ -308,4 +422,13 @@ export default async function adminRoutes(fastify: FastifyInstance) {
   // ─── System Config (8.3) ──────────────────────────────────────────────────
   fastify.get('/system-config',     adminGetSystemConfigHandler)
   fastify.put('/system-config',     adminUpdateSystemConfigHandler)
+
+  // ─── Role Management (9.4) ────────────────────────────────────────────────
+  fastify.get('/me/permissions',        adminGetMyPermissionsHandler)
+  fastify.get('/role-management',       adminGetRoleManagementHandler)
+  fastify.put('/roles/:roleId/permissions', adminUpdateRolePermissionsHandler)
+
+  // ─── Security Events (Module 9) ───────────────────────────────────────────
+  /** GET /api/admin/security-events — audit log, super-admin only */
+  fastify.get('/security-events', adminGetSecurityEventsHandler)
 }

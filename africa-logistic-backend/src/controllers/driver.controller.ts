@@ -37,6 +37,8 @@ import {
   updateDriverAvailabilityStatus,
 } from '../services/profile.service.js'
 import { sendPushToRole, sendPushToUser } from '../services/push.service.js'
+import { getOtpLockState, recordOtpFailure, clearOtpFailures } from '../utils/securityRateLimit.js'
+import { sanitizeChatContent } from '../utils/privacy.js'
 
 // ─── Guard ────────────────────────────────────────────────────────────────────
 
@@ -213,8 +215,28 @@ export async function verifyPickupOtpHandler(
   if (order.status !== 'AT_PICKUP')   return reply.status(400).send({ success: false, message: 'Driver must be AT_PICKUP to verify pickup OTP.' })
   if (order.pickup_otp_verified_at)   return reply.status(400).send({ success: false, message: 'Pickup OTP already verified.' })
 
+  const otpKey = `driver:pickup:order:${order.id}`
+  const lock = getOtpLockState(otpKey)
+  if (lock.locked) {
+    return reply
+      .status(429)
+      .header('Retry-After', String(lock.retryAfterSeconds))
+      .send({ success: false, message: 'Too many failed OTP attempts. Pickup verification is temporarily locked.' })
+  }
+
   const valid = await verifyOtpHash(String(request.body.otp), order.pickup_otp_hash)
-  if (!valid) return reply.status(400).send({ success: false, message: 'Invalid pickup OTP.' })
+  if (!valid) {
+    const state = recordOtpFailure(otpKey, 5, 15 * 60 * 1000, 30 * 60 * 1000)
+    if (state.locked) {
+      return reply
+        .status(429)
+        .header('Retry-After', String(state.retryAfterSeconds))
+        .send({ success: false, message: 'Too many failed OTP attempts. Pickup verification is temporarily locked.' })
+    }
+    return reply.status(403).send({ success: false, message: 'Invalid pickup OTP.' })
+  }
+
+  clearOtpFailures(otpKey)
 
   await markPickupOtpVerified(request.server.db, order.id)
   // Automatically advance to IN_TRANSIT
@@ -239,8 +261,28 @@ export async function verifyDeliveryOtpHandler(
   if (order.status !== 'IN_TRANSIT')   return reply.status(400).send({ success: false, message: 'Driver must be IN_TRANSIT to verify delivery OTP.' })
   if (order.delivery_otp_verified_at)  return reply.status(400).send({ success: false, message: 'Delivery OTP already verified.' })
 
+  const otpKey = `driver:delivery:order:${order.id}`
+  const lock = getOtpLockState(otpKey)
+  if (lock.locked) {
+    return reply
+      .status(429)
+      .header('Retry-After', String(lock.retryAfterSeconds))
+      .send({ success: false, message: 'Too many failed OTP attempts. Delivery verification is temporarily locked.' })
+  }
+
   const valid = await verifyOtpHash(String(request.body.otp), order.delivery_otp_hash)
-  if (!valid) return reply.status(400).send({ success: false, message: 'Invalid delivery OTP.' })
+  if (!valid) {
+    const state = recordOtpFailure(otpKey, 5, 15 * 60 * 1000, 30 * 60 * 1000)
+    if (state.locked) {
+      return reply
+        .status(429)
+        .header('Retry-After', String(state.retryAfterSeconds))
+        .send({ success: false, message: 'Too many failed OTP attempts. Delivery verification is temporarily locked.' })
+    }
+    return reply.status(403).send({ success: false, message: 'Invalid delivery OTP.' })
+  }
+
+  clearOtpFailures(otpKey)
 
   await markDeliveryOtpVerified(request.server.db, order.id)
   await updateOrderStatus(request.server.db, order.id, 'DELIVERED', driver.id, 'Delivery OTP verified — completed')
@@ -407,7 +449,8 @@ export async function getDriverJobMessagesHandler(
   const messages = await getOrderMessages(request.server.db, request.params.id, channel)
   await markMessagesRead(request.server.db, request.params.id, driver.id)
 
-  return reply.send({ success: true, messages })
+  const sanitized = messages.map((m: any) => ({ ...m, message: sanitizeChatContent(String(m.message ?? '')) }))
+  return reply.send({ success: true, messages: sanitized })
 }
 
 /** GET /api/driver/jobs/unread-counts */
@@ -436,11 +479,13 @@ export async function sendDriverMessageHandler(
   const { message } = request.body
   if (!message?.trim()) return reply.status(400).send({ success: false, message: 'Message cannot be empty.' })
 
+  const cleanedMessage = sanitizeChatContent(message.trim())
+
   // Restrict driver to main/driver channels only
   const allowedCh = ['main', 'driver']
   const channelBody = (request.body as any).channel
   const channel = channelBody && allowedCh.includes(channelBody) ? channelBody : 'main'
-  const msg = await createOrderMessage(request.server.db, order.id, driver.id, message.trim(), channel)
+  const msg = await createOrderMessage(request.server.db, order.id, driver.id, cleanedMessage, channel)
   wsManager.broadcast(order.id, 'NEW_MESSAGE', { message: msg })
 
   if (channel === 'main' && order.shipper_id && order.shipper_id !== driver.id) {

@@ -17,9 +17,10 @@ import { useAuth } from '../context/AuthContext'
 
 interface ProtectedRouteProps {
   children: React.ReactNode
+  allowedRoles?: number[]
 }
 
-export default function ProtectedRoute({ children }: ProtectedRouteProps) {
+export default function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) {
   const { user, isLoading } = useAuth()
 
   // Show a full-screen spinner while we're verifying the stored JWT
@@ -37,6 +38,11 @@ export default function ProtectedRoute({ children }: ProtectedRouteProps) {
   // Not authenticated — redirect to login
   if (!user) {
     return <Navigate to="/login" replace />
+  }
+
+  if (allowedRoles && !allowedRoles.includes(user.role_id)) {
+    const target = [1, 4, 5].includes(user.role_id) ? '/admin' : '/dashboard'
+    return <Navigate to={target} replace />
   }
 
   // Authenticated — render the protected page

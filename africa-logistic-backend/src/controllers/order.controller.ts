@@ -39,6 +39,7 @@ import {
 } from '../services/pricing.service.js'
 import { generateInvoice } from '../services/invoice.service.js'
 import { sendOrderPlacedEmail } from '../services/email.service.js'
+import { sanitizeChatContent } from '../utils/privacy.js'
 import { wsManager } from '../utils/wsManager.js'
 import {
   createDriverRating,
@@ -390,7 +391,8 @@ export async function getMessagesHandler(
   const messages = await getOrderMessages(request.server.db, request.params.id, channel)
   await markMessagesRead(request.server.db, request.params.id, user.id)
 
-  return reply.send({ success: true, messages })
+  const sanitized = messages.map((m: any) => ({ ...m, message: sanitizeChatContent(String(m.message ?? '')) }))
+  return reply.send({ success: true, messages: sanitized })
 }
 
 /** POST /api/orders/:id/messages */
@@ -408,10 +410,12 @@ export async function sendMessageHandler(
   const { message } = request.body
   if (!message?.trim()) return reply.status(400).send({ success: false, message: 'Message cannot be empty.' })
 
+  const cleanedMessage = sanitizeChatContent(message.trim())
+
   // Restrict shipper to main/shipper channels only
   const allowedCh = ['main', 'shipper']
   const channel = request.body.channel && allowedCh.includes(request.body.channel) ? request.body.channel : 'main'
-  const msg = await createOrderMessage(request.server.db, request.params.id, user.id, message.trim(), channel)
+  const msg = await createOrderMessage(request.server.db, request.params.id, user.id, cleanedMessage, channel)
 
   // Broadcast to WS subscribers
   wsManager.broadcast(request.params.id, 'NEW_MESSAGE', { message: msg })
