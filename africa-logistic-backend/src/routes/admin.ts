@@ -49,6 +49,15 @@ import {
   adminGetDriverRatingsHandler,
   adminDeleteRatingHandler,
   adminUpdateDriverStatusHandler,
+  // ── Financial/Payment Management ───────────────────────────────────────────
+  getPendingPaymentsHandler,
+  approveManualPaymentHandler,
+  rejectManualPaymentHandler,
+  adminAdjustWalletHandler,
+  getWalletStatsHandler,
+  // ── Performance Bonuses ────────────────────────────────────────────────────
+  getPerformanceMetricsHandler,
+  processPerfBonusesHandler,
 } from '../controllers/admin.controller.js'
 
 export default async function adminRoutes(fastify: FastifyInstance) {
@@ -230,4 +239,29 @@ export default async function adminRoutes(fastify: FastifyInstance) {
 
   /** PATCH /api/admin/drivers/:id/status — admin override driver status */
   fastify.patch('/drivers/:id/status', adminUpdateDriverStatusHandler)
+
+  // ── Financial/Payment Management ─────────────────────────────────────────
+
+  /** GET /api/admin/payments/pending — list pending manual payment submissions */
+  fastify.get('/payments/pending', getPendingPaymentsHandler)
+
+  /** POST /api/admin/payments/:recordId/approve — approve a manual payment */
+  fastify.post('/payments/:recordId/approve', approveManualPaymentHandler)
+
+  /** POST /api/admin/payments/:recordId/reject — reject a manual payment */
+  fastify.post('/payments/:recordId/reject', rejectManualPaymentHandler)
+
+  /** POST /api/admin/wallets/:userId/adjust — manually adjust user wallet (emergency correction) */
+  fastify.post('/wallets/:userId/adjust', adminAdjustWalletHandler)
+
+  /** GET /api/admin/wallet-stats — overall wallet and financial statistics */
+  fastify.get('/wallet-stats', getWalletStatsHandler)
+
+  // ── Performance Bonuses ────────────────────────────────────────────────────
+
+  /** GET /api/admin/drivers/performance-metrics — get all drivers' performance metrics */
+  fastify.get('/drivers/performance-metrics', getPerformanceMetricsHandler)
+
+  /** POST /api/admin/bonuses/process — manually trigger batch bonus processing */
+  fastify.post('/bonuses/process', processPerfBonusesHandler)
 }

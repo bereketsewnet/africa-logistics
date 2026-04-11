@@ -22,6 +22,9 @@ import {
   rateDriverHandler,
   getDriverRatingSummaryHandler,
   hasRatedOrderHandler,
+  addTipHandler,
+  getOrderChargesHandler,
+  addExtraChargeHandler,
 } from '../controllers/order.controller.js'
 
 export default async function orderRoutes(fastify: FastifyInstance) {
@@ -105,4 +108,26 @@ export default async function orderRoutes(fastify: FastifyInstance) {
    * Public summary of a driver's combined rating + system score.
    */
   fastify.get('/drivers/:driverId/rating-summary', getDriverRatingSummaryHandler)
+
+  // ── Tip & Extra Charges ───────────────────────────────────────────────────────
+
+  /**
+   * POST /api/orders/:id/add-tip
+   * Shipper adds optional tip to order after delivery
+   * Body: { tip_amount, rating_stars? }
+   */
+  fastify.post('/:id/add-tip', addTipHandler)
+
+  /**
+   * GET /api/orders/:id/charges
+   * Get all charges (tips, extra fees) for an order
+   */
+  fastify.get('/:id/charges', getOrderChargesHandler)
+
+  /**
+   * POST /api/orders/:id/extra-charge
+   * Admin or shipper adds extra charge (waiting time, loading fee, etc.)
+   * Body: { charge_type, amount, description?, is_optional? }
+   */
+  fastify.post('/:id/extra-charge', addExtraChargeHandler)
 }

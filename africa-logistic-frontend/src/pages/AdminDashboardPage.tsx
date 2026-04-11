@@ -8,6 +8,9 @@ import apiClient, { authApi, adminOrderApi } from '../lib/apiClient'
 import PhoneField from '../components/PhoneField'
 import { normalisePhone } from '../lib/normalisePhone'
 import { MapContainer, TileLayer, Marker, Popup, Polyline } from 'react-leaflet'
+import AdminPaymentReview from '../components/AdminPaymentReview'
+import AdminWalletAdjustment from '../components/AdminWalletAdjustment'
+import AdminPerformanceBonus from '../components/AdminPerformanceBonus'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import {
@@ -118,7 +121,7 @@ interface Stats {
   total_users: number; total_admins: number; total_shippers: number
   total_drivers: number; active_users: number; new_today: number
 }
-type AdminSection = 'overview' | 'drivers' | 'shippers' | 'staff' | 'verify-drivers' | 'vehicles' | 'orders' | 'live-drivers' | 'guest-orders' | 'cargo-types' | 'pricing-rules' | 'profile'
+type AdminSection = 'overview' | 'drivers' | 'shippers' | 'staff' | 'verify-drivers' | 'vehicles' | 'orders' | 'live-drivers' | 'guest-orders' | 'cargo-types' | 'pricing-rules' | 'profile' | 'payments' | 'wallet-adjustment' | 'performance-bonus'
 type ProfileTab = 'profile' | 'security' | 'contact'
 
 interface DriverRow {
@@ -4070,6 +4073,9 @@ export default function AdminDashboardPage() {
     { id: 'cargo-types',    icon: <LuBox size={16}/>,          label: 'Cargo Types'      },
     { id: 'pricing-rules',  icon: <LuSettings size={16}/>,     label: 'Pricing Rules'    },
     { id: 'profile',        icon: <LuUser size={16}/>,         label: 'My Profile'       },
+      { id: 'payments',       icon: <LuFileText size={16}/>,     label: 'Payment Reviews'  },
+      { id: 'wallet-adjustment', icon: <LuSettings size={16}/>, label: 'Wallet Adjust'    },
+      { id: 'performance-bonus', icon: <LuStar size={16}/>,     label: 'Bonuses'          },
   ]
 
   const handleViewDriverOrders = (driverId: string, filterType?: string) => {
@@ -4183,6 +4189,9 @@ export default function AdminDashboardPage() {
           {section === 'cargo-types'    && <AdminCargoTypesSection />}
           {section === 'pricing-rules'  && <AdminPricingRulesSection />}
           {section === 'profile'        && <ProfileSection />}
+            {section === 'payments'       && <AdminPaymentReview />}
+            {section === 'wallet-adjustment' && <AdminWalletAdjustment />}
+            {section === 'performance-bonus' && <AdminPerformanceBonus />}
         </main>
       </div>
 

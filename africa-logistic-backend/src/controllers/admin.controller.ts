@@ -1511,3 +1511,410 @@ export async function adminUpdateDriverStatusHandler(
   )
   return reply.send({ success: true, message: `Driver status set to ${status}.` })
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ─── FINANCIAL/PAYMENT MANAGEMENT (ADMIN) ───────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * GET /api/admin/payments/pending
+ * List pending manual payment submissions for admin review
+ */
+export async function getPendingPaymentsHandler(
+  request: FastifyRequest,
+  reply: FastifyReply
+) {
+  const { limit = 50, offset = 0 } = request.query as { limit: number; offset: number }
+
+  try {
+    const { getPendingManualPayments } = await import('../services/payment.service.js')
+
+    const { records, total } = await getPendingManualPayments(
+      request.server.db,
+      Math.min(limit, 100),
+      offset
+    )
+
+    return reply.send({
+      success: true,
+      payments: records.map((r) => ({
+        id: r.id,
+        wallet_id: r.wallet_id,
+        user_id: r.user_id,
+        user_name: `${r.first_name} ${r.last_name}`,
+        user_phone: r.phone_number,
+        amount: Number(r.amount),
+        action_type: r.action_type,
+        reason: r.reason,
+        proof_image_url: r.proof_image_url,
+        submitted_at: r.submitted_at,
+        current_balance: Number(r.balance),
+      })),
+      total,
+      limit,
+      offset,
+    })
+  } catch (err) {
+    request.server.log.error(err)
+    return reply.status(500).send({ success: false, message: 'Failed to fetch pending payments' })
+  }
+}
+
+/**
+ * POST /api/admin/payments/:recordId/approve
+ * Approve a manual payment submission and credit/debit wallet
+ */
+export async function approveManualPaymentHandler(
+  request: FastifyRequest<{ Params: { recordId: string }; Body: { notes?: string } }>,
+  reply: FastifyReply
+) {
+  const admin = request.user as any
+  const { recordId } = request.params
+  const { notes } = request.body
+
+  try {
+    const { approveManualPayment } = await import('../services/payment.service.js')
+    const { sendPushToUser } = await import('../services/push.service.js')
+    const { sendEmail } = await import('../services/email.service.js')
+
+    // Get the payment record
+    const [[record]] = await request.server.db.query<any[]>(
+      `SELECT mpr.*, w.user_id, u.email, u.first_name FROM manual_payment_records mpr
+       JOIN wallets w ON w.id = mpr.wallet_id
+       JOIN users u ON u.id = w.user_id
+       WHERE mpr.id = ?`,
+      [recordId]
+    )
+
+    if (!record) {
+      return reply.status(404).send({ success: false, message: 'Payment record not found' })
+    }
+
+    if (record.status !== 'PENDING') {
+      return reply.status(400).send({ success: false, message: 'Only pending payments can be approved' })
+    }
+
+    // Approve payment
+    await approveManualPayment(request.server.db, recordId, admin.id, notes)
+
+    // Send notifications
+    await sendPushToUser(request.server.db, record.user_id, {
+      title: record.action_type === 'DEPOSIT' ? 'Deposit Approved' : 'Withdrawal Approved',
+      body: `Your ${record.action_type.toLowerCase()} of ${record.amount.toFixed(2)} ETB has been approved.`,
+      url: '/wallet',
+      data: { type: 'payment_approved', record_id: recordId }
+    }).catch(() => {})
+
+    if (record.email) {
+      sendEmail({
+        to: record.email,
+        subject: `${record.action_type} Approved - ${record.amount.toFixed(2)} ETB`,
+        text: `Your ${record.action_type.toLowerCase()} request has been approved.\n\nAmount: ${record.amount.toFixed(2)} ETB\nReason: ${record.reason}\n\nCheck your wallet in the app.`
+      }).catch(() => {})
+    }
+
+    return reply.send({
+      success: true,
+      message: `Payment approved. Wallet updated with ${record.amount.toFixed(2)} ETB.`,
+    })
+  } catch (err) {
+    request.server.log.error(err)
+    return reply.status(500).send({ success: false, message: 'Failed to approve payment' })
+  }
+}
+
+/**
+ * POST /api/admin/payments/:recordId/reject
+ * Reject a manual payment submission
+ */
+export async function rejectManualPaymentHandler(
+  request: FastifyRequest<{ Params: { recordId: string }; Body: { reason: string } }>,
+  reply: FastifyReply
+) {
+  const admin = request.user as any
+  const { recordId } = request.params
+  const { reason } = request.body
+
+  if (!reason?.trim()) {
+    return reply.status(400).send({ success: false, message: 'Rejection reason is required' })
+  }
+
+  try {
+    const { rejectManualPayment } = await import('../services/payment.service.js')
+    const { sendPushToUser } = await import('../services/push.service.js')
+    const { sendEmail } = await import('../services/email.service.js')
+
+    // Get the payment record
+    const [[record]] = await request.server.db.query<any[]>(
+      `SELECT mpr.*, w.user_id, u.email, u.first_name FROM manual_payment_records mpr
+       JOIN wallets w ON w.id = mpr.wallet_id
+       JOIN users u ON u.id = w.user_id
+       WHERE mpr.id = ?`,
+      [recordId]
+    )
+
+    if (!record) {
+      return reply.status(404).send({ success: false, message: 'Payment record not found' })
+    }
+
+    if (record.status !== 'PENDING') {
+      return reply.status(400).send({ success: false, message: 'Only pending payments can be rejected' })
+    }
+
+    // Reject payment
+    await rejectManualPayment(request.server.db, recordId, admin.id, reason)
+
+    // Send notifications
+    await sendPushToUser(request.server.db, record.user_id, {
+      title: 'Payment Rejected',
+      body: `Your ${record.action_type.toLowerCase()} request was rejected: ${reason}`,
+      url: '/wallet',
+      data: { type: 'payment_rejected', record_id: recordId }
+    }).catch(() => {})
+
+    if (record.email) {
+      sendEmail({
+        to: record.email,
+        subject: `${record.action_type} Rejected`,
+        text: `Your ${record.action_type.toLowerCase()} request has been rejected.\n\nAmount: ${record.amount.toFixed(2)} ETB\nReason: ${reason}`
+      }).catch(() => {})
+    }
+
+    return reply.send({
+      success: true,
+      message: 'Payment rejected. User notified.',
+    })
+  } catch (err) {
+    request.server.log.error(err)
+    return reply.status(500).send({ success: false, message: 'Failed to reject payment' })
+  }
+}
+
+/**
+ * POST /api/admin/wallets/:userId/adjust
+ * Admin can manually adjust wallet balance (for emergency corrections)
+ * Body: { action: 'DEPOSIT'|'WITHDRAWAL'|'REFUND', amount, reason }
+ */
+export async function adminAdjustWalletHandler(
+  request: FastifyRequest<{ Params: { userId: string }; Body: { action: string; amount: number; reason: string } }>,
+  reply: FastifyReply
+) {
+  const admin = request.user as any
+  const { userId } = request.params
+  const { action, amount, reason } = request.body
+
+  if (!['DEPOSIT', 'WITHDRAWAL', 'REFUND', 'ADJUSTMENT'].includes(action)) {
+    return reply.status(400).send({ success: false, message: 'Invalid action' })
+  }
+
+  if (!amount || amount <= 0 || amount > 100000000) {
+    return reply.status(400).send({ success: false, message: 'Amount must be positive' })
+  }
+
+  if (!reason?.trim()) {
+    return reply.status(400).send({ success: false, message: 'Reason is required' })
+  }
+
+  try {
+    const { getOrCreateWallet, addWalletTransaction } = await import('../services/wallet.service.js')
+    const { sendPushToUser } = await import('../services/push.service.js')
+    const { sendEmail } = await import('../services/email.service.js')
+
+    const wallet = await getOrCreateWallet(request.server.db, userId)
+
+    // Create transaction
+    const txType = ['DEPOSIT', 'REFUND'].includes(action) ? 'CREDIT' : 'DEBIT'
+    const txId = await addWalletTransaction(
+      request.server.db,
+      userId,
+      txType as any,
+      amount,
+      `Admin ${action}: ${reason}`,
+      undefined,
+      undefined,
+      admin.id,
+      { admin_adjustment: true, reason, admin_id: admin.id }
+    )
+
+    // Send notifications
+    const [[user]] = await request.server.db.query<any[]>(
+      `SELECT email, first_name FROM users WHERE id = ?`,
+      [userId]
+    )
+
+    await sendPushToUser(request.server.db, userId, {
+      title: 'Wallet Adjusted',
+      body: `Admin adjustment: ${action === 'DEPOSIT' || action === 'REFUND' ? '+' : '-'}${amount.toFixed(2)} ETB`,
+      url: '/wallet',
+      data: { type: 'wallet_adjusted', transaction_id: txId }
+    }).catch(() => {})
+
+    if (user?.email) {
+      sendEmail({
+        to: user.email,
+        subject: `Wallet Adjusted - ${action}`,
+        text: `Your wallet has been adjusted by admin.\n\nAction: ${action}\nAmount: ${amount.toFixed(2)} ETB\nReason: ${reason}`
+      }).catch(() => {})
+    }
+
+    const newWallet = await getOrCreateWallet(request.server.db, userId)
+
+    return reply.send({
+      success: true,
+      message: `Wallet adjusted. New balance: ${Number(newWallet.balance).toFixed(2)} ETB`,
+      transaction_id: txId,
+      new_balance: Number(newWallet.balance),
+    })
+  } catch (err) {
+    request.server.log.error(err)
+    return reply.status(500).send({ success: false, message: 'Failed to adjust wallet' })
+  }
+}
+
+/**
+ * GET /api/admin/wallet-stats
+ * Get overall wallet and financial statistics
+ */
+export async function getWalletStatsHandler(request: FastifyRequest, reply: FastifyReply) {
+  try {
+    const { getWalletStats } = await import('../services/wallet.service.js')
+
+    const stats = await getWalletStats(request.server.db)
+
+    // Get additional stats
+    const [[paymentStats]] = await request.server.db.query<any[]>(
+      `SELECT
+        COUNT(*) as total_transactions,
+        SUM(CASE WHEN transaction_type IN ('CREDIT','BONUS') THEN amount ELSE 0 END) as total_credited,
+        SUM(CASE WHEN transaction_type IN ('DEBIT','COMMISSION') THEN amount ELSE 0 END) as total_debited
+       FROM wallet_transactions`
+    )
+
+    const [[manualPaymentStats]] = await request.server.db.query<any[]>(
+      `SELECT
+        COUNT(*) as total_manual,
+        SUM(CASE WHEN action_type = 'DEPOSIT' THEN amount ELSE 0 END) as total_deposits,
+        SUM(CASE WHEN action_type = 'WITHDRAWAL' THEN amount ELSE 0 END) as total_withdrawals,
+        SUM(CASE WHEN status = 'PENDING' THEN amount ELSE 0 END) as pending_amount
+       FROM manual_payment_records`
+    )
+
+    return reply.send({
+      success: true,
+      wallet_summary: {
+        total_wallets: stats.totalWallets,
+        total_balance: stats.totalBalance,
+        total_earned: stats.totalEarned,
+        total_spent: stats.totalSpent,
+      },
+      transaction_summary: {
+        total_transactions: Number(paymentStats.total_transactions),
+        total_credited: Number(paymentStats.total_credited),
+        total_debited: Number(paymentStats.total_debited),
+      },
+      manual_payment_summary: {
+        total_manual_records: Number(manualPaymentStats.total_manual),
+        total_deposits: Number(manualPaymentStats.total_deposits),
+        total_withdrawals: Number(manualPaymentStats.total_withdrawals),
+        pending_amount: Number(manualPaymentStats.pending_amount),
+      },
+    })
+  } catch (err) {
+    request.server.log.error(err)
+    return reply.status(500).send({ success: false, message: 'Failed to fetch wallet stats' })
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ─── PERFORMANCE BONUS MANAGEMENT (ADMIN) ───────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * GET /api/admin/drivers/performance-metrics?limit=50&offset=0
+ * Get all drivers' performance metrics for dashboard
+ */
+export async function getPerformanceMetricsHandler(request: FastifyRequest, reply: FastifyReply) {
+  const { limit = 50, offset = 0 } = request.query as { limit: number; offset: number }
+
+  try {
+    const { getAllDriverMetrics } = await import('../services/performance.service.js')
+
+    const { metrics, total } = await getAllDriverMetrics(
+      request.server.db,
+      Math.min(limit, 100),
+      offset
+    )
+
+    return reply.send({
+      success: true,
+      drivers: metrics.map((m: any) => ({
+        driver_id: m.driver_id,
+        name: `${m.first_name} ${m.last_name}`,
+        phone: m.phone_number,
+        total_trips: m.total_trips,
+        on_time_trips: m.on_time_trips,
+        on_time_percentage: Number(m.on_time_percentage).toFixed(2),
+        average_rating: Number(m.average_rating).toFixed(2),
+        bonus_earned: Number(m.bonus_earned),
+        streak_days: m.streak_days,
+      })),
+      total,
+      limit,
+      offset,
+    })
+  } catch (err) {
+    request.server.log.error(err)
+    return reply.status(500).send({ success: false, message: 'Failed to fetch performance metrics' })
+  }
+}
+
+/**
+ * POST /api/admin/bonuses/process
+ * Manually trigger batch bonus processing for all eligible drivers
+ */
+export async function processPerfBonusesHandler(request: FastifyRequest, reply: FastifyReply) {
+  const admin = request.user as any
+
+  try {
+    const { batchProcessPerformanceBonuses } = await import('../services/performance.service.js')
+    const { sendPushToUser } = await import('../services/push.service.js')
+    const { sendEmail } = await import('../services/email.service.js')
+
+    const result = await batchProcessPerformanceBonuses(request.server.db)
+
+    // Notify drivers about bonuses received (async)
+    for (const detail of result.details) {
+      const [[driver]] = await request.server.db.query<any[]>(
+        `SELECT email, first_name FROM users WHERE id = ?`,
+        [detail.driverId]
+      )
+
+      if (driver) {
+        await sendPushToUser(request.server.db, detail.driverId, {
+          title: `🎉 Performance Bonus Received!`,
+          body: `You've earned ${detail.bonus.toFixed(2)} ETB (${detail.tier})`,
+          url: '/wallet',
+          data: { type: 'bonus_received', amount: detail.bonus }
+        }).catch(() => {})
+
+        if (driver.email) {
+          sendEmail({
+            to: driver.email,
+            subject: 'Performance Bonus Credited',
+            text: `Congratulations! You've received a performance bonus of ${detail.bonus.toFixed(2)} ETB.\n\nTier: ${detail.tier}\n\nCheck your wallet in the app.`
+          }).catch(() => {})
+        }
+      }
+    }
+
+    return reply.send({
+      success: true,
+      message: `Processed bonuses for ${result.processed} drivers`,
+      total_bonus_amount: result.totalBonus,
+      details: result.details,
+    })
+  } catch (err) {
+    request.server.log.error(err)
+    return reply.status(500).send({ success: false, message: 'Failed to process bonuses' })
+  }
+}

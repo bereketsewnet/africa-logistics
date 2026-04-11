@@ -352,6 +352,152 @@ export default fp(async function dbPlugin(fastify) {
         CONSTRAINT dr_fk_order   FOREIGN KEY (order_id)   REFERENCES orders(id)
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     `);
+        // ─── Financial Engine: Wallets (Double-Entry Ledger) ─────────────────────
+        await conn.query(`
+      CREATE TABLE IF NOT EXISTS wallets (
+        id              CHAR(36)      NOT NULL PRIMARY KEY,
+        user_id         CHAR(36)      NOT NULL UNIQUE,
+        balance         DECIMAL(14,2) DEFAULT 0.00,
+        currency        VARCHAR(3)    DEFAULT 'ETB',
+        total_earned    DECIMAL(14,2) DEFAULT 0.00,
+        total_spent     DECIMAL(14,2) DEFAULT 0.00,
+        total_withdrawn DECIMAL(14,2) DEFAULT 0.00,
+        is_locked       TINYINT(1)    DEFAULT 0,
+        lock_reason     VARCHAR(500)  NULL,
+        created_at      TIMESTAMP     DEFAULT CURRENT_TIMESTAMP,
+        updated_at      TIMESTAMP     DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        UNIQUE KEY uq_wallets_user (user_id),
+        CONSTRAINT w_fk_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    `);
+        // ─── Wallet Transactions (Immutable Ledger) ───────────────────────────────
+        await conn.query(`
+      CREATE TABLE IF NOT EXISTS wallet_transactions (
+        id                CHAR(36)        NOT NULL PRIMARY KEY,
+        wallet_id         CHAR(36)        NOT NULL,
+        order_id          CHAR(36),
+        transaction_type  ENUM('CREDIT','DEBIT','COMMISSION','TIP','REFUND','BONUS','ADMIN_ADJUSTMENT') NOT NULL,
+        amount            DECIMAL(14,2)   NOT NULL,
+        description       VARCHAR(500)    NOT NULL,
+        reference_code    VARCHAR(100),
+        status            ENUM('PENDING','COMPLETED','FAILED','REVERSED') DEFAULT 'COMPLETED',
+        related_user_id   CHAR(36),
+        metadata          JSON            NULL,
+        created_at        TIMESTAMP       DEFAULT CURRENT_TIMESTAMP,
+        processed_at      TIMESTAMP       NULL,
+        reversed_at       TIMESTAMP       NULL,
+        reversed_by       CHAR(36)        NULL,
+        reversal_reason   VARCHAR(500)    NULL,
+        INDEX idx_wt_wallet (wallet_id),
+        INDEX idx_wt_order  (order_id),
+        INDEX idx_wt_type   (transaction_type),
+        INDEX idx_wt_status (status),
+        INDEX idx_wt_created (created_at),
+        CONSTRAINT wt_fk_wallet FOREIGN KEY (wallet_id)     REFERENCES wallets(id) ON DELETE CASCADE,
+        CONSTRAINT wt_fk_order  FOREIGN KEY (order_id)      REFERENCES orders(id) ON DELETE SET NULL,
+        CONSTRAINT wt_fk_user   FOREIGN KEY (related_user_id) REFERENCES users(id) ON DELETE SET NULL
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    `);
+        // ─── Order Charges (Tips, Extra Fees) ──────────────────────────────────────
+        await conn.query(`
+      CREATE TABLE IF NOT EXISTS order_charges (
+        id              CHAR(36)      NOT NULL PRIMARY KEY,
+        order_id        CHAR(36)      NOT NULL,
+        charge_type     ENUM('TIP','WAITING_TIME','LOADING_FEE','SPECIAL_HANDLING','OTHER') NOT NULL,
+        amount          DECIMAL(10,2) NOT NULL,
+        description     VARCHAR(255),
+        added_by        CHAR(36)      NOT NULL,
+        status          ENUM('PENDING','APPROVED','REJECTED','APPLIED') DEFAULT 'PENDING',
+        approved_at     TIMESTAMP     NULL,
+        approved_by     CHAR(36)      NULL,
+        is_optional     TINYINT(1)    DEFAULT 1,
+        created_at      TIMESTAMP     DEFAULT CURRENT_TIMESTAMP,
+        INDEX idx_oc_order  (order_id),
+        INDEX idx_oc_status (status),
+        CONSTRAINT oc_fk_order       FOREIGN KEY (order_id)   REFERENCES orders(id) ON DELETE CASCADE,
+        CONSTRAINT oc_fk_added_by    FOREIGN KEY (added_by)   REFERENCES users(id),
+        CONSTRAINT oc_fk_approved_by FOREIGN KEY (approved_by) REFERENCES users(id) ON DELETE SET NULL
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    `);
+        // ─── Order Invoices & Receipts ────────────────────────────────────────────
+        await conn.query(`
+      CREATE TABLE IF NOT EXISTS order_invoices (
+        id              CHAR(36)      NOT NULL PRIMARY KEY,
+        order_id        CHAR(36)      NOT NULL UNIQUE,
+        invoice_number  VARCHAR(50)   NOT NULL UNIQUE,
+        pdf_url         VARCHAR(500)  NOT NULL,
+        total_amount    DECIMAL(14,2) NOT NULL,
+        shipper_amount  DECIMAL(14,2) NOT NULL,
+        driver_amount   DECIMAL(14,2) NOT NULL,
+        commission      DECIMAL(14,2) NOT NULL,
+        tip_amount      DECIMAL(14,2) DEFAULT 0.00,
+        extra_charges   DECIMAL(14,2) DEFAULT 0.00,
+        generated_at    TIMESTAMP     DEFAULT CURRENT_TIMESTAMP,
+        downloaded_by_shipper TINYINT(1) DEFAULT 0,
+        downloaded_by_driver  TINYINT(1) DEFAULT 0,
+        downloaded_at_shipper TIMESTAMP NULL,
+        downloaded_at_driver  TIMESTAMP NULL,
+        created_at      TIMESTAMP     DEFAULT CURRENT_TIMESTAMP,
+        INDEX idx_oi_order (order_id),
+        INDEX idx_oi_invoice_number (invoice_number),
+        CONSTRAINT oi_fk_order FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    `);
+        // ─── Manual Payment Records (Admin) ────────────────────────────────────────
+        await conn.query(`
+      CREATE TABLE IF NOT EXISTS manual_payment_records (
+        id              CHAR(36)      NOT NULL PRIMARY KEY,
+        wallet_id       CHAR(36)      NOT NULL,
+        amount          DECIMAL(14,2) NOT NULL,
+        action_type     ENUM('DEPOSIT','WITHDRAWAL','REFUND','ADJUSTMENT') NOT NULL,
+        reason          VARCHAR(500)  NOT NULL,
+        proof_image_url VARCHAR(500),
+        submitted_by    CHAR(36)      NOT NULL,
+        approved_by     CHAR(36),
+        status          ENUM('PENDING','APPROVED','REJECTED') DEFAULT 'PENDING',
+        notes           TEXT,
+        submitted_at    TIMESTAMP     DEFAULT CURRENT_TIMESTAMP,
+        approved_at     TIMESTAMP     NULL,
+        transaction_id  CHAR(36),
+        INDEX idx_mpr_wallet  (wallet_id),
+        INDEX idx_mpr_status  (status),
+        INDEX idx_mpr_created (submitted_at),
+        CONSTRAINT mpr_fk_wallet  FOREIGN KEY (wallet_id)    REFERENCES wallets(id) ON DELETE CASCADE,
+        CONSTRAINT mpr_fk_submitted FOREIGN KEY (submitted_by) REFERENCES users(id),
+        CONSTRAINT mpr_fk_approved  FOREIGN KEY (approved_by)  REFERENCES users(id) ON DELETE SET NULL,
+        CONSTRAINT mpr_fk_transaction FOREIGN KEY (transaction_id) REFERENCES wallet_transactions(id) ON DELETE SET NULL
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    `);
+        // ─── Performance Metrics (for bonuses) ─────────────────────────────────────
+        await conn.query(`
+      CREATE TABLE IF NOT EXISTS driver_performance_metrics (
+        id                CHAR(36)    NOT NULL PRIMARY KEY,
+        driver_id         CHAR(36)    NOT NULL UNIQUE,
+        total_trips       INT         DEFAULT 0,
+        on_time_trips     INT         DEFAULT 0,
+        late_trips        INT         DEFAULT 0,
+        cancelled_trips   INT         DEFAULT 0,
+        average_rating    DECIMAL(3,2) DEFAULT 0.00,
+        total_earned      DECIMAL(14,2) DEFAULT 0.00,
+        on_time_percentage DECIMAL(5,2) DEFAULT 0.00,
+        bonus_earned      DECIMAL(14,2) DEFAULT 0.00,
+        last_trip_date    TIMESTAMP   NULL,
+        streak_days       INT         DEFAULT 0,
+        updated_at        TIMESTAMP   DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        INDEX idx_dpm_driver (driver_id),
+        CONSTRAINT dpm_fk_driver FOREIGN KEY (driver_id) REFERENCES users(id) ON DELETE CASCADE
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    `);
+        // ─── Initialize wallets for existing users ────────────────────────────────
+        const [existingWallets] = await conn.query('SELECT COUNT(*) as cnt FROM wallets');
+        if (existingWallets[0].cnt === 0) {
+            const [allUsers] = await conn.query('SELECT id FROM users WHERE is_active = 1');
+            for (const user of allUsers) {
+                const walletId = require('crypto').randomUUID();
+                await conn.query(`INSERT IGNORE INTO wallets (id, user_id, balance, currency) VALUES (?, ?, 0.00, 'ETB')`, [walletId, user.id]).catch(() => { }); // Ignore duplicates
+            }
+            fastify.log.info('✅ Initialized wallets for all existing users.');
+        }
         conn.release(); // Return the connection back to the pool
     }
     catch (err) {

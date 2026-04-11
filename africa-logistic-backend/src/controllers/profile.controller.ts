@@ -440,3 +440,224 @@ export async function submitDriverVehicleHandler(
     vehicle_id: vehicleId,
   })
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ─── FINANCIAL / PAYMENT ENDPOINTS ─────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * GET /api/profile/wallet
+ * Get user's wallet balance and summary
+ */
+export async function getWalletHandler(request: FastifyRequest, reply: FastifyReply) {
+  const caller = request.user as { id: string }
+  const db = request.server.db
+
+  const { getOrCreateWallet, getWalletTransactionHistory } = await import('../services/wallet.service.js')
+
+  try {
+    const wallet = await getOrCreateWallet(db, caller.id)
+    const { transactions, total } = await getWalletTransactionHistory(db, caller.id, 10)
+
+    return reply.send({
+      success: true,
+      wallet: {
+        id: wallet.id,
+        balance: Number(wallet.balance),
+        currency: wallet.currency,
+        total_earned: Number(wallet.total_earned),
+        total_spent: Number(wallet.total_spent),
+        is_locked: Boolean(wallet.is_locked),
+        lock_reason: wallet.lock_reason,
+      },
+      recent_transactions: transactions.map((t) => ({
+        id: t.id,
+        type: t.transaction_type,
+        amount: Number(t.amount),
+        description: t.description,
+        created_at: t.created_at,
+        status: t.status,
+      })),
+      total_transactions: total,
+    })
+  } catch (err) {
+    request.server.log.error(err)
+    return reply.status(500).send({ success: false, message: 'Failed to fetch wallet' })
+  }
+}
+
+/**
+ * GET /api/profile/wallet/transactions?limit=50&offset=0
+ * Get paginated transaction history
+ */
+export async function getTransactionHistoryHandler(request: FastifyRequest, reply: FastifyReply) {
+  const caller = request.user as { id: string }
+  const db = request.server.db
+  const { limit = 50, offset = 0 } = request.query as { limit: number; offset: number }
+
+  const { getWalletTransactionHistory } = await import('../services/wallet.service.js')
+
+  try {
+    const { transactions, total } = await getWalletTransactionHistory(db, caller.id, Math.min(limit, 100), offset)
+
+    return reply.send({
+      success: true,
+      transactions: transactions.map((t) => ({
+        id: t.id,
+        order_id: t.order_id,
+        type: t.transaction_type,
+        amount: Number(t.amount),
+        description: t.description,
+        reference_code: t.reference_code,
+        status: t.status,
+        created_at: t.created_at,
+      })),
+      total,
+      limit,
+      offset,
+    })
+  } catch (err) {
+    request.server.log.error(err)
+    return reply.status(500).send({ success: false, message: 'Failed to fetch transactions' })
+  }
+}
+
+/**
+ * GET /api/profile/invoices?limit=50&offset=0
+ * Get user's invoices
+ */
+export async function getInvoicesHandler(request: FastifyRequest, reply: FastifyReply) {
+  const caller = request.user as { id: string; role_id: number }
+  const db = request.server.db
+  const { limit = 50, offset = 0 } = request.query as { limit: number; offset: number }
+
+  const { getUserInvoices } = await import('../services/invoice.service.js')
+
+  try {
+    // Determine user role
+    const userRole = caller.role_id === 2 ? 'shipper' : 'driver'
+
+    const { invoices, total } = await getUserInvoices(db, caller.id, userRole, Math.min(limit, 100), offset)
+
+    return reply.send({
+      success: true,
+      invoices: invoices.map((inv) => ({
+        id: inv.id,
+        invoice_number: inv.invoice_number,
+        order_id: inv.order_id,
+        total_amount: Number(inv.total_amount),
+        shipper_amount: Number(inv.shipper_amount),
+        driver_amount: Number(inv.driver_amount),
+        commission: Number(inv.commission),
+        tip_amount: Number(inv.tip_amount),
+        pdf_url: inv.pdf_url,
+        generated_at: inv.generated_at,
+        downloaded: userRole === 'shipper' ? inv.downloaded_by_shipper : inv.downloaded_by_driver,
+      })),
+      total,
+      limit,
+      offset,
+    })
+  } catch (err) {
+    request.server.log.error(err)
+    return reply.status(500).send({ success: false, message: 'Failed to fetch invoices' })
+  }
+}
+
+/**
+ * POST /api/profile/invoices/:invoiceId/download
+ * Mark invoice as downloaded
+ */
+export async function downloadInvoiceHandler(request: FastifyRequest, reply: FastifyReply) {
+  const caller = request.user as { id: string; role_id: number }
+  const db = request.server.db
+  const { invoiceId } = request.params as { invoiceId: string }
+
+  const { getInvoiceByOrderId, markInvoiceDownloadedByShipper, markInvoiceDownloadedByDriver } = await import('../services/invoice.service.js')
+
+  try {
+    // Verify user owns this invoice
+    const [[invoice]] = await db.query<any[]>(
+      `SELECT oi.*, o.shipper_id, o.driver_id FROM order_invoices oi JOIN orders o ON o.id = oi.order_id WHERE oi.id = ?`,
+      [invoiceId]
+    )
+
+    if (!invoice) {
+      return reply.status(404).send({ success: false, message: 'Invoice not found' })
+    }
+
+    // Check ownership
+    if (invoice.shipper_id !== caller.id && invoice.driver_id !== caller.id) {
+      return reply.status(403).send({ success: false, message: 'Not authorized' })
+    }
+
+    // Mark as downloaded
+    if (caller.role_id === 2) {
+      // Shipper
+      await markInvoiceDownloadedByShipper(db, invoiceId)
+    } else {
+      // Driver
+      await markInvoiceDownloadedByDriver(db, invoiceId)
+    }
+
+    return reply.send({
+      success: true,
+      message: 'Invoice downloaded',
+      pdf_url: invoice.pdf_url,
+    })
+  } catch (err) {
+    request.server.log.error(err)
+    return reply.status(500).send({ success: false, message: 'Failed to download invoice' })
+  }
+}
+
+/**
+ * POST /api/profile/wallet/manual-payment
+ * Submit manual payment proof (for shippers depositing via bank transfer)
+ * Body: { amount, payment_method, proof_image (base64) }
+ */
+export async function submitManualPaymentHandler(
+  request: FastifyRequest<{ Body: { amount: number; payment_method: string; proof_image?: string } }>,
+  reply: FastifyReply
+) {
+  const caller = request.user as { id: string }
+  const db = request.server.db
+  const { amount, payment_method, proof_image } = request.body
+
+  if (!amount || amount <= 0 || amount > 10000000) {
+    return reply.status(400).send({ message: 'Amount must be between 1 and 10,000,000' })
+  }
+
+  if (!payment_method?.trim()) {
+    return reply.status(400).send({ message: 'payment_method is required' })
+  }
+
+  try {
+    const { getOrCreateWallet } = await import('../services/wallet.service.js')
+    const wallet = await getOrCreateWallet(db, caller.id)
+
+    let proofUrl: string | null = null
+    if (proof_image) {
+      proofUrl = saveBase64File(proof_image, 'payment_proofs', `payment_${caller.id}`)
+    }
+
+    const { randomUUID } = await import('crypto')
+    const recordId = randomUUID()
+
+    await db.query(
+      `INSERT INTO manual_payment_records 
+       (id, wallet_id, amount, action_type, reason, proof_image_url, submitted_by, status)
+       VALUES (?, ?, ?, 'DEPOSIT', ?, ?, ?, 'PENDING')`,
+      [recordId, wallet.id, amount, `Manual deposit via ${payment_method}`, proofUrl, caller.id]
+    )
+
+    return reply.status(201).send({
+      success: true,
+      message: 'Payment submission received. Admin will review and process within 24 hours.',
+      record_id: recordId,
+    })
+  } catch (err) {
+    request.server.log.error(err)
+    return reply.status(500).send({ success: false, message: 'Failed to submit payment' })
+  }
+}

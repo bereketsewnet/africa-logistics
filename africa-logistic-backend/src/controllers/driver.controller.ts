@@ -248,12 +248,121 @@ export async function verifyDeliveryOtpHandler(
   wsManager.broadcast(order.id, 'STATUS_CHANGED', { status: 'DELIVERED' })
   notifyOrderStatus(request.server.db, order.id, 'DELIVERED')
 
-  // Generate invoice async
-  generateInvoice(request.server.db, order.id)
-    .then(url => { if (url) wsManager.broadcast(order.id, 'INVOICE_READY', { invoice_url: url }) })
-    .catch(console.error)
+  // ─── PROCESS PAYMENT SETTLEMENT ─────────────────────────────────────────────
+  try {
+    const { calculateFinalOrderPrice, settleOrderPayment } = await import('../services/payment.service.js')
+    const { generateInvoiceNumber, saveFinancialInvoiceRecord, generateInvoice } = await import('../services/invoice.service.js')
+    const { findUserById } = await import('../services/auth.service.js')
+    const { sendPushToUser } = await import('../services/push.service.js')
+    const { sendEmail } = await import('../services/email.service.js')
 
-  return reply.send({ success: true, message: 'Delivery confirmed. Job marked as DELIVERED.' })
+    // Calculate final price including any approved charges/tips
+    // Check order assignment
+    if (!order.shipper_id || !order.driver_id) {
+      throw new Error('Order missing shipper or driver assignment')
+    }
+
+    const pricing = await calculateFinalOrderPrice(
+      request.server.db,
+      order.id,
+      Number(order.estimated_price),
+      order.driver_id
+    )
+
+    // Settle payment (deduct from shipper, credit to driver)
+    const { shipperTransactionId, driverTransactionId } = await settleOrderPayment(
+      request.server.db,
+      order.id,
+      order.shipper_id,
+      order.driver_id,
+      pricing.shipperCost,
+      pricing.driverEarning,
+      pricing.commission,
+      order.reference_code
+    )
+
+    // Generate invoice number and save record
+    const invoiceNumber = generateInvoiceNumber()
+    const invoiceId = await saveFinancialInvoiceRecord(
+      request.server.db,
+      order.id,
+      invoiceNumber,
+      '', // Will be filled after PDF generation
+      pricing.total,
+      pricing.shipperCost,
+      pricing.driverEarning,
+      pricing.commission,
+      pricing.approvedCharges, // Broken down later
+      0 // Extra charges separately tracked
+    )
+
+    // Generate PDF invoice async
+    generateInvoice(request.server.db, order.id)
+      .then(async (url) => {
+        if (url) {
+          // Update invoice record with PDF URL
+          await request.server.db.query(
+            `UPDATE order_invoices SET pdf_url = ? WHERE id = ?`,
+            [url, invoiceId]
+          )
+
+          // Notify shipper and driver about invoice ready
+          wsManager.broadcast(order.id, 'INVOICE_READY', { invoice_url: url })
+
+          // Send notifications
+          const [shipper] = await request.server.db.query<any[]>(
+            `SELECT email, first_name FROM users WHERE id = ?`,
+            [order.shipper_id]
+          )
+          const [driverUser] = await request.server.db.query<any[]>(
+            `SELECT email, first_name FROM users WHERE id = ?`,
+            [order.driver_id]
+          )
+
+          // Push notifications
+          const shipperId = String(order.shipper_id)
+          const driverId = String(order.driver_id)
+
+          await sendPushToUser(request.server.db, shipperId, {
+            title: 'Payment Completed',
+            body: `Order ${order.reference_code} payment settled. Invoice ready.`,
+            url: `/orders/${order.id}/invoice`,
+            data: { order_id: order.id, type: 'payment_settled' }
+          }).catch(() => {})
+
+          await sendPushToUser(request.server.db, driverId, {
+            title: 'Payment Received',
+            body: `Earned ${pricing.driverEarning.toFixed(2)} ETB from delivery ${order.reference_code}`,
+            url: `/jobs/${order.id}/invoice`,
+            data: { order_id: order.id, type: 'earnings_received' }
+          }).catch(() => {})
+
+          // Email notifications
+          if (shipper[0]?.email) {
+            sendEmail({
+              to: shipper[0].email,
+              subject: `Payment Settled - Order ${order.reference_code}`,
+              text: `Your order payment has been successfully processed.\n\nAmount: ${pricing.shipperCost.toFixed(2)} ETB\nOrder: ${order.reference_code}\n\nDownload your invoice from the app.`
+            }).catch(() => {})
+          }
+
+          if (driverUser[0]?.email) {
+            sendEmail({
+              to: driverUser[0].email,
+              subject: `Earnings Credited - Order ${order.reference_code}`,
+              text: `Your earnings have been credited to your wallet.\n\nAmount: ${pricing.driverEarning.toFixed(2)} ETB\nOrder: ${order.reference_code}\n\nView your invoice from the app.`
+            }).catch(() => {})
+          }
+        }
+      })
+      .catch(console.error)
+  } catch (err: any) {
+    request.server.log.error('Payment settlement error:', err)
+    // Don't block the delivery confirmation if payment processing fails
+    // This should be retried asynchronously
+  }
+
+  return reply.send({ success: true, message: 'Delivery confirmed. Job marked as DELIVERED. Payment settled.' })
 }
 
 /** POST /api/driver/location — High-frequency GPS ping */

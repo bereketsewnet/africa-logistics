@@ -6,6 +6,10 @@ import ShipperOrdersPage from './ShipperOrdersPage'
 import DriverJobsPage from './DriverJobsPage'
 import PhoneField from '../components/PhoneField'
 import { normalisePhone } from '../lib/normalisePhone'
+import WalletDashboard from '../components/WalletDashboard'
+import TransactionHistory from '../components/TransactionHistory'
+import InvoicesPage from '../components/InvoicesPage'
+import ManualPaymentPage from '../components/ManualPaymentPage'
 import {
   LuTruck, LuUser, LuShield, LuPackage, LuPhone, LuMail,
   LuIdCard, LuCircleCheck, LuTriangleAlert, LuCamera, LuTrash2,
@@ -13,6 +17,7 @@ import {
   LuLock, LuContact, LuBell, LuSun, LuMoon, LuMonitor, LuFileText,
   LuUpload, LuRefreshCw, LuStar, LuWallet, LuMessageSquare,
   LuLifeBuoy, LuClock, LuCar, LuX, LuChevronLeft, LuChevronRight,
+    LuHistory, LuPlus,
 } from 'react-icons/lu'
 
 // ─── Sub-components ──────────────────────────────────────────────────────────
@@ -85,7 +90,7 @@ function SectionRow({
 }
 
 type Tab = 'profile' | 'security' | 'contact' | 'preferences' | 'documents' | 'rating'
-type DockPage = 'account' | 'orders' | 'payments' | 'messages' | 'help' | 'vehicle' | 'shipments'
+type DockPage = 'account' | 'orders' | 'payments' | 'transactions' | 'messages' | 'help' | 'vehicle' | 'shipments'
 
 function ComingSoon({ title, icon, desc }: { title: string; icon: React.ReactNode; desc: string }) {
   return (
@@ -214,6 +219,7 @@ export default function DashboardPage() {
 
   type TabDef = { id: Tab; icon: React.ReactNode; label: string }
   const [activePage, setActivePage] = useState<DockPage>('account')
+  const [paymentTab, setPaymentTab] = useState<'wallet' | 'transactions' | 'invoices' | 'add-funds'>('wallet')
 
   // ── Dock expand/collapse state ─────────────────────────────────────────────
   const DOCK_KEY = 'dash_dock_v3'
@@ -477,13 +483,14 @@ export default function DashboardPage() {
 
   // ── Dock items ─────────────────────────────────────────────────────────────
   const dockItems: { id: DockPage; icon: React.ReactNode; label: string; soon?: boolean }[] = [
-    { id: 'account',   icon: <LuUser size={19}/>,          label: 'My Account'    },
+    { id: 'account',      icon: <LuUser size={19}/>,          label: 'My Account'    },
     ...(user?.role_id === 3 ? [{ id: 'vehicle' as DockPage, icon: <LuCar size={19}/>, label: 'My Vehicle' }] : []),
     ...(user?.role_id === 2 ? [{ id: 'shipments' as DockPage, icon: <LuPackage size={19}/>, label: 'My Shipments' }] : []),
-    ...(user?.role_id === 3 ? [{ id: 'orders' as DockPage, icon: <LuTruck size={19}/>, label: 'My Jobs' }] : [{ id: 'orders' as DockPage, icon: <LuPackage size={19}/>, label: 'My Orders', soon: true }]),
-    { id: 'payments',  icon: <LuWallet size={19}/>,        label: 'Payments',     soon: true },
-    { id: 'messages',  icon: <LuMessageSquare size={19}/>, label: 'Messages',     soon: true },
-    { id: 'help',      icon: <LuLifeBuoy size={19}/>,      label: 'Help & Support', soon: true },
+    ...(user?.role_id === 3 ? [{ id: 'orders' as DockPage, icon: <LuTruck size={19}/>, label: 'My Jobs' }] : []),
+    { id: 'payments',     icon: <LuWallet size={19}/>,        label: 'Wallet'        },
+    { id: 'transactions', icon: <LuHistory size={19}/>,       label: 'History'       },
+    { id: 'messages',     icon: <LuMessageSquare size={19}/>, label: 'Messages',     soon: true },
+    { id: 'help',         icon: <LuLifeBuoy size={19}/>,      label: 'Help & Support', soon: true },
   ]
 
   return (
@@ -997,7 +1004,70 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {activePage === 'payments' && <ComingSoon title="Payments" icon={<LuWallet size={30}/>} desc="View invoices, payment history and manage your billing information securely." />}
+        {activePage === 'payments' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+            <div className="glass" style={{ padding: '0.75rem 1rem', display: 'flex', gap: '0.5rem', overflow: 'auto' }}>
+              <button
+                onClick={() => setPaymentTab('wallet')}
+                style={{
+                  padding: '0.6rem 1rem', borderRadius: '8px', border: 'none',
+                  background: paymentTab === 'wallet' ? 'rgba(0,229,255,0.15)' : 'transparent',
+                  color: paymentTab === 'wallet' ? 'var(--clr-accent)' : 'var(--clr-muted)',
+                  fontWeight: 600, cursor: 'pointer', fontSize: '0.9rem',
+                  fontFamily: 'inherit', transition: 'all 0.2s',
+                  display: 'flex', alignItems: 'center', gap: '0.4rem', whiteSpace: 'nowrap'
+                }}
+              >
+                <LuWallet size={16} /> Wallet
+              </button>
+              <button
+                onClick={() => setPaymentTab('transactions')}
+                style={{
+                  padding: '0.6rem 1rem', borderRadius: '8px', border: 'none',
+                  background: paymentTab === 'transactions' ? 'rgba(0,229,255,0.15)' : 'transparent',
+                  color: paymentTab === 'transactions' ? 'var(--clr-accent)' : 'var(--clr-muted)',
+                  fontWeight: 600, cursor: 'pointer', fontSize: '0.9rem',
+                  fontFamily: 'inherit', transition: 'all 0.2s',
+                  display: 'flex', alignItems: 'center', gap: '0.4rem', whiteSpace: 'nowrap'
+                }}
+              >
+                <LuHistory size={16} /> History
+              </button>
+              <button
+                onClick={() => setPaymentTab('invoices')}
+                style={{
+                  padding: '0.6rem 1rem', borderRadius: '8px', border: 'none',
+                  background: paymentTab === 'invoices' ? 'rgba(0,229,255,0.15)' : 'transparent',
+                  color: paymentTab === 'invoices' ? 'var(--clr-accent)' : 'var(--clr-muted)',
+                  fontWeight: 600, cursor: 'pointer', fontSize: '0.9rem',
+                  fontFamily: 'inherit', transition: 'all 0.2s',
+                  display: 'flex', alignItems: 'center', gap: '0.4rem', whiteSpace: 'nowrap'
+                }}
+              >
+                <LuFileText size={16} /> Invoices
+              </button>
+              <button
+                onClick={() => setPaymentTab('add-funds')}
+                style={{
+                  padding: '0.6rem 1rem', borderRadius: '8px', border: 'none',
+                  background: paymentTab === 'add-funds' ? 'rgba(0,229,255,0.15)' : 'transparent',
+                  color: paymentTab === 'add-funds' ? 'var(--clr-accent)' : 'var(--clr-muted)',
+                  fontWeight: 600, cursor: 'pointer', fontSize: '0.9rem',
+                  fontFamily: 'inherit', transition: 'all 0.2s',
+                  display: 'flex', alignItems: 'center', gap: '0.4rem', whiteSpace: 'nowrap'
+                }}
+              >
+                <LuPlus size={16} /> Add Funds
+              </button>
+            </div>
+
+            {paymentTab === 'wallet' && <WalletDashboard />}
+            {paymentTab === 'transactions' && <TransactionHistory />}
+            {paymentTab === 'invoices' && <InvoicesPage />}
+            {paymentTab === 'add-funds' && <ManualPaymentPage onSuccess={() => setPaymentTab('wallet')} />}
+          </div>
+        )}
+        {activePage === 'transactions' && <TransactionHistory />}
         {activePage === 'messages' && <ComingSoon title="Messages" icon={<LuMessageSquare size={30}/>} desc="Communicate directly with drivers and dispatchers through the in-app secure messaging channel." />}
         {activePage === 'help'     && <ComingSoon title="Help & Support" icon={<LuLifeBuoy size={30}/>} desc="Access guides, FAQs and contact customer support for any platform-related issues." />}
 

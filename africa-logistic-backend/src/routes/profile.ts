@@ -19,6 +19,11 @@ import {
   getDriverDocReviewsHandler,
   getDriverVehiclesHandler,
   submitDriverVehicleHandler,
+  getWalletHandler,
+  getTransactionHistoryHandler,
+  getInvoicesHandler,
+  downloadInvoiceHandler,
+  submitManualPaymentHandler,
 } from '../controllers/profile.controller.js'
 
 export default async function profileRoutes(fastify: FastifyInstance) {
@@ -99,4 +104,40 @@ export default async function profileRoutes(fastify: FastifyInstance) {
    * Driver submits their own vehicle for admin approval.
    */
   fastify.post('/driver/vehicles', submitDriverVehicleHandler)
+
+  // ─── Financial / Wallet Endpoints ───────────────────────────────────────────
+
+  /**
+   * GET /api/profile/wallet
+   * Get user's wallet balance, recent transactions, and summary
+   */
+  fastify.get('/wallet', getWalletHandler)
+
+  /**
+   * GET /api/profile/wallet/transactions
+   * Get paginated transaction history
+   * Query: limit=50, offset=0
+   */
+  fastify.get('/wallet/transactions', getTransactionHistoryHandler)
+
+  /**
+   * GET /api/profile/invoices
+   * Get user's invoices (shipper or driver depending on role)
+   * Query: limit=50, offset=0
+   */
+  fastify.get('/invoices', getInvoicesHandler)
+
+  /**
+   * POST /api/profile/invoices/:invoiceId/download
+   * Mark invoice as downloaded (for tracking)
+   * Params: invoiceId
+   */
+  fastify.post('/invoices/:invoiceId/download', downloadInvoiceHandler)
+
+  /**
+   * POST /api/profile/wallet/manual-payment
+   * Submit manual payment proof for admin approval
+   * Body: { amount, payment_method, proof_image? (base64) }
+   */
+  fastify.post('/wallet/manual-payment', submitManualPaymentHandler)
 }

@@ -223,3 +223,116 @@ export async function generateInvoice(db: Pool, orderId: string): Promise<string
 
   return invoiceUrl
 }
+
+/**
+ * Generate invoice number (format: INV-2024-00001)
+ */
+export function generateInvoiceNumber(): string {
+  const year = new Date().getFullYear()
+  const random = Math.floor(Math.random() * 1000000)
+    .toString()
+    .padStart(5, '0')
+  return `INV-${year}-${random}`
+}
+
+/**
+ * Save financial invoice record (for payment tracking)
+ */
+export async function saveFinancialInvoiceRecord(
+  db: Pool,
+  orderId: string,
+  invoiceNumber: string,
+  pdfUrl: string,
+  totalAmount: number,
+  shipperAmount: number,
+  driverAmount: number,
+  commission: number,
+  tipAmount: number = 0,
+  extraCharges: number = 0
+): Promise<string> {
+  const { randomUUID } = await import('crypto')
+  const invoiceId = randomUUID()
+
+  await db.query(
+    `INSERT INTO order_invoices 
+     (id, order_id, invoice_number, pdf_url, total_amount, shipper_amount, driver_amount, commission, tip_amount, extra_charges, generated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
+    [invoiceId, orderId, invoiceNumber, pdfUrl, totalAmount, shipperAmount, driverAmount, commission, tipAmount, extraCharges]
+  )
+
+  return invoiceId
+}
+
+/**
+ * Get invoice record by order ID
+ */
+export async function getInvoiceByOrderId(db: Pool, orderId: string): Promise<any> {
+  const [rows] = await db.query<any[]>(
+    `SELECT * FROM order_invoices WHERE order_id = ?`,
+    [orderId]
+  )
+  return rows[0] || null
+}
+
+/**
+ * Mark invoice as downloaded by shipper
+ */
+export async function markInvoiceDownloadedByShipper(db: Pool, invoiceId: string): Promise<void> {
+  await db.query(
+    `UPDATE order_invoices 
+     SET downloaded_by_shipper = 1, downloaded_at_shipper = NOW()
+     WHERE id = ?`,
+    [invoiceId]
+  )
+}
+
+/**
+ * Mark invoice as downloaded by driver
+ */
+export async function markInvoiceDownloadedByDriver(db: Pool, invoiceId: string): Promise<void> {
+  await db.query(
+    `UPDATE order_invoices 
+     SET downloaded_by_driver = 1, downloaded_at_driver = NOW()
+     WHERE id = ?`,
+    [invoiceId]
+  )
+}
+
+/**
+ * Get all invoices for a user
+ */
+export async function getUserInvoices(
+  db: Pool,
+  userId: string,
+  userRole: 'shipper' | 'driver',
+  limit: number = 50,
+  offset: number = 0
+): Promise<{ invoices: any[]; total: number }> {
+  let query = `
+    SELECT oi.*, o.reference_code
+    FROM order_invoices oi
+    JOIN orders o ON o.id = oi.order_id
+  `
+
+  if (userRole === 'shipper') {
+    query += `WHERE o.shipper_id = ?`
+  } else {
+    query += `WHERE o.driver_id = ?`
+  }
+
+  query += ` ORDER BY oi.generated_at DESC LIMIT ? OFFSET ?`
+
+  const [invoices] = await db.query<any[]>(query, [userId, limit, offset])
+
+  const [totalRows] = await db.query<any[]>(
+    userRole === 'shipper'
+      ? `SELECT COUNT(*) as total FROM order_invoices oi JOIN orders o ON o.id = oi.order_id WHERE o.shipper_id = ?`
+      : `SELECT COUNT(*) as total FROM order_invoices oi JOIN orders o ON o.id = oi.order_id WHERE o.driver_id = ?`,
+    [userId]
+  )
+
+  return {
+    invoices,
+    total: totalRows[0].total,
+  }
+}

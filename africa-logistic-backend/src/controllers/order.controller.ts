@@ -201,6 +201,21 @@ export async function placeOrderHandler(
   const pickupOtp  = generateOtp()
   const deliveryOtp = generateOtp()
 
+  // ─── CHECK WALLET BALANCE ─────────────────────────────────────────────────────
+  const { validateOrderPayment } = await import('../services/payment.service.js')
+  const paymentValidation = await validateOrderPayment(request.server.db, user.id, quote.estimated_price)
+
+  if (!paymentValidation.hasSufficientBalance) {
+    return reply.status(402).send({
+      success: false,
+      message: `Insufficient wallet balance. You need ${paymentValidation.shortfall.toFixed(2)} ETB more.`,
+      current_balance: paymentValidation.currentBalance,
+      required_balance: quote.estimated_price,
+      shortfall: paymentValidation.shortfall,
+      action: 'RECHARGE_WALLET',
+    })
+  }
+
   // Save order images if provided
   const tempId = require('node:crypto').randomUUID()
   let img1Url: string | null = null
@@ -538,6 +553,184 @@ export async function getDriverRatingSummaryHandler(
 ) {
   const summary = await getDriverRatingSummary(request.server.db, request.params.driverId)
   return reply.send({ success: true, summary })
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ─── TIP SYSTEM ────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * POST /api/orders/:id/add-tip
+ * Shipper adds optional tip to order (only allowed for DELIVERED orders)
+ * Body: { tip_amount, rating_stars }
+ */
+export async function addTipHandler(
+  request: FastifyRequest<{ Params: { id: string }; Body: { tip_amount: number; rating_stars?: number } }>,
+  reply:   FastifyReply
+) {
+  const user = request.user as any
+  const order = await getOrderById(request.server.db, request.params.id)
+
+  if (!order) {
+    return reply.status(404).send({ success: false, message: 'Order not found' })
+  }
+
+  if (order.shipper_id !== user.id) {
+    return reply.status(403).send({ success: false, message: 'Only shipper can add tip' })
+  }
+
+  if (order.status !== 'DELIVERED') {
+    return reply.status(400).send({ success: false, message: 'Can only add tip to delivered orders' })
+  }
+
+  const { tip_amount, rating_stars = 5 } = request.body
+
+  if (typeof tip_amount !== 'number' || tip_amount < 0 || tip_amount > 50000) {
+    return reply.status(400).send({ success: false, message: 'Tip must be between 0 and 50,000 ETB' })
+  }
+
+  if (!Number.isInteger(rating_stars) || rating_stars < 1 || rating_stars > 5) {
+    return reply.status(400).send({ success: false, message: 'Rating must be 1-5 stars' })
+  }
+
+  try {
+    const { addOrderCharge, applyOrderCharge } = await import('../services/payment.service.js')
+    const { sendPushToUser } = await import('../services/push.service.js')
+
+    // Add tip as charge
+    const chargeId = await addOrderCharge(
+      request.server.db,
+      request.params.id,
+      'TIP',
+      tip_amount,
+      `Tip (${rating_stars}★ rating)${rating_stars >= 4 ? ' - Excellent Service' : rating_stars >= 3 ? ' - Good Service' : rating_stars >= 2 ? ' - Acceptable Service' : ' - Please improve'}`,
+      user.id,
+      true
+    )
+
+    // Auto-apply the charge
+    await applyOrderCharge(request.server.db, chargeId, user.id)
+
+    // Notify driver immediately
+    const driverId = String(order.driver_id)
+    await sendPushToUser(request.server.db, driverId, {
+      title: `${rating_stars}★ Tip Received!`,
+      body: `You received a ${tip_amount.toFixed(2)} ETB tip from order ${order.reference_code}`,
+      url: `/jobs/${request.params.id}`,
+      data: { order_id: request.params.id, type: 'tip_received', amount: tip_amount }
+    }).catch(() => {})
+
+    return reply.status(201).send({
+      success: true,
+      message: `Tip of ${tip_amount.toFixed(2)} ETB added successfully`,
+      charge_id: chargeId,
+    })
+  } catch (err) {
+    request.server.log.error(err)
+    return reply.status(500).send({ success: false, message: 'Failed to add tip' })
+  }
+}
+
+/**
+ * GET /api/orders/:id/charges
+ * Get all charges (tips, extra fees) for an order
+ */
+export async function getOrderChargesHandler(
+  request: FastifyRequest<{ Params: { id: string } }>,
+  reply:   FastifyReply
+) {
+  const user = request.user as any
+  const order = await getOrderById(request.server.db, request.params.id)
+
+  if (!order) {
+    return reply.status(404).send({ success: false, message: 'Order not found' })
+  }
+
+  // Only shipper, driver, or admin can view charges
+  if (order.shipper_id !== user.id && order.driver_id !== user.id && user.role_id !== 1) {
+    return reply.status(403).send({ success: false, message: 'Not authorized' })
+  }
+
+  try {
+    const { getOrderCharges } = await import('../services/payment.service.js')
+    const { charges, totalOptional, totalApproved } = await getOrderCharges(request.server.db, request.params.id)
+
+    return reply.send({
+      success: true,
+      charges: charges.map((c) => ({
+        id: c.id,
+        type: c.charge_type,
+        amount: Number(c.amount),
+        description: c.description,
+        is_optional: Boolean(c.is_optional),
+        status: c.status,
+      })),
+      summary: {
+        total_optional: totalOptional,
+        total_approved: totalApproved,
+        total: totalOptional + totalApproved,
+      },
+    })
+  } catch (err) {
+    request.server.log.error(err)
+    return reply.status(500).send({ success: false, message: 'Failed to fetch charges' })
+  }
+}
+
+/**
+ * POST /api/orders/:id/extra-charge
+ * Admin or shipper adds extra charge (waiting time, loading fee, etc.)
+ * Body: { charge_type, amount, description, is_optional }
+ */
+export async function addExtraChargeHandler(
+  request: FastifyRequest<{ Params: { id: string }; Body: { charge_type: string; amount: number; description?: string; is_optional?: boolean } }>,
+  reply:   FastifyReply
+) {
+  const user = request.user as any
+  const order = await getOrderById(request.server.db, request.params.id)
+
+  if (!order) {
+    return reply.status(404).send({ success: false, message: 'Order not found' })
+  }
+
+  // Only admin or shipper can add charges
+  if (user.role_id !== 1 && order.shipper_id !== user.id) {
+    return reply.status(403).send({ success: false, message: 'Not authorized' })
+  }
+
+  const validTypes = ['TIP', 'WAITING_TIME', 'LOADING_FEE', 'SPECIAL_HANDLING', 'OTHER']
+  if (!validTypes.includes(request.body.charge_type)) {
+    return reply.status(400).send({ success: false, message: `charge_type must be one of: ${validTypes.join(', ')}` })
+  }
+
+  const { charge_type, amount, description, is_optional = true } = request.body
+
+  if (typeof amount !== 'number' || amount <= 0 || amount > 100000) {
+    return reply.status(400).send({ success: false, message: 'Amount must be between 0.01 and 100,000' })
+  }
+
+  try {
+    const { addOrderCharge } = await import('../services/payment.service.js')
+
+    const chargeId = await addOrderCharge(
+      request.server.db,
+      request.params.id,
+      charge_type as any,
+      amount,
+      description || null,
+      user.id,
+      is_optional
+    )
+
+    return reply.status(201).send({
+      success: true,
+      message: 'Charge added successfully',
+      charge_id: chargeId,
+    })
+  } catch (err) {
+    request.server.log.error(err)
+    return reply.status(500).send({ success: false, message: 'Failed to add charge' })
+  }
 }
 
 /**
