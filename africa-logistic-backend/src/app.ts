@@ -59,6 +59,32 @@ app.decorate('authenticate', async function (request: any, reply: any) {
 import dbPlugin from './plugins/db.js'
 app.register(dbPlugin)
 
+// Global maintenance write guard (8.3): block non-admin writes when enabled.
+app.addHook('onRequest', async (request, reply) => {
+  const method = request.method.toUpperCase()
+  if (!['POST', 'PUT', 'PATCH', 'DELETE'].includes(method)) return
+
+  const url = request.url || ''
+  // Admin/config/health routes remain available so operations team can recover.
+  if (url.startsWith('/api/admin') || url.startsWith('/api/config') || url.startsWith('/health')) return
+
+  try {
+    const [rows] = await app.db.query<any[]>(
+      "SELECT config_value FROM system_config WHERE config_key = 'maintenance_mode' LIMIT 1"
+    )
+    const enabled = rows?.[0]?.config_value === '1' || rows?.[0]?.config_value === 'true'
+    if (!enabled) return
+
+    const [msgRows] = await app.db.query<any[]>(
+      "SELECT config_value FROM system_config WHERE config_key = 'maintenance_message' LIMIT 1"
+    )
+    const message = msgRows?.[0]?.config_value || 'System is under maintenance. Please try again shortly.'
+    return reply.status(503).send({ success: false, maintenance_mode: true, message })
+  } catch {
+    // Fail open to avoid accidental full outage if DB read fails.
+  }
+})
+
 // Serve uploaded profile photos and other static assets from /uploads
 import path from 'path'
 import fs from 'fs'
@@ -77,6 +103,7 @@ import profileRoutes from './routes/profile.js'
 import orderRoutes from './routes/orders.js'
 import driverRoutes from './routes/driver.js'
 import wsRoutes from './routes/ws.js'
+import configRoutes from './routes/config.js'
 
 app.register(healthRoutes)
 app.register(authRoutes)
@@ -85,5 +112,6 @@ app.register(profileRoutes, { prefix: '/api/profile' })
 app.register(orderRoutes,   { prefix: '/api/orders' })
 app.register(driverRoutes,  { prefix: '/api/driver' })
 app.register(wsRoutes,      { prefix: '/api' })
+app.register(configRoutes,  { prefix: '/api/config' })
 
 export default app

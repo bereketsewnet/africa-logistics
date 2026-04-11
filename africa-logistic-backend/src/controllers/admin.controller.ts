@@ -2166,3 +2166,176 @@ export async function updateNotifSettingsHandler(
 
   return reply.send({ success: true, message: 'Notification settings saved.' })
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ─── VEHICLE TYPES (8.4 Config Management) ───────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** GET /api/admin/vehicle-types — all vehicle types (inc. inactive) */
+export async function adminListVehicleTypesHandler(
+  request: FastifyRequest, reply: FastifyReply
+) {
+  const db = request.server.db
+  const [rows] = await db.query<any[]>(
+    'SELECT * FROM vehicle_types ORDER BY sort_order ASC, name ASC'
+  )
+  return reply.send({ success: true, vehicle_types: rows })
+}
+
+/** POST /api/admin/vehicle-types */
+export async function adminCreateVehicleTypeHandler(
+  request: FastifyRequest<{ Body: { name: string; max_capacity_kg?: number; icon?: string; icon_data?: string; is_active?: boolean; sort_order?: number } }>,
+  reply: FastifyReply
+) {
+  const db = request.server.db
+  const { name, max_capacity_kg, icon, icon_data, is_active = true, sort_order = 0 } = request.body
+  if (!name?.trim()) return reply.status(400).send({ success: false, message: 'Name is required.' })
+
+  let icon_url: string | null = null
+  if (icon_data) {
+    try { icon_url = saveFile(icon_data, 'vehicle-types', `vtype-${Date.now()}`) }
+    catch { return reply.status(400).send({ success: false, message: 'Invalid icon image data.' }) }
+  }
+
+  const [result] = await db.query<any>(
+    'INSERT INTO vehicle_types (name, max_capacity_kg, icon, icon_url, is_active, sort_order) VALUES (?, ?, ?, ?, ?, ?)',
+    [name.trim(), max_capacity_kg ?? null, icon ?? null, icon_url, is_active ? 1 : 0, sort_order]
+  )
+  const [rows] = await db.query<any[]>('SELECT * FROM vehicle_types WHERE id = ? LIMIT 1', [result.insertId])
+  return reply.status(201).send({ success: true, vehicle_type: rows[0] })
+}
+
+/** PUT /api/admin/vehicle-types/:id */
+export async function adminUpdateVehicleTypeHandler(
+  request: FastifyRequest<{ Params: { id: string }; Body: Record<string, any> }>,
+  reply: FastifyReply
+) {
+  const db = request.server.db
+  const { id } = request.params
+  const body = request.body ?? {}
+  const fields: string[] = []
+  const vals: any[] = []
+
+  if (body.name       !== undefined) { fields.push('name = ?');            vals.push(body.name.trim()) }
+  if (body.max_capacity_kg !== undefined) { fields.push('max_capacity_kg = ?'); vals.push(body.max_capacity_kg) }
+  if (body.icon       !== undefined) { fields.push('icon = ?');            vals.push(body.icon || null) }
+  if (body.is_active  !== undefined) { fields.push('is_active = ?');       vals.push(body.is_active ? 1 : 0) }
+  if (body.sort_order !== undefined) { fields.push('sort_order = ?');      vals.push(body.sort_order) }
+
+  if (body.icon_data) {
+    try {
+      const url = saveFile(body.icon_data, 'vehicle-types', `vtype-${id}-${Date.now()}`)
+      fields.push('icon_url = ?'); vals.push(url)
+    } catch { return reply.status(400).send({ success: false, message: 'Invalid icon image data.' }) }
+  } else if (body.icon_url === null) {
+    fields.push('icon_url = ?'); vals.push(null)
+  }
+
+  if (!fields.length) return reply.status(400).send({ success: false, message: 'No fields to update.' })
+  vals.push(id)
+  await db.query(`UPDATE vehicle_types SET ${fields.join(', ')} WHERE id = ?`, vals)
+
+  const [rows] = await db.query<any[]>('SELECT * FROM vehicle_types WHERE id = ? LIMIT 1', [id])
+  if (!(rows as any[]).length) return reply.status(404).send({ success: false, message: 'Not found.' })
+  return reply.send({ success: true, vehicle_type: rows[0] })
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ─── COUNTRIES (8.1 Geographic Expansion Management) ─────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** GET /api/admin/countries — all countries (inc. inactive) */
+export async function adminListCountriesHandler(
+  request: FastifyRequest, reply: FastifyReply
+) {
+  const db = request.server.db
+  const [rows] = await db.query<any[]>(
+    'SELECT * FROM countries ORDER BY is_active DESC, name ASC'
+  )
+  return reply.send({ success: true, countries: rows })
+}
+
+/** POST /api/admin/countries */
+export async function adminCreateCountryHandler(
+  request: FastifyRequest<{ Body: { name: string; iso_code: string; is_active?: boolean } }>,
+  reply: FastifyReply
+) {
+  const db = request.server.db
+  const { name, iso_code, is_active = false } = request.body
+  if (!name?.trim())     return reply.status(400).send({ success: false, message: 'Country name is required.' })
+  if (!iso_code?.trim() || iso_code.trim().length !== 2)
+    return reply.status(400).send({ success: false, message: 'ISO code must be exactly 2 characters.' })
+
+  const [result] = await db.query<any>(
+    'INSERT INTO countries (name, iso_code, is_active) VALUES (?, ?, ?)',
+    [name.trim(), iso_code.trim().toLowerCase(), is_active ? 1 : 0]
+  )
+  const [rows] = await db.query<any[]>('SELECT * FROM countries WHERE id = ? LIMIT 1', [result.insertId])
+  return reply.status(201).send({ success: true, country: rows[0] })
+}
+
+/** PUT /api/admin/countries/:id */
+export async function adminUpdateCountryHandler(
+  request: FastifyRequest<{ Params: { id: string }; Body: Record<string, any> }>,
+  reply: FastifyReply
+) {
+  const db = request.server.db
+  const { id } = request.params
+  const body = request.body ?? {}
+  const fields: string[] = []
+  const vals: any[] = []
+
+  if (body.name      !== undefined) { fields.push('name = ?');      vals.push(body.name.trim()) }
+  if (body.iso_code  !== undefined) { fields.push('iso_code = ?');  vals.push(body.iso_code.trim().toLowerCase()) }
+  if (body.is_active !== undefined) { fields.push('is_active = ?'); vals.push(body.is_active ? 1 : 0) }
+
+  if (!fields.length) return reply.status(400).send({ success: false, message: 'No fields to update.' })
+  vals.push(id)
+  await db.query(`UPDATE countries SET ${fields.join(', ')} WHERE id = ?`, vals)
+
+  const [rows] = await db.query<any[]>('SELECT * FROM countries WHERE id = ? LIMIT 1', [id])
+  if (!(rows as any[]).length) return reply.status(404).send({ success: false, message: 'Not found.' })
+  return reply.send({ success: true, country: rows[0] })
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ─── SYSTEM CONFIG (8.3 Maintenance Mode + App Versioning) ───────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+
+const ALLOWED_CONFIG_KEYS = ['maintenance_mode', 'maintenance_message', 'app_version'] as const
+
+/** GET /api/admin/system-config */
+export async function adminGetSystemConfigHandler(
+  request: FastifyRequest, reply: FastifyReply
+) {
+  const db = request.server.db
+  const [rows] = await db.query<any[]>('SELECT config_key, config_value FROM system_config')
+  const config: Record<string, string | boolean> = {}
+  for (const row of rows) {
+    if (row.config_key === 'maintenance_mode') {
+      config[row.config_key] = row.config_value === '1' || row.config_value === 'true'
+    } else {
+      config[row.config_key] = row.config_value ?? ''
+    }
+  }
+  return reply.send({ success: true, config })
+}
+
+/** PUT /api/admin/system-config */
+export async function adminUpdateSystemConfigHandler(
+  request: FastifyRequest<{ Body: Record<string, string | boolean | number> }>,
+  reply: FastifyReply
+) {
+  const db = request.server.db
+  const body = request.body ?? {}
+  for (const key of ALLOWED_CONFIG_KEYS) {
+    if (body[key] === undefined) continue
+    const val = typeof body[key] === 'boolean' ? (body[key] ? '1' : '0') : String(body[key])
+    await db.query(
+      `INSERT INTO system_config (config_key, config_value) VALUES (?, ?)
+       ON DUPLICATE KEY UPDATE config_value = ?`,
+      [key, val, val]
+    )
+  }
+  return reply.send({ success: true, message: 'Configuration updated.' })
+}

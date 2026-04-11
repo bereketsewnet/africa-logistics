@@ -283,4 +283,36 @@ export const adminOrderApi = {
 
   setDriverStatus: (driverId: string, status: string) =>
     apiClient.patch(`/admin/drivers/${driverId}/status`, { status }),
+
+  // ── Vehicle Types (8.4) ──────────────────────────────────────────────────
+  listVehicleTypes: () =>
+    apiClient.get('/admin/vehicle-types'),
+  createVehicleType: (data: { name: string; max_capacity_kg?: number; icon?: string; icon_data?: string; is_active?: boolean; sort_order?: number }) =>
+    apiClient.post('/admin/vehicle-types', data),
+  updateVehicleType: (id: number, data: { name?: string; max_capacity_kg?: number; icon?: string | null; icon_data?: string; icon_url?: null; is_active?: boolean; sort_order?: number }) =>
+    apiClient.put(`/admin/vehicle-types/${id}`, data),
+
+  // ── Countries (8.1) ───────────────────────────────────────────────────────
+  listCountries: () =>
+    apiClient.get('/admin/countries'),
+  createCountry: (data: { name: string; iso_code: string; is_active?: boolean }) =>
+    apiClient.post('/admin/countries', data),
+  updateCountry: (id: number, data: { name?: string; iso_code?: string; is_active?: boolean }) =>
+    apiClient.put(`/admin/countries/${id}`, data),
+
+  // ── System Config (8.3) ───────────────────────────────────────────────────
+  getSystemConfig: () =>
+    apiClient.get('/admin/system-config'),
+  updateSystemConfig: (data: { maintenance_mode?: boolean; maintenance_message?: string; app_version?: string }) =>
+    apiClient.put('/admin/system-config', data),
+}
+
+// ─── Public Config API (no auth required) ────────────────────────────────────
+export const configApi = {
+  getVehicleTypes: () =>
+    apiClient.get('/config/vehicle-types'),
+  getCountries: () =>
+    apiClient.get('/config/countries'),
+  getMaintenance: () =>
+    apiClient.get('/config/maintenance'),
 }

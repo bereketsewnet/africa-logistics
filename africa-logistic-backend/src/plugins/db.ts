@@ -557,6 +557,76 @@ export default fp(async function dbPlugin(fastify: FastifyInstance) {
     `)
     await conn.query(`INSERT IGNORE INTO system_notification_settings (id) VALUES (1)`)
 
+    // ─── Module 8: System Configuration ──────────────────────────────────────
+
+    // 8.1 / 8.4 — Vehicle Types (dynamic, replaces all static dropdowns)
+    await conn.query(`
+      CREATE TABLE IF NOT EXISTS vehicle_types (
+        id              INT AUTO_INCREMENT PRIMARY KEY,
+        name            VARCHAR(100) NOT NULL UNIQUE,
+        max_capacity_kg DECIMAL(10,2),
+        icon            VARCHAR(80),
+        icon_url        VARCHAR(500),
+        is_active       TINYINT(1)   DEFAULT 1,
+        sort_order      INT          DEFAULT 0,
+        created_at      TIMESTAMP    DEFAULT CURRENT_TIMESTAMP
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    `)
+    const [vtRows] = await conn.query<any[]>('SELECT COUNT(*) as cnt FROM vehicle_types')
+    if (vtRows[0].cnt === 0) {
+      await conn.query(`
+        INSERT INTO vehicle_types (name, icon, sort_order) VALUES
+          ('Truck',       'LuTruck',   1),
+          ('Mini Truck',  'LuTruck',   2),
+          ('Van',         'LuCar',     3),
+          ('Pickup',      'LuCar',     4),
+          ('Motorcycle',  'LuBike',    5),
+          ('Cargo Bike',  'LuBike',    6),
+          ('Trailer',     'LuTruck',   7),
+          ('Other',       'LuPackage', 8)
+      `)
+      fastify.log.info('✅ Default vehicle types seeded.')
+    }
+
+    // 8.1 — Countries (geographic expansion management)
+    await conn.query(`
+      CREATE TABLE IF NOT EXISTS countries (
+        id         INT AUTO_INCREMENT PRIMARY KEY,
+        name       VARCHAR(100) NOT NULL,
+        iso_code   CHAR(2) NOT NULL UNIQUE,
+        is_active  TINYINT(1)  DEFAULT 0,
+        created_at TIMESTAMP   DEFAULT CURRENT_TIMESTAMP
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    `)
+    const [cRows] = await conn.query<any[]>('SELECT COUNT(*) as cnt FROM countries')
+    if (cRows[0].cnt === 0) {
+      await conn.query(`
+        INSERT INTO countries (name, iso_code, is_active) VALUES
+          ('Ethiopia',  'et', 1),
+          ('Djibouti',  'dj', 0),
+          ('Eritrea',   'er', 0),
+          ('Kenya',     'ke', 0),
+          ('Sudan',     'sd', 0),
+          ('Somalia',   'so', 0)
+      `)
+      fastify.log.info('✅ Default countries seeded (Ethiopia active).')
+    }
+
+    // 8.3 — System Configuration (maintenance mode + app versioning)
+    await conn.query(`
+      CREATE TABLE IF NOT EXISTS system_config (
+        config_key   VARCHAR(100) NOT NULL PRIMARY KEY,
+        config_value TEXT,
+        updated_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    `)
+    await conn.query(`
+      INSERT IGNORE INTO system_config (config_key, config_value) VALUES
+        ('maintenance_mode',    '0'),
+        ('maintenance_message', 'The platform is currently under maintenance. We will be back shortly.'),
+        ('app_version',         '1.0.0')
+    `)
+
     conn.release() // Return the connection back to the pool
   } catch (err) {
     fastify.log.error('❌ MySQL connection failed. Is XAMPP running?')

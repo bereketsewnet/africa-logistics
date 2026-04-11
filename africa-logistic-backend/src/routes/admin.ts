@@ -62,7 +62,19 @@ import {
   getPerformanceMetricsHandler,
   processPerfBonusesHandler,  // ── System Notification Settings ──────────────────────────────────────
   getNotifSettingsHandler,
-  updateNotifSettingsHandler,} from '../controllers/admin.controller.js'
+  updateNotifSettingsHandler,
+  // ── Vehicle Types (8.4) ──────────────────────────────────────────────────────
+  adminListVehicleTypesHandler,
+  adminCreateVehicleTypeHandler,
+  adminUpdateVehicleTypeHandler,
+  // ── Countries (8.1) ──────────────────────────────────────────────────────────
+  adminListCountriesHandler,
+  adminCreateCountryHandler,
+  adminUpdateCountryHandler,
+  // ── System Config (8.3) ───────────────────────────────────────────────────────
+  adminGetSystemConfigHandler,
+  adminUpdateSystemConfigHandler,
+} from '../controllers/admin.controller.js'
 
 export default async function adminRoutes(fastify: FastifyInstance) {
   // All admin routes require a valid JWT
@@ -281,6 +293,19 @@ export default async function adminRoutes(fastify: FastifyInstance) {
 
   /** GET /api/admin/notification-settings — read global notification on/off switches */
   fastify.get('/notification-settings', getNotifSettingsHandler)
+  fastify.put('/notification-settings', updateNotifSettingsHandler)
 
-  /** PUT /api/admin/notification-settings — update global notification switches */
-  fastify.put('/notification-settings', updateNotifSettingsHandler)}
+  // ─── Vehicle Types (8.4) ──────────────────────────────────────────────────
+  fastify.get('/vehicle-types',     adminListVehicleTypesHandler)
+  fastify.post('/vehicle-types',    adminCreateVehicleTypeHandler)
+  fastify.put('/vehicle-types/:id', adminUpdateVehicleTypeHandler)
+
+  // ─── Countries (8.1) ──────────────────────────────────────────────────────
+  fastify.get('/countries',         adminListCountriesHandler)
+  fastify.post('/countries',        adminCreateCountryHandler)
+  fastify.put('/countries/:id',     adminUpdateCountryHandler)
+
+  // ─── System Config (8.3) ──────────────────────────────────────────────────
+  fastify.get('/system-config',     adminGetSystemConfigHandler)
+  fastify.put('/system-config',     adminUpdateSystemConfigHandler)
+}

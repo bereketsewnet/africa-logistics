@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, type FormEvent, type ChangeEvent } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { useNavigate } from 'react-router-dom'
-import apiClient, { authApi } from '../lib/apiClient'
+import apiClient, { authApi, configApi } from '../lib/apiClient'
 import ShipperOrdersPage from './ShipperOrdersPage'
 import DriverJobsPage from './DriverJobsPage'
 import PhoneField from '../components/PhoneField'
@@ -243,15 +243,15 @@ export default function DashboardPage() {
   const [vehicleLoading, setVehicleLoading] = useState(false)
   const [vehicleToast, setVehicleToast] = useState('')
   const [showVehicleForm, setShowVehicleForm] = useState(false)
-  const [vForm, setVForm] = useState({ plate_number:'', vehicle_type:'Truck', max_capacity_kg:'', description:'' })
+  const [vForm, setVForm] = useState({ plate_number:'', vehicle_type:'', max_capacity_kg:'', description:'' })
   const [vPhoto, setVPhoto]   = useState('')
   const [vLibre, setVLibre]   = useState('')
   const [vSubmitting, setVSubmitting] = useState(false)
   const [vFormError, setVFormError]   = useState('')
+  const [vehicleTypes, setVehicleTypes] = useState<Array<{ id: number; name: string }>>([])
   const vPhotoRef = useRef<HTMLInputElement>(null)
   const vLibreRef = useRef<HTMLInputElement>(null)
 
-  const vehicleTypes = ['Truck', 'Van', 'Pickup', 'Motorcycle', 'Cargo Bike', 'Mini Truck', 'Trailer', 'Other']
   const _apiBase = (import.meta.env.VITE_API_BASE_URL as string ?? '').replace(/\/api$/, '')
   const absUrl = (raw: string | null | undefined) => !raw ? null : raw.startsWith('http') ? raw : `${_apiBase}${raw}`
   const vToast = (msg: string) => { setVehicleToast(msg); setTimeout(() => setVehicleToast(''), 3000) }
@@ -265,6 +265,18 @@ export default function DashboardPage() {
   useEffect(() => {
     if (activePage === 'vehicle') loadMyVehicles()
   }, [activePage]) // eslint-disable-line
+
+  useEffect(() => {
+    configApi.getVehicleTypes()
+      .then(r => {
+        const types = r.data.vehicle_types ?? []
+        setVehicleTypes(types)
+        if (!vForm.vehicle_type && types[0]?.name) {
+          setVForm(f => ({ ...f, vehicle_type: types[0].name }))
+        }
+      })
+      .catch(() => {})
+  }, []) // eslint-disable-line
 
   const handleVFileSelect = (setter: (v: string) => void) => (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]; if (!file) return
@@ -293,7 +305,7 @@ export default function DashboardPage() {
       await apiClient.post('/profile/driver/vehicles', payload)
       vToast('Vehicle submitted for review!')
       setShowVehicleForm(false)
-      setVForm({ plate_number:'', vehicle_type:'Truck', max_capacity_kg:'', description:'' })
+      setVForm({ plate_number:'', vehicle_type: vehicleTypes[0]?.name ?? '', max_capacity_kg:'', description:'' })
       setVPhoto(''); setVLibre('')
       loadMyVehicles()
     } catch (err: any) { setVFormError(err.response?.data?.message ?? 'Submission failed.') }
@@ -1178,7 +1190,8 @@ export default function DashboardPage() {
                       <div className="input-wrap">
                         <select id="v-type" value={vForm.vehicle_type} onChange={e => setVForm(f => ({ ...f, vehicle_type: e.target.value }))}
                           style={{ background:'transparent', border:'none', color:'var(--clr-text)', fontFamily:'inherit', fontSize:'0.9rem', width:'100%', outline:'none', paddingTop:'1.1rem' }}>
-                          {vehicleTypes.map(t => <option key={t} value={t} style={{ background:'#0f172a' }}>{t}</option>)}
+                          <option value="" style={{ background:'#0f172a' }}>— Select vehicle type —</option>
+                          {vehicleTypes.map(t => <option key={t.id} value={t.name} style={{ background:'#0f172a' }}>{t.name}</option>)}
                         </select>
                         <label htmlFor="v-type" style={{ top:'0.35rem', fontSize:'0.7rem', color:'var(--clr-accent)' }}>Vehicle Type</label>
                       </div>

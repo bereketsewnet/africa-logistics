@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { MapContainer, TileLayer, Marker, Popup, useMapEvents } from 'react-leaflet'
 import L from 'leaflet'
-import { orderApi } from '../lib/apiClient'
+import { orderApi, configApi } from '../lib/apiClient'
 import {
   LuPackage, LuPlus, LuRefreshCw, LuSearch, LuX,
   LuCircleCheck, LuTriangleAlert, LuTruck, LuMapPin,
@@ -33,6 +33,7 @@ const truckIcon = new L.DivIcon({
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface CargoType { id: number; name: string; description: string; requires_special_handling: number; icon: string; icon_url?: string | null }
+interface CountryOption { id: number; name: string; iso_code: string }
 interface Quote { distance_km: number; estimated_price: number; base_fare: number; per_km_rate: number; per_kg_rate?: number; distance_cost: number; weight_cost?: number; city_surcharge: number; fees_breakdown?: Array<{name:string;amount:number;type:string;rate?:number}>; currency?: string }
 interface Order {
   id: string; reference_code: string; status: string
@@ -90,28 +91,32 @@ function Spinner() {
 }
 
 // ─── Nominatim Reverse Geocode ───────────────────────────────────────────────
-async function reverseGeocode(lat: number, lng: number): Promise<string> {
+async function reverseGeocode(lat: number, lng: number): Promise<{ address: string; countryCode: string | null }> {
   try {
-    const r = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`, {
+    const r = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&addressdetails=1&lat=${lat}&lon=${lng}`, {
       headers: { 'Accept-Language': 'en' },
     })
     const d = await r.json()
-    const { road, suburb, city, town, village, state, country } = d.address ?? {}
+    const { road, suburb, city, town, village, state, country, country_code } = d.address ?? {}
     const parts = [road, suburb, city ?? town ?? village, state, country].filter(Boolean)
-    return parts.join(', ') || `${lat.toFixed(5)}, ${lng.toFixed(5)}`
+    return {
+      address: parts.join(', ') || `${lat.toFixed(5)}, ${lng.toFixed(5)}`,
+      countryCode: country_code ? String(country_code).toLowerCase() : null,
+    }
   } catch {
-    return `${lat.toFixed(5)}, ${lng.toFixed(5)}`
+    return { address: `${lat.toFixed(5)}, ${lng.toFixed(5)}`, countryCode: null }
   }
 }
 
 // ─── Location Search (Nominatim autocomplete) ────────────────────────────────
-function LocationSearch({ label, dotColor, value, onSelect, onClear }: {
+function LocationSearch({ label, dotColor, value, countryCode, onSelect, onClear }: {
   label: string; dotColor: string; value: string
-  onSelect: (lat: string, lng: string, addr: string) => void
+  countryCode?: string
+  onSelect: (lat: string, lng: string, addr: string, cCode: string | null) => void
   onClear: () => void
 }) {
   const [q, setQ] = useState(value)
-  const [results, setResults] = useState<Array<{ display_name: string; lat: string; lon: string }>>(
+  const [results, setResults] = useState<Array<{ display_name: string; lat: string; lon: string; address?: { country_code?: string } }>>(
     []
   )
   const [open, setOpen] = useState(false)
@@ -137,16 +142,16 @@ function LocationSearch({ label, dotColor, value, onSelect, onClear }: {
       setBusy(true)
       try {
         const r = await fetch(
-          `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(text)}&limit=6&countrycodes=et,dj,er,so,sd,ke`,
+          `https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&q=${encodeURIComponent(text)}&limit=6${countryCode ? `&countrycodes=${encodeURIComponent(countryCode)}` : ''}`,
           { headers: { 'Accept-Language': 'en' } }
         )
-        const d: Array<{ display_name: string; lat: string; lon: string }> = await r.json()
+        const d: Array<{ display_name: string; lat: string; lon: string; address?: { country_code?: string } }> = await r.json()
         if (d.length === 0) {
           const r2 = await fetch(
-            `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(text)}&limit=5`,
+            `https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&q=${encodeURIComponent(text)}&limit=5${countryCode ? `&countrycodes=${encodeURIComponent(countryCode)}` : ''}`,
             { headers: { 'Accept-Language': 'en' } }
           )
-          const d2: Array<{ display_name: string; lat: string; lon: string }> = await r2.json()
+          const d2: Array<{ display_name: string; lat: string; lon: string; address?: { country_code?: string } }> = await r2.json()
           setResults(d2); setOpen(d2.length > 0)
         } else {
           setResults(d); setOpen(true)
@@ -180,7 +185,11 @@ function LocationSearch({ label, dotColor, value, onSelect, onClear }: {
         <div style={{ position:'absolute', top:'calc(100% + 3px)', left:0, right:0, zIndex:9999, background:'#0d1526', border:'1px solid rgba(255,255,255,0.14)', borderRadius:10, overflow:'hidden', boxShadow:'0 10px 40px rgba(0,0,0,0.7)', maxHeight:210, overflowY:'auto' }}>
           {results.map((item, i) => (
             <button key={i} type="button"
-              onClick={() => { setQ(item.display_name); setOpen(false); onSelect(item.lat, item.lon, item.display_name) }}
+              onClick={() => {
+                setQ(item.display_name)
+                setOpen(false)
+                onSelect(item.lat, item.lon, item.display_name, item.address?.country_code ? String(item.address.country_code).toLowerCase() : null)
+              }}
               style={{ display:'flex', alignItems:'flex-start', gap:'0.45rem', width:'100%', textAlign:'left', padding:'0.6rem 0.85rem', background:'none', border:'none', borderBottom: i < results.length - 1 ? '1px solid rgba(255,255,255,0.05)' : 'none', color:'var(--clr-text)', fontFamily:'inherit', fontSize:'0.78rem', cursor:'pointer', lineHeight:1.4 }}
               onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.07)')}
               onMouseLeave={e => (e.currentTarget.style.background = 'none')}>
@@ -204,24 +213,27 @@ function MapClickHandler({ onPick }: { onPick: (lat: number, lng: number) => voi
 interface MapPickerProps {
   pickupLat: string; pickupLng: string; pickupAddress: string
   deliveryLat: string; deliveryLng: string; deliveryAddress: string
-  onChange: (field: 'pickup_lat'|'pickup_lng'|'pickup_address'|'delivery_lat'|'delivery_lng'|'delivery_address', val: string) => void
+  selectedCountryCode?: string
+  onChange: (field: 'pickup_lat'|'pickup_lng'|'pickup_address'|'pickup_country_code'|'delivery_lat'|'delivery_lng'|'delivery_address'|'delivery_country_code', val: string) => void
 }
-function MapPicker({ pickupLat, pickupLng, pickupAddress, deliveryLat, deliveryLng, deliveryAddress, onChange }: MapPickerProps) {
+function MapPicker({ pickupLat, pickupLng, pickupAddress, deliveryLat, deliveryLng, deliveryAddress, selectedCountryCode, onChange }: MapPickerProps) {
   const [mode, setMode] = useState<'pickup' | 'delivery'>('pickup')
   const [geocoding, setGeocoding] = useState(false)
   const [gpsLoading, setGpsLoading] = useState(false)
 
   const handlePick = async (lat: number, lng: number) => {
     setGeocoding(true)
-    const addr = await reverseGeocode(lat, lng)
+    const geo = await reverseGeocode(lat, lng)
     if (mode === 'pickup') {
       onChange('pickup_lat', lat.toFixed(6))
       onChange('pickup_lng', lng.toFixed(6))
-      onChange('pickup_address', addr)
+      onChange('pickup_address', geo.address)
+      onChange('pickup_country_code', geo.countryCode ?? '')
     } else {
       onChange('delivery_lat', lat.toFixed(6))
       onChange('delivery_lng', lng.toFixed(6))
-      onChange('delivery_address', addr)
+      onChange('delivery_address', geo.address)
+      onChange('delivery_country_code', geo.countryCode ?? '')
     }
     setGeocoding(false)
   }
@@ -232,11 +244,11 @@ function MapPicker({ pickupLat, pickupLng, pickupAddress, deliveryLat, deliveryL
     navigator.geolocation.getCurrentPosition(async pos => {
       const { latitude: lat, longitude: lng } = pos.coords
       setGpsLoading(true)
-      const addr = await reverseGeocode(lat, lng)
+      const geo = await reverseGeocode(lat, lng)
       if (mode === 'pickup') {
-        onChange('pickup_lat', lat.toFixed(6)); onChange('pickup_lng', lng.toFixed(6)); onChange('pickup_address', addr)
+        onChange('pickup_lat', lat.toFixed(6)); onChange('pickup_lng', lng.toFixed(6)); onChange('pickup_address', geo.address); onChange('pickup_country_code', geo.countryCode ?? '')
       } else {
-        onChange('delivery_lat', lat.toFixed(6)); onChange('delivery_lng', lng.toFixed(6)); onChange('delivery_address', addr)
+        onChange('delivery_lat', lat.toFixed(6)); onChange('delivery_lng', lng.toFixed(6)); onChange('delivery_address', geo.address); onChange('delivery_country_code', geo.countryCode ?? '')
       }
       setGpsLoading(false)
     }, () => setGpsLoading(false))
@@ -252,13 +264,15 @@ function MapPicker({ pickupLat, pickupLng, pickupAddress, deliveryLat, deliveryL
       {/* Search inputs */}
       <LocationSearch
         label="Pickup" dotColor="#4ade80" value={pickupAddress}
-        onSelect={(lat, lng, addr) => { onChange('pickup_lat', lat); onChange('pickup_lng', lng); onChange('pickup_address', addr); setMode('delivery') }}
-        onClear={() => { onChange('pickup_lat',''); onChange('pickup_lng',''); onChange('pickup_address','') }}
+        countryCode={selectedCountryCode}
+        onSelect={(lat, lng, addr, cCode) => { onChange('pickup_lat', lat); onChange('pickup_lng', lng); onChange('pickup_address', addr); onChange('pickup_country_code', cCode ?? ''); setMode('delivery') }}
+        onClear={() => { onChange('pickup_lat',''); onChange('pickup_lng',''); onChange('pickup_address',''); onChange('pickup_country_code','') }}
       />
       <LocationSearch
         label="Delivery" dotColor="#f87171" value={deliveryAddress}
-        onSelect={(lat, lng, addr) => { onChange('delivery_lat', lat); onChange('delivery_lng', lng); onChange('delivery_address', addr) }}
-        onClear={() => { onChange('delivery_lat',''); onChange('delivery_lng',''); onChange('delivery_address','') }}
+        countryCode={selectedCountryCode}
+        onSelect={(lat, lng, addr, cCode) => { onChange('delivery_lat', lat); onChange('delivery_lng', lng); onChange('delivery_address', addr); onChange('delivery_country_code', cCode ?? '') }}
+        onClear={() => { onChange('delivery_lat',''); onChange('delivery_lng',''); onChange('delivery_address',''); onChange('delivery_country_code','') }}
       />
 
       {/* Map pin-mode toggle + GPS button */}
@@ -316,20 +330,23 @@ function MapPicker({ pickupLat, pickupLng, pickupAddress, deliveryLat, deliveryL
 // ─── Place-Order Wizard ───────────────────────────────────────────────────────
 interface WizardProps { cargoTypes: CargoType[]; onDone: () => void; onClose: () => void }
 
-const VEHICLE_TYPES = ['Truck', 'Mini Truck', 'Van', 'Pickup', 'Motorcycle', 'Cargo Bike', 'Trailer', 'Other']
-
 function PlaceOrderWizard({ cargoTypes, onDone, onClose }: WizardProps) {
+  const [vehicleTypes, setVehicleTypes] = useState<Array<{ id: number; name: string }>>([])
+  const [countries, setCountries] = useState<CountryOption[]>([])
   const [step, setStep] = useState<1 | 2>(1)
   const [form, setForm] = useState({
     cargo_type_id:  cargoTypes[0]?.id ?? 1,
-    vehicle_type:   'Truck',
+    vehicle_type:   '',
+    country_code:   '',
     weight_kg:      '',
     pickup_address: '',
     pickup_lat:     '',
     pickup_lng:     '',
+    pickup_country_code: '',
     delivery_address: '',
     delivery_lat:   '',
     delivery_lng:   '',
+    delivery_country_code: '',
     description:    '',
     estimated_value:'',
   })
@@ -342,11 +359,45 @@ function PlaceOrderWizard({ cargoTypes, onDone, onClose }: WizardProps) {
   const [img1Preview, setImg1Preview] = useState<string>('')
   const [img2Preview, setImg2Preview] = useState<string>('')
 
+  useEffect(() => {
+    configApi.getVehicleTypes()
+      .then(r => {
+        const types = r.data.vehicle_types ?? []
+        setVehicleTypes(types)
+        if (!form.vehicle_type && types[0]?.name) {
+          setForm(prev => ({ ...prev, vehicle_type: types[0].name }))
+        }
+      })
+      .catch(() => {})
+
+    configApi.getCountries()
+      .then(r => {
+        const list = r.data.countries ?? []
+        setCountries(list)
+        if (!form.country_code && list[0]?.iso_code) {
+          setForm(prev => ({ ...prev, country_code: String(list[0].iso_code).toLowerCase() }))
+        }
+      })
+      .catch(() => {})
+  }, []) // eslint-disable-line
+
   const f = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) =>
     setForm(x => ({ ...x, [k]: e.target.value }))
 
   const handleGetQuote = async () => {
     setErr('')
+    if (!form.country_code) {
+      setErr('Select operating country first.')
+      return
+    }
+    if (form.pickup_country_code && form.pickup_country_code !== form.country_code) {
+      setErr('Pickup point is outside the selected country.')
+      return
+    }
+    if (form.delivery_country_code && form.delivery_country_code !== form.country_code) {
+      setErr('Delivery point is outside the selected country.')
+      return
+    }
     // Same-location guard
     const pLat = parseFloat(form.pickup_lat), pLng = parseFloat(form.pickup_lng)
     const dLat = parseFloat(form.delivery_lat), dLng = parseFloat(form.delivery_lng)
@@ -373,6 +424,11 @@ function PlaceOrderWizard({ cargoTypes, onDone, onClose }: WizardProps) {
 
   const handlePlace = async () => {
     setErr(''); setLoading(true)
+    if (!form.country_code || (form.pickup_country_code && form.pickup_country_code !== form.country_code) || (form.delivery_country_code && form.delivery_country_code !== form.country_code)) {
+      setLoading(false)
+      setErr('Selected locations must both be inside the selected country.')
+      return
+    }
     try {
       const { data } = await orderApi.placeOrder({
         cargo_type_id:       Number(form.cargo_type_id),
@@ -448,6 +504,20 @@ function PlaceOrderWizard({ cargoTypes, onDone, onClose }: WizardProps) {
       {/* ── Step 1: Form ── */}
       {step === 1 && (
         <div style={{ display:'flex', flexDirection:'column', gap:'0.75rem' }}>
+          <div className="input-wrap">
+            <select id="country" value={form.country_code} onChange={e => setForm(x => ({
+              ...x,
+              country_code: e.target.value,
+              pickup_address: '', pickup_lat: '', pickup_lng: '', pickup_country_code: '',
+              delivery_address: '', delivery_lat: '', delivery_lng: '', delivery_country_code: '',
+            }))}
+              style={{ background:'transparent', border:'none', color:'var(--clr-text)', fontFamily:'inherit', fontSize:'0.9rem', width:'100%', outline:'none', paddingTop:'1.1rem' }}>
+              <option value="" style={{ background:'#0f172a' }}>— Select country —</option>
+              {countries.map(c => <option key={c.id} value={String(c.iso_code).toLowerCase()} style={{ background:'#0f172a' }}>{c.name}</option>)}
+            </select>
+            <label htmlFor="country" style={{ top:'0.35rem', fontSize:'0.7rem', color:'var(--clr-accent)' }}>Operating Country</label>
+          </div>
+
           {/* Cargo type */}
           <div className="input-wrap">
             <select id="ct" value={form.cargo_type_id} onChange={f('cargo_type_id')}
@@ -461,7 +531,8 @@ function PlaceOrderWizard({ cargoTypes, onDone, onClose }: WizardProps) {
           <div className="input-wrap">
             <select id="vt" value={form.vehicle_type} onChange={f('vehicle_type')}
               style={{ background:'transparent', border:'none', color:'var(--clr-text)', fontFamily:'inherit', fontSize:'0.9rem', width:'100%', outline:'none', paddingTop:'1.1rem' }}>
-              {VEHICLE_TYPES.map(t => <option key={t} value={t} style={{ background:'#0f172a' }}>{t}</option>)}
+              <option value="" style={{ background:'#0f172a' }}>— Select vehicle type —</option>
+              {vehicleTypes.map(t => <option key={t.id} value={t.name} style={{ background:'#0f172a' }}>{t.name}</option>)}
             </select>
             <label htmlFor="vt" style={{ top:'0.35rem', fontSize:'0.7rem', color:'var(--clr-accent)' }}>Vehicle Type</label>
           </div>
@@ -476,6 +547,7 @@ function PlaceOrderWizard({ cargoTypes, onDone, onClose }: WizardProps) {
           <MapPicker
             pickupLat={form.pickup_lat}  pickupLng={form.pickup_lng}  pickupAddress={form.pickup_address}
             deliveryLat={form.delivery_lat} deliveryLng={form.delivery_lng} deliveryAddress={form.delivery_address}
+            selectedCountryCode={form.country_code}
             onChange={(field, val) => setForm(x => ({ ...x, [field]: val }))}
           />
 
