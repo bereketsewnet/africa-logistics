@@ -45,6 +45,7 @@ import {
   getDriverRatingSummary,
   hasRatedOrder,
 } from '../services/profile.service.js'
+import { notifyAdminsOfEvent } from '../services/push.service.js'
 import fs from 'fs'
 import path from 'path'
 
@@ -249,6 +250,13 @@ export async function placeOrderHandler(
   }).catch(() => { /* never block the response */ })
 
   // Return OTPs to the shipper in plain text so they can give them to driver at pickup/delivery
+  notifyAdminsOfEvent(
+    request.server.db,
+    `New Order Received: ${order!.reference_code}`,
+    `A new shipment request was created by ${user.first_name ?? 'a shipper'}.`,
+    '/admin'
+  ).catch(() => {})
+
   return reply.status(201).send({
     success: true,
     message: 'Order placed successfully.',

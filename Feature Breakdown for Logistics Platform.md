@@ -44,7 +44,7 @@ Here is the high-level feature breakdown of the entire platform:
 
 * Handles all event-driven messaging, including the in-app chat between shippers and drivers to protect personal phone numbers.
 
-* Manages multi-channel alerts via Push Notifications, SMS (Premium Routes), and Telegram bot updates.
+* Manages multi-channel alerts via Push Notifications, SMS (Premium Routes onaly for phone sing up otp useage only)updates.
 
 ### **8\. System Configuration & Admin Controls**
 

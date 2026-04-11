@@ -11,6 +11,9 @@ import {
   updateThemeHandler,
   getNotificationPrefsHandler,
   updateNotificationPrefsHandler,
+  getPushPublicKeyHandler,
+  subscribePushHandler,
+  unsubscribePushHandler,
   getDriverProfileHandler,
   uploadDriverDocumentsHandler,
   getDriverDocReviewsHandler,
@@ -52,6 +55,15 @@ export default async function profileRoutes(fastify: FastifyInstance) {
    * Body: { sms_enabled?, email_enabled?, browser_enabled?, order_updates?, promotions? }
    */
   fastify.put('/notifications', updateNotificationPrefsHandler)
+
+  /** GET /api/profile/push/public-key — returns VAPID public key */
+  fastify.get('/push/public-key', getPushPublicKeyHandler)
+
+  /** POST /api/profile/push/subscribe — save browser push subscription */
+  fastify.post('/push/subscribe', subscribePushHandler)
+
+  /** POST /api/profile/push/unsubscribe — deactivate browser push subscription */
+  fastify.post('/push/unsubscribe', unsubscribePushHandler)
 
   // ─── Driver Profile & Documents ─────────────────────────────────────────────
 

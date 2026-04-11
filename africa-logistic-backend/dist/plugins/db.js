@@ -174,6 +174,22 @@ export default fp(async function dbPlugin(fastify) {
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     `);
         await conn.query(`
+      CREATE TABLE IF NOT EXISTS web_push_subscriptions (
+        id           BIGINT AUTO_INCREMENT PRIMARY KEY,
+        user_id      CHAR(36) NOT NULL,
+        endpoint     VARCHAR(700) NOT NULL,
+        p256dh       VARCHAR(255) NOT NULL,
+        auth         VARCHAR(255) NOT NULL,
+        user_agent   VARCHAR(255),
+        is_active    TINYINT(1) DEFAULT 1,
+        created_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        last_seen_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        UNIQUE KEY uq_wps_endpoint (endpoint),
+        INDEX idx_wps_user (user_id),
+        CONSTRAINT wps_fk_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    `);
+        await conn.query(`
       CREATE TABLE IF NOT EXISTS audit_logs (
         id BIGINT AUTO_INCREMENT PRIMARY KEY,
         table_name VARCHAR(50) NOT NULL,

@@ -15,6 +15,7 @@ import { v4 as uuidv4 } from 'uuid'
 import bcrypt from 'bcrypt'
 import crypto from 'crypto'
 import { sendOrderStatusEmail } from './email.service.js'
+import { sendPushToUser } from './push.service.js'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -674,14 +675,16 @@ export async function notifyOrderStatus(db: Pool, orderId: string, newStatus: Or
     if (!order) return
 
     interface UserNotifRow extends RowDataPacket {
-      id: string; first_name: string; last_name: string; email: string | null
+      id: string; role_id: number; first_name: string; last_name: string; email: string | null
       is_email_verified: number
-      email_enabled: number | null; order_updates: number | null
+      email_enabled: number | null
+      browser_enabled: number | null
+      order_updates: number | null
     }
 
     const [users] = await db.query<UserNotifRow[]>(
-      `SELECT u.id, u.first_name, u.last_name, u.email, u.is_email_verified,
-              np.email_enabled, np.order_updates
+      `SELECT u.id, u.role_id, u.first_name, u.last_name, u.email, u.is_email_verified,
+              np.email_enabled, np.browser_enabled, np.order_updates
        FROM users u
        LEFT JOIN notification_preferences np ON np.user_id = u.id
        WHERE u.id IN (?, ?)`,
@@ -692,22 +695,35 @@ export async function notifyOrderStatus(db: Pool, orderId: string, newStatus: Or
     const driverName = driverUser ? `${driverUser.first_name} ${driverUser.last_name}` : undefined
 
     for (const u of users) {
-      if (!u.email) continue
-      if (!u.is_email_verified) continue
-      // Default to enabled if no prefs row exists
-      if ((u.email_enabled ?? 1) === 0) continue
-      if ((u.order_updates ?? 1) === 0) continue
-
       const isShipper = u.id === order.shipper_id
-      await sendOrderStatusEmail(u.email, {
-        referenceCode: order.reference_code,
-        status: newStatus,
-        pickupAddress:  order.pickup_address  ?? '',
-        deliveryAddress: order.delivery_address ?? '',
-        recipientName: `${u.first_name} ${u.last_name}`,
-        recipientRole: isShipper ? 'shipper' : 'driver',
-        driverName: isShipper ? driverName : undefined,
-      }).catch(() => {/* ignore individual send failures */})
+
+      // Default to enabled if no prefs row exists.
+      if ((u.order_updates ?? 1) === 1 && (u.browser_enabled ?? 1) === 1) {
+        const statusLabel = String(newStatus).replace(/_/g, ' ')
+        const url = u.role_id === 3 ? '/driver/jobs' : '/dashboard'
+        await sendPushToUser(db, u.id, {
+          title: `Order ${order.reference_code}`,
+          body: `Status changed to ${statusLabel}`,
+          url,
+          data: {
+            order_id: order.id,
+            reference_code: order.reference_code,
+            status: newStatus,
+          },
+        }).catch(() => {})
+      }
+
+      if (u.email && u.is_email_verified && (u.email_enabled ?? 1) === 1 && (u.order_updates ?? 1) === 1) {
+        await sendOrderStatusEmail(u.email, {
+          referenceCode: order.reference_code,
+          status: newStatus,
+          pickupAddress:  order.pickup_address  ?? '',
+          deliveryAddress: order.delivery_address ?? '',
+          recipientName: `${u.first_name} ${u.last_name}`,
+          recipientRole: isShipper ? 'shipper' : 'driver',
+          driverName: isShipper ? driverName : undefined,
+        }).catch(() => {/* ignore individual send failures */})
+      }
     }
   } catch { /* never throw — notifications must not break the main flow */ }
 }

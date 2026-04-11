@@ -24,6 +24,11 @@ import {
   createVehicle,
 } from '../services/profile.service.js'
 import { findUserById } from '../services/auth.service.js'
+import {
+  getPublicVapidKey,
+  upsertPushSubscription,
+  deactivatePushSubscription,
+} from '../services/push.service.js'
 
 // ─── Request Body Types ───────────────────────────────────────────────────────
 
@@ -56,6 +61,18 @@ interface DriverVehicleSubmitBody {
   description?: string
   vehicle_photo?: string  // base64
   libre_file?: string     // base64 libre doc
+}
+
+interface PushSubscribeBody {
+  endpoint: string
+  keys: {
+    p256dh: string
+    auth: string
+  }
+}
+
+interface PushUnsubscribeBody {
+  endpoint: string
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -198,6 +215,65 @@ export async function updateNotificationPrefsHandler(
 
   const updated = await getNotificationPrefs(request.server.db, caller.id)
   return reply.send({ success: true, message: 'Notification preferences updated.', preferences: updated })
+}
+
+/**
+ * GET /api/profile/push/public-key
+ * Returns the VAPID public key used by the frontend to create browser subscriptions.
+ */
+export async function getPushPublicKeyHandler(
+  request: FastifyRequest,
+  reply: FastifyReply
+) {
+  const key = getPublicVapidKey()
+  if (!key) {
+    return reply.send({ success: false, enabled: false, public_key: null })
+  }
+  return reply.send({ success: true, enabled: true, public_key: key })
+}
+
+/**
+ * POST /api/profile/push/subscribe
+ * Save/update a browser push subscription for the authenticated user.
+ */
+export async function subscribePushHandler(
+  request: FastifyRequest<{ Body: PushSubscribeBody }>,
+  reply: FastifyReply
+) {
+  const caller = request.user as { id: string }
+  const body = request.body
+
+  if (!body?.endpoint || !body?.keys?.p256dh || !body?.keys?.auth) {
+    return reply.status(400).send({ success: false, message: 'Invalid push subscription payload.' })
+  }
+
+  await upsertPushSubscription(request.server.db, caller.id, {
+    endpoint: body.endpoint,
+    p256dh: body.keys.p256dh,
+    auth: body.keys.auth,
+    userAgent: request.headers['user-agent'] ?? null,
+  })
+
+  return reply.send({ success: true, message: 'Push subscription saved.' })
+}
+
+/**
+ * POST /api/profile/push/unsubscribe
+ * Mark a browser push subscription as inactive.
+ */
+export async function unsubscribePushHandler(
+  request: FastifyRequest<{ Body: PushUnsubscribeBody }>,
+  reply: FastifyReply
+) {
+  const caller = request.user as { id: string }
+  const endpoint = request.body?.endpoint
+
+  if (!endpoint) {
+    return reply.status(400).send({ success: false, message: 'endpoint is required.' })
+  }
+
+  await deactivatePushSubscription(request.server.db, caller.id, endpoint)
+  return reply.send({ success: true, message: 'Push subscription removed.' })
 }
 
 /**

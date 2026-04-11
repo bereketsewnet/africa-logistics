@@ -12,6 +12,7 @@
     "@fastify/cors": "^11.2.0",
     "@fastify/jwt": "^10.0.0",
     "@fastify/websocket": "^11.2.0",
+    "@types/web-push": "^3.6.4",
     "bcrypt": "^6.0.0",
     "dotenv": "^17.3.1",
     "fastify": "^5.8.4",
@@ -20,7 +21,8 @@
     "nodemailer": "^6.9.4",
     "pdfkit": "^0.18.0",
     "twilio": "^5.13.1",
-    "uuid": "^13.0.0"
+    "uuid": "^13.0.0",
+    "web-push": "^3.6.7"
   },
   "devDependencies": {
     "@types/bcrypt": "^6.0.0",

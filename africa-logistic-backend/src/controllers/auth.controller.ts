@@ -23,6 +23,7 @@ import {
 import { v4 as uuidv4 } from 'uuid'
 import { createEmailVerification, findEmailVerificationByToken, markEmailVerificationUsed, createPhoneChangeRequest, findPhoneChangeRequest, deletePhoneChangeRequest, updateUserProfile, updateUserPassword, updateUserEmail, updateUserPhone } from '../services/auth.service.js'
 import { sendVerificationEmail, sendPasswordResetEmail } from '../services/email.service.js'
+import { notifyAdminsOfEvent } from '../services/push.service.js'
 import fs from 'fs'
 import path from 'path'
 
@@ -120,6 +121,13 @@ export async function verifyOtpHandler(
     firstName:    first_name,
     lastName:     last_name,
   })
+
+  notifyAdminsOfEvent(
+    request.server.db,
+    'New Account Registration',
+    `${first_name} ${last_name}`.trim() + ` registered as ${role_id === 3 ? 'Driver' : 'Shipper'}.`,
+    '/admin'
+  ).catch(() => {})
 
   // Sign and return a JWT token
   const token = request.server.jwt.sign(

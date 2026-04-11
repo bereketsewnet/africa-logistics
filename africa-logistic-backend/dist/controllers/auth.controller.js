@@ -16,6 +16,7 @@ import { findUserByPhone, findUserById, createUser, findOrCreateTelegramUser, } 
 import { v4 as uuidv4 } from 'uuid';
 import { createEmailVerification, findEmailVerificationByToken, markEmailVerificationUsed, createPhoneChangeRequest, findPhoneChangeRequest, deletePhoneChangeRequest, updateUserProfile, updateUserPassword, updateUserEmail, updateUserPhone } from '../services/auth.service.js';
 import { sendVerificationEmail, sendPasswordResetEmail } from '../services/email.service.js';
+import { notifyAdminsOfEvent } from '../services/push.service.js';
 import fs from 'fs';
 import path from 'path';
 // ─── Handlers ─────────────────────────────────────────────────────────────────
@@ -76,6 +77,7 @@ export async function verifyOtpHandler(request, reply) {
         firstName: first_name,
         lastName: last_name,
     });
+    notifyAdminsOfEvent(request.server.db, 'New Account Registration', `${first_name} ${last_name}`.trim() + ` registered as ${role_id === 3 ? 'Driver' : 'Shipper'}.`, '/admin').catch(() => { });
     // Sign and return a JWT token
     const token = request.server.jwt.sign({ id: userId, phone_number, role_id }, { expiresIn: process.env.JWT_EXPIRES_IN || '1d' });
     return reply.status(201).send({

@@ -737,6 +737,7 @@ import {
 } from '../services/pricing.service.js'
 
 import { wsManager } from '../utils/wsManager.js'
+import { sendPushToUser } from '../services/push.service.js'
 
 // ─── Admin Order Handlers ─────────────────────────────────────────────────────
 
@@ -828,6 +829,12 @@ export async function adminAssignOrderHandler(
     await assignOrderToDriver(request.server.db, order.id, driver_id, vehicle_id ?? null, admin.id)
     wsManager.broadcast(order.id, 'STATUS_CHANGED', { status: 'ASSIGNED', driver_id })
     notifyOrderStatus(request.server.db, order.id, 'ASSIGNED')
+    await sendPushToUser(request.server.db, driver_id, {
+      title: `New Assignment: ${order.reference_code}`,
+      body: 'You have been assigned a new order.',
+      url: '/driver/jobs',
+      data: { order_id: order.id, reference_code: order.reference_code, type: 'NEW_ASSIGNMENT' },
+    }).catch(() => {})
   } else {
     const db = request.server.db
     await db.query(
@@ -842,6 +849,12 @@ export async function adminAssignOrderHandler(
       `UPDATE driver_profiles SET status = 'ON_JOB' WHERE user_id = ?`,
       [driver_id]
     )
+    await sendPushToUser(db, driver_id, {
+      title: `Order Reassigned: ${order.reference_code}`,
+      body: 'An active order has been assigned to you.',
+      url: '/driver/jobs',
+      data: { order_id: order.id, reference_code: order.reference_code, type: 'REASSIGNED_ORDER' },
+    }).catch(() => {})
   }
 
   return reply.send({ success: true, message: 'Driver assigned successfully.' })

@@ -24,6 +24,7 @@ import React, {
   useCallback,
 } from 'react'
 import apiClient from '../lib/apiClient'
+import { ensurePushSubscription } from '../lib/pushClient'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -96,6 +97,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setIsLoading(false)
     }
   }, [fetchMe])
+
+  useEffect(() => {
+    if (!token || !user?.id) return
+    ensurePushSubscription().catch(() => {})
+  }, [token, user?.id])
 
   /**
    * Call this after a successful login or registration.
