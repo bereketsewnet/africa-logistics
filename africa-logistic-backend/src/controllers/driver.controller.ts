@@ -36,6 +36,7 @@ import { wsManager } from '../utils/wsManager.js'
 import {
   updateDriverAvailabilityStatus,
 } from '../services/profile.service.js'
+import { sendPushToRole, sendPushToUser } from '../services/push.service.js'
 
 // ─── Guard ────────────────────────────────────────────────────────────────────
 
@@ -332,6 +333,22 @@ export async function sendDriverMessageHandler(
   const channel = channelBody && allowedCh.includes(channelBody) ? channelBody : 'main'
   const msg = await createOrderMessage(request.server.db, order.id, driver.id, message.trim(), channel)
   wsManager.broadcast(order.id, 'NEW_MESSAGE', { message: msg })
+
+  if (channel === 'main' && order.shipper_id && order.shipper_id !== driver.id) {
+    await sendPushToUser(request.server.db, order.shipper_id, {
+      title: `New Message on ${order.reference_code}`,
+      body: `From driver ${driver.first_name ?? ''} ${driver.last_name ?? ''}`.trim(),
+      url: '/dashboard',
+      data: { order_id: order.id, reference_code: order.reference_code, type: 'NEW_CHAT_MESSAGE' },
+    }).catch(() => {})
+  }
+
+  await sendPushToRole(request.server.db, 1, {
+    title: `Order Chat: ${order.reference_code}`,
+    body: 'New message from driver.',
+    url: '/admin',
+    data: { order_id: order.id, reference_code: order.reference_code, channel, type: 'ADMIN_ORDER_CHAT_ALERT' },
+  }).catch(() => {})
 
   return reply.status(201).send({ success: true, message: msg })
 }

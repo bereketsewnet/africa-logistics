@@ -15,7 +15,7 @@ import { v4 as uuidv4 } from 'uuid'
 import bcrypt from 'bcrypt'
 import crypto from 'crypto'
 import { sendOrderStatusEmail } from './email.service.js'
-import { sendPushToUser } from './push.service.js'
+import { sendPushToRole, sendPushToUser } from './push.service.js'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -725,6 +725,18 @@ export async function notifyOrderStatus(db: Pool, orderId: string, newStatus: Or
         }).catch(() => {/* ignore individual send failures */})
       }
     }
+
+    await sendPushToRole(db, 1, {
+      title: `Order ${order.reference_code}`,
+      body: `Status changed to ${String(newStatus).replace(/_/g, ' ')}`,
+      url: '/admin',
+      data: {
+        order_id: order.id,
+        reference_code: order.reference_code,
+        status: newStatus,
+        type: 'ORDER_STATUS_CHANGED',
+      },
+    }).catch(() => {})
   } catch { /* never throw — notifications must not break the main flow */ }
 }
 

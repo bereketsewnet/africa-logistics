@@ -1347,8 +1347,34 @@ export async function adminSendOrderMessageHandler(
   const admin = request.user as any
   if (!request.body.message?.trim()) return reply.status(400).send({ success: false, message: 'Message required.' })
   const channel = request.body.channel ?? 'main'
+  const order = await getOrderById(request.server.db, request.params.id)
+  if (!order) return reply.status(404).send({ success: false, message: 'Order not found.' })
+
   const msg = await createOrderMessage(request.server.db, request.params.id, admin.id, request.body.message.trim(), channel)
   wsManager.broadcast(request.params.id, 'NEW_MESSAGE', { message: msg })
+
+  if (channel === 'main' || channel === 'shipper') {
+    if (order.shipper_id) {
+      await sendPushToUser(request.server.db, order.shipper_id, {
+        title: `Admin Message: ${order.reference_code}`,
+        body: request.body.message.trim().slice(0, 120),
+        url: '/dashboard',
+        data: { order_id: order.id, reference_code: order.reference_code, channel, type: 'NEW_CHAT_MESSAGE' },
+      }).catch(() => {})
+    }
+  }
+
+  if (channel === 'main' || channel === 'driver') {
+    if (order.driver_id) {
+      await sendPushToUser(request.server.db, order.driver_id, {
+        title: `Admin Message: ${order.reference_code}`,
+        body: request.body.message.trim().slice(0, 120),
+        url: '/driver/jobs',
+        data: { order_id: order.id, reference_code: order.reference_code, channel, type: 'NEW_CHAT_MESSAGE' },
+      }).catch(() => {})
+    }
+  }
+
   return reply.status(201).send({ success: true, message: msg })
 }
 

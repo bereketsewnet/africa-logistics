@@ -45,7 +45,7 @@ import {
   getDriverRatingSummary,
   hasRatedOrder,
 } from '../services/profile.service.js'
-import { notifyAdminsOfEvent } from '../services/push.service.js'
+import { notifyAdminsOfEvent, sendPushToRole, sendPushToUser } from '../services/push.service.js'
 import fs from 'fs'
 import path from 'path'
 
@@ -400,6 +400,24 @@ export async function sendMessageHandler(
 
   // Broadcast to WS subscribers
   wsManager.broadcast(request.params.id, 'NEW_MESSAGE', { message: msg })
+
+  if (channel === 'main' && order.driver_id && order.driver_id !== user.id) {
+    await sendPushToUser(request.server.db, order.driver_id, {
+      title: `New Message on ${order.reference_code}`,
+      body: `From ${user.first_name ?? 'Shipper'} ${user.last_name ?? ''}`.trim(),
+      url: '/driver/jobs',
+      data: { order_id: order.id, reference_code: order.reference_code, type: 'NEW_CHAT_MESSAGE' },
+    }).catch(() => {})
+  }
+
+  if (user.role_id !== 1) {
+    await sendPushToRole(request.server.db, 1, {
+      title: `Order Chat: ${order.reference_code}`,
+      body: `New ${channel} message from ${user.role_name ?? 'user'}.`,
+      url: '/admin',
+      data: { order_id: order.id, reference_code: order.reference_code, channel, type: 'ADMIN_ORDER_CHAT_ALERT' },
+    }).catch(() => {})
+  }
 
   return reply.status(201).send({ success: true, message: msg })
 }
