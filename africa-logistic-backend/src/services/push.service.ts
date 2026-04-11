@@ -106,12 +106,36 @@ export async function sendPushToUser(db: Pool, userId: string, payload: PushPayl
   }
 }
 
+// ─── Global system notification settings ────────────────────────────────────────────
+export async function getSystemNotifSettings(db: Pool): Promise<Record<string, boolean>> {
+  try {
+    const [rows] = await db.query<RowDataPacket[]>('SELECT * FROM system_notification_settings WHERE id = 1 LIMIT 1')
+    if (!rows.length) return {}
+    const r = rows[0]
+    return {
+      email_order_updates:    Number(r.email_order_updates)    === 1,
+      email_payment_alerts:   Number(r.email_payment_alerts)   === 1,
+      push_order_updates:     Number(r.push_order_updates)     === 1,
+      push_driver_job_alerts: Number(r.push_driver_job_alerts) === 1,
+      push_admin_alerts:      Number(r.push_admin_alerts)      === 1,
+      email_admin_alerts:     Number(r.email_admin_alerts)     === 1,
+    }
+  } catch { return {} }
+}
+
 export async function sendPushToRole(
   db: Pool,
   roleId: number,
   payload: PushPayload,
-  onlyBrowserEnabled = true
+  onlyBrowserEnabled = true,
+  settingKey?: string
 ): Promise<void> {
+  // Respect global setting if key provided
+  if (settingKey) {
+    const gs = await getSystemNotifSettings(db)
+    if (gs[settingKey] === false) return
+  }
+
   const [rows] = await db.query<RowDataPacket[]>(
     `SELECT u.id
      FROM users u
@@ -133,22 +157,28 @@ export async function notifyAdminsOfEvent(
   body: string,
   url: string
 ): Promise<void> {
-  await sendPushToRole(db, 1, { title, body, url })
+  const gs = await getSystemNotifSettings(db)
 
-  const [admins] = await db.query<RowDataPacket[]>(
-    `SELECT u.email
-     FROM users u
-     LEFT JOIN notification_preferences np ON np.user_id = u.id
-     WHERE u.role_id = 1
-       AND u.is_active = 1
-       AND u.is_email_verified = 1
-       AND u.email IS NOT NULL
-       AND COALESCE(np.email_enabled, 1) = 1`
-  )
+  if (gs.push_admin_alerts !== false) {
+    await sendPushToRole(db, 1, { title, body, url })
+  }
 
-  for (const a of admins) {
-    const to = String(a.email || '').trim()
-    if (!to) continue
-    await sendEmail({ to, subject: title, text: `${body}\n\nOpen: ${url}` }).catch(() => {})
+  if (gs.email_admin_alerts !== false) {
+    const [admins] = await db.query<RowDataPacket[]>(
+      `SELECT u.email
+       FROM users u
+       LEFT JOIN notification_preferences np ON np.user_id = u.id
+       WHERE u.role_id = 1
+         AND u.is_active = 1
+         AND u.is_email_verified = 1
+         AND u.email IS NOT NULL
+         AND COALESCE(np.email_enabled, 1) = 1`
+    )
+
+    for (const a of admins) {
+      const to = String(a.email || '').trim()
+      if (!to) continue
+      await sendEmail({ to, subject: title, text: `${body}\n\nOpen: ${url}` }).catch(() => {})
+    }
   }
 }

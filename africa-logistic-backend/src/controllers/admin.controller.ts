@@ -2105,3 +2105,64 @@ export async function processPerfBonusesHandler(request: FastifyRequest, reply: 
     return reply.status(500).send({ success: false, message: 'Failed to process bonuses' })
   }
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ─── SYSTEM NOTIFICATION SETTINGS (7.5 Admin Control Panel) ─────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+
+const NOTIF_SETTING_KEYS = [
+  'email_order_updates',
+  'email_payment_alerts',
+  'push_order_updates',
+  'push_driver_job_alerts',
+  'push_admin_alerts',
+  'email_admin_alerts',
+] as const
+
+/** GET /api/admin/notification-settings */
+export async function getNotifSettingsHandler(
+  request: FastifyRequest,
+  reply: FastifyReply
+) {
+  const [rows] = await request.server.db.query<any[]>(
+    'SELECT * FROM system_notification_settings WHERE id = 1 LIMIT 1'
+  )
+  const row = rows[0] ?? {}
+  const settings: Record<string, boolean> = {}
+  for (const k of NOTIF_SETTING_KEYS) {
+    settings[k] = Number(row[k] ?? 1) === 1
+  }
+  return reply.send({ success: true, settings })
+}
+
+/** PUT /api/admin/notification-settings */
+export async function updateNotifSettingsHandler(
+  request: FastifyRequest<{ Body: Record<string, boolean> }>,
+  reply: FastifyReply
+) {
+  const admin = request.user as any
+  const b = request.body ?? {}
+  const fields: string[] = []
+  const vals: any[] = []
+
+  for (const k of NOTIF_SETTING_KEYS) {
+    if (b[k] !== undefined) {
+      fields.push(`${k} = ?`)
+      vals.push(b[k] ? 1 : 0)
+    }
+  }
+
+  if (!fields.length) {
+    return reply.status(400).send({ success: false, message: 'No valid settings provided.' })
+  }
+
+  fields.push('updated_by = ?')
+  vals.push(admin.id)
+
+  await request.server.db.query(
+    `UPDATE system_notification_settings SET ${fields.join(', ')} WHERE id = 1`,
+    vals
+  )
+
+  return reply.send({ success: true, message: 'Notification settings saved.' })
+}

@@ -23,7 +23,7 @@ import {
   LuCar, LuBadgeCheck, LuUserPlus, LuBriefcase, LuSearch,
   LuListOrdered, LuSettings, LuBox, LuBan,
   LuLeaf, LuFlame, LuThermometer, LuHeart, LuMonitor, LuArchive, LuGem, LuFish, LuImage,
-  LuMapPin, LuMessageSquare, LuSend, LuNavigation,
+  LuMapPin, LuMessageSquare, LuSend, LuNavigation, LuBell,
 } from 'react-icons/lu'
 
 // ─── Upload URL helper ───────────────────────────────────────────────────────
@@ -121,7 +121,7 @@ interface Stats {
   total_users: number; total_admins: number; total_shippers: number
   total_drivers: number; active_users: number; new_today: number
 }
-type AdminSection = 'overview' | 'drivers' | 'shippers' | 'staff' | 'verify-drivers' | 'vehicles' | 'orders' | 'live-drivers' | 'guest-orders' | 'cargo-types' | 'pricing-rules' | 'profile' | 'payments' | 'wallet-adjustment' | 'performance-bonus'
+type AdminSection = 'overview' | 'drivers' | 'shippers' | 'staff' | 'verify-drivers' | 'vehicles' | 'orders' | 'live-drivers' | 'guest-orders' | 'cargo-types' | 'pricing-rules' | 'profile' | 'payments' | 'wallet-adjustment' | 'performance-bonus' | 'notif-settings'
 type ProfileTab = 'profile' | 'security' | 'contact'
 
 interface DriverRow {
@@ -253,6 +253,129 @@ function LoadingSpinner() {
   return (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', padding: '2.5rem', color: 'var(--clr-muted)', fontSize: '0.875rem' }}>
       <span className="spinner" /> Loading…
+    </div>
+  )
+}
+
+// ─── Admin Notification Settings (7.5) ───────────────────────────────────────
+
+function AdminNotifSettings() {
+  const SETTING_DEFS = [
+    { key: 'push_order_updates',     label: 'Push — Order Status Updates',      sub: 'Send push notifications to shippers and drivers when order status changes (e.g. Assigned, In Transit, Delivered).' },
+    { key: 'push_driver_job_alerts', label: 'Push — Driver Job Assignments',     sub: 'Send a high-priority push to drivers when a new job is assigned to them.' },
+    { key: 'push_admin_alerts',      label: 'Push — Admin Event Alerts',         sub: 'Push notifications to admin panel when a new order is placed or a significant event occurs.' },
+    { key: 'email_order_updates',    label: 'Email — Order Status Updates',      sub: 'Send email to shippers at key order milestones (accepted, in transit, delivered).' },
+    { key: 'email_payment_alerts',   label: 'Email — Payment Approvals/Rejections', sub: 'Email the user when their manual payment request is approved or rejected.' },
+    { key: 'email_admin_alerts',     label: 'Email — Admin Event Notifications', sub: 'Send email to admin staff when new orders are created or events require attention.' },
+  ] as const
+
+  type SettingKey = typeof SETTING_DEFS[number]['key']
+
+  const [settings, setSettings] = useState<Record<SettingKey, boolean>>({
+    push_order_updates: true, push_driver_job_alerts: true, push_admin_alerts: true,
+    email_order_updates: true, email_payment_alerts: true, email_admin_alerts: true,
+  })
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [msg, setMsg] = useState('')
+
+  useEffect(() => {
+    apiClient.get('/admin/notification-settings').then(r => {
+      setSettings(s => ({ ...s, ...(r.data.settings ?? {}) }))
+    }).catch(() => {}).finally(() => setLoading(false))
+  }, [])
+
+  const toggle = async (key: SettingKey) => {
+    const next = !settings[key]
+    setSettings(s => ({ ...s, [key]: next }))
+    setSaving(true); setMsg('')
+    try {
+      await apiClient.put('/admin/notification-settings', { [key]: next })
+      setMsg('Saved.')
+    } catch {
+      // revert on failure
+      setSettings(s => ({ ...s, [key]: !next }))
+      setMsg('Save failed.')
+    } finally { setSaving(false) }
+  }
+
+  return (
+    <div style={{ display:'flex', flexDirection:'column', gap:'1.25rem' }}>
+      <div style={{ display:'flex', alignItems:'center', gap:'0.6rem' }}>
+        <h2 style={{ fontSize:'1rem', fontWeight:800, color:'var(--clr-text)', display:'flex', alignItems:'center', gap:'0.45rem' }}>
+          <LuBell size={17}/> Notification Controls
+        </h2>
+        {saving && <span style={{ fontSize:'0.72rem', color:'var(--clr-muted)' }}>Saving…</span>}
+        {msg && !saving && <span style={{ fontSize:'0.72rem', color: msg === 'Saved.' ? '#4ade80' : '#f87171' }}>{msg}</span>}
+      </div>
+
+      <p style={{ fontSize:'0.8rem', color:'var(--clr-muted)', marginTop:'-0.75rem' }}>
+        Global on/off switches for each notification channel. Per-user preferences (their own toggles in dashboard) still apply alongside these.
+      </p>
+
+      {loading ? (
+        <div style={{ textAlign:'center', color:'var(--clr-muted)', padding:'2rem', fontSize:'0.85rem' }}>Loading…</div>
+      ) : (
+        <div style={{ display:'flex', flexDirection:'column', gap:'0.65rem' }}>
+          {/* Push group */}
+          <p style={{ fontSize:'0.7rem', fontWeight:700, color:'var(--clr-accent)', textTransform:'uppercase', letterSpacing:'0.07em', marginBottom:'0.1rem' }}>Push Notifications</p>
+          {SETTING_DEFS.filter(d => d.key.startsWith('push_')).map(def => (
+            <div key={def.key} className="glass-inner" style={{ padding:'0.9rem 1rem', display:'flex', alignItems:'flex-start', gap:'1rem' }}>
+              <div style={{ flex:1 }}>
+                <p style={{ fontSize:'0.85rem', fontWeight:700, color:'var(--clr-text)', marginBottom:'0.2rem' }}>{def.label}</p>
+                <p style={{ fontSize:'0.74rem', color:'var(--clr-muted)', lineHeight:1.5 }}>{def.sub}</p>
+              </div>
+              <button
+                onClick={() => toggle(def.key)}
+                disabled={saving}
+                style={{
+                  flexShrink:0, width:44, height:24, borderRadius:12, border:'none', cursor:'pointer',
+                  background: settings[def.key] ? 'var(--clr-accent)' : 'rgba(255,255,255,0.12)',
+                  position:'relative', transition:'background 0.2s', outline:'none',
+                }}
+                title={settings[def.key] ? 'Enabled — click to disable' : 'Disabled — click to enable'}
+              >
+                <span style={{
+                  position:'absolute', top:3, left: settings[def.key] ? 22 : 3,
+                  width:18, height:18, borderRadius:'50%',
+                  background: settings[def.key] ? '#000' : 'rgba(255,255,255,0.5)',
+                  transition:'left 0.18s',
+                  boxShadow:'0 1px 3px rgba(0,0,0,0.4)',
+                }}/>
+              </button>
+            </div>
+          ))}
+
+          {/* Email group */}
+          <p style={{ fontSize:'0.7rem', fontWeight:700, color:'var(--clr-accent)', textTransform:'uppercase', letterSpacing:'0.07em', marginBottom:'0.1rem', marginTop:'0.4rem' }}>Email Notifications</p>
+          {SETTING_DEFS.filter(d => d.key.startsWith('email_')).map(def => (
+            <div key={def.key} className="glass-inner" style={{ padding:'0.9rem 1rem', display:'flex', alignItems:'flex-start', gap:'1rem' }}>
+              <div style={{ flex:1 }}>
+                <p style={{ fontSize:'0.85rem', fontWeight:700, color:'var(--clr-text)', marginBottom:'0.2rem' }}>{def.label}</p>
+                <p style={{ fontSize:'0.74rem', color:'var(--clr-muted)', lineHeight:1.5 }}>{def.sub}</p>
+              </div>
+              <button
+                onClick={() => toggle(def.key)}
+                disabled={saving}
+                style={{
+                  flexShrink:0, width:44, height:24, borderRadius:12, border:'none', cursor:'pointer',
+                  background: settings[def.key] ? 'var(--clr-accent)' : 'rgba(255,255,255,0.12)',
+                  position:'relative', transition:'background 0.2s', outline:'none',
+                }}
+                title={settings[def.key] ? 'Enabled — click to disable' : 'Disabled — click to enable'}
+              >
+                <span style={{
+                  position:'absolute', top:3, left: settings[def.key] ? 22 : 3,
+                  width:18, height:18, borderRadius:'50%',
+                  background: settings[def.key] ? '#000' : 'rgba(255,255,255,0.5)',
+                  transition:'left 0.18s',
+                  boxShadow:'0 1px 3px rgba(0,0,0,0.4)',
+                }}/>
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   )
 }
@@ -4083,6 +4206,7 @@ export default function AdminDashboardPage() {
       { id: 'payments',       icon: <LuFileText size={16}/>,     label: 'Payment Reviews'  },
       { id: 'wallet-adjustment', icon: <LuSettings size={16}/>, label: 'Wallet Adjust'    },
       { id: 'performance-bonus', icon: <LuStar size={16}/>,     label: 'Bonuses'          },
+      { id: 'notif-settings',   icon: <LuBell size={16}/>,       label: 'Notifications'    },
   ]
 
   const handleViewDriverOrders = (driverId: string, filterType?: string) => {
@@ -4199,6 +4323,7 @@ export default function AdminDashboardPage() {
             {section === 'payments'       && <AdminPaymentReview />}
             {section === 'wallet-adjustment' && <AdminWalletAdjustment />}
             {section === 'performance-bonus' && <AdminPerformanceBonus />}
+            {section === 'notif-settings'   && <AdminNotifSettings />}
         </main>
       </div>
 

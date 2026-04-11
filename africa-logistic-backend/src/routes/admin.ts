@@ -60,8 +60,9 @@ import {
   getAdminWalletTransactionsHandler,
   // ── Performance Bonuses ────────────────────────────────────────────────────
   getPerformanceMetricsHandler,
-  processPerfBonusesHandler,
-} from '../controllers/admin.controller.js'
+  processPerfBonusesHandler,  // ── System Notification Settings ──────────────────────────────────────
+  getNotifSettingsHandler,
+  updateNotifSettingsHandler,} from '../controllers/admin.controller.js'
 
 export default async function adminRoutes(fastify: FastifyInstance) {
   // All admin routes require a valid JWT
@@ -276,4 +277,10 @@ export default async function adminRoutes(fastify: FastifyInstance) {
 
   /** POST /api/admin/bonuses/process — manually trigger batch bonus processing */
   fastify.post('/bonuses/process', processPerfBonusesHandler)
-}
+  // ── System Notification Settings ──────────────────────────────────────
+
+  /** GET /api/admin/notification-settings — read global notification on/off switches */
+  fastify.get('/notification-settings', getNotifSettingsHandler)
+
+  /** PUT /api/admin/notification-settings — update global notification switches */
+  fastify.put('/notification-settings', updateNotifSettingsHandler)}

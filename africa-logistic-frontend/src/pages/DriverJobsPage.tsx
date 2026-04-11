@@ -113,13 +113,42 @@ function JobDetailModal({ job, onClose, onRefresh }: { job: Job; onClose: () => 
   const [localJob, setLocalJob] = useState<Job>(job)
   const msgBottom = useRef<HTMLDivElement>(null)
 
+  // ─── WS for real-time NEW_MESSAGE events ───────────────────────────────────
+  const tabRef = useRef<'info' | 'chat'>('info')
+  const [unreadChat, setUnreadChat] = useState(false)
+  useEffect(() => { tabRef.current = tab }, [tab])
+
+  useEffect(() => {
+    const terminal = ['DELIVERED', 'CANCELLED', 'COMPLETED', 'FAILED']
+    if (terminal.includes(localJob.status)) return
+    const token = localStorage.getItem('auth_token')
+    if (!token) return
+    const wsBase = (import.meta.env.VITE_API_BASE_URL as string ?? '').replace(/^https/, 'wss').replace(/^http/, 'ws').replace(/\/api$/, '')
+    const ws = new WebSocket(`${wsBase}/api/ws/orders/${localJob.id}?token=${encodeURIComponent(token)}`)
+    ws.onmessage = (e) => {
+      try {
+        const msg = JSON.parse(e.data)
+        if (msg.type === 'NEW_MESSAGE' && msg.message) {
+          if (tabRef.current === 'chat') {
+            setMessages(prev => prev.find(m => m.id === msg.message.id) ? prev : [...prev, msg.message])
+            setTimeout(() => msgBottom.current?.scrollIntoView({ behavior: 'smooth' }), 80)
+          } else {
+            setUnreadChat(true)
+          }
+        }
+      } catch { /* ignore */ }
+    }
+    return () => ws.close()
+  }, [localJob.id]) // eslint-disable-line
+  // ────────────────────────────────────────────────────────────────────
+
   const loadMessages = useCallback(async () => {
     const { data } = await driverApi.getMessages(localJob.id)
     setMessages(data.messages ?? [])
     setTimeout(() => msgBottom.current?.scrollIntoView({ behavior:'smooth' }), 100)
   }, [localJob.id])
 
-  useEffect(() => { if (tab === 'chat') loadMessages() }, [tab]) // eslint-disable-line
+  useEffect(() => { if (tab === 'chat') { setUnreadChat(false); loadMessages() } }, [tab]) // eslint-disable-line
 
   const refreshJob = async () => {
     const { data } = await driverApi.getJob(localJob.id)
@@ -191,8 +220,10 @@ function JobDetailModal({ job, onClose, onRefresh }: { job: Job; onClose: () => 
             {/* Tabs */}
             <div style={{ display:'flex', gap:'0.25rem', background:'rgba(255,255,255,0.04)', borderRadius:10, padding:'0.25rem', marginBottom:'1rem' }}>
               {(['info','chat'] as const).map(t => (
-                <button key={t} onClick={() => setTab(t)} style={{ flex:1, padding:'0.4rem', border:'none', borderRadius:8, background: tab === t ? 'rgba(0,229,255,0.12)' : 'transparent', color: tab === t ? 'var(--clr-accent)' : 'var(--clr-muted)', fontFamily:'inherit', fontSize:'0.78rem', fontWeight:700, cursor:'pointer', transition:'all 0.15s', outline: tab === t ? '1px solid rgba(0,229,255,0.2)' : 'none' }}>
-                  {t === 'info' ? 'Job Details' : 'Chat'}
+                <button key={t} onClick={() => setTab(t)} style={{ flex:1, padding:'0.4rem', border:'none', borderRadius:8, background: tab === t ? 'rgba(0,229,255,0.12)' : 'transparent', color: tab === t ? 'var(--clr-accent)' : 'var(--clr-muted)', fontFamily:'inherit', fontSize:'0.78rem', fontWeight:700, cursor:'pointer', transition:'all 0.15s', outline: tab === t ? '1px solid rgba(0,229,255,0.2)' : 'none', position:'relative' }}>
+                  {t === 'info' ? 'Job Details' : (
+                    <>{unreadChat && tab !== 'chat' && <span style={{ position:'absolute', top:2, right:2, width:7, height:7, borderRadius:'50%', background:'#f87171', boxShadow:'0 0 4px #f87171' }}/>}Chat</>
+                  )}
                 </button>
               ))}
             </div>

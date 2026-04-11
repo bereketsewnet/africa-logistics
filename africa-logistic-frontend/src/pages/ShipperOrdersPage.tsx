@@ -630,6 +630,10 @@ function LiveTrackTab({ orderId, token }: { orderId: string; token: string }) {
   const [wsState, setWsState] = useState<'connecting' | 'connected' | 'closed'>('connecting')
   const wsRef = useRef<WebSocket | null>(null)
   const [initialLoaded, setInitialLoaded] = useState(false)
+  const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const reconnectDelayRef = useRef(2000) // starts at 2s, doubles up to 30s
+  const statusRef = useRef(status)
+  useEffect(() => { statusRef.current = status }, [status])
 
   // Initial REST load for current position
   useEffect(() => {
@@ -645,23 +649,47 @@ function LiveTrackTab({ orderId, token }: { orderId: string; token: string }) {
   useEffect(() => {
     if (!initialLoaded) return
     if (['DELIVERED', 'CANCELLED'].includes(status)) { setWsState('closed'); return }
-    const wsBase = (import.meta.env.VITE_API_BASE_URL as string ?? '').replace(/^https/, 'wss').replace(/^http/, 'ws').replace(/\/api$/, '')
-    const ws = new WebSocket(`${wsBase}/api/ws/orders/${orderId}?token=${encodeURIComponent(token)}`)
-    wsRef.current = ws
-    ws.onopen = () => setWsState('connected')
-    ws.onclose = () => setWsState('closed')
-    ws.onerror = () => setWsState('closed')
-    ws.onmessage = (e) => {
-      try {
-        const msg = JSON.parse(e.data)
-        if (msg.type === 'CONNECTED') { setStatus(msg.status ?? '') }
-        if (msg.type === 'LOCATION_UPDATE') {
-          setLoc({ lat: Number(msg.lat), lng: Number(msg.lng), recorded_at: msg.recorded_at ?? new Date().toISOString(), heading: msg.heading ?? null, speed_kmh: msg.speed_kmh ?? null })
+
+    const TERMINAL = ['DELIVERED', 'CANCELLED']
+
+    const connect = () => {
+      if (TERMINAL.includes(statusRef.current)) return
+      setWsState('connecting')
+      const wsBase = (import.meta.env.VITE_API_BASE_URL as string ?? '').replace(/^https/, 'wss').replace(/^http/, 'ws').replace(/\/api$/, '')
+      const ws = new WebSocket(`${wsBase}/api/ws/orders/${orderId}?token=${encodeURIComponent(token)}`)
+      wsRef.current = ws
+
+      ws.onopen = () => {
+        setWsState('connected')
+        reconnectDelayRef.current = 2000 // reset backoff on success
+      }
+      ws.onclose = () => {
+        setWsState('closed')
+        if (!TERMINAL.includes(statusRef.current)) {
+          reconnectTimerRef.current = setTimeout(() => {
+            reconnectDelayRef.current = Math.min(reconnectDelayRef.current * 2, 30000)
+            connect()
+          }, reconnectDelayRef.current)
         }
-        if (msg.type === 'STATUS_CHANGE') { setStatus(msg.status ?? '') }
-      } catch { /* ignore */ }
+      }
+      ws.onerror = () => ws.close() // let onclose handle reconnect
+      ws.onmessage = (e) => {
+        try {
+          const msg = JSON.parse(e.data)
+          if (msg.type === 'CONNECTED') { setStatus(msg.status ?? '') }
+          if (msg.type === 'LOCATION_UPDATE') {
+            setLoc({ lat: Number(msg.lat), lng: Number(msg.lng), recorded_at: msg.recorded_at ?? new Date().toISOString(), heading: msg.heading ?? null, speed_kmh: msg.speed_kmh ?? null })
+          }
+          if (msg.type === 'STATUS_CHANGE' || msg.type === 'STATUS_CHANGED') { setStatus(msg.status ?? '') }
+        } catch { /* ignore */ }
+      }
     }
-    return () => { ws.close() }
+
+    connect()
+    return () => {
+      wsRef.current?.close()
+      if (reconnectTimerRef.current) clearTimeout(reconnectTimerRef.current)
+    }
   }, [orderId, token, initialLoaded]) // eslint-disable-line
 
   const hasLoc = loc && !isNaN(loc.lat) && !isNaN(loc.lng)
@@ -823,6 +851,38 @@ function OrderDetailModal({ order, onClose, onCancelled }: { order: Order; onClo
   const [charges, setCharges] = useState<OrderCharge[]>([])
   const msgBottom = useRef<HTMLDivElement>(null)
 
+  // ─── WS for real-time NEW_MESSAGE events ───────────────────────────────────
+  const tabRef = useRef<'info' | 'history' | 'chat' | 'track'>('info')
+  const chatChannelRef = useRef<'main' | 'shipper'>('main')
+  const [unreadChat, setUnreadChat] = useState(false)
+  useEffect(() => { tabRef.current = tab }, [tab])
+  useEffect(() => { chatChannelRef.current = chatChannel }, [chatChannel])
+
+  useEffect(() => {
+    const terminal = ['DELIVERED', 'CANCELLED', 'COMPLETED', 'FAILED']
+    if (terminal.includes(order.status)) return
+    const token = localStorage.getItem('auth_token')
+    if (!token) return
+    const wsBase = (import.meta.env.VITE_API_BASE_URL as string ?? '').replace(/^https/, 'wss').replace(/^http/, 'ws').replace(/\/api$/, '')
+    const ws = new WebSocket(`${wsBase}/api/ws/orders/${order.id}?token=${encodeURIComponent(token)}`)
+    ws.onmessage = (e) => {
+      try {
+        const msg = JSON.parse(e.data)
+        if (msg.type === 'NEW_MESSAGE' && msg.message) {
+          // Map channel: if channel matches what we're viewing, append live
+          const msgChannel = msg.message.channel ?? 'main'
+          if (tabRef.current === 'chat' && msgChannel === chatChannelRef.current) {
+            setMessages(prev => prev.find(m => m.id === msg.message.id) ? prev : [...prev, msg.message])
+            setTimeout(() => msgBottom.current?.scrollIntoView({ behavior: 'smooth' }), 80)
+          } else {
+            setUnreadChat(true)
+          }
+        }
+      } catch { /* ignore malformed */ }
+    }
+    return () => ws.close()
+  }, [order.id]) // eslint-disable-line
+
   const loadHistory = useCallback(async () => {
     const { data } = await orderApi.getHistory(order.id)
     setHistory(data.history ?? [])
@@ -836,7 +896,7 @@ function OrderDetailModal({ order, onClose, onCancelled }: { order: Order; onClo
 
   useEffect(() => {
     if (tab === 'history') loadHistory()
-    if (tab === 'chat') loadMessages()
+    if (tab === 'chat') { setUnreadChat(false); loadMessages() }
   }, [tab]) // eslint-disable-line
 
   useEffect(() => {
@@ -964,8 +1024,10 @@ function OrderDetailModal({ order, onClose, onCancelled }: { order: Order; onClo
           {/* Tabs */}
           <div style={{ display:'flex', gap:'0.25rem', background:'rgba(255,255,255,0.04)', borderRadius:10, padding:'0.25rem', marginBottom:'1rem' }}>
             {(['info','history','chat','track'] as const).map(t => (
-              <button key={t} onClick={() => setTab(t)} style={{ flex:1, padding:'0.4rem 0.25rem', border:'none', borderRadius:8, background: tab === t ? 'rgba(0,229,255,0.12)' : 'transparent', color: tab === t ? 'var(--clr-accent)' : 'var(--clr-muted)', fontFamily:'inherit', fontSize:'0.72rem', fontWeight:700, cursor:'pointer', transition:'all 0.15s', outline: tab === t ? '1px solid rgba(0,229,255,0.2)' : 'none', textTransform:'capitalize' }}>
-                {t === 'history' ? 'Timeline' : t === 'chat' ? 'Chat' : t === 'track' ? 'Track' : 'Details'}
+              <button key={t} onClick={() => setTab(t)} style={{ flex:1, padding:'0.4rem 0.25rem', border:'none', borderRadius:8, background: tab === t ? 'rgba(0,229,255,0.12)' : 'transparent', color: tab === t ? 'var(--clr-accent)' : 'var(--clr-muted)', fontFamily:'inherit', fontSize:'0.72rem', fontWeight:700, cursor:'pointer', transition:'all 0.15s', outline: tab === t ? '1px solid rgba(0,229,255,0.2)' : 'none', textTransform:'capitalize', position:'relative' }}>
+                {t === 'history' ? 'Timeline' : t === 'chat' ? (
+                  <>{unreadChat && tab !== 'chat' && <span style={{ position:'absolute', top:2, right:2, width:7, height:7, borderRadius:'50%', background:'#f87171', boxShadow:'0 0 4px #f87171' }}/>}Chat</>
+                ) : t === 'track' ? 'Track' : 'Details'}
               </button>
             ))}
           </div>

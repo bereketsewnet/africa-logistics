@@ -541,6 +541,22 @@ export default fp(async function dbPlugin(fastify: FastifyInstance) {
       fastify.log.info('✅ Initialized wallets for all existing users.')
     }
 
+    // ─── System Notification Settings (7.5 Admin Control Panel) ──────────────
+    await conn.query(`
+      CREATE TABLE IF NOT EXISTS system_notification_settings (
+        id                      INT        NOT NULL DEFAULT 1 PRIMARY KEY,
+        email_order_updates     TINYINT(1) NOT NULL DEFAULT 1,
+        email_payment_alerts    TINYINT(1) NOT NULL DEFAULT 1,
+        push_order_updates      TINYINT(1) NOT NULL DEFAULT 1,
+        push_driver_job_alerts  TINYINT(1) NOT NULL DEFAULT 1,
+        push_admin_alerts       TINYINT(1) NOT NULL DEFAULT 1,
+        email_admin_alerts      TINYINT(1) NOT NULL DEFAULT 1,
+        updated_at              TIMESTAMP  DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        updated_by              CHAR(36)   NULL
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    `)
+    await conn.query(`INSERT IGNORE INTO system_notification_settings (id) VALUES (1)`)
+
     conn.release() // Return the connection back to the pool
   } catch (err) {
     fastify.log.error('❌ MySQL connection failed. Is XAMPP running?')
