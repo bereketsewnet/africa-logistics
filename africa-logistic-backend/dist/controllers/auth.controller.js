@@ -351,7 +351,7 @@ export async function updateProfileHandler(request, reply) {
         const dest = path.join(process.cwd(), 'uploads', filename);
         const buffer = Buffer.from(b64data, 'base64');
         fs.writeFileSync(dest, buffer);
-        const apiBase = (process.env.API_BASE_URL || 'https://afri-logistics-api.lula.com.et').replace(/\/$/, '');
+        const apiBase = (process.env.API_BASE_URL || 'https://africa-logistics-api.lula.com.et').replace(/\/$/, '');
         photoUrl = `${apiBase}/uploads/${filename}`;
     }
     await updateUserProfile(request.server.db, userId, { firstName, lastName, profilePhotoUrl: photoUrl });
@@ -436,7 +436,7 @@ export async function forgotPasswordEmailHandler(request, reply) {
     const user = rows[0];
     // Use a short-lived JWT as the reset token (no extra DB column needed)
     const resetToken = request.server.jwt.sign({ id: user.id, purpose: 'email-password-reset' }, { expiresIn: '1h' });
-    const frontendBase = (process.env.FRONTEND_BASE_URL || process.env.FRONTEND_URL?.split(',')[0] || 'https://afri-logistics.lula.com.et').replace(/\/$/, '');
+    const frontendBase = (process.env.FRONTEND_BASE_URL || process.env.FRONTEND_URL?.split(',')[0] || 'https://africa-logistics.lula.com.et').replace(/\/$/, '');
     const resetUrl = `${frontendBase}/forgot-password?email_reset_token=${encodeURIComponent(resetToken)}`;
     try {
         await sendPasswordResetEmail(email, resetUrl);

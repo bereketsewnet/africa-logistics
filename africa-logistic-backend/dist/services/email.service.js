@@ -18,7 +18,7 @@ function getTransporter() {
 }
 export async function sendEmail(opts) {
     const transporter = getTransporter();
-    const from = process.env.SMTP_FROM || process.env.SMTP_USER || 'no-reply@afri-logistics.lula.com.et';
+    const from = process.env.SMTP_FROM || process.env.SMTP_USER || 'no-reply@africa-logistics.lula.com.et';
     if (!transporter) {
         console.log('─────────────────────────────────────────');
         console.log(`📧 Dev email to: ${opts.to}`);
@@ -132,7 +132,7 @@ function buildStyledEmail({ title, preheader, bodyHtml, ctaUrl, ctaLabel, footer
                 ${footerNote || 'You received this because your email is linked to an Africa Logistics account.'}
               </p>
               <p style="margin:0;font-size:11px;color:#bbbbbb;font-family:Arial,sans-serif;">
-                &copy; ${new Date().getFullYear()} Africa Logistics &bull; afri-logistics.lula.com.et
+                &copy; ${new Date().getFullYear()} Africa Logistics &bull; africa-logistics.lula.com.et
               </p>
             </td>
           </tr>
@@ -177,7 +177,7 @@ export async function sendPasswordResetEmail(to, resetUrl) {
     });
 }
 export async function sendVerificationEmail(to, token) {
-    const frontendBase = process.env.FRONTEND_BASE_URL || process.env.FRONTEND_URL?.split(',')[0] || 'https://afri-logistics.lula.com.et';
+    const frontendBase = process.env.FRONTEND_BASE_URL || process.env.FRONTEND_URL?.split(',')[0] || 'https://africa-logistics.lula.com.et';
     const verifyUrl = `${frontendBase.replace(/\/$/, '')}/verify-email?token=${encodeURIComponent(token)}`;
     const html = buildStyledEmail({
         title: 'Verify your email — Africa Logistics',
@@ -230,7 +230,7 @@ const STATUS_COLOR = {
 export async function sendOrderStatusEmail(to, data) {
     const label = STATUS_LABEL[data.status] ?? data.status;
     const color = STATUS_COLOR[data.status] ?? '#94a3b8';
-    const appUrl = `${process.env.FRONTEND_BASE_URL || 'https://afri-logistics.lula.com.et'}`;
+    const appUrl = `${process.env.FRONTEND_BASE_URL || 'https://africa-logistics.lula.com.et'}`;
     const roleMsg = data.recipientRole === 'shipper'
         ? `Your shipment <strong style="color:#1a1a2e;">${data.referenceCode}</strong> has a new status update.`
         : `Job <strong style="color:#1a1a2e;">${data.referenceCode}</strong> has a status update.`;
@@ -300,7 +300,7 @@ export async function sendOrderStatusEmail(to, data) {
     });
 }
 export async function sendOrderPlacedEmail(to, data) {
-    const appUrl = process.env.FRONTEND_BASE_URL || 'https://afri-logistics.lula.com.et';
+    const appUrl = process.env.FRONTEND_BASE_URL || 'https://africa-logistics.lula.com.et';
     const html = buildStyledEmail({
         title: `Order Confirmed ${data.referenceCode} — Africa Logistics`,
         preheader: `Your order ${data.referenceCode} is confirmed. Keep your OTPs safe.`,

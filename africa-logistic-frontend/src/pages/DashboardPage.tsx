@@ -84,7 +84,7 @@ function SectionRow({
   )
 }
 
-type Tab = 'profile' | 'security' | 'contact' | 'preferences' | 'documents'
+type Tab = 'profile' | 'security' | 'contact' | 'preferences' | 'documents' | 'rating'
 type DockPage = 'account' | 'orders' | 'payments' | 'messages' | 'help' | 'vehicle' | 'shipments'
 
 function ComingSoon({ title, icon, desc }: { title: string; icon: React.ReactNode; desc: string }) {
@@ -472,6 +472,7 @@ export default function DashboardPage() {
     { id: 'contact',     icon: <LuContact size={14}/>,  label: 'Contact'     },
     { id: 'preferences', icon: <LuBell size={14}/>,     label: 'Prefs'       },
     ...(user?.role_id === 3 ? [{ id: 'documents' as Tab, icon: <LuFileText size={14}/>, label: 'Docs' }] : []),
+    ...(user?.role_id === 3 ? [{ id: 'rating' as Tab, icon: <LuStar size={14}/>, label: 'Rating' }] : []),
   ]
 
   // ── Dock items ─────────────────────────────────────────────────────────────
@@ -558,6 +559,18 @@ export default function DashboardPage() {
                     <div style={{ display:'flex', alignItems:'center', gap:'0.6rem', flexWrap:'wrap' }}>
                       <h1 style={{ fontSize:'1.2rem', fontWeight:800, color:'var(--clr-text)' }}>{user?.first_name} {user?.last_name}</h1>
                       <span className="badge badge-cyan">{roleLabel}</span>
+                      {user?.role_id === 3 && driverProfile && (() => {
+                        const st: string = driverProfile.status ?? 'OFFLINE'
+                        const stColor: Record<string, string> = { AVAILABLE:'#4ade80', ON_JOB:'#60a5fa', OFFLINE:'#94a3b8', SUSPENDED:'#fca5a5' }
+                        const stLabel: Record<string, string> = { AVAILABLE:'Available', ON_JOB:'On Job', OFFLINE:'Offline', SUSPENDED:'Suspended' }
+                        const c = stColor[st] ?? '#94a3b8'
+                        return (
+                          <span style={{ display:'inline-flex', alignItems:'center', gap:'0.35rem', padding:'0.2rem 0.6rem', borderRadius:99, border:`1px solid ${c}44`, background:`${c}18`, fontSize:'0.72rem', fontWeight:700, color:c }}>
+                            <span style={{ width:6, height:6, borderRadius:'50%', background:c, boxShadow:`0 0 4px ${c}`, display:'inline-block' }}/>
+                            {stLabel[st] ?? st}
+                          </span>
+                        )
+                      })()}
                     </div>
                     <p style={{ color:'var(--clr-muted)', fontSize:'0.83rem', marginTop:'0.15rem' }}>{user?.phone_number}</p>
                     {user?.email && (
@@ -836,6 +849,41 @@ export default function DashboardPage() {
           {/* Driver Documents tab */}
           {activeTab === 'documents' && user?.role_id === 3 && (
             <div className="glass step-enter" style={{ padding: '1.75rem', display:'flex', flexDirection:'column', gap:'1.25rem' }}>
+
+              {/* ── Availability toggle card ── */}
+              {driverProfile && (() => {
+                const st: string = driverProfile.status ?? 'OFFLINE'
+                const stColor: Record<string, string> = { AVAILABLE:'#4ade80', ON_JOB:'#60a5fa', OFFLINE:'#94a3b8', SUSPENDED:'#fca5a5' }
+                const stLabel: Record<string, string> = { AVAILABLE:'Available', ON_JOB:'On Job', OFFLINE:'Offline', SUSPENDED:'Suspended' }
+                const c = stColor[st] ?? '#94a3b8'
+                return (
+                  <div className="glass-inner" style={{ padding:'0.85rem 1rem', display:'flex', alignItems:'center', justifyContent:'space-between', flexWrap:'wrap', gap:'0.5rem' }}>
+                    <div style={{ display:'flex', alignItems:'center', gap:'0.5rem' }}>
+                      <span style={{ width:8, height:8, borderRadius:'50%', background:c, boxShadow:`0 0 5px ${c}`, display:'inline-block' }}/>
+                      <span style={{ fontSize:'0.82rem', fontWeight:700, color:c }}>{stLabel[st] ?? st}</span>
+                      {st === 'AVAILABLE' && <span style={{ fontSize:'0.73rem', color:'var(--clr-muted)' }}>— available for orders</span>}
+                      {st === 'OFFLINE'   && <span style={{ fontSize:'0.73rem', color:'var(--clr-muted)' }}>— not receiving orders</span>}
+                      {st === 'ON_JOB'    && <span style={{ fontSize:'0.73rem', color:'var(--clr-muted)' }}>— delivery in progress</span>}
+                      {st === 'SUSPENDED' && <span style={{ fontSize:'0.73rem', color:'#fca5a5' }}>— contact admin</span>}
+                    </div>
+                    {st === 'AVAILABLE' && (
+                      <button onClick={async () => {
+                        try { await apiClient.patch('/driver/status', { status:'OFFLINE' }); const r = await apiClient.get('/profile/driver'); setDriverProfile(r.data.driver_profile) } catch { /* ignore */ }
+                      }} style={{ padding:'0.3rem 0.85rem', borderRadius:8, border:'1px solid rgba(148,163,184,0.35)', background:'rgba(148,163,184,0.08)', color:'#94a3b8', fontFamily:'inherit', fontSize:'0.75rem', fontWeight:700, cursor:'pointer' }}>
+                        Go Offline
+                      </button>
+                    )}
+                    {st === 'OFFLINE' && (
+                      <button onClick={async () => {
+                        try { await apiClient.patch('/driver/status', { status:'AVAILABLE' }); const r = await apiClient.get('/profile/driver'); setDriverProfile(r.data.driver_profile) } catch { /* ignore */ }
+                      }} style={{ padding:'0.3rem 0.85rem', borderRadius:8, border:'1px solid rgba(74,222,128,0.35)', background:'rgba(74,222,128,0.08)', color:'#4ade80', fontFamily:'inherit', fontSize:'0.75rem', fontWeight:700, cursor:'pointer' }}>
+                        Go Online
+                      </button>
+                    )}
+                  </div>
+                )
+              })()}
+
               <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
                 <h2 style={{ fontSize:'0.95rem', fontWeight:700, color:'var(--clr-text)', display:'flex', alignItems:'center', gap:'0.45rem' }}><LuFileText size={16}/> Verification Documents</h2>
                 <button className="btn-outline" style={{ fontSize:'0.75rem', padding:'0.35rem 0.7rem', display:'flex', alignItems:'center', gap:'0.35rem' }}
@@ -907,6 +955,37 @@ export default function DashboardPage() {
                     )
                   })}
                 </div>
+              )}
+            </div>
+          )}
+
+          {/* Driver Rating tab */}
+          {activeTab === 'rating' && user?.role_id === 3 && (
+            <div className="glass step-enter" style={{ padding: '1.75rem', display:'flex', flexDirection:'column', gap:'1.25rem' }}>
+              <h2 style={{ fontSize:'0.95rem', fontWeight:700, color:'var(--clr-text)', display:'flex', alignItems:'center', gap:'0.45rem' }}><LuStar size={16} color="#fbbf24"/> My Rating</h2>
+
+              {driverProfile ? (
+                driverProfile.rating != null ? (
+                  <div style={{ display:'flex', flexDirection:'column', gap:'1rem' }}>
+                    <div className="glass-inner" style={{ padding:'1.25rem', display:'flex', flexDirection:'column', gap:'0.65rem' }}>
+                      <div style={{ display:'flex', alignItems:'center', gap:'0.5rem', flexWrap:'wrap' }}>
+                        {[1,2,3,4,5].map(n => <LuStar key={n} size={22} fill={n <= Math.round(driverProfile.rating) ? '#fbbf24' : 'none'} stroke={n <= Math.round(driverProfile.rating) ? '#fbbf24' : 'rgba(255,255,255,0.2)'}/>)}
+                        <span style={{ fontSize:'1.3rem', fontWeight:800, color:'#fbbf24', marginLeft:'0.25rem' }}>{Number(driverProfile.rating).toFixed(1)}</span>
+                        <span style={{ fontSize:'0.8rem', color:'var(--clr-muted)' }}>/ 5.0 combined score</span>
+                      </div>
+                      {driverProfile.total_trips > 0 && (
+                        <p style={{ fontSize:'0.78rem', color:'var(--clr-muted)', margin:0 }}>Based on {driverProfile.total_trips} completed trip{driverProfile.total_trips !== 1 ? 's' : ''}</p>
+                      )}
+                      <p style={{ fontSize:'0.73rem', color:'var(--clr-muted)', margin:0 }}>60% shipper reviews · 40% delivery success rate</p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="glass-inner" style={{ padding:'1.25rem' }}>
+                    <p style={{ fontSize:'0.85rem', color:'var(--clr-muted)', margin:0, lineHeight:1.6 }}>No rating yet — complete deliveries to earn your score.</p>
+                  </div>
+                )
+              ) : (
+                <div style={{ color:'var(--clr-muted)', fontSize:'0.85rem', padding:'1rem 0' }}>Loading…</div>
               )}
             </div>
           )}

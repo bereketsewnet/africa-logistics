@@ -107,6 +107,7 @@ export default fp(async function dbPlugin(fastify: FastifyInstance) {
         estimated_weight_kg   DECIMAL(10,2),
         vehicle_type_required VARCHAR(50),
         special_instructions  TEXT,
+        internal_notes        TEXT,
         distance_km           DECIMAL(10,4)  NOT NULL DEFAULT 0,
         base_fare             DECIMAL(10,2)  NOT NULL DEFAULT 0,
         per_km_rate           DECIMAL(10,4)  NOT NULL DEFAULT 0,
@@ -128,6 +129,7 @@ export default fp(async function dbPlugin(fastify: FastifyInstance) {
         delivered_at   TIMESTAMP NULL,
         completed_at   TIMESTAMP NULL,
         created_at     TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_by     CHAR(36),
         updated_at     TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
         INDEX idx_orders_status    (status),
         INDEX idx_orders_shipper   (shipper_id),
@@ -184,6 +186,20 @@ export default fp(async function dbPlugin(fastify: FastifyInstance) {
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     `)
 
+    
+    await conn.query(`
+      CREATE TABLE IF NOT EXISTS audit_logs (
+        id BIGINT AUTO_INCREMENT PRIMARY KEY,
+        table_name VARCHAR(50) NOT NULL,
+        record_id CHAR(36) NOT NULL,
+        action ENUM('INSERT', 'UPDATE', 'DELETE') NOT NULL,
+        old_data JSON,
+        new_data JSON,
+        changed_by CHAR(36),
+        changed_at TIMESTAMP(6) DEFAULT CURRENT_TIMESTAMP(6)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    `)
+
     // ─── Schema migrations (add columns introduced after initial deploy) ──────
     // MySQL 8.0 does not support ADD COLUMN IF NOT EXISTS — check information_schema instead
     const dbName = process.env.DB_NAME ?? 'africa_logistics'
@@ -208,8 +224,67 @@ export default fp(async function dbPlugin(fastify: FastifyInstance) {
     await addColIfMissing('orders',        'guest_name',           'VARCHAR(200) NULL')
     await addColIfMissing('orders',        'guest_phone',          'VARCHAR(50) NULL')
     await addColIfMissing('orders',        'guest_email',          'VARCHAR(200) NULL')
+    await addColIfMissing('orders',        'internal_notes',       'TEXT NULL')
+    await addColIfMissing('orders',        'updated_by',           'CHAR(36) NULL')
     // Chat channel separation: 'main' = shipper+driver visible, 'driver' = admin↔driver only
     await addColIfMissing('order_messages', 'channel',             "VARCHAR(20) NOT NULL DEFAULT 'main'")
+
+    // ─── Create Triggers for Audit Logs ──────────────────────────────────────
+    await conn.query(`DROP TRIGGER IF EXISTS trg_orders_update_audit;`)
+    await conn.query(`
+      CREATE TRIGGER trg_orders_update_audit
+      AFTER UPDATE ON orders
+      FOR EACH ROW
+      BEGIN
+        IF NEW.updated_by IS NOT NULL THEN
+          INSERT INTO audit_logs (table_name, record_id, action, old_data, new_data, changed_by)
+          VALUES (
+            'orders',
+            NEW.id,
+            'UPDATE',
+            JSON_OBJECT(
+              'status', OLD.status,
+              'final_price', OLD.final_price,
+              'driver_id', OLD.driver_id,
+              'cargo_type_id', OLD.cargo_type_id,
+              'vehicle_type_required', OLD.vehicle_type_required,
+              'estimated_weight_kg', OLD.estimated_weight_kg,
+              'pickup_address', OLD.pickup_address,
+              'pickup_lat', OLD.pickup_lat,
+              'pickup_lng', OLD.pickup_lng,
+              'delivery_address', OLD.delivery_address,
+              'delivery_lat', OLD.delivery_lat,
+              'delivery_lng', OLD.delivery_lng,
+              'distance_km', OLD.distance_km,
+              'estimated_price', OLD.estimated_price,
+              'special_instructions', OLD.special_instructions,
+              'internal_notes', OLD.internal_notes,
+              'updated_by', OLD.updated_by
+            ),
+            JSON_OBJECT(
+              'status', NEW.status,
+              'final_price', NEW.final_price,
+              'driver_id', NEW.driver_id,
+              'cargo_type_id', NEW.cargo_type_id,
+              'vehicle_type_required', NEW.vehicle_type_required,
+              'estimated_weight_kg', NEW.estimated_weight_kg,
+              'pickup_address', NEW.pickup_address,
+              'pickup_lat', NEW.pickup_lat,
+              'pickup_lng', NEW.pickup_lng,
+              'delivery_address', NEW.delivery_address,
+              'delivery_lat', NEW.delivery_lat,
+              'delivery_lng', NEW.delivery_lng,
+              'distance_km', NEW.distance_km,
+              'estimated_price', NEW.estimated_price,
+              'special_instructions', NEW.special_instructions,
+              'internal_notes', NEW.internal_notes,
+              'updated_by', NEW.updated_by
+            ),
+            NEW.updated_by
+          );
+        END IF;
+      END;
+    `)
 
     // ─── Make shipper_id nullable for guest orders ───────────────────────────
     // Drop FK first (if still NOT NULL), then modify column, then re-add FK
@@ -271,6 +346,27 @@ export default fp(async function dbPlugin(fastify: FastifyInstance) {
       `)
       fastify.log.info('✅ Default pricing rules seeded.')
     }
+
+    // ─── Driver Ratings table ─────────────────────────────────────────────────
+    await conn.query(`
+      CREATE TABLE IF NOT EXISTS driver_ratings (
+        id          CHAR(36)   NOT NULL PRIMARY KEY,
+        driver_id   CHAR(36)   NOT NULL,
+        shipper_id  CHAR(36)   NOT NULL,
+        order_id    CHAR(36)   NOT NULL UNIQUE,
+        stars       TINYINT    NOT NULL CHECK (stars BETWEEN 1 AND 5),
+        comment     TEXT       NULL,
+        created_at  TIMESTAMP  DEFAULT CURRENT_TIMESTAMP,
+        is_deleted  TINYINT(1) DEFAULT 0,
+        deleted_at  TIMESTAMP  NULL,
+        deleted_by  CHAR(36)   NULL,
+        INDEX idx_dr_driver  (driver_id),
+        INDEX idx_dr_shipper (shipper_id),
+        CONSTRAINT dr_fk_driver  FOREIGN KEY (driver_id)  REFERENCES users(id),
+        CONSTRAINT dr_fk_shipper FOREIGN KEY (shipper_id) REFERENCES users(id),
+        CONSTRAINT dr_fk_order   FOREIGN KEY (order_id)   REFERENCES orders(id)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    `)
 
     conn.release() // Return the connection back to the pool
   } catch (err) {

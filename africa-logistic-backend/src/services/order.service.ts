@@ -374,13 +374,30 @@ export async function updateOrderStatus(
   }
   const extra = timestampFields[newStatus] ? `, ${timestampFields[newStatus]}` : ''
   await db.query(
-    `UPDATE orders SET status = ?, updated_at = NOW()${extra} WHERE id = ?`,
-    [newStatus, orderId]
+    `UPDATE orders SET status = ?, updated_at = NOW()${extra}, updated_by = ? WHERE id = ?`,
+    [newStatus, changedBy, orderId]
   )
   // Record in history
   await db.query(
     `INSERT INTO order_status_history (order_id, status, changed_by, notes) VALUES (?, ?, ?, ?)`,
     [orderId, newStatus, changedBy, notes ?? null]
+  )
+}
+
+export async function updateOrderInternalNotes(
+  db: Pool,
+  orderId: string,
+  internalNotes: string,
+  adminId: string,
+  currentStatus: string
+): Promise<void> {
+  await db.query(
+    `UPDATE orders SET internal_notes = ?, updated_at = NOW(), updated_by = ? WHERE id = ?`,
+    [internalNotes, adminId, orderId]
+  )
+  await db.query(
+    `INSERT INTO order_status_history (order_id, status, changed_by, notes) VALUES (?, ?, ?, ?)` ,
+    [orderId, currentStatus, adminId, 'Internal notes updated by admin']
   )
 }
 
@@ -392,8 +409,8 @@ export async function assignOrderToDriver(
   adminId: string
 ): Promise<void> {
   await db.query(
-    `UPDATE orders SET driver_id = ?, vehicle_id = ?, status = 'ASSIGNED', assigned_at = NOW() WHERE id = ?`,
-    [driverId, vehicleId, orderId]
+    `UPDATE orders SET driver_id = ?, vehicle_id = ?, status = 'ASSIGNED', assigned_at = NOW(), updated_by = ? WHERE id = ?`,
+    [driverId, vehicleId, adminId, orderId]
   )
   await db.query(
     `INSERT INTO order_status_history (order_id, status, changed_by, notes) VALUES (?, 'ASSIGNED', ?, 'Driver assigned by admin')`,
@@ -408,8 +425,8 @@ export async function assignOrderToDriver(
 
 export async function cancelOrder(db: Pool, orderId: string, cancelledBy: string): Promise<void> {
   await db.query(
-    `UPDATE orders SET status = 'CANCELLED', updated_at = NOW() WHERE id = ? AND status IN ('PENDING','ASSIGNED')`,
-    [orderId]
+    `UPDATE orders SET status = 'CANCELLED', updated_at = NOW(), updated_by = ? WHERE id = ? AND status IN ('PENDING','ASSIGNED')`,
+    [cancelledBy, orderId]
   )
   await db.query(
     `INSERT INTO order_status_history (order_id, status, changed_by, notes) VALUES (?, 'CANCELLED', ?, 'Order cancelled')`,
@@ -495,6 +512,7 @@ export async function getActiveDriversWithLocation(db: Pool): Promise<any[]> {
     `SELECT
        u.id AS driver_id,
        u.first_name, u.last_name, u.phone_number, u.profile_photo_url,
+       dp.status AS driver_status, dp.is_verified, dp.rating, dp.total_trips,
        CAST(dl.lat AS DOUBLE) AS lat,
        CAST(dl.lng AS DOUBLE) AS lng,
        dl.heading, dl.speed_kmh, dl.recorded_at AS location_at,
@@ -515,6 +533,7 @@ export async function getActiveDriversWithLocation(db: Pool): Promise<any[]> {
        s.first_name AS shipper_first_name, s.last_name AS shipper_last_name,
        s.phone_number AS shipper_phone
      FROM users u
+     LEFT JOIN driver_profiles dp ON dp.user_id = u.id
      JOIN (
        SELECT dl_inner.*,
               ROW_NUMBER() OVER (PARTITION BY dl_inner.driver_id ORDER BY dl_inner.recorded_at DESC, dl_inner.id DESC) AS rn
@@ -529,6 +548,42 @@ export async function getActiveDriversWithLocation(db: Pool): Promise<any[]> {
      LEFT JOIN users s ON s.id = o.shipper_id
      WHERE u.role_id = 3
      ORDER BY dl.recorded_at DESC`
+  )
+  return rows as any[]
+}
+
+/** Returns verified+available drivers sorted by Haversine distance to a pickup point */
+export async function getSuggestedDriversForOrder(
+  db: Pool,
+  pickupLat: number,
+  pickupLng: number
+): Promise<any[]> {
+  const [rows] = await db.query<RowDataPacket[]>(
+    `SELECT
+       u.id AS user_id,
+       u.first_name, u.last_name, u.phone_number, u.profile_photo_url,
+       dp.status AS driver_status, dp.rating, dp.total_trips,
+       v.id AS vehicle_id, v.plate_number, v.vehicle_type,
+       CAST(dl.lat AS DOUBLE) AS lat,
+       CAST(dl.lng AS DOUBLE) AS lng,
+       dl.recorded_at AS location_at,
+       (6371 * 2 * ASIN(SQRT(
+         POW(SIN((RADIANS(CAST(dl.lat AS DOUBLE)) - RADIANS(?)) / 2), 2) +
+         COS(RADIANS(?)) * COS(RADIANS(CAST(dl.lat AS DOUBLE))) *
+         POW(SIN((RADIANS(CAST(dl.lng AS DOUBLE)) - RADIANS(?)) / 2), 2)
+       ))) AS distance_km
+     FROM users u
+     JOIN driver_profiles dp ON dp.user_id = u.id AND dp.is_verified = 1 AND dp.status = 'AVAILABLE'
+     JOIN (
+       SELECT dl_inner.*,
+              ROW_NUMBER() OVER (PARTITION BY dl_inner.driver_id ORDER BY dl_inner.recorded_at DESC, dl_inner.id DESC) AS rn
+       FROM driver_locations dl_inner
+     ) dl ON dl.driver_id = u.id AND dl.rn = 1
+     LEFT JOIN vehicles v ON v.driver_id = u.id AND v.is_active = 1
+     WHERE u.role_id = 3 AND u.is_active = 1
+     ORDER BY distance_km ASC
+     LIMIT 10`,
+    [pickupLat, pickupLat, pickupLng]
   )
   return rows as any[]
 }

@@ -488,3 +488,245 @@ export async function unassignVehicle(db: Pool, vehicleId: string): Promise<void
     )
   }
 }
+
+// ─── Driver Status Management ─────────────────────────────────────────────────
+
+/**
+ * Allowed self-service status transitions for drivers.
+ * ON_JOB → * transitions are blocked if driver has an active order.
+ */
+const DRIVER_STATUS_TRANSITIONS: Record<string, string[]> = {
+  AVAILABLE: ['OFFLINE'],
+  OFFLINE:   ['AVAILABLE'],
+  ON_JOB:    ['OFFLINE'],   // emergency only — blocked server-side if active order exists
+  SUSPENDED: [],            // admin-only
+}
+
+export async function updateDriverAvailabilityStatus(
+  db: Pool,
+  driverId: string,
+  newStatus: string
+): Promise<{ ok: boolean; message: string }> {
+  // Fetch current status
+  const [rows] = await db.query<RowDataPacket[]>(
+    `SELECT status FROM driver_profiles WHERE user_id = ? LIMIT 1`,
+    [driverId]
+  )
+  const current = (rows as any[])[0]?.status as string | undefined
+  if (!current) return { ok: false, message: 'Driver profile not found.' }
+
+  const allowed = DRIVER_STATUS_TRANSITIONS[current] ?? []
+  if (!allowed.includes(newStatus)) {
+    if (current === 'SUSPENDED') return { ok: false, message: 'Your account is suspended. Contact admin.' }
+    return { ok: false, message: `Cannot change status from ${current} to ${newStatus}.` }
+  }
+
+  // If going OFFLINE from ON_JOB, block if there's an active order
+  if (current === 'ON_JOB' && newStatus === 'OFFLINE') {
+    const [activeRows] = await db.query<RowDataPacket[]>(
+      `SELECT id FROM orders WHERE driver_id = ? AND status IN ('ASSIGNED','EN_ROUTE','AT_PICKUP','IN_TRANSIT') LIMIT 1`,
+      [driverId]
+    )
+    if ((activeRows as any[]).length > 0) {
+      return { ok: false, message: 'You have an active delivery in progress. Complete it before going offline.' }
+    }
+  }
+
+  await db.query(`UPDATE driver_profiles SET status = ? WHERE user_id = ?`, [newStatus, driverId])
+  return { ok: true, message: `Status updated to ${newStatus}.` }
+}
+
+/** Admin override: set driver status to any value */
+export async function adminSetDriverStatus(
+  db: Pool,
+  driverId: string,
+  newStatus: 'AVAILABLE' | 'OFFLINE' | 'SUSPENDED' | 'ON_JOB'
+): Promise<void> {
+  await db.query(`UPDATE driver_profiles SET status = ? WHERE user_id = ?`, [newStatus, driverId])
+}
+
+// ─── Driver Ratings ───────────────────────────────────────────────────────────
+
+export interface DriverRatingRow extends RowDataPacket {
+  id: string
+  driver_id: string
+  shipper_id: string
+  order_id: string
+  stars: number
+  comment: string | null
+  created_at: string
+  is_deleted: number
+  // joined
+  shipper_first_name?: string
+  shipper_last_name?: string
+}
+
+export interface RatingSummary {
+  shipper_avg: number | null
+  shipper_count: number
+  system_score: number | null  // (delivered / total_assigned) * 5
+  total_trips: number
+  delivered_trips: number
+  combined_rating: number | null
+}
+
+/** Check if a shipper has already rated an order */
+export async function hasRatedOrder(db: Pool, orderId: string): Promise<boolean> {
+  const [rows] = await db.query<RowDataPacket[]>(
+    `SELECT id FROM driver_ratings WHERE order_id = ? AND is_deleted = 0 LIMIT 1`,
+    [orderId]
+  )
+  return (rows as any[]).length > 0
+}
+
+/** Create a new rating and recompute + store the combined rating on driver profile */
+export async function createDriverRating(
+  db: Pool,
+  driverId: string,
+  shipperId: string,
+  orderId: string,
+  stars: number,
+  comment: string | null
+): Promise<void> {
+  const id = uuidv4()
+  await db.query(
+    `INSERT INTO driver_ratings (id, driver_id, shipper_id, order_id, stars, comment)
+     VALUES (?, ?, ?, ?, ?, ?)`,
+    [id, driverId, shipperId, orderId, stars, comment ?? null]
+  )
+  await recomputeDriverRating(db, driverId)
+}
+
+/** Recompute combined rating and store in driver_profiles.rating */
+export async function recomputeDriverRating(db: Pool, driverId: string): Promise<void> {
+  // Shipper average
+  const [avgRows] = await db.query<RowDataPacket[]>(
+    `SELECT AVG(stars) AS avg_stars, COUNT(*) AS cnt
+       FROM driver_ratings
+      WHERE driver_id = ? AND is_deleted = 0`,
+    [driverId]
+  )
+  const shipperAvg: number | null = (avgRows as any[])[0]?.avg_stars ? parseFloat((avgRows as any[])[0].avg_stars) : null
+  const shipperCount: number = parseInt((avgRows as any[])[0]?.cnt ?? '0', 10)
+
+  // System score: delivered / total_assigned * 5
+  const [tripRows] = await db.query<RowDataPacket[]>(
+    `SELECT
+       COUNT(*) AS total_assigned,
+       SUM(CASE WHEN status IN ('DELIVERED','COMPLETED') THEN 1 ELSE 0 END) AS delivered
+     FROM orders WHERE driver_id = ? AND status NOT IN ('PENDING','CANCELLED')`,
+    [driverId]
+  )
+  const totalAssigned: number = parseInt((tripRows as any[])[0]?.total_assigned ?? '0', 10)
+  const delivered: number     = parseInt((tripRows as any[])[0]?.delivered ?? '0', 10)
+  const systemScore: number | null = totalAssigned > 0 ? Math.round((delivered / totalAssigned) * 5 * 100) / 100 : null
+
+  // Combined: 60% shipper + 40% system (if both exist); fall back to whichever exists
+  let combined: number | null = null
+  if (shipperAvg !== null && systemScore !== null) {
+    combined = Math.round((shipperAvg * 0.6 + systemScore * 0.4) * 100) / 100
+  } else if (shipperAvg !== null) {
+    combined = Math.round(shipperAvg * 100) / 100
+  } else if (systemScore !== null) {
+    combined = systemScore
+  }
+
+  await db.query(
+    `UPDATE driver_profiles SET rating = ?, total_trips = ? WHERE user_id = ?`,
+    [combined, delivered, driverId]
+  )
+
+  // Also update shipper count cache for display purposes
+  if (shipperCount > 0) {
+    await db.query(
+      `UPDATE driver_profiles SET shipper_rating_count = ? WHERE user_id = ?`,
+      [shipperCount, driverId]
+    ).catch(() => { /* column may not exist yet — safe to ignore */ })
+  }
+}
+
+/** Get full rating summary for a driver */
+export async function getDriverRatingSummary(db: Pool, driverId: string): Promise<RatingSummary> {
+  const [avgRows] = await db.query<RowDataPacket[]>(
+    `SELECT AVG(stars) AS avg_stars, COUNT(*) AS cnt
+       FROM driver_ratings
+      WHERE driver_id = ? AND is_deleted = 0`,
+    [driverId]
+  )
+  const shipperAvg: number | null = (avgRows as any[])[0]?.avg_stars ? parseFloat((avgRows as any[])[0].avg_stars) : null
+  const shipperCount: number = parseInt((avgRows as any[])[0]?.cnt ?? '0', 10)
+
+  const [tripRows] = await db.query<RowDataPacket[]>(
+    `SELECT
+       COUNT(*) AS total_assigned,
+       SUM(CASE WHEN o.status IN ('DELIVERED','COMPLETED') THEN 1 ELSE 0 END) AS delivered,
+       dp.total_trips,
+       dp.rating
+     FROM orders o
+     JOIN driver_profiles dp ON dp.user_id = o.driver_id
+     WHERE o.driver_id = ? AND o.status NOT IN ('PENDING','CANCELLED')
+     LIMIT 1`,
+    [driverId]
+  )
+  const totalAssigned: number = parseInt((tripRows as any[])[0]?.total_assigned ?? '0', 10)
+  const delivered: number     = parseInt((tripRows as any[])[0]?.delivered ?? '0', 10)
+  const systemScore: number | null = totalAssigned > 0 ? Math.round((delivered / totalAssigned) * 5 * 100) / 100 : null
+
+  let combined: number | null = null
+  if (shipperAvg !== null && systemScore !== null) {
+    combined = Math.round((shipperAvg * 0.6 + systemScore * 0.4) * 100) / 100
+  } else if (shipperAvg !== null) {
+    combined = Math.round(shipperAvg * 100) / 100
+  } else if (systemScore !== null) {
+    combined = systemScore
+  }
+
+  return {
+    shipper_avg: shipperAvg,
+    shipper_count: shipperCount,
+    system_score: systemScore,
+    total_trips: totalAssigned,
+    delivered_trips: delivered,
+    combined_rating: combined,
+  }
+}
+
+/** Get paginated list of visible ratings for a driver */
+export async function getDriverRatings(
+  db: Pool,
+  driverId: string,
+  includeDeleted = false
+): Promise<DriverRatingRow[]> {
+  const [rows] = await db.query<DriverRatingRow[]>(
+    `SELECT dr.*,
+            u.first_name AS shipper_first_name,
+            u.last_name  AS shipper_last_name
+       FROM driver_ratings dr
+       JOIN users u ON u.id = dr.shipper_id
+      WHERE dr.driver_id = ? ${includeDeleted ? '' : 'AND dr.is_deleted = 0'}
+      ORDER BY dr.created_at DESC`,
+    [driverId]
+  )
+  return rows
+}
+
+/** Admin: soft-delete a rating */
+export async function softDeleteRating(
+  db: Pool,
+  ratingId: string,
+  adminId: string
+): Promise<{ ok: boolean; driverId: string | null }> {
+  const [rows] = await db.query<RowDataPacket[]>(
+    `SELECT driver_id FROM driver_ratings WHERE id = ? AND is_deleted = 0 LIMIT 1`,
+    [ratingId]
+  )
+  const driverId: string | null = (rows as any[])[0]?.driver_id ?? null
+  if (!driverId) return { ok: false, driverId: null }
+
+  await db.query(
+    `UPDATE driver_ratings SET is_deleted = 1, deleted_at = NOW(), deleted_by = ? WHERE id = ?`,
+    [adminId, ratingId]
+  )
+  await recomputeDriverRating(db, driverId)
+  return { ok: true, driverId }
+}

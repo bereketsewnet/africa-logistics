@@ -19,6 +19,9 @@ import {
   cancelOrderHandler,
   downloadInvoiceHandler,
   getUnreadCountsHandler,
+  rateDriverHandler,
+  getDriverRatingSummaryHandler,
+  hasRatedOrderHandler,
 } from '../controllers/order.controller.js'
 
 export default async function orderRoutes(fastify: FastifyInstance) {
@@ -81,4 +84,25 @@ export default async function orderRoutes(fastify: FastifyInstance) {
    * Only available for DELIVERED / COMPLETED orders.
    */
   fastify.get('/:id/invoice', downloadInvoiceHandler)
+
+  // ── Driver Rating ─────────────────────────────────────────────────────────────
+
+  /**
+   * POST /api/orders/:id/rate-driver
+   * Body: { stars: 1-5, comment?: string }
+   * Shipper rates the driver after successful delivery.
+   */
+  fastify.post('/:id/rate-driver', rateDriverHandler)
+
+  /**
+   * GET /api/orders/:id/has-rated — check if current user already rated this order
+   * MUST be before /:id routes — registered here as sub-resource.
+   */
+  fastify.get('/:id/has-rated', hasRatedOrderHandler)
+
+  /**
+   * GET /api/orders/drivers/:driverId/rating-summary
+   * Public summary of a driver's combined rating + system score.
+   */
+  fastify.get('/drivers/:driverId/rating-summary', getDriverRatingSummaryHandler)
 }

@@ -524,7 +524,7 @@ export default function DriverJobsPage() {
 
   return (
     <div className="page-shell" style={{ alignItems:'flex-start' }}>
-      <div style={{ width:'100%', maxWidth:620, display:'flex', flexDirection:'column', gap:'1.25rem' }}>
+      <div style={{ width:'100%', maxWidth:840, display:'flex', flexDirection:'column', gap:'1.25rem' }}>
 
         {/* ── Header ── */}
         <div className="glass page-enter" style={{ padding:'1.5rem' }}>
@@ -582,27 +582,26 @@ export default function DriverJobsPage() {
         )}
 
         {/* ── Job List ── */}
-        <div className="glass" style={{ padding:'1rem 1.25rem', display:'flex', flexDirection:'column', gap:'0.65rem' }}>
-          {/* Select all / clear */}
+        <div style={{ display:'flex', alignItems:'center', gap:'0.5rem', marginBottom:'1rem' }}>
           {visible.length > 1 && (
-            <div style={{ display:'flex', alignItems:'center', gap:'0.5rem', paddingBottom:'0.5rem', borderBottom:'1px solid rgba(255,255,255,0.05)' }}>
-              <button onClick={() => {
-                if (selectedJobs.size === visible.length) clearSelection()
-                else setSelectedJobs(new Set(visible.map(j => j.id)))
-              }} style={{ display:'flex', alignItems:'center', gap:'0.35rem', background:'none', border:'none', cursor:'pointer', color:'var(--clr-muted)', fontFamily:'inherit', fontSize:'0.75rem', padding:'0.15rem 0' }}>
-                {selectedJobs.size === visible.length
-                  ? <><LuSquareCheck size={14} color="var(--clr-accent)"/> Deselect All</>
-                  : <><LuSquare size={14}/> Select All</>}
-              </button>
-            </div>
+            <button onClick={() => {
+              if (selectedJobs.size === visible.length) clearSelection()
+              else setSelectedJobs(new Set(visible.map(j => j.id)))
+            }} style={{ display:'flex', alignItems:'center', gap:'0.35rem', background:'rgba(255,255,255,0.05)', border:'1px solid rgba(255,255,255,0.1)', cursor:'pointer', color:'var(--clr-muted)', fontFamily:'inherit', fontSize:'0.75rem', padding:'0.4rem 0.8rem', borderRadius:8 }}>
+              {selectedJobs.size === visible.length
+                ? <><LuSquareCheck size={14} color="var(--clr-accent)"/> Deselect All</>
+                : <><LuSquare size={14}/> Select All</>}
+            </button>
           )}
+        </div>
 
+        <div style={{ display:'grid', gap:'1rem', gridTemplateColumns:'repeat(auto-fill, minmax(320px, 1fr))' }}>
           {loading ? (
-            <div style={{ display:'flex', justifyContent:'center', padding:'2.5rem', color:'var(--clr-muted)', gap:'0.65rem', alignItems:'center' }}>
+            <div style={{ gridColumn:'1/-1', display:'flex', justifyContent:'center', padding:'2.5rem', color:'var(--clr-muted)', gap:'0.65rem', alignItems:'center' }}>
               <Spinner/> Loading jobs…
             </div>
           ) : visible.length === 0 ? (
-            <div style={{ textAlign:'center', padding:'3rem 1rem', color:'var(--clr-muted)', fontSize:'0.875rem' }}>
+            <div className="glass-inner" style={{ gridColumn:'1/-1', textAlign:'center', padding:'3rem 1rem', color:'var(--clr-muted)', fontSize:'0.875rem' }}>
               <LuTruck size={36} style={{ opacity:0.25, display:'block', margin:'0 auto 1rem' }}/>
               {jobTab === 'active' ? 'No active jobs right now.' : 'No completed jobs yet.'}
             </div>
@@ -611,48 +610,45 @@ export default function DriverJobsPage() {
             const unread = unreadCounts[job.id] ?? 0
             return (
               <div key={job.id} className="glass-inner"
-                style={{ padding:'0.9rem 1rem', cursor:'pointer', transition:'background 0.15s', outline: isSelected ? '2px solid rgba(0,229,255,0.35)' : 'none' }}
+                style={{ padding:'0.9rem 1rem', cursor:'pointer', transition:'background 0.15s', display:'flex', flexDirection:'column', justifyContent:'space-between', outline: isSelected ? '2px solid rgba(0,229,255,0.35)' : 'none' }}
                 onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.04)')}
                 onMouseLeave={e => (e.currentTarget.style.background = '')}>
-                <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', gap:'0.5rem' }}>
-                  {/* Checkbox */}
-                  <button
-                    onClick={e => { e.stopPropagation(); toggleSelect(job.id) }}
-                    style={{ background:'none', border:'none', cursor:'pointer', color: isSelected ? 'var(--clr-accent)' : 'var(--clr-muted)', padding:'0.1rem 0.25rem 0 0', display:'flex', alignItems:'flex-start', flexShrink:0 }}>
-                    {isSelected ? <LuSquareCheck size={16}/> : <LuSquare size={16}/>}
-                  </button>
-
-                  <div style={{ flex:1, minWidth:0 }} onClick={() => setSelectedJob(job)}>
-                    <div style={{ display:'flex', alignItems:'center', gap:'0.5rem', flexWrap:'wrap', marginBottom:'0.25rem' }}>
-                      <span style={{ fontWeight:700, fontSize:'0.88rem', color:'var(--clr-text)' }}>{job.reference_code}</span>
-                      {statusBadge(job.status)}
-                      {unread > 0 && (
-                        <span style={{ display:'flex', alignItems:'center', gap:'0.25rem', fontSize:'0.68rem', fontWeight:700, color:'#fff', background:'#ef4444', borderRadius:99, padding:'0.12rem 0.45rem', lineHeight:1 }}>
-                          <LuMessageSquare size={10}/> {unread}
-                        </span>
-                      )}
-                    </div>
-                    <p style={{ fontSize:'0.75rem', color:'var(--clr-muted)', display:'flex', alignItems:'center', gap:'0.35rem', marginBottom:'0.15rem' }}>
-                      <LuMapPin size={11}/> {job.pickup_address}
-                    </p>
-                    <p style={{ fontSize:'0.75rem', color:'var(--clr-muted)', display:'flex', alignItems:'center', gap:'0.35rem' }}>
-                      <LuArrowRight size={11}/> {job.delivery_address}
-                    </p>
-                    <div style={{ display:'flex', gap:'0.65rem', marginTop:'0.4rem', flexWrap:'wrap' }}>
-                      <span style={{ fontSize:'0.72rem', color:'var(--clr-muted)' }}>{job.cargo_type_name}</span>
-                      <span style={{ fontSize:'0.72rem', color:'var(--clr-muted)' }}>·</span>
-                      <span style={{ fontSize:'0.72rem', color:'var(--clr-muted)' }}>{job.vehicle_type_required}</span>
-                      <span style={{ fontSize:'0.72rem', color:'var(--clr-muted)' }}>·</span>
-                      <span style={{ fontSize:'0.72rem', color:'var(--clr-muted)' }}>{job.estimated_weight_kg != null ? `${job.estimated_weight_kg} kg` : '—'}</span>
-                    </div>
+                
+                <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', gap:'0.5rem', marginBottom:'0.5rem' }}>
+                  <div style={{ display:'flex', alignItems:'center', gap:'0.5rem', flexWrap:'wrap' }} onClick={() => setSelectedJob(job)}>
+                    <span style={{ fontWeight:800, fontSize:'0.88rem', color:'var(--clr-text)' }}>{job.reference_code}</span>
+                    {statusBadge(job.status)}
+                    {unread > 0 && (
+                      <span style={{ display:'flex', alignItems:'center', gap:'0.25rem', fontSize:'0.68rem', fontWeight:700, color:'#fff', background:'#ef4444', borderRadius:99, padding:'0.12rem 0.45rem', lineHeight:1 }}>
+                        <LuMessageSquare size={10}/> {unread}
+                      </span>
+                    )}
                   </div>
                   <div style={{ textAlign:'right', flexShrink:0 }} onClick={() => setSelectedJob(job)}>
-                    <p style={{ fontSize:'0.9rem', fontWeight:800, color:'var(--clr-accent)', whiteSpace:'nowrap' }}>
-                      {(job.final_price ?? job.estimated_price).toLocaleString()} ETB
-                    </p>
-                    <p style={{ fontSize:'0.68rem', color:'var(--clr-muted)', marginTop:'0.2rem' }}>{fmtDate(job.created_at).split(',')[0]}</p>
-                    <LuChevronRight size={14} style={{ color:'var(--clr-muted)', marginTop:'0.3rem' }}/>
+                    <span style={{ fontWeight:800, fontSize:'0.88rem', color:'var(--clr-accent)' }}>{(job.final_price ?? job.estimated_price).toLocaleString()} ETB</span>
+                    <div style={{ fontSize:'0.68rem', color:'var(--clr-muted)', marginTop:'0.2rem' }}>
+                      {fmtDate(job.created_at).split(',')[0]}
+                    </div>
                   </div>
+                </div>
+
+                <div style={{ display:'flex', flexDirection:'column', gap:'0.4rem', marginBottom:'0.75rem' }} onClick={() => setSelectedJob(job)}>
+                  <p style={{ fontSize:'0.75rem', color:'var(--clr-muted)', display:'flex', alignItems:'center', gap:'0.4rem' }}>
+                    <LuMapPin size={12}/> {job.pickup_address}
+                  </p>
+                  <p style={{ fontSize:'0.75rem', color:'var(--clr-muted)', display:'flex', alignItems:'center', gap:'0.4rem' }}>
+                    <LuArrowRight size={12}/> {job.delivery_address}
+                  </p>
+                </div>
+
+                <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-end', gap:'0.5rem' }}>
+                  <button
+                    onClick={e => { e.stopPropagation(); toggleSelect(job.id) }}
+                    style={{ background:'none', border:'none', cursor:'pointer', color: isSelected ? 'var(--clr-accent)' : 'var(--clr-muted)', padding:'0.2rem', display:'flex', alignItems:'center', flexShrink:0, gap:'0.25rem', fontSize:'0.75rem' }}>
+                    {isSelected ? <LuSquareCheck size={16}/> : <LuSquare size={16}/>}
+                    {isSelected ? 'Selected' : 'Select'}
+                  </button>
+                  <LuChevronRight size={14} style={{ color:'var(--clr-muted)' }} onClick={() => setSelectedJob(job)}/>
                 </div>
               </div>
             )

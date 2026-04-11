@@ -1113,7 +1113,7 @@ export default function ShipperOrdersPage() {
 
   return (
     <div className="page-shell" style={{ alignItems:'flex-start' }}>
-      <div style={{ width:'100%', maxWidth:640, display:'flex', flexDirection:'column', gap:'1.25rem' }}>
+      <div style={{ width:'100%', maxWidth:840, display:'flex', flexDirection:'column', gap:'1.25rem' }}>
 
         {/* ── Header ── */}
         <div className="glass page-enter" style={{ padding:'1.5rem' }}>
@@ -1167,7 +1167,7 @@ export default function ShipperOrdersPage() {
 
         {/* ── Order list ── */}
         {pageTab === 'orders' && (
-          <div className="glass" style={{ padding:'1rem 1.25rem', display:'flex', flexDirection:'column', gap:'0.65rem' }}>
+          <div style={{ display:'grid', gap:'1rem', gridTemplateColumns:'repeat(auto-fill, minmax(320px, 1fr))' }}>
             {loading ? (
               <div style={{ display:'flex', justifyContent:'center', padding:'2.5rem', color:'var(--clr-muted)', gap:'0.65rem', alignItems:'center' }}>
                 <Spinner/> Loading orders…
@@ -1177,53 +1177,60 @@ export default function ShipperOrdersPage() {
                 <LuPackage size={36} style={{ opacity:0.25, display:'block', margin:'0 auto 1rem' }}/>
                 {statusFilter || search ? 'No orders match your filter.' : 'No orders yet. Place your first shipment!'}
               </div>
-            ) : visible.map(order => (
-              <div key={order.id} className="glass-inner" onClick={() => setSelectedOrder(order)}
-                style={{ padding:'0.9rem 1rem', cursor:'pointer', transition:'background 0.15s' }}
-                onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.04)')}
-                onMouseLeave={e => (e.currentTarget.style.background = '')}>
-                <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', gap:'0.5rem' }}>
-                  <div style={{ flex:1, minWidth:0 }}>
-                    <div style={{ display:'flex', alignItems:'center', gap:'0.5rem', flexWrap:'wrap', marginBottom:'0.25rem' }}>
-                      <span style={{ fontWeight:700, fontSize:'0.88rem', color:'var(--clr-text)' }}>{order.reference_code}</span>
-                      {statusBadge(order.status)}
-                      {(unreadCounts[order.id] ?? 0) > 0 && (
-                        <span style={{ display:'flex', alignItems:'center', gap:'0.25rem', fontSize:'0.68rem', fontWeight:700, color:'#fff', background:'#ef4444', borderRadius:99, padding:'0.12rem 0.45rem', lineHeight:1 }}>
-                          <LuMessageSquare size={10}/> {unreadCounts[order.id]}
-                        </span>
-                      )}
-                    </div>
-                    <div style={{ display:'flex', flexDirection:'column', gap:'0.2rem' }}>
-                      <p style={{ fontSize:'0.75rem', color:'var(--clr-muted)', display:'flex', alignItems:'center', gap:'0.35rem' }}>
-                        <LuMapPin size={11}/> {order.pickup_address}
-                      </p>
-                      <p style={{ fontSize:'0.75rem', color:'var(--clr-muted)', display:'flex', alignItems:'center', gap:'0.35rem' }}>
-                        <LuArrowRight size={11}/> {order.delivery_address}
-                      </p>
-                    </div>
-                    <div style={{ display:'flex', gap:'0.65rem', marginTop:'0.4rem', flexWrap:'wrap', alignItems:'center' }}>
-                      {(order.cargo_type_icon_url || order.cargo_type_icon) && (
-                        order.cargo_type_icon_url
-                          ? <img src={order.cargo_type_icon_url} alt="" style={{ width:14, height:14, borderRadius:2, objectFit:'cover' }}/>
-                          : <span style={{ fontSize:'0.75rem', display:'flex', alignItems:'center', color:'var(--clr-muted)' }}>{order.cargo_type_icon}</span>
-                      )}
-                      <span style={{ fontSize:'0.72rem', color:'var(--clr-muted)' }}>{order.cargo_type_name}</span>
-                      <span style={{ fontSize:'0.72rem', color:'var(--clr-muted)' }}>·</span>
-                      <span style={{ fontSize:'0.72rem', color:'var(--clr-muted)' }}>{order.vehicle_type_required}</span>
-                      <span style={{ fontSize:'0.72rem', color:'var(--clr-muted)' }}>·</span>
-                      <span style={{ fontSize:'0.72rem', color:'var(--clr-muted)' }}>{order.estimated_weight_kg != null ? `${order.estimated_weight_kg} kg` : '—'}</span>
-                    </div>
+            ) : visible.map((order) => (
+              <div key={order.id} className="glass-inner" onClick={e => { if ((e.target as HTMLElement).closest('button')) return; setSelectedOrder(order); }} style={{ padding:'0.9rem 1rem', cursor:'pointer', transition:'background 0.15s', display:'flex', flexDirection:'column', justifyContent:'space-between' }} onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.04)')} onMouseLeave={e => (e.currentTarget.style.background = '')}>
+                <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', gap:'0.5rem', marginBottom:'0.5rem' }}>
+                  <div style={{ display:'flex', alignItems:'center', gap:'0.5rem', flexWrap:'wrap' }}>
+                    <span style={{ fontWeight:800, fontSize:'0.88rem', color:'var(--clr-text)' }}>{order.reference_code}</span>
+                    {statusBadge(order.status)}
+                    {(unreadCounts[order.id] ?? 0) > 0 && (
+                      <span style={{ display:'flex', alignItems:'center', gap:'0.25rem', fontSize:'0.68rem', fontWeight:700, color:'#fff', background:'#ef4444', borderRadius:99, padding:'0.12rem 0.45rem', lineHeight:1 }}>
+                        <LuMessageSquare size={10}/> {unreadCounts[order.id]}
+                      </span>
+                    )}
                   </div>
                   <div style={{ textAlign:'right', flexShrink:0 }}>
-                    <p style={{ fontSize:'0.9rem', fontWeight:800, color:'var(--clr-accent)', whiteSpace:'nowrap' }}>
-                      {(order.final_price ?? order.estimated_price).toLocaleString()} ETB
-                    </p>
-                    <p style={{ fontSize:'0.68rem', color:'var(--clr-muted)', marginTop:'0.2rem' }}>{fmtDate(order.created_at).split(',')[0]}</p>
-                    <LuChevronRight size={14} style={{ color:'var(--clr-muted)', marginTop:'0.3rem' }}/>
+                    <span style={{ fontWeight:800, fontSize:'0.88rem', color:'var(--clr-accent)' }}>{(order.final_price ?? order.estimated_price).toLocaleString()} ETB</span>
+                    <div style={{ fontSize:'0.68rem', color:'var(--clr-muted)', marginTop:'0.2rem' }}>
+                      {fmtDate(order.created_at).split(',')[0]}
+                    </div>
+                  </div>
+                </div>
+                
+                <div style={{ display:'flex', flexDirection:'column', gap:'0.4rem', marginBottom:'0.75rem' }}>
+                  <p style={{ fontSize:'0.75rem', color:'var(--clr-muted)', display:'flex', alignItems:'center', gap:'0.4rem' }}>
+                    <LuMapPin size={12}/> {order.pickup_address}
+                  </p>
+                  <p style={{ fontSize:'0.75rem', color:'var(--clr-muted)', display:'flex', alignItems:'center', gap:'0.4rem' }}>
+                    <LuArrowRight size={12}/> {order.delivery_address}
+                  </p>
+                </div>
+
+                <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-end', gap:'0.5rem' }}>
+                  <div style={{ display:'flex', flexDirection:'column', gap:'0.2rem' }}>
+                    {order.driver_first_name && <p style={{ fontSize:'0.73rem', color:'var(--clr-muted)', display:'flex', gap:'0.25rem' }}><span style={{color:'var(--clr-text)'}}>Driver:</span> {order.driver_first_name} {order.driver_last_name}</p>}
+                    {(order.cargo_type_name || order.vehicle_type_required) && (
+                      <p style={{ fontSize:'0.73rem', color:'var(--clr-muted)', display:'flex', gap:'0.4rem', marginTop:'0.2rem', alignItems: 'center' }}>
+                        {(order.cargo_type_icon_url || order.cargo_type_icon) && (
+                          order.cargo_type_icon_url
+                            ? <img src={order.cargo_type_icon_url} alt="" style={{ width:12, height:12, borderRadius:2, objectFit:'cover' }}/>
+                            : <span style={{ fontSize:'0.75rem', display:'flex', alignItems:'center', color:'var(--clr-muted)' }}>{order.cargo_type_icon}</span>
+                        )}
+                        {order.cargo_type_name && <span>{order.cargo_type_name}</span>}
+                        {order.cargo_type_name && order.vehicle_type_required && <span>·</span>}
+                        {order.vehicle_type_required && <span>{order.vehicle_type_required}</span>}
+                        {order.estimated_weight_kg != null && <><span>·</span><span>{order.estimated_weight_kg} kg</span></>}
+                      </p>
+                    )}
+                  </div>
+                  
+                  <div style={{ display:'flex', flexDirection:'column', gap:'0.35rem', flexShrink:0 }}>
+                    <LuChevronRight size={14} style={{ color:'var(--clr-muted)' }}/>
                   </div>
                 </div>
               </div>
             ))}
+
 
             {/* Pagination */}
             {totalPages > 1 && (

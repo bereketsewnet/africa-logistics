@@ -40,6 +40,11 @@ import {
 import { generateInvoice } from '../services/invoice.service.js'
 import { sendOrderPlacedEmail } from '../services/email.service.js'
 import { wsManager } from '../utils/wsManager.js'
+import {
+  createDriverRating,
+  getDriverRatingSummary,
+  hasRatedOrder,
+} from '../services/profile.service.js'
 import fs from 'fs'
 import path from 'path'
 
@@ -453,4 +458,75 @@ export async function getUnreadCountsHandler(
   const user = request.user as any
   const counts = await getUnreadCounts(request.server.db, user.id)
   return reply.send({ success: true, counts })
+}
+
+// ─── Driver Rating ─────────────────────────────────────────────────────────────
+
+/**
+ * POST /api/orders/:id/rate-driver
+ * Body: { stars: 1-5, comment?: string }
+ * Only the shipper of a DELIVERED/COMPLETED order can rate.
+ */
+export async function rateDriverHandler(
+  request: FastifyRequest<{ Params: OrderParams; Body: { stars: number; comment?: string } }>,
+  reply:   FastifyReply
+) {
+  const user  = request.user as any
+  if (user.role_id !== 2) return reply.status(403).send({ success: false, message: 'Only shippers can rate drivers.' })
+
+  const order = await getOrderById(request.server.db, request.params.id)
+  if (!order) return reply.status(404).send({ success: false, message: 'Order not found.' })
+  if (order.shipper_id !== user.id) return reply.status(403).send({ success: false, message: 'This is not your order.' })
+  if (!['DELIVERED', 'COMPLETED'].includes(order.status)) {
+    return reply.status(400).send({ success: false, message: 'You can only rate after delivery.' })
+  }
+  if (!order.driver_id) return reply.status(400).send({ success: false, message: 'No driver assigned to this order.' })
+
+  const alreadyRated = await hasRatedOrder(request.server.db, order.id)
+  if (alreadyRated) return reply.status(409).send({ success: false, message: 'You have already rated this delivery.' })
+
+  const { stars, comment } = request.body ?? {}
+  if (!stars || stars < 1 || stars > 5) {
+    return reply.status(400).send({ success: false, message: 'stars must be between 1 and 5.' })
+  }
+
+  await createDriverRating(
+    request.server.db,
+    order.driver_id,
+    user.id,
+    order.id,
+    Math.round(stars),
+    comment?.trim() || null
+  )
+
+  return reply.status(201).send({ success: true, message: 'Rating submitted. Thank you!' })
+}
+
+/**
+ * GET /api/orders/drivers/:driverId/rating-summary
+ * Public within authenticated users — returns combined rating + system score.
+ */
+export async function getDriverRatingSummaryHandler(
+  request: FastifyRequest<{ Params: { driverId: string } }>,
+  reply:   FastifyReply
+) {
+  const summary = await getDriverRatingSummary(request.server.db, request.params.driverId)
+  return reply.send({ success: true, summary })
+}
+
+/**
+ * GET /api/orders/:id/has-rated
+ * Lets the frontend check whether the current user has already rated this order.
+ */
+export async function hasRatedOrderHandler(
+  request: FastifyRequest<{ Params: OrderParams }>,
+  reply:   FastifyReply
+) {
+  const user  = request.user as any
+  const order = await getOrderById(request.server.db, request.params.id)
+  if (!order) return reply.status(404).send({ success: false, message: 'Order not found.' })
+  if (order.shipper_id !== user.id) return reply.status(403).send({ success: false, message: 'Not your order.' })
+
+  const rated = await hasRatedOrder(request.server.db, order.id)
+  return reply.send({ success: true, has_rated: rated })
 }

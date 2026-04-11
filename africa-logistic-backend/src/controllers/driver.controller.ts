@@ -33,6 +33,9 @@ import {
 } from '../services/order.service.js'
 import { generateInvoice } from '../services/invoice.service.js'
 import { wsManager } from '../utils/wsManager.js'
+import {
+  updateDriverAvailabilityStatus,
+} from '../services/profile.service.js'
 
 // ─── Guard ────────────────────────────────────────────────────────────────────
 
@@ -331,4 +334,25 @@ export async function sendDriverMessageHandler(
   wsManager.broadcast(order.id, 'NEW_MESSAGE', { message: msg })
 
   return reply.status(201).send({ success: true, message: msg })
+}
+
+// ─── Driver self-status change ────────────────────────────────────────────────
+
+/** PATCH /api/driver/status  — driver changes own availability status */
+export async function updateDriverStatusHandler(
+  request: FastifyRequest<{ Body: { status: string } }>,
+  reply:   FastifyReply
+) {
+  if (!requireDriver(request, reply)) return
+  const driver = request.user as any
+  const { status } = request.body ?? {}
+
+  const VALID = ['AVAILABLE', 'OFFLINE']
+  if (!status || !VALID.includes(status)) {
+    return reply.status(400).send({ success: false, message: `status must be one of: ${VALID.join(', ')}` })
+  }
+
+  const result = await updateDriverAvailabilityStatus(request.server.db, driver.id, status)
+  if (!result.ok) return reply.status(400).send({ success: false, message: result.message })
+  return reply.send({ success: true, message: result.message, status })
 }

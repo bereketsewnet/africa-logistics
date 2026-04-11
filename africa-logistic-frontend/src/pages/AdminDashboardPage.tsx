@@ -13,7 +13,7 @@ import 'leaflet/dist/leaflet.css'
 import {
   LuTruck, LuUser, LuShield, LuPackage, LuPhone, LuMail,
   LuIdCard, LuCircleCheck, LuTriangleAlert, LuCamera, LuTrash2,
-  LuEye, LuEyeOff, LuLogOut, LuCheck, LuSmartphone, LuArrowLeft,
+  LuEye, LuEyeOff, LuLogOut, LuCheck, LuSmartphone, LuArrowLeft, LuArrowRight,
   LuLock, LuContact, LuMenu, LuPin, LuPinOff,
   LuUsers, LuChartBar, LuX, LuStar, LuHistory,
   LuShieldCheck, LuPencil, LuPlus, LuFileText, LuRefreshCw,
@@ -878,6 +878,270 @@ function ProfileSection() {
   )
 }
 
+// ─── Admin Drivers Section ────────────────────────────────────────────────────
+
+interface DriverDetail {
+  driver_profile: any
+  document_reviews: any[]
+  trip_stats: { total_assigned: number; completed: number; cancelled: number; active_now: number }
+  ratings: any[]
+  rating_summary: any | null
+}
+
+function AdminDriversSection({ allUsers, loading: usersLoading, onToggleActive, onRefresh, onViewOrders }: {
+  allUsers: UserRow[]; loading: boolean
+  onToggleActive: (u: UserRow) => void; onRefresh: () => void; onViewOrders: (driverId: string, statusGroup?: string) => void
+}) {
+  const [search, setSearch] = useState('')
+  const [selectedUser, setSelectedUser] = useState<UserRow | null>(null)
+  const [detail, setDetail] = useState<DriverDetail | null>(null)
+  const [detailLoading, setDetailLoading] = useState(false)
+  const [statusSaving, setStatusSaving] = useState(false)
+  const [toastMsg, setToastMsg] = useState('')
+  const toast = (m: string) => { setToastMsg(m); setTimeout(() => setToastMsg(''), 3000) }
+
+  const filtered = allUsers.filter(u => {
+    const q = search.toLowerCase()
+    return !q || u.first_name.toLowerCase().includes(q) || u.last_name.toLowerCase().includes(q) || u.phone_number.includes(q) || (u.email ?? '').toLowerCase().includes(q)
+  })
+
+  const openDetail = async (u: UserRow) => {
+    setSelectedUser(u)
+    setDetail(null)
+    setDetailLoading(true)
+    try {
+      const { data } = await apiClient.get(`/admin/drivers/${u.id}`)
+      setDetail(data)
+    } catch { toast('Failed to load driver details') }
+    finally { setDetailLoading(false) }
+  }
+
+  const closeModal = () => { setSelectedUser(null); setDetail(null) }
+
+  const handleToggle = (u: UserRow) => {
+    onToggleActive(u)
+    if (selectedUser?.id === u.id) setSelectedUser({ ...u, is_active: u.is_active ? 0 : 1 })
+  }
+
+  const setDriverStatus = async (driverId: string, status: string) => {
+    setStatusSaving(true)
+    try {
+      await apiClient.patch(`/admin/drivers/${driverId}/status`, { status })
+      toast(`Status set to ${status}`)
+      setDetail(prev => prev ? { ...prev, driver_profile: { ...prev.driver_profile, status } } : prev)
+    } catch (e: any) { toast(e.response?.data?.message ?? 'Failed to update status') }
+    finally { setStatusSaving(false) }
+  }
+
+  const deleteRating = async (ratingId: string) => {
+    if (!window.confirm('Delete this rating?')) return
+    try {
+      await apiClient.delete(`/admin/ratings/${ratingId}`)
+      toast('Rating deleted.')
+      setDetail(prev => prev ? { ...prev, ratings: prev.ratings.filter((r: any) => r.id !== ratingId) } : prev)
+    } catch { toast('Failed to delete rating') }
+  }
+
+  const stColor: Record<string, string> = { AVAILABLE:'#4ade80', ON_JOB:'#60a5fa', OFFLINE:'#94a3b8', SUSPENDED:'#fca5a5' }
+  const stLabel: Record<string, string> = { AVAILABLE:'Available', ON_JOB:'On Job', OFFLINE:'Offline', SUSPENDED:'Suspended' }
+
+  return (
+    <div style={{ display:'flex', flexDirection:'column', gap:'1rem' }}>
+      {toastMsg && <div className="alert alert-success" style={{ marginBottom:'0.25rem' }}>{toastMsg}</div>}
+
+      <div style={{ display:'flex', alignItems:'center', gap:'0.75rem', flexWrap:'wrap' }}>
+        <h2 style={{ fontSize:'1rem', fontWeight:800, color:'var(--clr-text)', flex:1, display:'flex', alignItems:'center', gap:'0.45rem' }}><LuTruck size={17}/> Drivers</h2>
+        <button onClick={onRefresh} style={{ display:'flex', alignItems:'center', gap:'0.35rem', padding:'0.3rem 0.7rem', borderRadius:8, border:'1px solid rgba(255,255,255,0.1)', background:'rgba(255,255,255,0.04)', color:'var(--clr-muted)', fontFamily:'inherit', fontSize:'0.72rem', fontWeight:600, cursor:'pointer' }}>
+          <LuRefreshCw size={12}/> Refresh
+        </button>
+      </div>
+
+      <div className="input-wrap">
+        <input id="drv-search" type="text" placeholder=" " value={search} onChange={e => setSearch(e.target.value)} />
+        <label htmlFor="drv-search"><LuSearch size={12} style={{ verticalAlign:'middle', marginRight:'0.3rem' }}/>Search name / phone / email</label>
+      </div>
+
+      {usersLoading ? <LoadingSpinner /> : (
+        <div className="glass-inner" style={{ overflow:'hidden' }}>
+          {filtered.length === 0 ? (
+            <p style={{ padding:'2rem', textAlign:'center', color:'var(--clr-muted)', fontSize:'0.875rem' }}>No drivers found</p>
+          ) : filtered.map((u, i) => {
+            const st = (u as any).status as string | undefined
+            const c = st ? (stColor[st] ?? '#94a3b8') : undefined
+            return (
+              <div key={u.id} onClick={() => openDetail(u)} style={{ display:'flex', alignItems:'center', gap:'0.75rem', padding:'0.85rem 1rem', borderBottom: i < filtered.length-1 ? '1px solid rgba(255,255,255,0.05)' : 'none', cursor:'pointer', transition:'background 0.15s' }}
+                onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.03)')}
+                onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
+                <UserAvatar u={u} size={40}/>
+                <div style={{ flex:1, minWidth:0 }}>
+                  <div style={{ display:'flex', alignItems:'center', gap:'0.45rem', flexWrap:'wrap' }}>
+                    <span style={{ fontWeight:600, fontSize:'0.875rem', color:'var(--clr-text)' }}>{u.first_name} {u.last_name}</span>
+                    {u.is_driver_verified === 1 && <VerifiedBadge/>}
+                    {!u.is_active && <span className="badge badge-red" style={{ fontSize:'0.67rem' }}>Suspended</span>}
+                  </div>
+                  <p style={{ fontSize:'0.75rem', color:'var(--clr-muted)', marginTop:'0.1rem' }}>{u.phone_number}</p>
+                </div>
+                {c && (
+                  <div style={{ display:'flex', alignItems:'center', gap:'0.3rem', flexShrink:0 }}>
+                    <span style={{ width:7, height:7, borderRadius:'50%', background:c, boxShadow:`0 0 4px ${c}` }}/>
+                    <span style={{ fontSize:'0.7rem', fontWeight:700, color:c }}>{stLabel[st!] ?? st}</span>
+                  </div>
+                )}
+                <span style={{ color:'var(--clr-muted)', fontSize:'0.75rem', flexShrink:0, marginLeft:'0.25rem' }}>›</span>
+              </div>
+            )
+          })}
+        </div>
+      )}
+      <p style={{ fontSize:'0.73rem', color:'var(--clr-muted)', textAlign:'right' }}>{filtered.length} drivers — click to view full profile</p>
+
+      {/* Full Driver Detail Modal */}
+      {selectedUser && (
+        <div style={{ position:'fixed', inset:0, zIndex:60, background:'rgba(0,0,0,0.8)', display:'flex', alignItems:'center', justifyContent:'center', padding:'1rem' }} onClick={closeModal}>
+          <div className="glass" style={{ borderRadius:18, padding:'1.5rem', maxWidth:520, width:'100%', maxHeight:'90vh', overflowY:'auto', position:'relative', boxShadow:'0 24px 64px rgba(0,0,0,0.6)' }} onClick={e => e.stopPropagation()}>
+            <button onClick={closeModal} style={{ position:'absolute', top:'0.85rem', right:'0.85rem', background:'none', border:'none', cursor:'pointer', color:'var(--clr-muted)' }}><LuX size={18}/></button>
+
+            {/* Header */}
+            <div style={{ display:'flex', alignItems:'center', gap:'1rem', marginBottom:'1.25rem' }}>
+              <UserAvatar u={selectedUser} size={56}/>
+              <div>
+                <p style={{ fontWeight:800, fontSize:'1.05rem', color:'var(--clr-text)' }}>{selectedUser.first_name} {selectedUser.last_name}</p>
+                <div style={{ display:'flex', gap:'0.4rem', marginTop:'0.3rem', flexWrap:'wrap', alignItems:'center' }}>
+                  <RoleBadge roleId={selectedUser.role_id} roleName={selectedUser.role_name}/>
+                  {selectedUser.is_driver_verified === 1 && <VerifiedBadge/>}
+                  {!selectedUser.is_active && <span className="badge badge-red" style={{ fontSize:'0.67rem' }}>Suspended</span>}
+                  {detail?.driver_profile?.status && (() => {
+                    const st = detail.driver_profile.status
+                    const c = stColor[st] ?? '#94a3b8'
+                    return (
+                      <span style={{ display:'inline-flex', alignItems:'center', gap:'0.3rem', padding:'0.18rem 0.55rem', borderRadius:99, border:`1px solid ${c}44`, background:`${c}18`, fontSize:'0.72rem', fontWeight:700, color:c }}>
+                        <span style={{ width:6, height:6, borderRadius:'50%', background:c, boxShadow:`0 0 4px ${c}` }}/>{stLabel[st] ?? st}
+                      </span>
+                    )
+                  })()}
+                </div>
+              </div>
+            </div>
+
+            {/* Contact info */}
+            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'0.75rem 1.5rem', fontSize:'0.8rem', marginBottom:'1.25rem' }}>
+              {[
+                { label:'Phone',        value: selectedUser.phone_number },
+                { label:'Email',        value: selectedUser.email || '—' },
+                { label:'Phone Verified', value: selectedUser.is_phone_verified ? '✓ Yes':'✗ No', clr: selectedUser.is_phone_verified ? '#4ade80':'#fca5a5' },
+                { label:'Email Verified', value: selectedUser.is_email_verified  ? '✓ Yes':'✗ No', clr: selectedUser.is_email_verified  ? '#4ade80':'#fca5a5' },
+                { label:'Account',      value: selectedUser.is_active ? 'Active' : 'Suspended', clr: selectedUser.is_active ? '#4ade80':'#fca5a5' },
+                { label:'Registered',   value: new Date(selectedUser.created_at).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}) },
+              ].map(r => (
+                <div key={r.label}>
+                  <p style={{ color:'var(--clr-muted)', fontSize:'0.72rem', marginBottom:'0.12rem' }}>{r.label}</p>
+                  <p style={{ color: r.clr ?? 'var(--clr-text)', fontWeight:600 }}>{r.value}</p>
+                </div>
+              ))}
+            </div>
+
+            {detailLoading ? <LoadingSpinner/> : detail ? (
+              <>
+                {/* Trip Statistics */}
+                <div style={{ marginBottom:'1.25rem' }}>
+                  <p style={{ fontSize:'0.78rem', fontWeight:700, color:'var(--clr-muted)', textTransform:'uppercase', letterSpacing:'0.06em', marginBottom:'0.6rem' }}>Trip Statistics</p>
+                  <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:'0.5rem' }}>
+                    {[
+                      { label:'Assigned', value: detail.trip_stats.total_assigned, clr:'#60a5fa', internalFilter: 'ASSIGNED_ANY' },
+                      { label:'Completed', value: detail.trip_stats.completed, clr:'#4ade80', internalFilter: 'COMPLETED' },
+                      { label:'Cancelled', value: detail.trip_stats.cancelled, clr:'#fca5a5', internalFilter: 'CANCELLED' },
+                      { label:'Active Now', value: detail.trip_stats.active_now, clr:'#fbbf24', internalFilter: 'ACTIVE_NOW' },
+                    ].map(s => (
+                      <div key={s.label} onClick={() => onViewOrders(selectedUser!.id, s.internalFilter)} className="glass-inner" style={{ padding:'0.65rem 0.5rem', textAlign:'center', border:`1px solid ${s.clr}22`, cursor:'pointer', transition:'background 0.15s' }} onMouseEnter={e=>(e.currentTarget.style.background='rgba(255,255,255,0.06)')} onMouseLeave={e=>(e.currentTarget.style.background='')}>
+                        <p style={{ fontSize:'1.3rem', fontWeight:800, color:s.clr, lineHeight:1 }}>{Number(s.value) || 0}</p>
+                        <p style={{ fontSize:'0.65rem', color:'var(--clr-muted)', marginTop:'0.2rem' }}>{s.label}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Rating */}
+                <div style={{ marginBottom:'1.25rem' }}>
+                  <p style={{ fontSize:'0.78rem', fontWeight:700, color:'var(--clr-muted)', textTransform:'uppercase', letterSpacing:'0.06em', marginBottom:'0.6rem' }}>Rating</p>
+                  {detail.rating_summary ? (
+                    <div style={{ display:'flex', flexDirection:'column', gap:'0.65rem' }}>
+                      {/* Score cards */}
+                      <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:'0.5rem' }}>
+                        {[
+                          { label:'Combined', value: detail.rating_summary.combined_rating },
+                          { label:'Shipper Avg', value: detail.rating_summary.shipper_avg },
+                          { label:'System Score', value: detail.rating_summary.system_score },
+                        ].map(s => (
+                          <div key={s.label} className="glass-inner" style={{ padding:'0.65rem 0.5rem', textAlign:'center' }}>
+                            <div style={{ display:'flex', justifyContent:'center', gap:'1px', marginBottom:'0.2rem' }}>
+                              {[1,2,3,4,5].map(n => <LuStar key={n} size={11} fill={s.value != null && n<=Math.round(Number(s.value))?'#fbbf24':'none'} stroke={s.value != null && n<=Math.round(Number(s.value))?'#fbbf24':'rgba(255,255,255,0.2)'}/>)}
+                            </div>
+                            <p style={{ fontSize:'1rem', fontWeight:800, color:'#fbbf24', lineHeight:1 }}>{s.value != null ? Number(s.value).toFixed(1) : '—'}</p>
+                            <p style={{ fontSize:'0.62rem', color:'var(--clr-muted)', marginTop:'0.2rem' }}>{s.label}</p>
+                          </div>
+                        ))}
+                      </div>
+                      <p style={{ fontSize:'0.72rem', color:'var(--clr-muted)' }}>
+                        {detail.rating_summary.shipper_count ?? 0} shipper review{detail.rating_summary.shipper_count !== 1 ? 's' : ''} · {detail.rating_summary.delivered_trips ?? 0}/{detail.rating_summary.total_trips ?? 0} trips delivered
+                      </p>
+
+                      {/* Individual reviews */}
+                      {detail.ratings.length > 0 && (
+                        <div style={{ display:'flex', flexDirection:'column', gap:'0.45rem', maxHeight:220, overflowY:'auto' }}>
+                          {detail.ratings.map((r: any) => (
+                            <div key={r.id} className="glass-inner" style={{ padding:'0.65rem 0.85rem', display:'flex', gap:'0.65rem', alignItems:'flex-start' }}>
+                              <div style={{ flex:1, minWidth:0 }}>
+                                <div style={{ display:'flex', alignItems:'center', gap:'0.4rem', flexWrap:'wrap', marginBottom:'0.2rem' }}>
+                                  <div style={{ display:'flex', gap:'1px' }}>
+                                    {[1,2,3,4,5].map(n => <LuStar key={n} size={11} fill={n<=r.stars?'#fbbf24':'none'} stroke={n<=r.stars?'#fbbf24':'rgba(255,255,255,0.25)'}/>)}
+                                  </div>
+                                  <span style={{ fontSize:'0.72rem', color:'var(--clr-text)', fontWeight:600 }}>{r.shipper_first_name} {r.shipper_last_name}</span>
+                                  <span style={{ fontSize:'0.67rem', color:'var(--clr-muted)' }}>{new Date(r.created_at).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})}</span>
+                                </div>
+                                {r.comment && <p style={{ fontSize:'0.76rem', color:'var(--clr-muted)', lineHeight:1.5 }}>{r.comment}</p>}
+                              </div>
+                              <button onClick={() => deleteRating(r.id)} title="Delete rating"
+                                style={{ padding:'0.22rem 0.42rem', borderRadius:6, border:'1px solid rgba(239,68,68,0.3)', background:'rgba(239,68,68,0.07)', color:'#fca5a5', cursor:'pointer', flexShrink:0 }}>
+                                <LuTrash2 size={12}/>
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <p style={{ fontSize:'0.82rem', color:'var(--clr-muted)', fontStyle:'italic' }}>No ratings yet.</p>
+                  )}
+                </div>
+
+                {/* Admin controls */}
+                <div style={{ display:'flex', flexDirection:'column', gap:'0.6rem' }}>
+                  <p style={{ fontSize:'0.78rem', fontWeight:700, color:'var(--clr-muted)', textTransform:'uppercase', letterSpacing:'0.06em' }}>Admin Controls</p>
+                  {/* Status override */}
+                  <div style={{ display:'flex', gap:'0.4rem', flexWrap:'wrap' }}>
+                    {(['AVAILABLE','OFFLINE','SUSPENDED'] as const).map(s => (
+                      <button key={s} disabled={statusSaving || detail.driver_profile?.status === s}
+                        onClick={() => setDriverStatus(selectedUser.id, s)}
+                        style={{ padding:'0.35rem 0.75rem', borderRadius:8, border:`1px solid ${stColor[s]}44`, background: detail.driver_profile?.status === s ? `${stColor[s]}22` : 'transparent', color: stColor[s], fontFamily:'inherit', fontSize:'0.75rem', fontWeight:700, cursor: detail.driver_profile?.status === s ? 'default':'pointer', opacity: detail.driver_profile?.status === s ? 0.6 : 1 }}>
+                        {detail.driver_profile?.status === s ? '● ' : ''}{stLabel[s]}
+                      </button>
+                    ))}
+                  </div>
+                  {/* Suspend/Activate */}
+                  <button onClick={() => handleToggle(selectedUser)}
+                    style={{ width:'100%', padding:'0.6rem', borderRadius:10, border:'1px solid', borderColor: selectedUser.is_active ? 'rgba(239,68,68,0.35)':'rgba(74,222,128,0.35)', background: selectedUser.is_active ? 'rgba(239,68,68,0.08)':'rgba(74,222,128,0.08)', color: selectedUser.is_active ? '#fca5a5':'#4ade80', fontFamily:'inherit', fontSize:'0.85rem', fontWeight:700, cursor:'pointer' }}>
+                    {selectedUser.is_active ? 'Suspend This Driver' : 'Activate This Driver'}
+                  </button>
+                </div>
+              </>
+            ) : null}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ─── Driver Verification section ─────────────────────────────────────────────
 
 function DriverVerificationSection() {
@@ -888,6 +1152,10 @@ function DriverVerificationSection() {
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [actionLoading, setActionLoading] = useState<string | null>(null)
   const [driverReviews, setDriverReviews] = useState<Record<string, DocReview[]>>({})
+
+  // Rating state
+  const [driverRatings, setDriverRatings] = useState<Record<string, { ratings: any[]; summary: any }>>({})
+  const [ratingsLoading, setRatingsLoading] = useState<string | null>(null)
 
   // Reject modal state
   const [rejectModal, setRejectModal] = useState<{ type: 'driver' | 'doc'; driverId: string; docType?: string } | null>(null)
@@ -917,7 +1185,34 @@ function DriverVerificationSection() {
   const handleExpand = (driverId: string) => {
     const next = expandedId === driverId ? null : driverId
     setExpandedId(next)
-    if (next) loadDriverDetail(next)
+    if (next) {
+      loadDriverDetail(next)
+      loadDriverRatings(next)
+    }
+  }
+
+  const loadDriverRatings = async (driverId: string) => {
+    if (driverRatings[driverId]) return
+    setRatingsLoading(driverId)
+    try {
+      const { data } = await apiClient.get(`/admin/drivers/${driverId}/ratings`)
+      setDriverRatings(prev => ({ ...prev, [driverId]: { ratings: data.ratings ?? [], summary: data.summary ?? null } }))
+    } catch { /* ignore */ }
+    finally { setRatingsLoading(null) }
+  }
+
+  const deleteRating = async (ratingId: string, driverId: string) => {
+    if (!window.confirm('Delete this rating?')) return
+    try {
+      await apiClient.delete(`/admin/ratings/${ratingId}`)
+      toast('Rating deleted.')
+      setDriverRatings(prev => {
+        const existing = prev[driverId]
+        if (!existing) return prev
+        return { ...prev, [driverId]: { ...existing, ratings: existing.ratings.filter((r: any) => r.id !== ratingId) } }
+      })
+      await loadDriverRatings(driverId)
+    } catch { toast('Failed to delete rating.') }
   }
 
   const reviewDoc = async (driverId: string, docType: string, action: 'APPROVED' | 'REJECTED', reason?: string) => {
@@ -1119,6 +1414,87 @@ function DriverVerificationSection() {
                         </button>
                       </div>
                     )}
+
+                    {/* ── Driver Ratings panel ── */}
+                    {(() => {
+                      const rd = driverRatings[d.user_id]
+                      const isLoading = ratingsLoading === d.user_id
+                      const summary = rd?.summary
+                      const ratings: any[] = rd?.ratings ?? []
+                      return (
+                        <div style={{ borderTop:'1px solid rgba(255,255,255,0.06)', paddingTop:'0.85rem', display:'flex', flexDirection:'column', gap:'0.75rem' }}>
+                          <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', flexWrap:'wrap', gap:'0.4rem' }}>
+                            <p style={{ fontWeight:700, fontSize:'0.82rem', color:'var(--clr-text)', display:'flex', alignItems:'center', gap:'0.4rem' }}>
+                              <LuStar size={14} color="#fbbf24"/> Driver Ratings
+                            </p>
+                            <button onClick={async () => { setDriverRatings(prev => { const n = {...prev}; delete n[d.user_id]; return n }); await loadDriverRatings(d.user_id) }}
+                              style={{ padding:'0.2rem 0.5rem', borderRadius:6, border:'1px solid rgba(255,255,255,0.1)', background:'rgba(255,255,255,0.04)', color:'var(--clr-muted)', fontFamily:'inherit', fontSize:'0.68rem', fontWeight:600, cursor:'pointer', display:'flex', alignItems:'center', gap:'0.25rem' }}>
+                              <LuRefreshCw size={10}/> Refresh
+                            </button>
+                          </div>
+                          {isLoading ? (
+                            <div style={{ color:'var(--clr-muted)', fontSize:'0.78rem', display:'flex', alignItems:'center', gap:'0.4rem' }}><span className="spinner" style={{ width:12, height:12, borderWidth:1.5 }}/> Loading…</div>
+                          ) : summary ? (
+                            <>
+                              {/* Summary row */}
+                              <div style={{ display:'flex', gap:'0.65rem', flexWrap:'wrap' }}>
+                                {summary.combined_rating != null && (
+                                  <div style={{ padding:'0.5rem 0.75rem', borderRadius:9, background:'rgba(251,191,36,0.08)', border:'1px solid rgba(251,191,36,0.2)', display:'flex', alignItems:'center', gap:'0.4rem' }}>
+                                    <span style={{ fontSize:'1.1rem', fontWeight:800, color:'#fbbf24' }}>{Number(summary.combined_rating).toFixed(1)}</span>
+                                    <div style={{ display:'flex', flexDirection:'column', gap:'0.1rem' }}>
+                                      <div style={{ display:'flex', gap:'1px' }}>
+                                        {[1,2,3,4,5].map(n => <LuStar key={n} size={11} fill={n<=Math.round(summary.combined_rating)?'#fbbf24':'none'} stroke={n<=Math.round(summary.combined_rating)?'#fbbf24':'rgba(255,255,255,0.3)'}/>)}
+                                      </div>
+                                      <span style={{ fontSize:'0.6rem', color:'var(--clr-muted)' }}>Combined</span>
+                                    </div>
+                                  </div>
+                                )}
+                                {summary.shipper_avg != null && (
+                                  <div style={{ padding:'0.5rem 0.75rem', borderRadius:9, background:'rgba(255,255,255,0.04)', border:'1px solid rgba(255,255,255,0.08)', fontSize:'0.72rem', color:'var(--clr-muted)' }}>
+                                    <p style={{ fontWeight:700, color:'var(--clr-text)', fontSize:'0.82rem' }}>{Number(summary.shipper_avg).toFixed(1)} ★</p>
+                                    <p>{summary.shipper_count} review{summary.shipper_count !== 1 ? 's' : ''}</p>
+                                  </div>
+                                )}
+                                {summary.system_score != null && (
+                                  <div style={{ padding:'0.5rem 0.75rem', borderRadius:9, background:'rgba(255,255,255,0.04)', border:'1px solid rgba(255,255,255,0.08)', fontSize:'0.72rem', color:'var(--clr-muted)' }}>
+                                    <p style={{ fontWeight:700, color:'var(--clr-text)', fontSize:'0.82rem' }}>{Number(summary.system_score).toFixed(1)} ★</p>
+                                    <p>System score</p>
+                                    <p>{summary.delivered_trips}/{summary.total_trips} delivered</p>
+                                  </div>
+                                )}
+                                {summary.combined_rating == null && <p style={{ fontSize:'0.75rem', color:'var(--clr-muted)', fontStyle:'italic' }}>No ratings yet.</p>}
+                              </div>
+
+                              {/* Individual reviews */}
+                              {ratings.length > 0 && (
+                                <div style={{ display:'flex', flexDirection:'column', gap:'0.5rem', maxHeight:240, overflowY:'auto' }}>
+                                  {ratings.map((r: any) => (
+                                    <div key={r.id} style={{ padding:'0.65rem 0.85rem', borderRadius:9, background:'rgba(255,255,255,0.03)', border:'1px solid rgba(255,255,255,0.07)', display:'flex', gap:'0.65rem', alignItems:'flex-start' }}>
+                                      <div style={{ flex:1, minWidth:0 }}>
+                                        <div style={{ display:'flex', alignItems:'center', gap:'0.4rem', flexWrap:'wrap', marginBottom:'0.2rem' }}>
+                                          <div style={{ display:'flex', gap:'1px' }}>
+                                            {[1,2,3,4,5].map(n => <LuStar key={n} size={11} fill={n<=r.stars?'#fbbf24':'none'} stroke={n<=r.stars?'#fbbf24':'rgba(255,255,255,0.3)'}/>)}
+                                          </div>
+                                          <span style={{ fontSize:'0.7rem', color:'var(--clr-muted)' }}>{r.shipper_first_name} {r.shipper_last_name}</span>
+                                          <span style={{ fontSize:'0.67rem', color:'var(--clr-muted)' }}>{new Date(r.created_at).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})}</span>
+                                        </div>
+                                        {r.comment && <p style={{ fontSize:'0.76rem', color:'var(--clr-text)', lineHeight:1.5 }}>{r.comment}</p>}
+                                      </div>
+                                      <button onClick={() => deleteRating(r.id, d.user_id)} title="Delete rating"
+                                        style={{ padding:'0.25rem 0.45rem', borderRadius:6, border:'1px solid rgba(239,68,68,0.3)', background:'rgba(239,68,68,0.07)', color:'#fca5a5', cursor:'pointer', flexShrink:0 }}>
+                                        <LuTrash2 size={12}/>
+                                      </button>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </>
+                          ) : (
+                            <p style={{ fontSize:'0.75rem', color:'var(--clr-muted)', fontStyle:'italic' }}>No ratings data loaded.</p>
+                          )}
+                        </div>
+                      )
+                    })()}
                   </div>
                 )}
               </div>
@@ -1641,7 +2017,7 @@ function VehicleManagementSection() {
 
 interface AdminOrder {
   id: string; reference_code: string; status: string
-  cargo_type_name: string; vehicle_type: string; weight_kg: number
+  cargo_type_name: string; vehicle_type_required: string; estimated_weight_kg: number | null
   pickup_address: string; delivery_address: string
   estimated_price: number; final_price: number | null; currency: string
   shipper_first_name: string; shipper_last_name: string
@@ -1669,12 +2045,13 @@ function orderBadge(status: string) {
   return <span style={{ fontSize:'0.68rem', fontWeight:700, color:c, background:`${c}1a`, border:`1px solid ${c}44`, borderRadius:99, padding:'0.15rem 0.5rem', whiteSpace:'nowrap' }}>{ORDER_STATUS_LABEL[status] ?? status}</span>
 }
 
-function AdminOrdersSection() {
+function AdminOrdersSection({ initialDriverFilter, initialStatusFilter }: { initialDriverFilter?: string; initialStatusFilter?: string } = {}) {
   const [orders, setOrders] = useState<AdminOrder[]>([])
   const [stats, setStats]   = useState<OrderStats | null>(null)
   const [loading, setLoading] = useState(false)
   const [search, setSearch]   = useState('')
-  const [statusFilter, setStatusFilter] = useState('')
+  const [statusFilter, setStatusFilter] = useState(initialStatusFilter ?? '')
+  const [driverFilter, setDriverFilter] = useState(initialDriverFilter ?? '')
   const [page, setPage] = useState(1)
   const [total, setTotal] = useState(0)
   const LIMIT = 15
@@ -1684,12 +2061,39 @@ function AdminOrdersSection() {
   // Assign modal
   const [assignOrder, setAssignOrder] = useState<AdminOrder | null>(null)
   const [drivers, setDrivers] = useState<AdminDriver[]>([])
+  const [suggestedDrivers, setSuggestedDrivers] = useState<any[]>([])
   const [vehicles, setVehicles] = useState<AdminVehicle[]>([])
   const [selDriver, setSelDriver] = useState('')
   const [selVehicle, setSelVehicle] = useState('')
   const [assigning, setAssigning] = useState(false)
   const [detailOrder, setDetailOrder] = useState<any | null>(null)
   const [loadingDetail, setLoadingDetail] = useState(false)
+
+  // Price adjustment state
+  const [priceAdjustMode, setPriceAdjustMode] = useState(false)
+  const [priceAdjustVal, setPriceAdjustVal] = useState('')
+  const [priceAdjustNotes, setPriceAdjustNotes] = useState('')
+  const [priceAdjusting, setPriceAdjusting] = useState(false)
+  const [statusOverride, setStatusOverride] = useState('')
+  const [statusOverrideNotes, setStatusOverrideNotes] = useState('')
+  const [statusOverrideSaving, setStatusOverrideSaving] = useState(false)
+  const [internalNotes, setInternalNotes] = useState('')
+  const [internalNotesSaving, setInternalNotesSaving] = useState(false)
+  const [orderCargoTypes, setOrderCargoTypes] = useState<Array<{ id: number; name: string }>>([])
+  const [detailsOverrideSaving, setDetailsOverrideSaving] = useState(false)
+  const [detailsOverrideForm, setDetailsOverrideForm] = useState({
+    cargo_type_id: '',
+    vehicle_type_required: '',
+    estimated_weight_kg: '',
+    pickup_address: '',
+    pickup_lat: '',
+    pickup_lng: '',
+    delivery_address: '',
+    delivery_lat: '',
+    delivery_lng: '',
+    special_instructions: '',
+    notes: '',
+  })
 
   // Order detail chat (admin ↔ shipper / admin ↔ driver)
   const [detailChatChannel, setDetailChatChannel] = useState<'shipper' | 'driver'>('shipper')
@@ -1725,15 +2129,15 @@ function AdminOrdersSection() {
   const [coCargoImage, setCoCargoImage] = useState<string | null>(null)
   const [coPaymentReceipt, setCoPaymentReceipt] = useState<string | null>(null)
 
-  const loadOrders = useCallback(async (pg = page, sf = statusFilter, q = search) => {
+  const loadOrders = useCallback(async (pg = page, sf = statusFilter, q = search, df = driverFilter) => {
     setLoading(true)
     try {
-      const { data } = await adminOrderApi.listOrders({ page: pg, limit: LIMIT, status: sf || undefined, search: q || undefined })
+      const { data } = await adminOrderApi.listOrders({ page: pg, limit: LIMIT, status: sf || undefined, search: q || undefined, driver_id: df || undefined })
       setOrders(data.orders ?? [])
       setTotal(data.pagination?.total ?? 0)
     } catch { showToast('Failed to load orders') }
     finally { setLoading(false) }
-  }, [page, statusFilter, search])
+  }, [page, statusFilter, search, driverFilter])
 
   const loadStats = async () => {
     try { const { data } = await adminOrderApi.getStats(); setStats(data.stats) }
@@ -1741,14 +2145,47 @@ function AdminOrdersSection() {
   }
 
   useEffect(() => { loadOrders(); loadStats() }, []) // eslint-disable-line
-  useEffect(() => { loadOrders(page, statusFilter, search) }, [page, statusFilter]) // eslint-disable-line
+  useEffect(() => { loadOrders(page, statusFilter, search, driverFilter) }, [page, statusFilter, driverFilter]) // eslint-disable-line
+
+  useEffect(() => {
+    adminOrderApi
+      .listCargoTypes()
+      .then(({ data }) => {
+        const types = (data.cargo_types ?? []).map((ct: any) => ({ id: Number(ct.id), name: String(ct.name) }))
+        setOrderCargoTypes(types)
+      })
+      .catch(() => {
+        setOrderCargoTypes([])
+      })
+  }, [])
+
+  const setDetailOverrideFromOrder = (order: any) => {
+    setDetailsOverrideForm({
+      cargo_type_id: order?.cargo_type_id != null ? String(order.cargo_type_id) : '',
+      vehicle_type_required: String(order?.vehicle_type_required ?? order?.vehicle_type ?? ''),
+      estimated_weight_kg: order?.estimated_weight_kg != null ? String(order.estimated_weight_kg) : '',
+      pickup_address: String(order?.pickup_address ?? ''),
+      pickup_lat: order?.pickup_lat != null ? String(order.pickup_lat) : '',
+      pickup_lng: order?.pickup_lng != null ? String(order.pickup_lng) : '',
+      delivery_address: String(order?.delivery_address ?? ''),
+      delivery_lat: order?.delivery_lat != null ? String(order.delivery_lat) : '',
+      delivery_lng: order?.delivery_lng != null ? String(order.delivery_lng) : '',
+      special_instructions: String(order?.special_instructions ?? ''),
+      notes: '',
+    })
+  }
 
   const openAssign = async (o: AdminOrder) => {
-    setAssignOrder(o); setSelDriver(''); setSelVehicle('')
+    setAssignOrder(o); setSelDriver(''); setSelVehicle(''); setSuggestedDrivers([])
     try {
-      const [dr, vh] = await Promise.all([apiClient.get('/admin/drivers?filter=verified'), apiClient.get('/admin/vehicles')])
+      const [dr, vh, sugg] = await Promise.all([
+        apiClient.get('/admin/drivers?filter=verified'),
+        apiClient.get('/admin/vehicles'),
+        apiClient.get(`/admin/orders/${o.id}/suggest-drivers`).catch(() => ({ data: { drivers: [] } })),
+      ])
       setDrivers(dr.data.drivers ?? [])
       setVehicles((vh.data.vehicles ?? []).filter((v: any) => v.is_active))
+      setSuggestedDrivers(sugg.data.drivers ?? [])
     } catch { showToast('Failed to load drivers/vehicles') }
   }
 
@@ -1766,9 +2203,14 @@ function AdminOrdersSection() {
     setDetailOrder(null)
     setDetailChatChannel('shipper')
     setDetailMessages([])
+    setPriceAdjustMode(false); setPriceAdjustVal(''); setPriceAdjustNotes('')
     try {
       const { data } = await adminOrderApi.getOrder(id)
-      setDetailOrder(data.order ?? data)
+      const order = data.order ?? data
+      setDetailOrder(order)
+      setStatusOverride(order.status ?? '')
+      setInternalNotes(order.internal_notes ?? '')
+      setDetailOverrideFromOrder(order)
     } catch { showToast('Failed to load order details') }
     finally { setLoadingDetail(false) }
   }
@@ -1798,6 +2240,114 @@ function AdminOrdersSection() {
       setDetailMessages(data.messages ?? [])
     } catch { showToast('Failed to send') }
     finally { setDetailChatSending(false) }
+  }
+
+  const submitPriceAdjust = async () => {
+    const val = parseFloat(priceAdjustVal)
+    if (isNaN(val) || val < 0) { showToast('Enter a valid price'); return }
+    setPriceAdjusting(true)
+    try {
+      await apiClient.patch(`/admin/orders/${detailOrder.id}/price`, { final_price: val, notes: priceAdjustNotes || undefined })
+      showToast(`Price updated to ${val.toLocaleString()} ETB`)
+      setPriceAdjustMode(false)
+      // refresh detail
+      const { data } = await adminOrderApi.getOrder(detailOrder.id)
+      setDetailOrder(data.order ?? data)
+    } catch (e: any) { showToast(e.response?.data?.message ?? 'Price update failed') }
+    finally { setPriceAdjusting(false) }
+  }
+
+  const submitStatusOverride = async () => {
+    if (!detailOrder?.id || !statusOverride) return
+    setStatusOverrideSaving(true)
+    try {
+      await adminOrderApi.updateStatus(detailOrder.id, statusOverride, statusOverrideNotes || undefined)
+      showToast(`Status updated to ${statusOverride}`)
+      const { data } = await adminOrderApi.getOrder(detailOrder.id)
+      const order = data.order ?? data
+      setDetailOrder(order)
+      setStatusOverride(order.status ?? statusOverride)
+      loadOrders(page, statusFilter, search, driverFilter)
+    } catch (e: any) { showToast(e.response?.data?.message ?? 'Status update failed') }
+    finally { setStatusOverrideSaving(false) }
+  }
+
+  const submitInternalNotes = async () => {
+    if (!detailOrder?.id) return
+    setInternalNotesSaving(true)
+    try {
+      await adminOrderApi.updateInternalNotes(detailOrder.id, internalNotes)
+      showToast('Internal notes saved')
+      const { data } = await adminOrderApi.getOrder(detailOrder.id)
+      const order = data.order ?? data
+      setDetailOrder(order)
+      setInternalNotes(order.internal_notes ?? internalNotes)
+    } catch (e: any) { showToast(e.response?.data?.message ?? 'Notes update failed') }
+    finally { setInternalNotesSaving(false) }
+  }
+
+  const submitDetailsOverride = async () => {
+    if (!detailOrder?.id) return
+
+    const cargoTypeId = Number(detailsOverrideForm.cargo_type_id)
+    if (!Number.isInteger(cargoTypeId) || cargoTypeId <= 0) {
+      showToast('Select a valid cargo type')
+      return
+    }
+
+    const vehicleType = detailsOverrideForm.vehicle_type_required.trim()
+    if (!vehicleType) {
+      showToast('Vehicle type is required')
+      return
+    }
+
+    const pickupLat = Number(detailsOverrideForm.pickup_lat)
+    const pickupLng = Number(detailsOverrideForm.pickup_lng)
+    const deliveryLat = Number(detailsOverrideForm.delivery_lat)
+    const deliveryLng = Number(detailsOverrideForm.delivery_lng)
+
+    if ([pickupLat, pickupLng, deliveryLat, deliveryLng].some((v) => Number.isNaN(v))) {
+      showToast('Pickup and delivery coordinates must be valid numbers')
+      return
+    }
+
+    let weightValue: number | null = null
+    if (detailsOverrideForm.estimated_weight_kg.trim() !== '') {
+      const parsed = Number(detailsOverrideForm.estimated_weight_kg)
+      if (Number.isNaN(parsed) || parsed < 0) {
+        showToast('Weight must be a non-negative number')
+        return
+      }
+      weightValue = parsed
+    }
+
+    setDetailsOverrideSaving(true)
+    try {
+      await adminOrderApi.updateDetails(detailOrder.id, {
+        cargo_type_id: cargoTypeId,
+        vehicle_type_required: vehicleType,
+        estimated_weight_kg: weightValue,
+        pickup_address: detailsOverrideForm.pickup_address.trim() || null,
+        pickup_lat: pickupLat,
+        pickup_lng: pickupLng,
+        delivery_address: detailsOverrideForm.delivery_address.trim() || null,
+        delivery_lat: deliveryLat,
+        delivery_lng: deliveryLng,
+        special_instructions: detailsOverrideForm.special_instructions.trim() || null,
+        notes: detailsOverrideForm.notes.trim() || undefined,
+      })
+
+      showToast('Order details updated')
+      const { data } = await adminOrderApi.getOrder(detailOrder.id)
+      const order = data.order ?? data
+      setDetailOrder(order)
+      setDetailOverrideFromOrder(order)
+      loadOrders(page, statusFilter, search, driverFilter)
+    } catch (e: any) {
+      showToast(e.response?.data?.message ?? 'Details update failed')
+    } finally {
+      setDetailsOverrideSaving(false)
+    }
   }
 
   const openCreateOrder = async () => {
@@ -1906,6 +2456,11 @@ function AdminOrdersSection() {
 
   const totalPages = Math.max(1, Math.ceil(total / LIMIT))
   const STATUSES = ['', 'PENDING', 'ASSIGNED', 'EN_ROUTE', 'AT_PICKUP', 'IN_TRANSIT', 'DELIVERED', 'CANCELLED']
+  const OVERRIDE_STATUSES = [
+    'PENDING', 'ASSIGNED', 'EN_ROUTE', 'AT_PICKUP', 'IN_TRANSIT',
+    'AT_BORDER', 'IN_CUSTOMS', 'CUSTOMS_CLEARED',
+    'DELIVERED', 'COMPLETED', 'CANCELLED', 'FAILED',
+  ]
 
   return (
     <div style={{ display:'flex', flexDirection:'column', gap:'1.25rem' }}>
@@ -1919,16 +2474,16 @@ function AdminOrdersSection() {
 
       {/* Stats */}
       {stats && (
-        <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(110px,1fr))', gap:'0.65rem' }}>
+        <div style={{ display:'flex', flexWrap:'wrap', gap:'0.65rem' }}>
           {Object.entries(stats.by_status).map(([status, count]) => (
-            <div key={status} className="glass-inner" style={{ padding:'0.75rem 0.85rem', textAlign:'center', cursor:'pointer' }} onClick={() => { setStatusFilter(status); setPage(1) }}>
+            <div key={status} className="glass-inner" style={{ flex:1, minWidth:110, padding:'0.75rem 0.85rem', textAlign:'center', cursor:'pointer', display:'flex', flexDirection:'column', justifyContent:'center' }} onClick={() => { setStatusFilter(status); setPage(1) }}>
               <p style={{ fontSize:'1.4rem', fontWeight:800, color: ORDER_STATUS_COLOR[status] ?? 'var(--clr-text)', lineHeight:1 }}>{count}</p>
-              <p style={{ fontSize:'0.68rem', color:'var(--clr-muted)', marginTop:'0.2rem', fontWeight:600 }}>{ORDER_STATUS_LABEL[status] ?? status}</p>
+              <p style={{ fontSize:'0.68rem', color:'var(--clr-muted)', marginTop:'0.4rem', fontWeight:600 }}>{ORDER_STATUS_LABEL[status] ?? status}</p>
             </div>
           ))}
-          <div className="glass-inner" style={{ padding:'0.75rem 0.85rem', textAlign:'center' }}>
-            <p style={{ fontSize:'1.2rem', fontWeight:800, color:'var(--clr-accent)', lineHeight:1 }}>{Number(stats.total_revenue).toLocaleString()}</p>
-            <p style={{ fontSize:'0.68rem', color:'var(--clr-muted)', marginTop:'0.2rem', fontWeight:600 }}>ETB Revenue</p>
+          <div className="glass-inner" style={{ flex:1, minWidth:120, padding:'0.75rem 0.85rem', textAlign:'center', display:'flex', flexDirection:'column', justifyContent:'center', border:'1px solid rgba(0,229,255,0.15)' }}>
+            <p style={{ fontSize:'1.3rem', fontWeight:800, color:'var(--clr-accent)', lineHeight:1 }}>{Number(stats.total_revenue).toLocaleString()}</p>
+            <p style={{ fontSize:'0.68rem', color:'var(--clr-muted)', marginTop:'0.4rem', fontWeight:600 }}>ETB Revenue</p>
           </div>
         </div>
       )}
@@ -1946,33 +2501,71 @@ function AdminOrdersSection() {
         </select>
       </div>
 
+      {driverFilter && (
+        <div style={{ padding:'0.75rem 1rem', background:'rgba(0,229,255,0.06)', borderRadius:8, margin:'0 1px', border:'1px solid rgba(0,229,255,0.1)', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+          <span style={{ fontSize:'0.78rem', color:'var(--clr-accent)', fontWeight:600 }}>Viewing assigned orders for a specific driver</span>
+          <button onClick={() => { setDriverFilter(''); setPage(1); setSearch(''); setStatusFilter(''); }} style={{ background:'none', border:'none', color:'var(--clr-accent)', cursor:'pointer', fontSize:'0.75rem', display:'flex', alignItems:'center', gap:'0.3rem' }}><LuX size={14}/> View All Orders</button>
+        </div>
+      )}
+
       {/* Order list */}
-      <div className="glass-inner" style={{ overflow:'hidden' }}>
-        {loading ? <LoadingSpinner /> : orders.length === 0 ? (
-          <p style={{ padding:'2rem', textAlign:'center', color:'var(--clr-muted)', fontSize:'0.875rem' }}>No orders found.</p>
-        ) : orders.map((o, i) => (
-          <div key={o.id} style={{ display:'flex', alignItems:'flex-start', gap:'0.75rem', padding:'0.85rem 1rem', borderBottom: i < orders.length-1 ? '1px solid rgba(255,255,255,0.05)' : 'none', flexWrap:'wrap', cursor:'pointer' }} onClick={e => { if ((e.target as HTMLElement).closest('button')) return; openOrderDetail(o.id) }}>
-            <div style={{ flex:1, minWidth:120 }}>
-              <div style={{ display:'flex', alignItems:'center', gap:'0.45rem', flexWrap:'wrap', marginBottom:'0.2rem' }}>
-                <span style={{ fontWeight:700, fontSize:'0.875rem', color:'var(--clr-text)' }}>{o.reference_code}</span>
+      <div style={{ display:'grid', gap:'1rem', gridTemplateColumns:'repeat(auto-fill, minmax(320px, 1fr))' }}>
+        {loading ? (
+          <div style={{ gridColumn:'1/-1', display:'flex', justifyContent:'center', padding:'3rem' }}><LoadingSpinner /></div>
+        ) : orders.length === 0 ? (
+          <div className="glass-inner" style={{ gridColumn:'1/-1', padding:'3rem 1rem', textAlign:'center', color:'var(--clr-muted)', fontSize:'0.875rem' }}>
+            No orders found.
+          </div>
+        ) : orders.map((o) => (
+          <div key={o.id} className="glass-inner" onClick={e => { if ((e.target as HTMLElement).closest('button')) return; openOrderDetail(o.id) }} style={{ padding:'0.9rem 1rem', cursor:'pointer', transition:'background 0.15s', display:'flex', flexDirection:'column', justifyContent:'space-between' }} onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.04)')} onMouseLeave={e => (e.currentTarget.style.background = '')}>
+            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', gap:'0.5rem', marginBottom:'0.5rem' }}>
+              <div style={{ display:'flex', alignItems:'center', gap:'0.5rem', flexWrap:'wrap' }}>
+                <span style={{ fontWeight:800, fontSize:'0.88rem', color:'var(--clr-text)' }}>{o.reference_code}</span>
                 {orderBadge(o.status)}
               </div>
-              <p style={{ fontSize:'0.73rem', color:'var(--clr-muted)', marginBottom:'0.1rem' }}>Shipper: {o.shipper_first_name} {o.shipper_last_name}</p>
-              {o.driver_first_name && <p style={{ fontSize:'0.73rem', color:'var(--clr-muted)' }}>Driver: {o.driver_first_name} {o.driver_last_name}</p>}
-              <p style={{ fontSize:'0.7rem', color:'var(--clr-muted)', marginTop:'0.2rem' }}>{o.pickup_address} → {o.delivery_address}</p>
+              <div style={{ textAlign:'right', flexShrink:0 }}>
+                <span style={{ fontWeight:800, fontSize:'0.88rem', color:'var(--clr-accent)' }}>{(o.final_price ?? o.estimated_price).toLocaleString()} ETB</span>
+                <div style={{ fontSize:'0.68rem', color:'var(--clr-muted)', marginTop:'0.2rem' }}>
+                  {new Date(o.created_at).toLocaleDateString('en-GB', { day:'numeric', month:'short', year:'numeric' })}
+                </div>
+              </div>
             </div>
-            <div style={{ textAlign:'right', flexShrink:0, display:'flex', flexDirection:'column', gap:'0.35rem', alignItems:'flex-end' }}>
-              <span style={{ fontWeight:800, fontSize:'0.88rem', color:'var(--clr-accent)' }}>{(o.final_price ?? o.estimated_price).toLocaleString()} ETB</span>
-              {o.status === 'PENDING' && (
-                <button onClick={() => openAssign(o)} style={{ display:'flex', alignItems:'center', gap:'0.25rem', padding:'0.28rem 0.6rem', borderRadius:7, border:'none', background:'var(--clr-accent)', color:'#080b14', fontFamily:'inherit', fontSize:'0.7rem', fontWeight:700, cursor:'pointer' }}>
-                  <LuTruck size={11}/> Assign
-                </button>
-              )}
-              {['PENDING','ASSIGNED'].includes(o.status) && (
-                <button onClick={() => handleCancel(o)} style={{ display:'flex', alignItems:'center', gap:'0.25rem', padding:'0.28rem 0.6rem', borderRadius:7, border:'1px solid rgba(248,113,113,0.3)', background:'rgba(248,113,113,0.06)', color:'#f87171', fontFamily:'inherit', fontSize:'0.7rem', fontWeight:700, cursor:'pointer' }}>
-                  <LuBan size={11}/> Cancel
-                </button>
-              )}
+            
+            <div style={{ display:'flex', flexDirection:'column', gap:'0.4rem', marginBottom:'0.75rem' }}>
+              <p style={{ fontSize:'0.75rem', color:'var(--clr-muted)', display:'flex', alignItems:'center', gap:'0.4rem' }}>
+                <LuMapPin size={12}/> {o.pickup_address}
+              </p>
+              <p style={{ fontSize:'0.75rem', color:'var(--clr-muted)', display:'flex', alignItems:'center', gap:'0.4rem' }}>
+                <LuArrowRight size={12}/> {o.delivery_address}
+              </p>
+            </div>
+
+            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-end', gap:'0.5rem' }}>
+              <div style={{ display:'flex', flexDirection:'column', gap:'0.2rem' }}>
+                <p style={{ fontSize:'0.73rem', color:'var(--clr-muted)', display:'flex', gap:'0.25rem' }}><span style={{color:'var(--clr-text)'}}>Shipper:</span> {o.shipper_first_name} {o.shipper_last_name}</p>
+                {o.driver_first_name && <p style={{ fontSize:'0.73rem', color:'var(--clr-muted)', display:'flex', gap:'0.25rem' }}><span style={{color:'var(--clr-text)'}}>Driver:</span> {o.driver_first_name} {o.driver_last_name}</p>}
+                {(o.cargo_type_name || o.vehicle_type_required) && (
+                  <p style={{ fontSize:'0.73rem', color:'var(--clr-muted)', display:'flex', gap:'0.4rem', marginTop:'0.2rem' }}>
+                    {o.cargo_type_name && <span>{o.cargo_type_name}</span>}
+                    {o.cargo_type_name && o.vehicle_type_required && <span>·</span>}
+                    {o.vehicle_type_required && <span>{o.vehicle_type_required}</span>}
+                    {o.estimated_weight_kg != null && <><span>·</span><span>{o.estimated_weight_kg} kg</span></>}
+                  </p>
+                )}
+              </div>
+              
+              <div style={{ display:'flex', flexDirection:'column', gap:'0.35rem', flexShrink:0 }}>
+                {o.status === 'PENDING' && (
+                  <button onClick={() => openAssign(o)} style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:'0.25rem', padding:'0.35rem 0.75rem', borderRadius:7, border:'none', background:'var(--clr-accent)', color:'#080b14', fontFamily:'inherit', fontSize:'0.75rem', fontWeight:700, cursor:'pointer' }}>
+                    <LuTruck size={12}/> Assign
+                  </button>
+                )}
+                {['PENDING','ASSIGNED'].includes(o.status) && (
+                  <button onClick={() => handleCancel(o)} style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:'0.25rem', padding:'0.35rem 0.75rem', borderRadius:7, border:'1px solid rgba(248,113,113,0.3)', background:'rgba(248,113,113,0.06)', color:'#f87171', fontFamily:'inherit', fontSize:'0.75rem', fontWeight:700, cursor:'pointer' }}>
+                    <LuBan size={12}/> Cancel
+                  </button>
+                )}
+              </div>
             </div>
           </div>
         ))}
@@ -1994,8 +2587,33 @@ function AdminOrdersSection() {
             <h2 style={{ fontSize:'1rem', fontWeight:800, color:'var(--clr-text)', marginBottom:'0.35rem', display:'flex', alignItems:'center', gap:'0.45rem' }}><LuTruck size={16}/> Assign Driver</h2>
             <p style={{ fontSize:'0.8rem', color:'var(--clr-muted)', marginBottom:'1rem' }}>Order: <strong style={{ color:'var(--clr-accent)' }}>{assignOrder.reference_code}</strong></p>
             <div style={{ display:'flex', flexDirection:'column', gap:'0.75rem' }}>
+              {/* Nearest available drivers */}
+              {suggestedDrivers.length > 0 && (
+                <div>
+                  <label style={{ fontSize:'0.75rem', color:'var(--clr-muted)', fontWeight:600, display:'flex', alignItems:'center', gap:'0.35rem', marginBottom:'0.45rem' }}>
+                    <LuMapPin size={12}/> Nearest Available Drivers
+                  </label>
+                  <div style={{ display:'flex', flexDirection:'column', gap:'0.4rem', maxHeight:220, overflowY:'auto' }}>
+                    {suggestedDrivers.map(d => (
+                      <div key={d.user_id} onClick={() => setSelDriver(d.user_id)}
+                        style={{ display:'flex', alignItems:'center', gap:'0.65rem', padding:'0.55rem 0.75rem', borderRadius:9, border:`1px solid ${selDriver === d.user_id ? 'var(--clr-accent)' : 'rgba(255,255,255,0.1)'}`, background: selDriver === d.user_id ? 'rgba(0,229,255,0.08)' : 'rgba(255,255,255,0.03)', cursor:'pointer', transition:'all 0.15s' }}>
+                        <div style={{ width:8, height:8, borderRadius:'50%', background:'#4ade80', flexShrink:0 }}/>
+                        <div style={{ flex:1 }}>
+                          <p style={{ fontSize:'0.82rem', fontWeight:700, color:'var(--clr-text)', margin:0 }}>{d.first_name} {d.last_name}</p>
+                          <p style={{ fontSize:'0.7rem', color:'var(--clr-muted)', margin:0 }}>{d.phone_number}{d.vehicle_type ? ` · ${d.vehicle_type}` : ''}</p>
+                        </div>
+                        <span style={{ fontSize:'0.72rem', fontWeight:700, color:'var(--clr-accent)', background:'rgba(0,229,255,0.1)', borderRadius:99, padding:'0.15rem 0.5rem', whiteSpace:'nowrap' }}>
+                          {Number(d.distance_km).toFixed(1)} km
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
               <div>
-                <label style={{ fontSize:'0.75rem', color:'var(--clr-muted)', fontWeight:600, display:'block', marginBottom:'0.35rem' }}>Driver *</label>
+                <label style={{ fontSize:'0.75rem', color:'var(--clr-muted)', fontWeight:600, display:'block', marginBottom:'0.35rem' }}>
+                  {suggestedDrivers.length > 0 ? 'Or pick any verified driver' : 'Driver *'}
+                </label>
                 <select value={selDriver} onChange={e => setSelDriver(e.target.value)} style={{ width:'100%', padding:'0.6rem', borderRadius:9, border:'1px solid rgba(255,255,255,0.15)', background:'rgba(255,255,255,0.05)', color:'var(--clr-text)', fontFamily:'inherit', fontSize:'0.85rem', outline:'none' }}>
                   <option value="" style={{ background:'#0f172a' }}>— Select driver —</option>
                   {drivers.map(d => <option key={d.user_id} value={d.user_id} style={{ background:'#0f172a' }}>{d.first_name} {d.last_name} · {d.phone_number}</option>)}
@@ -2054,9 +2672,61 @@ function AdminOrdersSection() {
                     <p style={{ fontSize:'0.7rem', color:'var(--clr-muted)', fontWeight:600, marginBottom:'0.5rem' }}>SHIPMENT</p>
                     <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'0.5rem 1rem' }}>
                       <div><p style={{ fontSize:'0.7rem', color:'var(--clr-muted)' }}>Cargo Type</p><div style={{ display:'flex', alignItems:'center', gap:'0.4rem', marginTop:'0.15rem' }}><CargoIcon icon={detailOrder.cargo_type_icon} iconUrl={detailOrder.cargo_type_icon_url} size={16} style={{ color:'var(--clr-accent)' }}/><p style={{ fontSize:'0.82rem', color:'var(--clr-text)', fontWeight:600 }}>{detailOrder.cargo_type_name ?? '—'}</p></div></div>
-                      <div><p style={{ fontSize:'0.7rem', color:'var(--clr-muted)' }}>Vehicle</p><p style={{ fontSize:'0.82rem', color:'var(--clr-text)', fontWeight:600 }}>{detailOrder.vehicle_type ?? '—'}</p></div>
+                      <div><p style={{ fontSize:'0.7rem', color:'var(--clr-muted)' }}>Vehicle</p><p style={{ fontSize:'0.82rem', color:'var(--clr-text)', fontWeight:600 }}>{detailOrder.vehicle_type_required ?? detailOrder.vehicle_type ?? '—'}</p></div>
                       <div><p style={{ fontSize:'0.7rem', color:'var(--clr-muted)' }}>Weight</p><p style={{ fontSize:'0.82rem', color:'var(--clr-text)', fontWeight:600 }}>{detailOrder.estimated_weight_kg != null ? `${detailOrder.estimated_weight_kg} kg` : '—'}</p></div>
                       <div><p style={{ fontSize:'0.7rem', color:'var(--clr-muted)' }}>Distance</p><p style={{ fontSize:'0.82rem', color:'var(--clr-text)', fontWeight:600 }}>{detailOrder.distance_km != null ? `${Number(detailOrder.distance_km).toFixed(1)} km` : '—'}</p></div>
+                    </div>
+                  </div>
+                  <div className="glass-inner" style={{ padding:'0.75rem 1rem' }}>
+                    <p style={{ fontSize:'0.7rem', color:'var(--clr-muted)', fontWeight:600, marginBottom:'0.5rem' }}>DETAILS OVERRIDE</p>
+                    <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'0.45rem' }}>
+                      <select value={detailsOverrideForm.cargo_type_id} onChange={e => setDetailsOverrideForm(f => ({ ...f, cargo_type_id: e.target.value }))}
+                        style={{ padding:'0.5rem 0.65rem', borderRadius:8, border:'1px solid rgba(255,255,255,0.12)', background:'rgba(255,255,255,0.05)', color:'var(--clr-text)', fontFamily:'inherit', fontSize:'0.8rem', outline:'none' }}>
+                        <option value="" style={{ background:'#0f172a' }}>Cargo Type</option>
+                        {orderCargoTypes.map((ct) => <option key={ct.id} value={ct.id} style={{ background:'#0f172a' }}>{ct.name}</option>)}
+                      </select>
+                      <select value={detailsOverrideForm.vehicle_type_required} onChange={e => setDetailsOverrideForm(f => ({ ...f, vehicle_type_required: e.target.value }))}
+                        style={{ padding:'0.5rem 0.65rem', borderRadius:8, border:'1px solid rgba(255,255,255,0.12)', background:'rgba(255,255,255,0.05)', color:'var(--clr-text)', fontFamily:'inherit', fontSize:'0.8rem', outline:'none' }}>
+                        <option value="" style={{ background:'#0f172a' }}>Vehicle Type</option>
+                        {VEHICLE_TYPES.map(v => <option key={v} value={v} style={{ background:'#0f172a' }}>{v}</option>)}
+                      </select>
+                      <input type="number" min={0} step="0.01" value={detailsOverrideForm.estimated_weight_kg} onChange={e => setDetailsOverrideForm(f => ({ ...f, estimated_weight_kg: e.target.value }))}
+                        placeholder="Weight (kg)"
+                        style={{ padding:'0.5rem 0.65rem', borderRadius:8, border:'1px solid rgba(255,255,255,0.12)', background:'rgba(255,255,255,0.05)', color:'var(--clr-text)', fontFamily:'inherit', fontSize:'0.8rem', outline:'none' }}/>
+                      <input type="text" value={detailsOverrideForm.notes} onChange={e => setDetailsOverrideForm(f => ({ ...f, notes: e.target.value }))}
+                        placeholder="Reason for override (optional)"
+                        style={{ padding:'0.5rem 0.65rem', borderRadius:8, border:'1px solid rgba(255,255,255,0.12)', background:'rgba(255,255,255,0.05)', color:'var(--clr-text)', fontFamily:'inherit', fontSize:'0.8rem', outline:'none' }}/>
+                    </div>
+                    <div style={{ display:'flex', flexDirection:'column', gap:'0.45rem', marginTop:'0.45rem' }}>
+                      <input type="text" value={detailsOverrideForm.pickup_address} onChange={e => setDetailsOverrideForm(f => ({ ...f, pickup_address: e.target.value }))}
+                        placeholder="Pickup address"
+                        style={{ padding:'0.5rem 0.65rem', borderRadius:8, border:'1px solid rgba(255,255,255,0.12)', background:'rgba(255,255,255,0.05)', color:'var(--clr-text)', fontFamily:'inherit', fontSize:'0.8rem', outline:'none' }}/>
+                      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'0.45rem' }}>
+                        <input type="number" step="any" value={detailsOverrideForm.pickup_lat} onChange={e => setDetailsOverrideForm(f => ({ ...f, pickup_lat: e.target.value }))}
+                          placeholder="Pickup lat"
+                          style={{ padding:'0.5rem 0.65rem', borderRadius:8, border:'1px solid rgba(255,255,255,0.12)', background:'rgba(255,255,255,0.05)', color:'var(--clr-text)', fontFamily:'inherit', fontSize:'0.8rem', outline:'none' }}/>
+                        <input type="number" step="any" value={detailsOverrideForm.pickup_lng} onChange={e => setDetailsOverrideForm(f => ({ ...f, pickup_lng: e.target.value }))}
+                          placeholder="Pickup lng"
+                          style={{ padding:'0.5rem 0.65rem', borderRadius:8, border:'1px solid rgba(255,255,255,0.12)', background:'rgba(255,255,255,0.05)', color:'var(--clr-text)', fontFamily:'inherit', fontSize:'0.8rem', outline:'none' }}/>
+                      </div>
+                      <input type="text" value={detailsOverrideForm.delivery_address} onChange={e => setDetailsOverrideForm(f => ({ ...f, delivery_address: e.target.value }))}
+                        placeholder="Delivery address"
+                        style={{ padding:'0.5rem 0.65rem', borderRadius:8, border:'1px solid rgba(255,255,255,0.12)', background:'rgba(255,255,255,0.05)', color:'var(--clr-text)', fontFamily:'inherit', fontSize:'0.8rem', outline:'none' }}/>
+                      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'0.45rem' }}>
+                        <input type="number" step="any" value={detailsOverrideForm.delivery_lat} onChange={e => setDetailsOverrideForm(f => ({ ...f, delivery_lat: e.target.value }))}
+                          placeholder="Delivery lat"
+                          style={{ padding:'0.5rem 0.65rem', borderRadius:8, border:'1px solid rgba(255,255,255,0.12)', background:'rgba(255,255,255,0.05)', color:'var(--clr-text)', fontFamily:'inherit', fontSize:'0.8rem', outline:'none' }}/>
+                        <input type="number" step="any" value={detailsOverrideForm.delivery_lng} onChange={e => setDetailsOverrideForm(f => ({ ...f, delivery_lng: e.target.value }))}
+                          placeholder="Delivery lng"
+                          style={{ padding:'0.5rem 0.65rem', borderRadius:8, border:'1px solid rgba(255,255,255,0.12)', background:'rgba(255,255,255,0.05)', color:'var(--clr-text)', fontFamily:'inherit', fontSize:'0.8rem', outline:'none' }}/>
+                      </div>
+                      <textarea value={detailsOverrideForm.special_instructions} onChange={e => setDetailsOverrideForm(f => ({ ...f, special_instructions: e.target.value }))} rows={2}
+                        placeholder="Special instructions"
+                        style={{ width:'100%', padding:'0.55rem 0.7rem', borderRadius:8, border:'1px solid rgba(255,255,255,0.12)', background:'rgba(255,255,255,0.05)', color:'var(--clr-text)', fontFamily:'inherit', fontSize:'0.8rem', outline:'none', resize:'vertical', boxSizing:'border-box' }}/>
+                      <button onClick={submitDetailsOverride} disabled={detailsOverrideSaving}
+                        style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:'0.3rem', padding:'0.45rem 0.9rem', borderRadius:8, border:'1px solid rgba(0,229,255,0.3)', background:'rgba(0,229,255,0.08)', color:'var(--clr-accent)', fontFamily:'inherit', fontSize:'0.78rem', fontWeight:700, cursor:'pointer', opacity: detailsOverrideSaving ? 0.6 : 1 }}>
+                        {detailsOverrideSaving ? 'Saving…' : 'Save All Detail Overrides'}
+                      </button>
                     </div>
                   </div>
                   {/* Addresses */}
@@ -2069,7 +2739,13 @@ function AdminOrdersSection() {
                   </div>
                   {/* Pricing */}
                   <div className="glass-inner" style={{ padding:'0.75rem 1rem' }}>
-                    <p style={{ fontSize:'0.7rem', color:'var(--clr-muted)', fontWeight:600, marginBottom:'0.35rem' }}>PRICING</p>
+                    <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'0.35rem' }}>
+                      <p style={{ fontSize:'0.7rem', color:'var(--clr-muted)', fontWeight:600, margin:0 }}>PRICING</p>
+                      <button onClick={() => { setPriceAdjustMode(m => !m); setPriceAdjustVal(String(detailOrder.final_price ?? detailOrder.estimated_price ?? '')); setPriceAdjustNotes('') }}
+                        style={{ display:'flex', alignItems:'center', gap:'0.25rem', padding:'0.2rem 0.5rem', borderRadius:7, border:'1px solid rgba(251,191,36,0.3)', background:'rgba(251,191,36,0.06)', color:'#fbbf24', fontFamily:'inherit', fontSize:'0.68rem', fontWeight:700, cursor:'pointer' }}>
+                        <LuPencil size={10}/> Adjust
+                      </button>
+                    </div>
                     <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
                       <span style={{ fontSize:'0.78rem', color:'var(--clr-muted)' }}>Estimated</span>
                       <span style={{ fontSize:'0.85rem', color:'var(--clr-text)', fontWeight:700 }}>{Number(detailOrder.estimated_price ?? 0).toLocaleString()} ETB</span>
@@ -2080,6 +2756,51 @@ function AdminOrdersSection() {
                         <span style={{ fontSize:'0.9rem', color:'var(--clr-accent)', fontWeight:800 }}>{Number(detailOrder.final_price).toLocaleString()} ETB</span>
                       </div>
                     )}
+                    {priceAdjustMode && (
+                      <div style={{ marginTop:'0.75rem', paddingTop:'0.75rem', borderTop:'1px solid rgba(255,255,255,0.07)', display:'flex', flexDirection:'column', gap:'0.5rem' }}>
+                        <p style={{ fontSize:'0.72rem', color:'#fbbf24', fontWeight:600, margin:0 }}>Set Final Price (ETB)</p>
+                        <input type="number" min={0} value={priceAdjustVal} onChange={e => setPriceAdjustVal(e.target.value)}
+                          placeholder="e.g. 4500" style={{ padding:'0.5rem 0.7rem', borderRadius:8, border:'1px solid rgba(255,255,255,0.15)', background:'rgba(255,255,255,0.05)', color:'var(--clr-text)', fontFamily:'inherit', fontSize:'0.85rem', outline:'none', width:'100%', boxSizing:'border-box' }}/>
+                        <input type="text" value={priceAdjustNotes} onChange={e => setPriceAdjustNotes(e.target.value)}
+                          placeholder="Reason / notes (optional)" style={{ padding:'0.5rem 0.7rem', borderRadius:8, border:'1px solid rgba(255,255,255,0.15)', background:'rgba(255,255,255,0.05)', color:'var(--clr-text)', fontFamily:'inherit', fontSize:'0.82rem', outline:'none', width:'100%', boxSizing:'border-box' }}/>
+                        <div style={{ display:'flex', gap:'0.4rem' }}>
+                          <button onClick={() => setPriceAdjustMode(false)} className="btn-outline" style={{ flex:1, fontSize:'0.78rem' }}>Cancel</button>
+                          <button onClick={submitPriceAdjust} disabled={priceAdjusting} className="btn-primary" style={{ flex:2, fontSize:'0.78rem' }}>
+                            {priceAdjusting ? <BtnSpinner text="Saving…" /> : 'Save Price'}
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                  {/* Overrides */}
+                  <div className="glass-inner" style={{ padding:'0.75rem 1rem' }}>
+                    <p style={{ fontSize:'0.7rem', color:'var(--clr-muted)', fontWeight:600, marginBottom:'0.5rem' }}>OVERRIDES</p>
+                    <div style={{ display:'flex', flexDirection:'column', gap:'0.5rem' }}>
+                      <select value={statusOverride} onChange={e => setStatusOverride(e.target.value)}
+                        style={{ padding:'0.5rem 0.65rem', borderRadius:8, border:'1px solid rgba(255,255,255,0.12)', background:'rgba(255,255,255,0.05)', color:'var(--clr-text)', fontFamily:'inherit', fontSize:'0.82rem', outline:'none' }}>
+                        {OVERRIDE_STATUSES.map(s => <option key={s} value={s} style={{ background:'#0f172a' }}>{s}</option>)}
+                      </select>
+                      <input type="text" value={statusOverrideNotes} onChange={e => setStatusOverrideNotes(e.target.value)}
+                        placeholder="Reason / internal note (optional)"
+                        style={{ padding:'0.5rem 0.65rem', borderRadius:8, border:'1px solid rgba(255,255,255,0.12)', background:'rgba(255,255,255,0.05)', color:'var(--clr-text)', fontFamily:'inherit', fontSize:'0.8rem', outline:'none' }}/>
+                      <button onClick={submitStatusOverride} disabled={statusOverrideSaving || !statusOverride}
+                        style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:'0.3rem', padding:'0.45rem 0.9rem', borderRadius:8, border:'1px solid rgba(0,229,255,0.3)', background:'rgba(0,229,255,0.08)', color:'var(--clr-accent)', fontFamily:'inherit', fontSize:'0.78rem', fontWeight:700, cursor:'pointer', opacity: statusOverrideSaving ? 0.6 : 1 }}>
+                        {statusOverrideSaving ? 'Saving…' : 'Apply Status Override'}
+                      </button>
+                    </div>
+                  </div>
+                  {/* Internal Notes */}
+                  <div className="glass-inner" style={{ padding:'0.75rem 1rem' }}>
+                    <p style={{ fontSize:'0.7rem', color:'var(--clr-muted)', fontWeight:600, marginBottom:'0.5rem' }}>INTERNAL NOTES</p>
+                    <textarea value={internalNotes} onChange={e => setInternalNotes(e.target.value)} rows={3}
+                      placeholder="Admin-only notes for this order"
+                      style={{ width:'100%', padding:'0.55rem 0.7rem', borderRadius:8, border:'1px solid rgba(255,255,255,0.12)', background:'rgba(255,255,255,0.05)', color:'var(--clr-text)', fontFamily:'inherit', fontSize:'0.8rem', outline:'none', resize:'vertical', boxSizing:'border-box' }}/>
+                    <div style={{ display:'flex', justifyContent:'flex-end', marginTop:'0.5rem' }}>
+                      <button onClick={submitInternalNotes} disabled={internalNotesSaving}
+                        style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:'0.3rem', padding:'0.45rem 0.9rem', borderRadius:8, border:'1px solid rgba(255,255,255,0.12)', background:'rgba(255,255,255,0.06)', color:'var(--clr-text)', fontFamily:'inherit', fontSize:'0.78rem', fontWeight:700, cursor:'pointer', opacity: internalNotesSaving ? 0.6 : 1 }}>
+                        {internalNotesSaving ? 'Saving…' : 'Save Notes'}
+                      </button>
+                    </div>
                   </div>
                   {/* OTPs */}
                   {(detailOrder.pickup_otp || detailOrder.delivery_otp) && (
@@ -2098,10 +2819,10 @@ function AdminOrdersSection() {
                     </div>
                   )}
                   {/* Description */}
-                  {detailOrder.description && (
+                  {detailOrder.special_instructions && (
                     <div className="glass-inner" style={{ padding:'0.75rem 1rem' }}>
                       <p style={{ fontSize:'0.7rem', color:'var(--clr-muted)', fontWeight:600, marginBottom:'0.25rem' }}>NOTES</p>
-                      <p style={{ fontSize:'0.82rem', color:'var(--clr-text)' }}>{detailOrder.description}</p>
+                      <p style={{ fontSize:'0.82rem', color:'var(--clr-text)' }}>{detailOrder.special_instructions}</p>
                     </div>
                   )}
                   {/* Order Images */}
@@ -2116,9 +2837,9 @@ function AdminOrdersSection() {
                   )}
                   {/* Action buttons */}
                   <div style={{ display:'flex', gap:'0.5rem', flexWrap:'wrap' }}>
-                    {detailOrder.status === 'PENDING' && (
-                      <button onClick={() => { setDetailOrder(null); openAssign(detailOrder) }} style={{ display:'flex', alignItems:'center', gap:'0.3rem', padding:'0.45rem 0.9rem', borderRadius:8, border:'none', background:'var(--clr-accent)', color:'#080b14', fontFamily:'inherit', fontSize:'0.8rem', fontWeight:700, cursor:'pointer' }}><LuTruck size={13}/> Assign Driver</button>
-                    )}
+                    <button onClick={() => { setDetailOrder(null); openAssign(detailOrder) }} style={{ display:'flex', alignItems:'center', gap:'0.3rem', padding:'0.45rem 0.9rem', borderRadius:8, border:'none', background:'var(--clr-accent)', color:'#080b14', fontFamily:'inherit', fontSize:'0.8rem', fontWeight:700, cursor:'pointer' }}>
+                      <LuTruck size={13}/> {detailOrder.driver_first_name ? 'Reassign Driver' : 'Assign Driver'}
+                    </button>
                     {['PENDING','ASSIGNED'].includes(detailOrder.status) && (
                       <button onClick={() => { handleCancel(detailOrder); setDetailOrder(null) }} style={{ display:'flex', alignItems:'center', gap:'0.3rem', padding:'0.45rem 0.9rem', borderRadius:8, border:'1px solid rgba(248,113,113,0.3)', background:'rgba(248,113,113,0.06)', color:'#f87171', fontFamily:'inherit', fontSize:'0.8rem', fontWeight:700, cursor:'pointer' }}><LuBan size={13}/> Cancel Order</button>
                     )}
@@ -2533,16 +3254,25 @@ function AdminLiveDriversSection() {
     return { kmLeft: Math.max(0, kmLeft), kmDriven, total, pct }
   }
 
-  /** Vehicle colour for map icons */
-  const vehicleColor: Record<string, string> = {
-    Truck: '#f97316', 'Mini Truck': '#f59e0b', Van: '#3b82f6', Pickup: '#8b5cf6',
-    Motorcycle: '#10b981', 'Cargo Bike': '#6ee7b7', Trailer: '#ef4444',
+  /** Driver-status colour for map icons (overrides vehicle type) */
+  const driverStatusColor: Record<string, string> = {
+    AVAILABLE: '#4ade80',   // green
+    ON_JOB:    '#f97316',   // orange
+    OFFLINE:   '#94a3b8',   // grey
+    SUSPENDED: '#f87171',   // red
+  }
+  /** Vehicle emoji per type */
+  const vehicleEmoji: Record<string, string> = {
+    Truck: '🚛', 'Mini Truck': '🚚', Van: '🚐', Pickup: '🛻',
+    Motorcycle: '🏍', 'Cargo Bike': '🚲', Trailer: '🚜',
   }
   function makeDriverIcon(d: LiveDriver) {
-    const bg = vehicleColor[d.vehicle_type ?? ''] ?? '#00e5ff'
+    const status = (d as any).driver_status as string | undefined
+    const bg = driverStatusColor[status ?? ''] ?? '#00e5ff'
+    const emoji = vehicleEmoji[d.vehicle_type ?? ''] ?? '🚚'
     return L.divIcon({
       className: '',
-      html: `<div style="background:${bg};width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;border:2px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,0.45);font-size:13px">🚚</div>`,
+      html: `<div style="background:${bg};width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;border:2px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,0.45);font-size:13px">${emoji}</div>`,
       iconSize: [28, 28], iconAnchor: [14, 14],
     })
   }
@@ -2565,6 +3295,15 @@ function AdminLiveDriversSection() {
         <div style={{ display:'grid', gridTemplateColumns: selected ? '1fr 1fr' : '1fr', gap:'1rem' }}>
           {/* Map Panel */}
           <div style={{ display:'flex', flexDirection:'column', gap:'0.75rem' }}>
+            {/* Status legend */}
+            <div style={{ display:'flex', gap:'0.6rem', flexWrap:'wrap' }}>
+              {Object.entries(driverStatusColor).map(([s, c]) => (
+                <div key={s} style={{ display:'flex', alignItems:'center', gap:'0.35rem' }}>
+                  <div style={{ width:10, height:10, borderRadius:'50%', background:c, flexShrink:0 }}/>
+                  <span style={{ fontSize:'0.68rem', color:'var(--clr-muted)', fontWeight:600 }}>{s.replace('_', ' ')}</span>
+                </div>
+              ))}
+            </div>
             <div style={{ borderRadius:14, overflow:'hidden', border:'1px solid rgba(255,255,255,0.09)', height:400 }}>
               <MapContainer center={[9.03, 38.74]} zoom={12} style={{ width:'100%', height:'100%' }}>
                 <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution="&copy; OpenStreetMap contributors" />
@@ -2581,7 +3320,7 @@ function AdminLiveDriversSection() {
                 {mapDrivers.filter(d => d.pickup_lat && d.delivery_lat).map(d => (
                   <Polyline key={`route-${d.driver_id}`}
                     positions={[[Number(d.pickup_lat), Number(d.pickup_lng)], [Number(d.delivery_lat), Number(d.delivery_lng)]]}
-                    pathOptions={{ color: vehicleColor[d.vehicle_type ?? ''] ?? '#00e5ff', weight: 2, opacity: 0.35, dashArray: '6 4' }}
+                    pathOptions={{ color: driverStatusColor[(d as any).driver_status ?? ''] ?? '#00e5ff', weight: 2, opacity: 0.35, dashArray: '6 4' }}
                   />
                 ))}
                 {/* Driver → delivery remaining line */}
@@ -2601,13 +3340,13 @@ function AdminLiveDriversSection() {
               ) : drivers.map((d, i) => (
                 <div key={d.driver_id} onClick={() => openDriver(d)}
                   style={{ display:'flex', alignItems:'center', gap:'0.75rem', padding:'0.8rem 1rem', borderBottom: i < drivers.length-1 ? '1px solid rgba(255,255,255,0.05)' : 'none', cursor:'pointer', background: selected?.driver_id === d.driver_id ? 'rgba(0,229,255,0.06)' : 'transparent', transition:'background 0.15s' }}>
-                  <div style={{ width:36, height:36, borderRadius:'50%', overflow:'hidden', flexShrink:0, background: vehicleColor[d.vehicle_type ?? ''] ?? 'linear-gradient(135deg,var(--clr-accent2),var(--clr-accent))', display:'flex', alignItems:'center', justifyContent:'center' }}>
+                  <div style={{ width:36, height:36, borderRadius:'50%', overflow:'hidden', flexShrink:0, background: driverStatusColor[(d as any).driver_status ?? ''] ?? 'linear-gradient(135deg,var(--clr-accent2),var(--clr-accent))', display:'flex', alignItems:'center', justifyContent:'center' }}>
                     {d.profile_photo_url ? <img src={d.profile_photo_url} alt="" style={{ width:'100%', height:'100%', objectFit:'cover' }}/> : <LuTruck size={16} color="#fff"/>}
                   </div>
                   <div style={{ flex:1, minWidth:0 }}>
                     <p style={{ fontWeight:600, fontSize:'0.875rem', color:'var(--clr-text)', marginBottom:'0.1rem' }}>{d.first_name} {d.last_name}</p>
                     <p style={{ fontSize:'0.72rem', color:'var(--clr-muted)' }}>{d.phone_number}</p>
-                    {d.vehicle_type && <p style={{ fontSize:'0.68rem', color: vehicleColor[d.vehicle_type] ?? 'var(--clr-muted)', fontWeight:600 }}>{d.vehicle_type}</p>}
+                    {d.vehicle_type && <p style={{ fontSize:'0.68rem', color:'var(--clr-muted)', fontWeight:600 }}>{vehicleEmoji[d.vehicle_type] ?? '🚚'} {d.vehicle_type}</p>}
                     {d.reference_code && <p style={{ fontSize:'0.7rem', color:'var(--clr-accent)', fontWeight:600 }}>Order: {d.reference_code}</p>}
                   </div>
                   <div style={{ textAlign:'right', flexShrink:0 }}>
@@ -3283,6 +4022,7 @@ export default function AdminDashboardPage() {
   const navigate = useNavigate()
 
   const [section, setSection]       = useState<AdminSection>('overview')
+  const [orderJumpFilter, setOrderJumpFilter] = useState<{driverId?: string, statusFilter?: string}|null>(null)
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [pinned, setPinned] = useState<boolean>(() => localStorage.getItem('admin-sidebar-pinned') === 'true')
   const [users, setUsers]           = useState<UserRow[]>([])
@@ -3319,23 +4059,32 @@ export default function AdminDashboardPage() {
 
   const navItems: { id: AdminSection; icon: React.ReactNode; label: string; count?: number }[] = [
     { id: 'overview',       icon: <LuChartBar size={16}/>,     label: 'Overview'         },
-    { id: 'shippers',       icon: <LuPackage size={16}/>,      label: 'Shippers',        count: shippers.length },
+    { id: 'orders',         icon: <LuListOrdered size={16}/>,  label: 'Orders'           },
+    { id: 'live-drivers',   icon: <LuMapPin size={16}/>,       label: 'Live Drivers'     },
+    { id: 'guest-orders',   icon: <LuUsers size={16}/>,        label: 'Guest Orders'     },
     { id: 'drivers',        icon: <LuTruck size={16}/>,        label: 'Drivers',         count: drivers.length  },
-    { id: 'staff',          icon: <LuBriefcase size={16}/>,    label: 'Staff Users',     count: staffUsers.length },
     { id: 'verify-drivers', icon: <LuShieldCheck size={16}/>,  label: 'Verify Drivers'   },
     { id: 'vehicles',       icon: <LuCar size={16}/>,          label: 'Vehicles'         },
-    { id: 'orders',         icon: <LuListOrdered size={16}/>,  label: 'Orders'           },
-    { id: 'live-drivers',   icon: <LuMapPin size={16}/>,        label: 'Live Drivers'     },
-    { id: 'guest-orders',   icon: <LuUsers size={16}/>,         label: 'Guest Orders'     },
+    { id: 'shippers',       icon: <LuPackage size={16}/>,      label: 'Shippers',        count: shippers.length },
+    { id: 'staff',          icon: <LuBriefcase size={16}/>,    label: 'Staff Users',     count: staffUsers.length },
     { id: 'cargo-types',    icon: <LuBox size={16}/>,          label: 'Cargo Types'      },
     { id: 'pricing-rules',  icon: <LuSettings size={16}/>,     label: 'Pricing Rules'    },
     { id: 'profile',        icon: <LuUser size={16}/>,         label: 'My Profile'       },
   ]
 
+  const handleViewDriverOrders = (driverId: string, filterType?: string) => {
+    let sf = ''
+    if (filterType === 'COMPLETED') sf = 'DELIVERED' // or COMPLETED based on your statuses
+    else if (filterType === 'CANCELLED') sf = 'CANCELLED'
+    else if (filterType === 'ACTIVE_NOW') sf = 'IN_TRANSIT' // or assign, en_route maybe. Let's just leave it empty and let backend handle search or just show 'ASSIGNED', 'EN_ROUTE', 'AT_PICKUP', 'IN_TRANSIT'. Since we can only pass one status to string, wait, let's just pass nothing for 'Assign_any' and let them see all, or better we add 'ACTIVE' meta status, but for now we will just pass no status for ACTIVE_NOW so they see all driver's orders and can filter. Or if statusFilter is limited, we just leave it blank.
+    setOrderJumpFilter({ driverId, statusFilter: sf })
+    setSection('orders')
+  }
+
   const sectionTitle = navItems.find(n => n.id === section)
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', background: 'var(--clr-bg)', position: 'relative' }}>
+    <div style={{ display: 'flex', height: '100vh', overflow: 'hidden', background: 'var(--clr-bg)', position: 'relative' }}>
       {/* Aurora background */}
       <div style={{ position: 'fixed', inset: 0, pointerEvents: 'none', zIndex: 0, overflow: 'hidden' }}>
         <div style={{ position: 'absolute', borderRadius: '50%', filter: 'blur(80px)', opacity: 0.3, width: '70vmax', height: '70vmax', top: '-25vmax', left: '-20vmax', background: 'radial-gradient(ellipse,#7c3aed 0%,#4f46e5 40%,transparent 70%)' }} />
@@ -3404,7 +4153,7 @@ export default function AdminDashboardPage() {
       </aside>
 
       {/* Main content */}
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: '100vh', position: 'relative', zIndex: 1 }}>
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', height: '100vh', overflowY: 'auto', position: 'relative', zIndex: 1 }}>
         {/* Top bar */}
         <header style={{ position: 'sticky', top: 0, zIndex: 30, background: 'rgba(8,11,20,0.88)', backdropFilter: 'blur(16px)', borderBottom: '1px solid rgba(255,255,255,0.07)', padding: '0.7rem 1.1rem', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
           <button onClick={() => setSidebarOpen(v => !v)} style={{ background: 'none', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 8, padding: '0.38rem 0.5rem', color: 'var(--clr-muted)', cursor: 'pointer', lineHeight: 1, flexShrink: 0, display:'flex', alignItems:'center' }}>
@@ -3423,12 +4172,12 @@ export default function AdminDashboardPage() {
         {/* Section content */}
         <main style={{ flex: 1, padding: '1.25rem 1.1rem 2rem', maxWidth: 840, width: '100%', margin: '0 auto', boxSizing: 'border-box' }}>
           {section === 'overview'       && <OverviewSection stats={stats} users={users} onNav={setSection} />}
-          {section === 'drivers'        && <CustomerSection title="Drivers"  allUsers={drivers}    loading={usersLoading} onToggleActive={handleToggleActive} onRefresh={loadUsers} />}
+          {section === 'drivers'        && <AdminDriversSection allUsers={drivers} loading={usersLoading} onToggleActive={handleToggleActive} onRefresh={loadUsers} onViewOrders={handleViewDriverOrders} />}
           {section === 'shippers'       && <CustomerSection title="Shippers" allUsers={shippers}   loading={usersLoading} onToggleActive={handleToggleActive} onRefresh={loadUsers} />}
           {section === 'staff'          && <StaffManagementSection            allUsers={staffUsers} loading={usersLoading} onToggleActive={handleToggleActive} onRefresh={loadUsers} />}
           {section === 'verify-drivers' && <DriverVerificationSection />}
           {section === 'vehicles'       && <VehicleManagementSection />}
-          {section === 'orders'         && <AdminOrdersSection />}
+          {section === 'orders'         && <AdminOrdersSection initialDriverFilter={orderJumpFilter?.driverId} initialStatusFilter={orderJumpFilter?.statusFilter} />}
           {section === 'live-drivers'   && <AdminLiveDriversSection />}
           {section === 'guest-orders'   && <AdminGuestOrdersSection />}
           {section === 'cargo-types'    && <AdminCargoTypesSection />}

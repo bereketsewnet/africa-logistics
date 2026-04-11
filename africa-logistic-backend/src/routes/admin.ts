@@ -22,6 +22,8 @@ import {
   adminGetOrderHandler,
   adminAssignOrderHandler,
   adminUpdateOrderStatusHandler,
+  adminUpdateOrderDetailsHandler,
+  adminUpdateOrderNotesHandler,
   adminCancelOrderHandler,
   adminOrderStatsHandler,
   adminCreateOrderOnBehalfHandler,
@@ -40,6 +42,13 @@ import {
   // ── Order Chat ─────────────────────────────────────────────────────────────
   adminGetOrderMessagesHandler,
   adminSendOrderMessageHandler,
+  // ── Dispatch & Pricing ──────────────────────────────────────────────────────
+  adminSuggestDriversHandler,
+  adminUpdateOrderPriceHandler,
+  // ── Driver Ratings ─────────────────────────────────────────────────────────
+  adminGetDriverRatingsHandler,
+  adminDeleteRatingHandler,
+  adminUpdateDriverStatusHandler,
 } from '../controllers/admin.controller.js'
 
 export default async function adminRoutes(fastify: FastifyInstance) {
@@ -159,6 +168,12 @@ export default async function adminRoutes(fastify: FastifyInstance) {
    */
   fastify.get('/orders/guest', adminListGuestOrdersHandler)
 
+  /** GET /api/admin/orders/:id/suggest-drivers — nearest available drivers, sorted by distance */
+  fastify.get('/orders/:id/suggest-drivers', adminSuggestDriversHandler)
+
+  /** PATCH /api/admin/orders/:id/price — override final price */
+  fastify.patch('/orders/:id/price', adminUpdateOrderPriceHandler)
+
   /** GET /api/admin/orders/:id — single order details */
   fastify.get('/orders/:id', adminGetOrderHandler)
 
@@ -173,6 +188,12 @@ export default async function adminRoutes(fastify: FastifyInstance) {
 
   /** PATCH /api/admin/orders/:id/status — override order status */
   fastify.patch('/orders/:id/status', adminUpdateOrderStatusHandler)
+
+  /** PATCH /api/admin/orders/:id/details — override core order details */
+  fastify.patch('/orders/:id/details', adminUpdateOrderDetailsHandler)
+
+  /** PATCH /api/admin/orders/:id/notes — internal admin notes */
+  fastify.patch('/orders/:id/notes', adminUpdateOrderNotesHandler)
 
   /** POST /api/admin/orders/:id/cancel — cancel an order */
   fastify.post('/orders/:id/cancel', adminCancelOrderHandler)
@@ -198,4 +219,15 @@ export default async function adminRoutes(fastify: FastifyInstance) {
 
   /** PUT /api/admin/pricing-rules/:id — update a pricing rule */
   fastify.put('/pricing-rules/:id', adminUpdatePricingRuleHandler)
+
+  // ─── Driver Ratings ────────────────────────────────────────────────────────────
+
+  /** GET /api/admin/drivers/:id/ratings — list ratings for a driver */
+  fastify.get('/drivers/:id/ratings', adminGetDriverRatingsHandler)
+
+  /** DELETE /api/admin/ratings/:id — soft-delete a rating */
+  fastify.delete('/ratings/:id', adminDeleteRatingHandler)
+
+  /** PATCH /api/admin/drivers/:id/status — admin override driver status */
+  fastify.patch('/drivers/:id/status', adminUpdateDriverStatusHandler)
 }

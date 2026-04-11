@@ -128,6 +128,15 @@ export const orderApi = {
 
   getUnreadCounts: () =>
     apiClient.get('/orders/unread-counts'),
+
+  rateDriver: (orderId: string, stars: number, comment?: string) =>
+    apiClient.post(`/orders/${orderId}/rate-driver`, { stars, comment }),
+
+  hasRated: (orderId: string) =>
+    apiClient.get(`/orders/${orderId}/has-rated`),
+
+  getDriverRatingSummary: (driverId: string) =>
+    apiClient.get(`/orders/drivers/${driverId}/rating-summary`),
 }
 
 // ─── Driver API ───────────────────────────────────────────────────────────────
@@ -167,11 +176,14 @@ export const driverApi = {
 
   bulkUpdateStatus: (ids: string[], status: string) =>
     Promise.allSettled(ids.map(id => apiClient.patch(`/driver/jobs/${id}/status`, { status }))),
+
+  updateAvailabilityStatus: (status: 'AVAILABLE' | 'OFFLINE') =>
+    apiClient.patch('/driver/status', { status }),
 }
 
 // ─── Admin Order API ──────────────────────────────────────────────────────────
 export const adminOrderApi = {
-  listOrders: (params?: { status?: string; search?: string; page?: number; limit?: number }) =>
+  listOrders: (params?: { status?: string; search?: string; page?: number; limit?: number; driver_id?: string }) =>
     apiClient.get('/admin/orders', { params }),
 
   getStats: () =>
@@ -185,6 +197,26 @@ export const adminOrderApi = {
 
   updateStatus: (id: string, status: string, notes?: string) =>
     apiClient.patch(`/admin/orders/${id}/status`, { status, notes }),
+
+  updateDetails: (
+    id: string,
+    data: {
+      cargo_type_id?: number
+      vehicle_type_required?: string
+      estimated_weight_kg?: number | null
+      pickup_address?: string | null
+      pickup_lat?: number
+      pickup_lng?: number
+      delivery_address?: string | null
+      delivery_lat?: number
+      delivery_lng?: number
+      special_instructions?: string | null
+      notes?: string
+    }
+  ) => apiClient.patch(`/admin/orders/${id}/details`, data),
+
+  updateInternalNotes: (id: string, internal_notes: string) =>
+    apiClient.patch(`/admin/orders/${id}/notes`, { internal_notes }),
 
   cancelOrder: (id: string, notes?: string) =>
     apiClient.post(`/admin/orders/${id}/cancel`, { notes }),
@@ -236,4 +268,13 @@ export const adminOrderApi = {
     apiClient.post(`/admin/orders/${id}/messages`, { message, ...(channel ? { channel } : {}) }),
 
   getShippers: () => apiClient.get('/admin/users'),
+
+  getDriverRatings: (driverId: string) =>
+    apiClient.get(`/admin/drivers/${driverId}/ratings`),
+
+  deleteRating: (ratingId: string) =>
+    apiClient.delete(`/admin/ratings/${ratingId}`),
+
+  setDriverStatus: (driverId: string, status: string) =>
+    apiClient.patch(`/admin/drivers/${driverId}/status`, { status }),
 }

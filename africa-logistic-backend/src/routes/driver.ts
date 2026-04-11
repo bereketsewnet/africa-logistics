@@ -18,6 +18,7 @@ import {
   getDriverJobMessagesHandler,
   sendDriverMessageHandler,
   getDriverUnreadCountsHandler,
+  updateDriverStatusHandler,
 } from '../controllers/driver.controller.js'
 
 export default async function driverRoutes(fastify: FastifyInstance) {
@@ -85,4 +86,13 @@ export default async function driverRoutes(fastify: FastifyInstance) {
 
   /** POST /api/driver/jobs/:id/messages — send a message to shipper */
   fastify.post('/jobs/:id/messages', sendDriverMessageHandler)
+
+  // ── Availability Status ───────────────────────────────────────────────────────
+
+  /**
+   * PATCH /api/driver/status
+   * Body: { status: 'AVAILABLE' | 'OFFLINE' }
+   * Driver changes own availability (blocked when active order in progress).
+   */
+  fastify.patch('/status', updateDriverStatusHandler)
 }

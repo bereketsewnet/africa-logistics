@@ -16,6 +16,10 @@ import {
   updateVehicle,
   assignVehicleToDriver,
   unassignVehicle,
+  getDriverRatings,
+  getDriverRatingSummary,
+  softDeleteRating,
+  adminSetDriverStatus,
 } from '../services/profile.service.js'
 
 // ─── Request Body Types ───────────────────────────────────────────────────────
@@ -224,7 +228,24 @@ export async function adminGetDriverHandler(
   if (!profile) return reply.status(404).send({ success: false, message: 'Driver not found.' })
 
   const reviews = await getDocumentReviews(db, request.params.id)
-  return reply.send({ success: true, driver_profile: profile, document_reviews: reviews })
+
+  // Trip statistics
+  const [statRows] = await db.query<any[]>(
+    `SELECT
+       COUNT(*) AS total_assigned,
+       SUM(status IN ('DELIVERED','COMPLETED')) AS completed,
+       SUM(status = 'CANCELLED') AS cancelled,
+       SUM(status IN ('ASSIGNED','EN_ROUTE','AT_PICKUP','IN_TRANSIT')) AS active_now
+     FROM orders WHERE driver_id = ?`,
+    [request.params.id]
+  )
+  const trip_stats = statRows[0] ?? { total_assigned: 0, completed: 0, cancelled: 0, active_now: 0 }
+
+  // Ratings
+  const ratings = await getDriverRatings(db, request.params.id, false)
+  const rating_summary = await getDriverRatingSummary(db, request.params.id)
+
+  return reply.send({ success: true, driver_profile: profile, document_reviews: reviews, trip_stats, ratings, rating_summary })
 }
 
 /**
@@ -689,6 +710,7 @@ import {
   listOrders,
   getOrderById,
   updateOrderStatus,
+  updateOrderInternalNotes,
   assignOrderToDriver,
   cancelOrder,
   notifyOrderStatus,
@@ -699,6 +721,7 @@ import {
   createOrder,
   generateOtp,
   getActiveDriversWithLocation,
+  getSuggestedDriversForOrder,
   getOrderMessages,
   createOrderMessage,
   markMessagesRead,
@@ -735,6 +758,20 @@ interface AdminAssignBody {
 
 interface AdminOrderStatusBody {
   status: string
+  notes?: string
+}
+
+interface AdminOrderDetailsBody {
+  cargo_type_id?: number
+  vehicle_type_required?: string
+  estimated_weight_kg?: number | null
+  pickup_address?: string | null
+  pickup_lat?: number
+  pickup_lng?: number
+  delivery_address?: string | null
+  delivery_lat?: number
+  delivery_lng?: number
+  special_instructions?: string | null
   notes?: string
 }
 
@@ -785,14 +822,27 @@ export async function adminAssignOrderHandler(
   const order  = await getOrderById(request.server.db, request.params.id)
 
   if (!order)   return reply.status(404).send({ success: false, message: 'Order not found.' })
-  if (!['PENDING', 'ASSIGNED'].includes(order.status)) {
-    return reply.status(400).send({ success: false, message: `Cannot assign driver to order in status: ${order.status}` })
-  }
   if (!driver_id) return reply.status(400).send({ success: false, message: 'driver_id is required.' })
 
-  await assignOrderToDriver(request.server.db, order.id, driver_id, vehicle_id ?? null, admin.id)
-  wsManager.broadcast(order.id, 'STATUS_CHANGED', { status: 'ASSIGNED', driver_id })
-  notifyOrderStatus(request.server.db, order.id, 'ASSIGNED')
+  if (['PENDING', 'ASSIGNED'].includes(order.status)) {
+    await assignOrderToDriver(request.server.db, order.id, driver_id, vehicle_id ?? null, admin.id)
+    wsManager.broadcast(order.id, 'STATUS_CHANGED', { status: 'ASSIGNED', driver_id })
+    notifyOrderStatus(request.server.db, order.id, 'ASSIGNED')
+  } else {
+    const db = request.server.db
+    await db.query(
+      `UPDATE orders SET driver_id = ?, vehicle_id = ?, assigned_at = IFNULL(assigned_at, NOW()), updated_by = ? WHERE id = ?`,
+      [driver_id, vehicle_id ?? null, admin.id, order.id]
+    )
+    await db.query(
+      `INSERT INTO order_status_history (order_id, status, changed_by, notes) VALUES (?, ?, ?, ?)`,
+      [order.id, order.status, admin.id, 'Driver reassigned by admin']
+    )
+    await db.query(
+      `UPDATE driver_profiles SET status = 'ON_JOB' WHERE user_id = ?`,
+      [driver_id]
+    )
+  }
 
   return reply.send({ success: true, message: 'Driver assigned successfully.' })
 }
@@ -821,6 +871,169 @@ export async function adminUpdateOrderStatusHandler(
   notifyOrderStatus(request.server.db, order.id, status as any)
 
   return reply.send({ success: true, message: `Order status updated to ${status}.` })
+}
+
+interface AdminOrderNotesBody {
+  internal_notes: string
+}
+
+/** PATCH /api/admin/orders/:id/notes — Internal admin-only notes */
+export async function adminUpdateOrderNotesHandler(
+  request: FastifyRequest<{ Params: { id: string }; Body: AdminOrderNotesBody }>,
+  reply:   FastifyReply
+) {
+  const admin  = request.user as any
+  const { internal_notes } = request.body ?? {}
+  const order  = await getOrderById(request.server.db, request.params.id)
+
+  if (!order) return reply.status(404).send({ success: false, message: 'Order not found.' })
+  if (typeof internal_notes !== 'string') {
+    return reply.status(400).send({ success: false, message: 'internal_notes must be a string.' })
+  }
+
+  await updateOrderInternalNotes(request.server.db, order.id, internal_notes, admin.id, order.status)
+  return reply.send({ success: true, message: 'Internal notes updated.' })
+}
+
+/** PATCH /api/admin/orders/:id/details — Override core order details */
+export async function adminUpdateOrderDetailsHandler(
+  request: FastifyRequest<{ Params: { id: string }; Body: AdminOrderDetailsBody }>,
+  reply: FastifyReply
+) {
+  const admin = request.user as any
+  const order = await getOrderById(request.server.db, request.params.id)
+
+  if (!order) return reply.status(404).send({ success: false, message: 'Order not found.' })
+
+  const body = request.body ?? {}
+  const db = request.server.db
+
+  const updates: string[] = []
+  const values: any[] = []
+
+  const setField = (column: string, value: any) => {
+    updates.push(`${column} = ?`)
+    values.push(value)
+  }
+
+  // Validate + apply cargo type override
+  if (body.cargo_type_id !== undefined) {
+    if (!Number.isInteger(body.cargo_type_id) || body.cargo_type_id <= 0) {
+      return reply.status(400).send({ success: false, message: 'cargo_type_id must be a positive integer.' })
+    }
+    const [cargoRows] = await db.query<any[]>(`SELECT id FROM cargo_types WHERE id = ? LIMIT 1`, [body.cargo_type_id])
+    if (!cargoRows[0]) {
+      return reply.status(400).send({ success: false, message: 'Invalid cargo_type_id.' })
+    }
+    setField('cargo_type_id', body.cargo_type_id)
+  }
+
+  if (body.vehicle_type_required !== undefined) {
+    const vt = String(body.vehicle_type_required).trim()
+    if (!vt) {
+      return reply.status(400).send({ success: false, message: 'vehicle_type_required cannot be empty.' })
+    }
+    setField('vehicle_type_required', vt)
+  }
+
+  if (body.estimated_weight_kg !== undefined) {
+    if (body.estimated_weight_kg !== null && (typeof body.estimated_weight_kg !== 'number' || body.estimated_weight_kg < 0)) {
+      return reply.status(400).send({ success: false, message: 'estimated_weight_kg must be null or a non-negative number.' })
+    }
+    setField('estimated_weight_kg', body.estimated_weight_kg)
+  }
+
+  if (body.pickup_address !== undefined) setField('pickup_address', body.pickup_address)
+  if (body.delivery_address !== undefined) setField('delivery_address', body.delivery_address)
+
+  const hasPickupLat = body.pickup_lat !== undefined
+  const hasPickupLng = body.pickup_lng !== undefined
+  const hasDeliveryLat = body.delivery_lat !== undefined
+  const hasDeliveryLng = body.delivery_lng !== undefined
+
+  if (hasPickupLat !== hasPickupLng) {
+    return reply.status(400).send({ success: false, message: 'pickup_lat and pickup_lng must be provided together.' })
+  }
+  if (hasDeliveryLat !== hasDeliveryLng) {
+    return reply.status(400).send({ success: false, message: 'delivery_lat and delivery_lng must be provided together.' })
+  }
+
+  if (hasPickupLat && hasPickupLng) {
+    if (typeof body.pickup_lat !== 'number' || typeof body.pickup_lng !== 'number') {
+      return reply.status(400).send({ success: false, message: 'pickup_lat and pickup_lng must be numbers.' })
+    }
+    setField('pickup_lat', body.pickup_lat)
+    setField('pickup_lng', body.pickup_lng)
+  }
+  if (hasDeliveryLat && hasDeliveryLng) {
+    if (typeof body.delivery_lat !== 'number' || typeof body.delivery_lng !== 'number') {
+      return reply.status(400).send({ success: false, message: 'delivery_lat and delivery_lng must be numbers.' })
+    }
+    setField('delivery_lat', body.delivery_lat)
+    setField('delivery_lng', body.delivery_lng)
+  }
+
+  if (body.special_instructions !== undefined) {
+    setField('special_instructions', body.special_instructions)
+  }
+
+  // Recalculate route distance + estimated price when pricing-relevant fields changed.
+  const recalcPricing =
+    body.vehicle_type_required !== undefined ||
+    body.estimated_weight_kg !== undefined ||
+    hasPickupLat ||
+    hasDeliveryLat
+
+  if (recalcPricing) {
+    const nextVehicleType = body.vehicle_type_required ?? order.vehicle_type_required
+    const nextWeight = body.estimated_weight_kg === undefined
+      ? (order.estimated_weight_kg != null ? Number(order.estimated_weight_kg) : undefined)
+      : (body.estimated_weight_kg ?? undefined)
+    const nextPickupLat = hasPickupLat ? Number(body.pickup_lat) : Number(order.pickup_lat)
+    const nextPickupLng = hasPickupLng ? Number(body.pickup_lng) : Number(order.pickup_lng)
+    const nextDeliveryLat = hasDeliveryLat ? Number(body.delivery_lat) : Number(order.delivery_lat)
+    const nextDeliveryLng = hasDeliveryLng ? Number(body.delivery_lng) : Number(order.delivery_lng)
+
+    if (!nextVehicleType) {
+      return reply.status(400).send({ success: false, message: 'vehicle_type_required is required to recalculate pricing.' })
+    }
+
+    const rule = await getPricingRule(db, nextVehicleType)
+    if (!rule) {
+      return reply.status(400).send({ success: false, message: `No pricing rule for vehicle type: ${nextVehicleType}` })
+    }
+
+    const distanceKm = await getRouteDistanceKm(nextPickupLat, nextPickupLng, nextDeliveryLat, nextDeliveryLng)
+    const quote = calculateQuote(distanceKm, rule as PricingRuleRow, nextWeight)
+
+    setField('distance_km', quote.distance_km)
+    setField('base_fare', quote.base_fare)
+    setField('per_km_rate', quote.per_km_rate)
+    setField('city_surcharge', quote.city_surcharge)
+    setField('estimated_price', quote.estimated_price)
+  }
+
+  if (updates.length === 0) {
+    return reply.status(400).send({ success: false, message: 'No fields to update.' })
+  }
+
+  updates.push('updated_at = NOW()')
+  updates.push('updated_by = ?')
+  values.push(admin.id)
+  values.push(order.id)
+
+  await db.query(
+    `UPDATE orders SET ${updates.join(', ')} WHERE id = ?`,
+    values
+  )
+
+  await db.query(
+    `INSERT INTO order_status_history (order_id, status, changed_by, notes) VALUES (?, ?, ?, ?)`,
+    [order.id, order.status, admin.id, body.notes?.trim() || 'Order details overridden by admin']
+  )
+
+  const updated = await getOrderById(db, order.id)
+  return reply.send({ success: true, message: 'Order details updated.', order: updated })
 }
 
 /** POST /api/admin/orders/:id/cancel */
@@ -1164,4 +1377,98 @@ export async function adminListGuestOrdersHandler(
   })
 }
 
+// ─── Dispatch Auto-Suggest ────────────────────────────────────────────────────
 
+/** GET /api/admin/orders/:id/suggest-drivers — nearest available drivers to pickup */
+export async function adminSuggestDriversHandler(
+  request: FastifyRequest<{ Params: { id: string } }>,
+  reply:   FastifyReply
+) {
+  const order = await getOrderById(request.server.db, request.params.id)
+  if (!order) return reply.status(404).send({ success: false, message: 'Order not found.' })
+
+  if (order.pickup_lat == null || order.pickup_lng == null) {
+    return reply.send({ success: true, drivers: [] })
+  }
+
+  const drivers = await getSuggestedDriversForOrder(
+    request.server.db,
+    Number(order.pickup_lat),
+    Number(order.pickup_lng)
+  )
+  return reply.send({ success: true, drivers })
+}
+
+// ─── Price Adjustment ─────────────────────────────────────────────────────────
+
+interface AdminPriceAdjustBody {
+  final_price: number
+  notes?: string
+}
+
+/** PATCH /api/admin/orders/:id/price — override final price */
+export async function adminUpdateOrderPriceHandler(
+  request: FastifyRequest<{ Params: { id: string }; Body: AdminPriceAdjustBody }>,
+  reply:   FastifyReply
+) {
+  const admin = request.user as any
+  const { final_price, notes } = request.body
+
+  if (typeof final_price !== 'number' || final_price < 0) {
+    return reply.status(400).send({ success: false, message: 'final_price must be a non-negative number.' })
+  }
+
+  const order = await getOrderById(request.server.db, request.params.id)
+  if (!order) return reply.status(404).send({ success: false, message: 'Order not found.' })
+
+  const db = request.server.db
+  await db.query('UPDATE orders SET final_price = ?, updated_by = ? WHERE id = ?', [final_price, admin.id, order.id])
+  await db.query(
+    `INSERT INTO order_status_history (id, order_id, status, changed_by, notes, created_at)
+     VALUES (?, ?, ?, ?, ?, NOW())`,
+    [uuidv4(), order.id, order.status, admin.id, `Price adjusted to ${final_price} ETB. ${notes ?? ''}`.trim()]
+  )
+
+  return reply.send({ success: true, message: `Price updated to ${final_price} ETB.` })
+}
+
+// ─── Driver Ratings (Admin) ───────────────────────────────────────────────────
+
+/** GET /api/admin/drivers/:id/ratings — list all ratings for a driver */
+export async function adminGetDriverRatingsHandler(
+  request: FastifyRequest<{ Params: { id: string } }>,
+  reply:   FastifyReply
+) {
+  const ratings = await getDriverRatings(request.server.db, request.params.id, false)
+  const summary = await getDriverRatingSummary(request.server.db, request.params.id)
+  return reply.send({ success: true, ratings, summary })
+}
+
+/** DELETE /api/admin/ratings/:id — soft-delete a rating */
+export async function adminDeleteRatingHandler(
+  request: FastifyRequest<{ Params: { id: string } }>,
+  reply:   FastifyReply
+) {
+  const admin = request.user as any
+  const result = await softDeleteRating(request.server.db, request.params.id, admin.id)
+  if (!result.ok) return reply.status(404).send({ success: false, message: 'Rating not found.' })
+  return reply.send({ success: true, message: 'Rating deleted.' })
+}
+
+/** PATCH /api/admin/drivers/:id/status — admin overrides driver status */
+export async function adminUpdateDriverStatusHandler(
+  request: FastifyRequest<{ Params: { id: string }; Body: { status: string } }>,
+  reply:   FastifyReply
+) {
+  const VALID = ['AVAILABLE', 'OFFLINE', 'SUSPENDED', 'ON_JOB']
+  const { status } = request.body ?? {}
+  if (!status || !VALID.includes(status)) {
+    return reply.status(400).send({ success: false, message: `status must be one of: ${VALID.join(', ')}` })
+  }
+  await adminSetDriverStatus(
+    request.server.db,
+    request.params.id,
+    status as 'AVAILABLE' | 'OFFLINE' | 'SUSPENDED' | 'ON_JOB'
+  )
+  return reply.send({ success: true, message: `Driver status set to ${status}.` })
+}
