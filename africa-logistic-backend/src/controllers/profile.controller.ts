@@ -498,7 +498,7 @@ export async function getTransactionHistoryHandler(request: FastifyRequest, repl
   const { getWalletTransactionHistory } = await import('../services/wallet.service.js')
 
   try {
-    const { transactions, total } = await getWalletTransactionHistory(db, caller.id, Math.min(limit, 100), offset)
+    const { transactions, total } = await getWalletTransactionHistory(db, caller.id, Math.min(Number(limit), 100), Number(offset))
 
     return reply.send({
       success: true,
@@ -537,7 +537,7 @@ export async function getInvoicesHandler(request: FastifyRequest, reply: Fastify
     // Determine user role
     const userRole = caller.role_id === 2 ? 'shipper' : 'driver'
 
-    const { invoices, total } = await getUserInvoices(db, caller.id, userRole, Math.min(limit, 100), offset)
+    const { invoices, total } = await getUserInvoices(db, caller.id, userRole, Math.min(Number(limit), 100), Number(offset))
 
     return reply.send({
       success: true,
@@ -624,8 +624,11 @@ export async function submitManualPaymentHandler(
   const db = request.server.db
   const { amount, payment_method, proof_image } = request.body
 
-  if (!amount || amount <= 0 || amount > 10000000) {
-    return reply.status(400).send({ message: 'Amount must be between 1 and 10,000,000' })
+  // Allowed preset amounts
+  const ALLOWED_AMOUNTS = [100, 200, 500, 1000, 2000, 5000, 10000, 20000, 50000]
+
+  if (!amount || !ALLOWED_AMOUNTS.includes(amount)) {
+    return reply.status(400).send({ message: `Amount must be one of: ${ALLOWED_AMOUNTS.join(', ')} ETB` })
   }
 
   if (!payment_method?.trim()) {

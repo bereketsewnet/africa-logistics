@@ -1524,15 +1524,16 @@ export async function getPendingPaymentsHandler(
   request: FastifyRequest,
   reply: FastifyReply
 ) {
-  const { limit = 50, offset = 0 } = request.query as { limit: number; offset: number }
+  const { limit = 50, offset = 0, status = 'PENDING' } = request.query as { limit: number; offset: number; status: string }
 
   try {
     const { getPendingManualPayments } = await import('../services/payment.service.js')
 
     const { records, total } = await getPendingManualPayments(
       request.server.db,
-      Math.min(limit, 100),
-      offset
+      Math.min(Number(limit), 100),
+      Number(offset),
+      status
     )
 
     return reply.send({
@@ -1543,10 +1544,12 @@ export async function getPendingPaymentsHandler(
         user_id: r.user_id,
         user_name: `${r.first_name} ${r.last_name}`,
         user_phone: r.phone_number,
+        user_email: r.email || '',
         amount: Number(r.amount),
         action_type: r.action_type,
         reason: r.reason,
         proof_image_url: r.proof_image_url,
+        status: r.status,
         submitted_at: r.submitted_at,
         current_balance: Number(r.balance),
       })),
@@ -1595,27 +1598,35 @@ export async function approveManualPaymentHandler(
     }
 
     // Approve payment
-    await approveManualPayment(request.server.db, recordId, admin.id, notes)
+    await approveManualPayment(request.server.db, recordId, record.user_id, admin.id, notes)
 
-    // Send notifications
-    await sendPushToUser(request.server.db, record.user_id, {
-      title: record.action_type === 'DEPOSIT' ? 'Deposit Approved' : 'Withdrawal Approved',
-      body: `Your ${record.action_type.toLowerCase()} of ${record.amount.toFixed(2)} ETB has been approved.`,
-      url: '/wallet',
-      data: { type: 'payment_approved', record_id: recordId }
-    }).catch(() => {})
+    // Send notifications (don't let failures here block the response)
+    try {
+      await sendPushToUser(request.server.db, record.user_id, {
+        title: record.action_type === 'DEPOSIT' ? 'Deposit Approved' : 'Withdrawal Approved',
+        body: `Your ${record.action_type.toLowerCase()} of ${Number(record.amount).toFixed(2)} ETB has been approved.`,
+        url: '/wallet',
+        data: { type: 'payment_approved', record_id: recordId }
+      })
+    } catch (pushErr: any) {
+      request.server.log.warn({ pushErr }, 'Failed to send push notification')
+    }
 
     if (record.email) {
-      sendEmail({
-        to: record.email,
-        subject: `${record.action_type} Approved - ${record.amount.toFixed(2)} ETB`,
-        text: `Your ${record.action_type.toLowerCase()} request has been approved.\n\nAmount: ${record.amount.toFixed(2)} ETB\nReason: ${record.reason}\n\nCheck your wallet in the app.`
-      }).catch(() => {})
+      try {
+        await sendEmail({
+          to: record.email,
+          subject: `${record.action_type} Approved - ${Number(record.amount).toFixed(2)} ETB`,
+          text: `Your ${record.action_type.toLowerCase()} request has been approved.\n\nAmount: ${Number(record.amount).toFixed(2)} ETB\nReason: ${record.reason}\n\nCheck your wallet in the app.`
+        })
+      } catch (emailErr: any) {
+        request.server.log.warn({ emailErr }, 'Failed to send email notification')
+      }
     }
 
     return reply.send({
       success: true,
-      message: `Payment approved. Wallet updated with ${record.amount.toFixed(2)} ETB.`,
+      message: `Payment approved. Wallet updated with ${Number(record.amount).toFixed(2)} ETB.`,
     })
   } catch (err) {
     request.server.log.error(err)
@@ -1664,20 +1675,28 @@ export async function rejectManualPaymentHandler(
     // Reject payment
     await rejectManualPayment(request.server.db, recordId, admin.id, reason)
 
-    // Send notifications
-    await sendPushToUser(request.server.db, record.user_id, {
-      title: 'Payment Rejected',
-      body: `Your ${record.action_type.toLowerCase()} request was rejected: ${reason}`,
-      url: '/wallet',
-      data: { type: 'payment_rejected', record_id: recordId }
-    }).catch(() => {})
+    // Send notifications (don't let failures here block the response)
+    try {
+      await sendPushToUser(request.server.db, record.user_id, {
+        title: 'Payment Rejected',
+        body: `Your ${record.action_type.toLowerCase()} request was rejected: ${reason}`,
+        url: '/wallet',
+        data: { type: 'payment_rejected', record_id: recordId }
+      })
+    } catch (pushErr: any) {
+      request.server.log.warn({ pushErr }, 'Failed to send push notification')
+    }
 
     if (record.email) {
-      sendEmail({
-        to: record.email,
-        subject: `${record.action_type} Rejected`,
-        text: `Your ${record.action_type.toLowerCase()} request has been rejected.\n\nAmount: ${record.amount.toFixed(2)} ETB\nReason: ${reason}`
-      }).catch(() => {})
+      try {
+        await sendEmail({
+          to: record.email,
+          subject: `${record.action_type} Rejected`,
+          text: `Your ${record.action_type.toLowerCase()} request has been rejected.\n\nAmount: ${Number(record.amount).toFixed(2)} ETB\nReason: ${reason}`
+        })
+      } catch (emailErr: any) {
+        request.server.log.warn({ emailErr }, 'Failed to send email notification')
+      }
     }
 
     return reply.send({

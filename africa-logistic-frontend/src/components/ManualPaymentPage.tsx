@@ -123,34 +123,28 @@ export default function ManualPaymentPage({ onSuccess }: ManualPaymentPageProps)
           <label style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--clr-text)', display: 'block', marginBottom: '0.5rem' }}>
             Amount (ብር)
           </label>
-          <div style={{ display: 'flex', gap: '0.5rem' }}>
-            <input
-              type="number"
-              placeholder="e.g., 1000"
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
-              min="100"
-              max="500000"
-              step="100"
-              required
-              style={{
-                flex: 1, padding: '0.85rem 1rem', background: 'rgba(255,255,255,0.04)',
-                border: '1px solid rgba(255,255,255,0.08)', borderRadius: '10px',
-                color: 'var(--clr-text)', fontSize: '1rem', fontFamily: 'inherit',
-                outline: 'none'
-              }}
-            />
-            <div style={{
-              display: 'flex', alignItems: 'center', padding: '0.85rem 1rem',
-              background: 'rgba(255,255,255,0.03)', borderRadius: '10px',
-              color: 'var(--clr-muted)', fontWeight: 700, minWidth: '60px', justifyContent: 'center'
-            }}>
-              ብር
-            </div>
-          </div>
-          <p style={{ fontSize: '0.75rem', color: 'var(--clr-muted)', marginTop: '0.4rem' }}>
-            Minimum: 100 ብር | Maximum: 500,000 ብር
-          </p>
+          <select
+            value={amount}
+            onChange={(e) => setAmount(e.target.value)}
+            required
+            style={{
+              width: '100%', padding: '0.85rem 1rem', background: 'rgba(255,255,255,0.04)',
+              border: '1px solid rgba(255,255,255,0.08)', borderRadius: '10px',
+              color: 'var(--clr-text)', fontSize: '1rem', fontFamily: 'inherit',
+              outline: 'none', cursor: 'pointer'
+            }}
+          >
+            <option value="">Select an amount</option>
+            <option value="100">100 ብር</option>
+            <option value="200">200 ብር</option>
+            <option value="500">500 ብር</option>
+            <option value="1000">1,000 ብር</option>
+            <option value="2000">2,000 ብር</option>
+            <option value="5000">5,000 ብር</option>
+            <option value="10000">10,000 ብር</option>
+            <option value="20000">20,000 ብር</option>
+            <option value="50000">50,000 ብር</option>
+          </select>
         </div>
 
         {/* Payment Method */}

@@ -4,22 +4,22 @@ import {
   LuCheck, LuX, LuClock, LuEye, LuTriangleAlert, LuChevronLeft,
 } from 'react-icons/lu'
 
+const UPLOADS_BASE = (import.meta.env.VITE_API_BASE_URL as string).replace(/\/api\/?$/, '')
+
 interface ManualPayment {
-  payment_id: string
+  id: string
+  wallet_id: string
   user_id: string
+  user_name: string
+  user_phone: string
+  user_email: string
   amount: number
-  proof_image_url: string
+  action_type: string
+  reason: string
+  proof_image_url: string | null
   status: 'PENDING' | 'APPROVED' | 'REJECTED'
-  admin_notes: string | null
-  rejection_reason: string | null
-  created_at: string
-  updated_at: string
-  user?: {
-    first_name: string
-    last_name: string
-    email: string
-    phone_number: string
-  }
+  submitted_at: string
+  current_balance: number
 }
 
 export default function AdminPaymentReview() {
@@ -31,10 +31,11 @@ export default function AdminPaymentReview() {
   const [notes, setNotes] = useState('')
   const [filterStatus, setFilterStatus] = useState<'PENDING' | 'ALL'>('PENDING')
 
-  const fetchPayments = async () => {
+  const fetchPayments = async (status: string) => {
     try {
       setError('')
-      const { data } = await apiClient.get('/admin/payments/pending')
+      setLoading(true)
+      const { data } = await apiClient.get('/admin/payments/pending', { params: { status } })
       setPayments(data.payments || [])
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to load payments')
@@ -44,19 +45,19 @@ export default function AdminPaymentReview() {
   }
 
   useEffect(() => {
-    fetchPayments()
-  }, [])
+    fetchPayments(filterStatus)
+  }, [filterStatus])
 
   const handleApprove = async () => {
     if (!selectedPayment) return
     setProcessing(true)
     try {
-      await apiClient.post(`/admin/payments/${selectedPayment.payment_id}/approve`, {
+      await apiClient.post(`/admin/payments/${selectedPayment.id}/approve`, {
         notes: notes || undefined
       })
       setNotes('')
       setSelectedPayment(null)
-      fetchPayments()
+      fetchPayments(filterStatus)
       alert('Payment approved successfully')
     } catch (err: any) {
       alert(err.response?.data?.message || 'Failed to approve payment')
@@ -73,12 +74,12 @@ export default function AdminPaymentReview() {
     }
     setProcessing(true)
     try {
-      await apiClient.post(`/admin/payments/${selectedPayment.payment_id}/reject`, {
+      await apiClient.post(`/admin/payments/${selectedPayment.id}/reject`, {
         reason: notes
       })
       setNotes('')
       setSelectedPayment(null)
-      fetchPayments()
+      fetchPayments(filterStatus)
       alert('Payment rejected')
     } catch (err: any) {
       alert(err.response?.data?.message || 'Failed to reject payment')
@@ -105,9 +106,7 @@ export default function AdminPaymentReview() {
     })
   }
 
-  const filteredPayments = filterStatus === 'PENDING'
-    ? payments.filter(p => p.status === 'PENDING')
-    : payments
+  const filteredPayments = payments
 
   const pendingCount = payments.filter(p => p.status === 'PENDING').length
 
@@ -154,19 +153,19 @@ export default function AdminPaymentReview() {
             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
               <span style={{ color: 'var(--clr-muted)', fontSize: '0.9rem' }}>Name:</span>
               <span style={{ color: 'var(--clr-text)', fontWeight: 600 }}>
-                {selectedPayment.user?.first_name} {selectedPayment.user?.last_name}
+                {selectedPayment.user_name}
               </span>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
               <span style={{ color: 'var(--clr-muted)', fontSize: '0.9rem' }}>Email:</span>
               <span style={{ color: 'var(--clr-text)', fontWeight: 600, wordBreak: 'break-all' }}>
-                {selectedPayment.user?.email}
+                {selectedPayment.user_email || '—'}
               </span>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
               <span style={{ color: 'var(--clr-muted)', fontSize: '0.9rem' }}>Phone:</span>
               <span style={{ color: 'var(--clr-text)', fontWeight: 600 }}>
-                {selectedPayment.user?.phone_number}
+                {selectedPayment.user_phone || '—'}
               </span>
             </div>
           </div>
@@ -193,7 +192,7 @@ export default function AdminPaymentReview() {
             <div style={{ padding: '1rem', background: 'rgba(255,255,255,0.03)', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.08)' }}>
               <p style={{ fontSize: '0.75rem', color: 'var(--clr-muted)', marginBottom: '0.25rem' }}>Submitted</p>
               <p style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--clr-text)' }}>
-                {formatDate(selectedPayment.created_at)}
+                {formatDate(selectedPayment.submitted_at)}
               </p>
             </div>
           </div>
@@ -204,15 +203,45 @@ export default function AdminPaymentReview() {
           <h4 style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--clr-text)', marginBottom: '1rem' }}>
             Payment Proof
           </h4>
-          <img
-            src={selectedPayment.proof_image_url}
-            alt="Payment Proof"
-            style={{
-              width: '100%', maxHeight: '400px', objectFit: 'contain',
-              borderRadius: '12px', border: '1px solid rgba(255,255,255,0.1)',
-              background: 'rgba(255,255,255,0.02)'
-            }}
-          />
+          {selectedPayment.proof_image_url ? (
+            selectedPayment.proof_image_url.endsWith('.pdf') ? (
+              <div style={{
+                padding: '2rem', borderRadius: '12px',
+                border: '1px solid rgba(0,229,255,0.2)',
+                background: 'rgba(255,255,255,0.03)',
+                display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.75rem'
+              }}>
+                <span style={{ fontSize: '3rem' }}>📄</span>
+                <a
+                  href={`${UPLOADS_BASE}${selectedPayment.proof_image_url}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{ color: 'var(--clr-accent)', fontWeight: 600 }}
+                >
+                  View PDF Document
+                </a>
+              </div>
+            ) : (
+              <img
+                src={`${UPLOADS_BASE}${selectedPayment.proof_image_url}`}
+                alt="Payment Proof"
+                style={{
+                  width: '100%', maxHeight: '400px', objectFit: 'contain',
+                  borderRadius: '12px', border: '1px solid rgba(255,255,255,0.1)',
+                  background: 'rgba(255,255,255,0.02)'
+                }}
+              />
+            )
+          ) : (
+            <div style={{
+              padding: '2rem', borderRadius: '12px',
+              border: '1px solid rgba(255,255,255,0.08)',
+              background: 'rgba(255,255,255,0.02)',
+              textAlign: 'center', color: 'var(--clr-muted)'
+            }}>
+              No payment proof attached
+            </div>
+          )}
         </div>
 
         {/* Notes */}
@@ -343,7 +372,7 @@ export default function AdminPaymentReview() {
         <div style={{ display: 'grid', gap: '0.75rem' }}>
           {filteredPayments.map((payment) => (
             <div
-              key={payment.payment_id}
+              key={payment.id}
               className="glass hover-lift"
               style={{
                 padding: '1.25rem', display: 'flex', justifyContent: 'space-between',
@@ -358,17 +387,17 @@ export default function AdminPaymentReview() {
             >
               <div style={{ flex: 1, minWidth: '200px' }}>
                 <p style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--clr-text)', marginBottom: '0.3rem' }}>
-                  {payment.user?.first_name} {payment.user?.last_name}
+                  {payment.user_name}
                 </p>
                 <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', flexWrap: 'wrap', marginTop: '0.5rem', fontSize: '0.85rem' }}>
                   <span style={{ color: 'var(--clr-muted)' }}>
-                    {payment.user?.email}
+                    {payment.user_email}
                   </span>
                   <span style={{ color: 'var(--clr-muted)' }}>
                     •
                   </span>
                   <span style={{ color: 'var(--clr-muted)' }}>
-                    {formatDate(payment.created_at)}
+                    {formatDate(payment.submitted_at)}
                   </span>
                 </div>
               </div>

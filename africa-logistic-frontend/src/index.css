@@ -1099,3 +1099,14 @@ html, body, #root {
     border-bottom-color: rgba(0,0,0,0.08) !important;
   }
 }
+
+/* ── Force dark rendering for all select/option elements ── */
+select {
+  color-scheme: dark;
+  background-color: rgba(15, 23, 42, 0.95);
+  color: #e2e8f0;
+}
+select option {
+  background-color: #0f172a;
+  color: #e2e8f0;
+}

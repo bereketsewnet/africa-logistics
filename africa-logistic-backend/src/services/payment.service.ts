@@ -343,10 +343,13 @@ export async function processManualPayment(
 export async function getPendingManualPayments(
   db: Pool,
   limit: number = 50,
-  offset: number = 0
+  offset: number = 0,
+  status: string = 'PENDING'
 ): Promise<{ records: any[]; total: number }> {
+  const whereClause = status === 'ALL' ? '' : `WHERE mpr.status = 'PENDING'`
+
   const [totalRows] = await db.query<any[]>(
-    `SELECT COUNT(*) as total FROM manual_payment_records WHERE status = 'PENDING'`
+    `SELECT COUNT(*) as total FROM manual_payment_records mpr ${whereClause}`
   )
 
   const [records] = await db.query<any[]>(
@@ -355,11 +358,12 @@ export async function getPendingManualPayments(
        u.phone_number,
        u.first_name,
        u.last_name,
+       u.email,
        w.balance
      FROM manual_payment_records mpr
      JOIN wallets w ON w.id = mpr.wallet_id
      JOIN users u ON u.id = w.user_id
-     WHERE mpr.status = 'PENDING'
+     ${whereClause}
      ORDER BY mpr.submitted_at DESC
      LIMIT ? OFFSET ?`,
     [limit, offset]
@@ -373,10 +377,12 @@ export async function getPendingManualPayments(
 
 /**
  * Approve manual payment (by admin)
+ * Pass userId explicitly to avoid wallet lookup issues
  */
 export async function approveManualPayment(
   db: Pool,
   recordId: string,
+  userId: string,
   approvedBy: string,
   notes?: string
 ): Promise<void> {
@@ -395,7 +401,7 @@ export async function approveManualPayment(
   if (!record.transaction_id) {
     const txId = await addWalletTransaction(
       db,
-      (await getOrCreateWallet(db, record.wallet_id)).user_id,
+      userId,
       record.action_type === 'DEPOSIT' ? 'CREDIT' : 'DEBIT',
       record.amount,
       `Admin ${record.action_type}: ${record.reason}`,
