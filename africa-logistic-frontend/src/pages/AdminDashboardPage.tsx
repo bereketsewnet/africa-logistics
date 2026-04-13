@@ -7,7 +7,7 @@ import { useNavigate } from 'react-router-dom'
 import apiClient, { authApi, adminOrderApi, configApi } from '../lib/apiClient'
 import PhoneField from '../components/PhoneField'
 import { normalisePhone } from '../lib/normalisePhone'
-import { MapContainer, TileLayer, Marker, Popup, Polyline } from 'react-leaflet'
+import { MapContainer, TileLayer, Marker, Popup, Polyline, useMapEvents } from 'react-leaflet'
 import AdminPaymentReview from '../components/AdminPaymentReview'
 import AdminWalletAdjustment from '../components/AdminWalletAdjustment'
 import L from 'leaflet'
@@ -3984,6 +3984,191 @@ function VehicleManagementSection() {
   )
 }
 
+// ─── Admin Map Helpers (shared by Create Order forms) ────────────────────────
+
+const adminPickupIcon = new L.DivIcon({
+  html: `<div style="width:18px;height:18px;border-radius:50%;background:#4ade80;border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,0.5)"></div>`,
+  iconSize: [18, 18], iconAnchor: [9, 9], className: '',
+})
+const adminDeliveryIcon = new L.DivIcon({
+  html: `<div style="width:18px;height:18px;border-radius:50%;background:#f87171;border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,0.5)"></div>`,
+  iconSize: [18, 18], iconAnchor: [9, 9], className: '',
+})
+
+async function adminReverseGeocode(lat: number, lng: number): Promise<{ address: string; countryCode: string | null }> {
+  try {
+    const r = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&addressdetails=1&lat=${lat}&lon=${lng}`, { headers: { 'Accept-Language': 'en' } })
+    const d = await r.json()
+    const { road, suburb, city, town, village, state, country, country_code } = d.address ?? {}
+    const parts = [road, suburb, city ?? town ?? village, state, country].filter(Boolean)
+    return { address: parts.join(', ') || `${lat.toFixed(5)}, ${lng.toFixed(5)}`, countryCode: country_code ? String(country_code).toLowerCase() : null }
+  } catch { return { address: `${lat.toFixed(5)}, ${lng.toFixed(5)}`, countryCode: null } }
+}
+
+function AdminMapClickHandler({ onPick }: { onPick: (lat: number, lng: number) => void }) {
+  useMapEvents({ click: e => onPick(e.latlng.lat, e.latlng.lng) })
+  return null
+}
+
+function AdminLocationSearch({ label, dotColor, value, countryCode, onSelect, onClear }: {
+  label: string; dotColor: string; value: string; countryCode?: string
+  onSelect: (lat: string, lng: string, addr: string, cCode: string | null) => void
+  onClear: () => void
+}) {
+  const [q, setQ]       = useState(value)
+  const [results, setResults] = useState<Array<{ display_name: string; lat: string; lon: string; address?: { country_code?: string } }>>([])
+  const [open, setOpen] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const timerRef        = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const wrapRef         = useRef<HTMLDivElement>(null)
+
+  useEffect(() => { setQ(value) }, [value])
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => { if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) setOpen(false) }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [])
+
+  const search = (text: string) => {
+    setQ(text)
+    clearTimeout(timerRef.current ?? undefined)
+    if (!text.trim() || text.length < 2) { setResults([]); setOpen(false); return }
+    timerRef.current = setTimeout(async () => {
+      setBusy(true)
+      try {
+        const res = await fetch(
+          `https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&q=${encodeURIComponent(text)}&limit=6${countryCode ? `&countrycodes=${encodeURIComponent(countryCode)}` : ''}`,
+          { headers: { 'Accept-Language': 'en' } }
+        )
+        const d: Array<{ display_name: string; lat: string; lon: string; address?: { country_code?: string } }> = await res.json()
+        setResults(d); setOpen(d.length > 0)
+      } catch { /* ignore */ }
+      finally { setBusy(false) }
+    }, 450)
+  }
+
+  return (
+    <div ref={wrapRef} style={{ position: 'relative' }}>
+      <div style={{ display:'flex', alignItems:'center', gap:'0.5rem', padding:'0.6rem 0.85rem', borderRadius:10, background:'rgba(255,255,255,0.05)', border:`1px solid ${dotColor}44` }}>
+        <span style={{ width:9, height:9, borderRadius:'50%', background:dotColor, flexShrink:0 }}/>
+        <span style={{ fontSize:'0.67rem', fontWeight:700, color:dotColor, width:50, flexShrink:0, textTransform:'uppercase', letterSpacing:'0.05em' }}>{label}</span>
+        <input value={q} onChange={e => search(e.target.value)} onFocus={() => results.length > 0 && setOpen(true)}
+          placeholder={`Type ${label.toLowerCase()} address…`}
+          style={{ flex:1, background:'none', border:'none', color:'var(--clr-text)', fontFamily:'inherit', fontSize:'0.82rem', outline:'none', minWidth:0 }}/>
+        {busy && <span className="spinner" style={{ width:13, height:13, borderWidth:1.5, flexShrink:0 }}/>}
+        {q && !busy && <button type="button" onClick={() => { setQ(''); setResults([]); setOpen(false); onClear() }} style={{ background:'none', border:'none', cursor:'pointer', color:'var(--clr-muted)', padding:0, display:'flex', alignItems:'center', flexShrink:0 }}><LuX size={12}/></button>}
+      </div>
+      {open && results.length > 0 && (
+        <div style={{ position:'absolute', top:'calc(100% + 3px)', left:0, right:0, zIndex:9999, background:'#0d1526', border:'1px solid rgba(255,255,255,0.14)', borderRadius:10, overflow:'hidden', boxShadow:'0 10px 40px rgba(0,0,0,0.7)', maxHeight:200, overflowY:'auto' }}>
+          {results.map((item, i) => (
+            <button key={i} type="button"
+              onClick={() => { setQ(item.display_name); setOpen(false); onSelect(item.lat, item.lon, item.display_name, item.address?.country_code ? String(item.address.country_code).toLowerCase() : null) }}
+              style={{ display:'flex', alignItems:'flex-start', gap:'0.45rem', width:'100%', textAlign:'left', padding:'0.6rem 0.85rem', background:'none', border:'none', borderBottom: i < results.length-1 ? '1px solid rgba(255,255,255,0.05)' : 'none', color:'var(--clr-text)', fontFamily:'inherit', fontSize:'0.78rem', cursor:'pointer', lineHeight:1.4 }}
+              onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.07)')}
+              onMouseLeave={e => (e.currentTarget.style.background = 'none')}>
+              <LuMapPin size={12} style={{ color:dotColor, marginTop:2, flexShrink:0 }}/><span>{item.display_name}</span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+interface AdminMapPickerProps {
+  pickupLat: string; pickupLng: string; pickupAddress: string
+  deliveryLat: string; deliveryLng: string; deliveryAddress: string
+  selectedCountryCode?: string
+  onChange: (field: 'pickup_lat'|'pickup_lng'|'pickup_address'|'pickup_country_code'|'delivery_lat'|'delivery_lng'|'delivery_address'|'delivery_country_code', val: string) => void
+}
+function AdminMapPicker({ pickupLat, pickupLng, pickupAddress, deliveryLat, deliveryLng, deliveryAddress, selectedCountryCode, onChange }: AdminMapPickerProps) {
+  const [mode, setMode]         = useState<'pickup'|'delivery'>('pickup')
+  const [geocoding, setGeocoding] = useState(false)
+  const [gpsLoading, setGpsLoading] = useState(false)
+
+  const handlePick = async (lat: number, lng: number) => {
+    setGeocoding(true)
+    const geo = await adminReverseGeocode(lat, lng)
+    if (mode === 'pickup') {
+      onChange('pickup_lat', lat.toFixed(6)); onChange('pickup_lng', lng.toFixed(6))
+      onChange('pickup_address', geo.address); onChange('pickup_country_code', geo.countryCode ?? '')
+    } else {
+      onChange('delivery_lat', lat.toFixed(6)); onChange('delivery_lng', lng.toFixed(6))
+      onChange('delivery_address', geo.address); onChange('delivery_country_code', geo.countryCode ?? '')
+    }
+    setGeocoding(false)
+  }
+
+  const useMyLocation = () => {
+    if (!navigator.geolocation) return
+    setGpsLoading(true)
+    navigator.geolocation.getCurrentPosition(async pos => {
+      const { latitude: lat, longitude: lng } = pos.coords
+      const geo = await adminReverseGeocode(lat, lng)
+      if (mode === 'pickup') {
+        onChange('pickup_lat', lat.toFixed(6)); onChange('pickup_lng', lng.toFixed(6))
+        onChange('pickup_address', geo.address); onChange('pickup_country_code', geo.countryCode ?? '')
+      } else {
+        onChange('delivery_lat', lat.toFixed(6)); onChange('delivery_lng', lng.toFixed(6))
+        onChange('delivery_address', geo.address); onChange('delivery_country_code', geo.countryCode ?? '')
+      }
+      setGpsLoading(false)
+    }, () => setGpsLoading(false))
+  }
+
+  const pLat = parseFloat(pickupLat), pLng = parseFloat(pickupLng)
+  const dLat = parseFloat(deliveryLat), dLng = parseFloat(deliveryLng)
+  const hasPickup   = !isNaN(pLat) && !isNaN(pLng)
+  const hasDelivery = !isNaN(dLat) && !isNaN(dLng)
+
+  return (
+    <div style={{ display:'flex', flexDirection:'column', gap:'0.5rem' }}>
+      <AdminLocationSearch label="Pickup" dotColor="#4ade80" value={pickupAddress} countryCode={selectedCountryCode}
+        onSelect={(lat, lng, addr, cCode) => { onChange('pickup_lat', lat); onChange('pickup_lng', lng); onChange('pickup_address', addr); onChange('pickup_country_code', cCode ?? ''); setMode('delivery') }}
+        onClear={() => { onChange('pickup_lat',''); onChange('pickup_lng',''); onChange('pickup_address',''); onChange('pickup_country_code','') }}/>
+      <AdminLocationSearch label="Delivery" dotColor="#f87171" value={deliveryAddress} countryCode={selectedCountryCode}
+        onSelect={(lat, lng, addr, cCode) => { onChange('delivery_lat', lat); onChange('delivery_lng', lng); onChange('delivery_address', addr); onChange('delivery_country_code', cCode ?? '') }}
+        onClear={() => { onChange('delivery_lat',''); onChange('delivery_lng',''); onChange('delivery_address',''); onChange('delivery_country_code','') }}/>
+
+      {/* Mode toggle + GPS */}
+      <div style={{ display:'flex', gap:'0.4rem', background:'rgba(255,255,255,0.04)', borderRadius:10, padding:'0.25rem' }}>
+        {(['pickup','delivery'] as const).map(m => (
+          <button key={m} type="button" onClick={() => setMode(m)}
+            style={{ flex:1, padding:'0.38rem', border:'none', borderRadius:8, background: mode===m ? (m==='pickup' ? 'rgba(74,222,128,0.15)' : 'rgba(248,113,113,0.15)') : 'transparent', color: mode===m ? (m==='pickup' ? '#4ade80' : '#f87171') : 'var(--clr-muted)', fontFamily:'inherit', fontSize:'0.73rem', fontWeight:700, cursor:'pointer', transition:'all 0.15s', outline: mode===m ? `1px solid ${m==='pickup' ? 'rgba(74,222,128,0.3)' : 'rgba(248,113,113,0.3)'}` : 'none', display:'flex', alignItems:'center', justifyContent:'center', gap:'0.3rem' }}>
+            <span style={{ width:8, height:8, borderRadius:'50%', background: mode===m ? (m==='pickup' ? '#4ade80' : '#f87171') : 'rgba(255,255,255,0.3)', flexShrink:0 }}/>
+            Pin {m === 'pickup' ? 'Pickup' : 'Delivery'} {m==='pickup' && hasPickup && <LuCircleCheck size={10}/>}{m==='delivery' && hasDelivery && <LuCircleCheck size={10}/>}
+          </button>
+        ))}
+        <button type="button" onClick={useMyLocation} disabled={gpsLoading}
+          style={{ padding:'0.38rem 0.6rem', border:'none', borderRadius:8, background:'rgba(99,102,241,0.15)', color: gpsLoading ? 'var(--clr-muted)' : '#818cf8', fontFamily:'inherit', fontSize:'0.73rem', fontWeight:700, cursor: gpsLoading ? 'wait' : 'pointer', outline:'1px solid rgba(99,102,241,0.25)', display:'flex', alignItems:'center', gap:'0.3rem', flexShrink:0 }}>
+          {gpsLoading ? <span className="spinner" style={{ width:11, height:11, borderWidth:1.5 }}/> : <LuNavigation size={12}/>}
+        </button>
+      </div>
+
+      {hasPickup && hasDelivery && pLat.toFixed(4) === dLat.toFixed(4) && pLng.toFixed(4) === dLng.toFixed(4) && (
+        <div style={{ display:'flex', alignItems:'center', gap:'0.4rem', padding:'0.45rem 0.75rem', borderRadius:9, background:'rgba(248,113,113,0.08)', border:'1px solid rgba(248,113,113,0.25)', fontSize:'0.72rem', color:'#f87171' }}>
+          <LuTriangleAlert size={12}/> Pickup and delivery are the same location.
+        </div>
+      )}
+
+      <p style={{ fontSize:'0.7rem', color: geocoding ? 'var(--clr-accent)' : 'var(--clr-muted)', textAlign:'center', margin:0 }}>
+        {geocoding ? 'Getting address…' : `Tap map to pin ${mode} location`}
+      </p>
+
+      {/* Map */}
+      <div style={{ borderRadius:12, overflow:'hidden', border:'1px solid rgba(255,255,255,0.1)', height:220 }}>
+        <MapContainer center={[9.0084, 38.7575]} zoom={12} style={{ width:'100%', height:'100%' }} scrollWheelZoom>
+          <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution='&copy; <a href="https://openstreetmap.org">OpenStreetMap</a>'/>
+          <AdminMapClickHandler onPick={handlePick}/>
+          {hasPickup   && <Marker position={[pLat, pLng]} icon={adminPickupIcon}><Popup>Pickup: {pickupAddress}</Popup></Marker>}
+          {hasDelivery && <Marker position={[dLat, dLng]} icon={adminDeliveryIcon}><Popup>Delivery: {deliveryAddress}</Popup></Marker>}
+        </MapContainer>
+      </div>
+    </div>
+  )
+}
+
 // ─── Admin Orders Section ────────────────────────────────────────────────────
 
 interface AdminOrder {
@@ -3995,6 +4180,7 @@ interface AdminOrder {
   driver_first_name: string | null; driver_last_name: string | null
   created_at: string
   is_cross_border?: number | boolean
+  is_guest_order?: number | boolean
 }
 interface OrderStats {
   by_status: Record<string, number>
@@ -4093,12 +4279,6 @@ function AdminOrdersSection({ initialDriverFilter, initialStatusFilter }: { init
   const [coStep, setCoStep] = useState<'form'|'confirm'>('form')
   const [coSaving, setCoSaving] = useState(false)
   const [coErr, setCoErr] = useState('')
-  const [coGeoLoading, setCoGeoLoading] = useState<'pickup'|'delivery'|null>(null)
-  // Guest mode
-  const [coIsGuest, setCoIsGuest] = useState(false)
-  const [coGuestName, setCoGuestName] = useState('')
-  const [coGuestPhone, setCoGuestPhone] = useState('')
-  const [coGuestEmail, setCoGuestEmail] = useState('')
   // Optional image uploads
   const [coCargoImage, setCoCargoImage] = useState<string | null>(null)
   const [coPaymentReceipt, setCoPaymentReceipt] = useState<string | null>(null)
@@ -4112,7 +4292,8 @@ function AdminOrdersSection({ initialDriverFilter, initialStatusFilter }: { init
     setLoading(true)
     try {
       const { data } = await adminOrderApi.listOrders({ page: pg, limit: LIMIT, status: sf || undefined, search: q || undefined, driver_id: df || undefined })
-      setOrders(data.orders ?? [])
+      // Filter out guest orders — those belong in the Guest Orders section
+      setOrders((data.orders ?? []).filter((o: AdminOrder) => !o.is_guest_order))
       setTotal(data.pagination?.total ?? 0)
     } catch { showToast('Failed to load orders') }
     finally { setLoading(false) }
@@ -4332,7 +4513,6 @@ function AdminOrdersSection({ initialDriverFilter, initialStatusFilter }: { init
   const openCreateOrder = async () => {
     setCoForm({ shipper_id:'', shipper_search:'', country_code:'', cargo_type_id:'', vehicle_type:'', estimated_weight_kg:'', pickup_address:'', pickup_lat:'', pickup_lng:'', pickup_country_code:'', delivery_address:'', delivery_lat:'', delivery_lng:'', delivery_country_code:'', special_instructions:'', driver_id:'', vehicle_id:'' })
     setCoQuote(null); setCoStep('form'); setCoErr('')
-    setCoIsGuest(false); setCoGuestName(''); setCoGuestPhone(''); setCoGuestEmail('')
     setCoCargoImage(null); setCoPaymentReceipt(null)
     setCoIsCrossBorder(false); setCoDeliveryCountryId(''); setCoHsCode(''); setCoShipperTin('')
     setCreateOrderModal(true)
@@ -4355,29 +4535,6 @@ function AdminOrdersSection({ initialDriverFilter, initialStatusFilter }: { init
         setCoForm(f => ({ ...f, country_code: String(countries[0].iso_code).toLowerCase() }))
       }
     } catch { setCoErr('Failed to load data') }
-  }
-
-  const geocodeAddress = async (addr: string, field: 'pickup'|'delivery') => {
-    if (!addr.trim()) return
-    if (!coForm.country_code) {
-      setCoErr('Select country first')
-      return
-    }
-    setCoGeoLoading(field)
-    try {
-      const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&q=${encodeURIComponent(addr)}&limit=1&countrycodes=${encodeURIComponent(coForm.country_code)}`, { headers:{'Accept-Language':'en'} })
-      const results = await res.json()
-      if (results[0]) {
-        const { lat, lon, display_name, address } = results[0]
-        const cCode = address?.country_code ? String(address.country_code).toLowerCase() : ''
-        setCoForm(f => field === 'pickup'
-          ? { ...f, pickup_lat: lat, pickup_lng: lon, pickup_address: display_name, pickup_country_code: cCode }
-          : { ...f, delivery_lat: lat, delivery_lng: lon, delivery_address: display_name, delivery_country_code: cCode }
-        )
-        setCoQuote(null)
-      } else { setCoErr('Address not found') }
-    } catch { setCoErr('Geocoding failed') }
-    finally { setCoGeoLoading(null) }
   }
 
   const getCoQuote = async () => {
@@ -4412,7 +4569,7 @@ function AdminOrdersSection({ initialDriverFilter, initialStatusFilter }: { init
   }
 
   const placeCoOrder = async () => {
-    if (!coIsGuest && !coForm.shipper_id) { setCoErr('Select a shipper or toggle Guest mode'); return }
+    if (!coForm.shipper_id) { setCoErr('Select a shipper'); return }
     const pickupCountryObj = coCountries.find(c => String(c.iso_code).toLowerCase() === coForm.country_code)
     if (!coIsCrossBorder && (!coForm.country_code || (coForm.pickup_country_code && coForm.pickup_country_code !== coForm.country_code) || (coForm.delivery_country_code && coForm.delivery_country_code !== coForm.country_code))) {
       setCoErr('Pickup and delivery must be inside selected country')
@@ -4424,9 +4581,7 @@ function AdminOrdersSection({ initialDriverFilter, initialStatusFilter }: { init
     setCoSaving(true); setCoErr('')
     try {
       const { data } = await adminOrderApi.createOrderOnBehalf({
-        ...(coIsGuest
-          ? { is_guest: true, guest_name: coGuestName || undefined, guest_phone: coGuestPhone || undefined, guest_email: coGuestEmail || undefined }
-          : { shipper_id: coForm.shipper_id }),
+        shipper_id: coForm.shipper_id,
         cargo_type_id: Number(coForm.cargo_type_id),
         vehicle_type: coForm.vehicle_type,
         estimated_weight_kg: coForm.estimated_weight_kg ? Number(coForm.estimated_weight_kg) : undefined,
@@ -4954,21 +5109,8 @@ function AdminOrdersSection({ initialDriverFilter, initialStatusFilter }: { init
 
             {coStep === 'form' ? (
               <div style={{ display:'flex', flexDirection:'column', gap:'0.85rem' }}>
-                {/* Customer type toggle */}
-                <div style={{ display:'flex', gap:'0.4rem', padding:'0.25rem', background:'rgba(255,255,255,0.04)', borderRadius:10, border:'1px solid rgba(255,255,255,0.08)' }}>
-                  {[{ v: false, label: '👤 Registered Shipper' }, { v: true, label: 'Guest Customer' }].map(({ v, label }) => (
-                    <button key={String(v)} type="button" onClick={() => setCoIsGuest(v)}
-                      style={{ flex:1, padding:'0.45rem 0.5rem', borderRadius:8, border:'none', cursor:'pointer', fontFamily:'inherit', fontSize:'0.78rem', fontWeight:700, transition:'all 0.18s',
-                        background: coIsGuest === v ? 'var(--clr-accent)' : 'transparent',
-                        color: coIsGuest === v ? '#000' : 'var(--clr-muted)' }}>
-                      {label}
-                    </button>
-                  ))}
-                </div>
-
-                {/* Shipper search (registered mode) */}
-                {!coIsGuest && (
-                  <div>
+                {/* Shipper search */}
+                <div>
                     <label style={{ fontSize:'0.73rem', fontWeight:600, color:'var(--clr-muted)', marginBottom:'0.3rem', display:'block' }}>Shipper (customer) *</label>
                     <input value={coForm.shipper_search} onChange={e => setCoForm(f => ({ ...f, shipper_search: e.target.value, shipper_id: '' }))} placeholder="Search by name or phone…"
                       style={{ width:'100%', padding:'0.6rem 0.8rem', borderRadius:9, border:'1px solid rgba(255,255,255,0.12)', background:'rgba(255,255,255,0.05)', color:'var(--clr-text)', fontFamily:'inherit', fontSize:'0.85rem', boxSizing:'border-box' }}/>
@@ -4984,29 +5126,6 @@ function AdminOrdersSection({ initialDriverFilter, initialStatusFilter }: { init
                     )}
                     {coForm.shipper_id && <p style={{ fontSize:'0.72rem', color:'var(--clr-accent)', marginTop:'0.2rem' }}>✓ Shipper selected</p>}
                   </div>
-                )}
-
-                {/* Guest fields */}
-                {coIsGuest && (
-                  <div style={{ display:'flex', flexDirection:'column', gap:'0.6rem', padding:'0.85rem', borderRadius:10, border:'1px solid rgba(0,229,255,0.15)', background:'rgba(0,229,255,0.04)' }}>
-                    <p style={{ fontSize:'0.7rem', fontWeight:700, color:'var(--clr-accent)', marginBottom:'0.1rem' }}>GUEST CUSTOMER — all fields optional</p>
-                    <div>
-                      <label style={{ fontSize:'0.72rem', fontWeight:600, color:'var(--clr-muted)', marginBottom:'0.25rem', display:'block' }}>Name</label>
-                      <input value={coGuestName} onChange={e => setCoGuestName(e.target.value)} placeholder="Auto-generated if empty"
-                        style={{ width:'100%', padding:'0.6rem 0.8rem', borderRadius:9, border:'1px solid rgba(255,255,255,0.1)', background:'rgba(255,255,255,0.04)', color:'var(--clr-text)', fontFamily:'inherit', fontSize:'0.83rem', boxSizing:'border-box' }}/>
-                    </div>
-                    <div>
-                      <label style={{ fontSize:'0.72rem', fontWeight:600, color:'var(--clr-muted)', marginBottom:'0.25rem', display:'block' }}>Phone</label>
-                      <input value={coGuestPhone} onChange={e => setCoGuestPhone(e.target.value)} placeholder="Default: +251900000000"
-                        style={{ width:'100%', padding:'0.6rem 0.8rem', borderRadius:9, border:'1px solid rgba(255,255,255,0.1)', background:'rgba(255,255,255,0.04)', color:'var(--clr-text)', fontFamily:'inherit', fontSize:'0.83rem', boxSizing:'border-box' }}/>
-                    </div>
-                    <div>
-                      <label style={{ fontSize:'0.72rem', fontWeight:600, color:'var(--clr-muted)', marginBottom:'0.25rem', display:'block' }}>Email</label>
-                      <input type="email" value={coGuestEmail} onChange={e => setCoGuestEmail(e.target.value)} placeholder="Default: guest@afri-logistics.com"
-                        style={{ width:'100%', padding:'0.6rem 0.8rem', borderRadius:9, border:'1px solid rgba(255,255,255,0.1)', background:'rgba(255,255,255,0.04)', color:'var(--clr-text)', fontFamily:'inherit', fontSize:'0.83rem', boxSizing:'border-box' }}/>
-                    </div>
-                  </div>
-                )}
 
                 {/* Cargo & Vehicle */}
                 <div>
@@ -5043,32 +5162,15 @@ function AdminOrdersSection({ initialDriverFilter, initialStatusFilter }: { init
                     style={{ width:'100%', padding:'0.6rem 0.8rem', borderRadius:9, border:'1px solid rgba(255,255,255,0.12)', background:'rgba(255,255,255,0.05)', color:'var(--clr-text)', fontFamily:'inherit', fontSize:'0.85rem', boxSizing:'border-box' }}/>
                 </div>
 
-                {/* Pickup */}
+                {/* Pickup + Delivery via map */}
                 <div>
-                  <label style={{ fontSize:'0.73rem', fontWeight:600, color:'var(--clr-muted)', marginBottom:'0.3rem', display:'block' }}>Pickup Address *</label>
-                  <div style={{ display:'flex', gap:'0.4rem' }}>
-                    <input value={coForm.pickup_address} onChange={e => setCoForm(f => ({ ...f, pickup_address: e.target.value, pickup_lat:'', pickup_lng:'', pickup_country_code:'' }))} placeholder="Enter pickup address…" onKeyDown={e => e.key==='Enter' && geocodeAddress(coForm.pickup_address,'pickup')}
-                      style={{ flex:1, padding:'0.6rem 0.8rem', borderRadius:9, border:'1px solid rgba(255,255,255,0.12)', background:'rgba(255,255,255,0.05)', color:'var(--clr-text)', fontFamily:'inherit', fontSize:'0.82rem' }}/>
-                    <button type="button" onClick={() => geocodeAddress(coForm.pickup_address,'pickup')} disabled={coGeoLoading==='pickup'}
-                      style={{ padding:'0.6rem 0.8rem', borderRadius:9, border:'none', background:'var(--clr-accent)', color:'#000', cursor:'pointer', fontFamily:'inherit', fontSize:'0.75rem', fontWeight:700, flexShrink:0 }}>
-                      {coGeoLoading==='pickup' ? '…' : 'Locate'}
-                    </button>
-                  </div>
-                  {coForm.pickup_lat && <p style={{ fontSize:'0.7rem', color:'var(--clr-accent)', marginTop:'0.2rem' }}>✓ {coForm.pickup_lat}, {coForm.pickup_lng}</p>}
-                </div>
-
-                {/* Delivery */}
-                <div>
-                  <label style={{ fontSize:'0.73rem', fontWeight:600, color:'var(--clr-muted)', marginBottom:'0.3rem', display:'block' }}>Delivery Address *</label>
-                  <div style={{ display:'flex', gap:'0.4rem' }}>
-                    <input value={coForm.delivery_address} onChange={e => setCoForm(f => ({ ...f, delivery_address: e.target.value, delivery_lat:'', delivery_lng:'', delivery_country_code:'' }))} placeholder="Enter delivery address…" onKeyDown={e => e.key==='Enter' && geocodeAddress(coForm.delivery_address,'delivery')}
-                      style={{ flex:1, padding:'0.6rem 0.8rem', borderRadius:9, border:'1px solid rgba(255,255,255,0.12)', background:'rgba(255,255,255,0.05)', color:'var(--clr-text)', fontFamily:'inherit', fontSize:'0.82rem' }}/>
-                    <button type="button" onClick={() => geocodeAddress(coForm.delivery_address,'delivery')} disabled={coGeoLoading==='delivery'}
-                      style={{ padding:'0.6rem 0.8rem', borderRadius:9, border:'none', background:'var(--clr-accent)', color:'#000', cursor:'pointer', fontFamily:'inherit', fontSize:'0.75rem', fontWeight:700, flexShrink:0 }}>
-                      {coGeoLoading==='delivery' ? '…' : 'Locate'}
-                    </button>
-                  </div>
-                  {coForm.delivery_lat && <p style={{ fontSize:'0.7rem', color:'var(--clr-accent)', marginTop:'0.2rem' }}>✓ {coForm.delivery_lat}, {coForm.delivery_lng}</p>}
+                  <label style={{ fontSize:'0.73rem', fontWeight:600, color:'var(--clr-muted)', marginBottom:'0.5rem', display:'block' }}>Pickup &amp; Delivery Locations *</label>
+                  <AdminMapPicker
+                    pickupLat={coForm.pickup_lat} pickupLng={coForm.pickup_lng} pickupAddress={coForm.pickup_address}
+                    deliveryLat={coForm.delivery_lat} deliveryLng={coForm.delivery_lng} deliveryAddress={coForm.delivery_address}
+                    selectedCountryCode={coForm.country_code || undefined}
+                    onChange={(field, val) => setCoForm(f => ({ ...f, [field]: val }))}
+                  />
                 </div>
 
                 {/* Notes */}
@@ -5209,14 +5311,9 @@ function AdminOrdersSection({ initialDriverFilter, initialStatusFilter }: { init
                     {coPaymentReceipt && <div style={{ flex:1, padding:'0.5rem 0.75rem', borderRadius:8, background:'rgba(0,229,255,0.06)', border:'1px solid rgba(0,229,255,0.15)', fontSize:'0.75rem', color:'var(--clr-accent)', display:'flex', alignItems:'center', gap:'0.4rem' }}><LuFileText size={13}/> Receipt ✓</div>}
                   </div>
                 )}
-                {coIsGuest && (
-                  <div style={{ padding:'0.6rem 0.85rem', borderRadius:8, background:'rgba(0,229,255,0.06)', border:'1px solid rgba(0,229,255,0.15)', fontSize:'0.75rem', color:'var(--clr-accent)' }}>
-                    Guest order · {coGuestName || 'Auto-name'} · {coGuestPhone || 'Default phone'} · {coGuestEmail || 'Default email'}
-                  </div>
-                )}
                 <div style={{ display:'flex', gap:'0.5rem' }}>
                   <button onClick={() => setCoStep('form')} className="btn-outline" style={{ flex:1 }}>← Back</button>
-                  <button onClick={placeCoOrder} disabled={coSaving || (!coIsGuest && !coForm.shipper_id)} className="btn-primary" style={{ flex:2 }}>
+                  <button onClick={placeCoOrder} disabled={coSaving || !coForm.shipper_id} className="btn-primary" style={{ flex:2 }}>
                     {coSaving ? <BtnSpinner text="Creating…"/> : 'Place Order'}
                   </button>
                 </div>
@@ -5605,8 +5702,36 @@ function AdminGuestOrdersSection() {
   const [detailOrder, setDetailOrder] = useState<any | null>(null)
   const [loadingDetail, setLoadingDetail] = useState(false)
   const [toast, setToast] = useState('')
-  const showToast = (m: string) => { setToast(m); setTimeout(() => setToast(''), 3000) }
+  const showToast = (m: string) => { setToast(m); setTimeout(() => setToast(''), 3500) }
 
+  // ── Create guest order state ────────────────────────────────────────────────
+  const [createModal, setCreateModal] = useState(false)
+  const [drivers,  setDrivers]  = useState<AdminDriver[]>([])
+  const [vehicles, setVehicles] = useState<AdminVehicle[]>([])
+  const [cargoTypes, setCargoTypes] = useState<Array<{id:number;name:string;icon:string|null;icon_url:string|null}>>([])
+  const [countries, setCountries] = useState<Array<{id:number;name:string;iso_code:string}>>([])
+  const [gForm, setGForm] = useState({
+    guest_name:'', guest_phone:'', guest_email:'',
+    country_code:'',
+    cargo_type_id:'', vehicle_type:'',
+    estimated_weight_kg:'',
+    pickup_address:'', pickup_lat:'', pickup_lng:'', pickup_country_code:'',
+    delivery_address:'', delivery_lat:'', delivery_lng:'', delivery_country_code:'',
+    special_instructions:'',
+    driver_id:'', vehicle_id:'',
+  })
+  const [gCargoImage,     setGCargoImage]     = useState<string|null>(null)
+  const [gPaymentReceipt, setGPaymentReceipt] = useState<string|null>(null)
+  const [gIsCrossBorder,  setGIsCrossBorder]  = useState(false)
+  const [gDeliveryCountryId, setGDeliveryCountryId] = useState('')
+  const [gHsCode,    setGHsCode]    = useState('')
+  const [gShipperTin, setGShipperTin] = useState('')
+  const [gQuote, setGQuote] = useState<{estimated_price:number;distance_km:number;base_fare:number;per_km_rate:number;weight_cost?:number;fees_breakdown?:any[]}|null>(null)
+  const [gStep,   setGStep]   = useState<'form'|'confirm'>('form')
+  const [gSaving, setGSaving] = useState(false)
+  const [gErr,    setGErr]    = useState('')
+
+  // ── Loaders ─────────────────────────────────────────────────────────────────
   const load = useCallback(async (pg = page, q = search) => {
     setLoading(true)
     try {
@@ -5629,18 +5754,99 @@ function AdminGuestOrdersSection() {
     finally { setLoadingDetail(false) }
   }
 
+  const openCreateModal = async () => {
+    setGForm({ guest_name:'', guest_phone:'', guest_email:'', country_code:'', cargo_type_id:'', vehicle_type:'', estimated_weight_kg:'', pickup_address:'', pickup_lat:'', pickup_lng:'', pickup_country_code:'', delivery_address:'', delivery_lat:'', delivery_lng:'', delivery_country_code:'', special_instructions:'', driver_id:'', vehicle_id:'' })
+    setGCargoImage(null); setGPaymentReceipt(null); setGIsCrossBorder(false)
+    setGDeliveryCountryId(''); setGHsCode(''); setGShipperTin('')
+    setGQuote(null); setGStep('form'); setGErr('')
+    setCreateModal(true)
+    try {
+      const [ct, dr, vh, ctry] = await Promise.all([
+        apiClient.get('/orders/cargo-types'),
+        apiClient.get('/admin/drivers?filter=verified'),
+        apiClient.get('/admin/vehicles'),
+        configApi.getCountries(),
+      ])
+      setCargoTypes(ct.data.cargo_types ?? [])
+      setDrivers(dr.data.drivers ?? [])
+      setVehicles((vh.data.vehicles ?? []).filter((v: any) => v.is_active))
+      const ctryList = ctry.data.countries ?? []
+      setCountries(ctryList)
+      if (ctryList[0]?.iso_code) setGForm(f => ({ ...f, country_code: String(ctryList[0].iso_code).toLowerCase() }))
+    } catch { setGErr('Failed to load data') }
+  }
+
+  const getGuestQuote = async () => {
+    setGErr('')
+    if (!gForm.cargo_type_id || !gForm.vehicle_type || !gForm.pickup_lat || !gForm.delivery_lat) {
+      setGErr('Fill cargo type, vehicle, pickup & delivery locations first'); return
+    }
+    try {
+      const { data } = await apiClient.post('/orders/quote', {
+        cargo_type_id: Number(gForm.cargo_type_id),
+        vehicle_type: gForm.vehicle_type,
+        estimated_weight_kg: gForm.estimated_weight_kg ? Number(gForm.estimated_weight_kg) : undefined,
+        pickup_lat: Number(gForm.pickup_lat), pickup_lng: Number(gForm.pickup_lng),
+        delivery_lat: Number(gForm.delivery_lat), delivery_lng: Number(gForm.delivery_lng),
+        is_cross_border: gIsCrossBorder || undefined,
+      })
+      setGQuote(data.quote ?? data)
+      setGStep('confirm')
+    } catch (e: any) { setGErr(e.response?.data?.message ?? 'Quote failed') }
+  }
+
+  const placeGuestOrder = async () => {
+    setGSaving(true); setGErr('')
+    const pickupCountryObj = countries.find(c => String(c.iso_code).toLowerCase() === gForm.country_code)
+    try {
+      const { data } = await adminOrderApi.createOrderOnBehalf({
+        is_guest: true,
+        guest_name:  gForm.guest_name  || undefined,
+        guest_phone: gForm.guest_phone || undefined,
+        guest_email: gForm.guest_email || undefined,
+        cargo_type_id: Number(gForm.cargo_type_id),
+        vehicle_type: gForm.vehicle_type,
+        estimated_weight_kg: gForm.estimated_weight_kg ? Number(gForm.estimated_weight_kg) : undefined,
+        pickup_address:  gForm.pickup_address,  pickup_lat:  Number(gForm.pickup_lat),  pickup_lng:  Number(gForm.pickup_lng),
+        delivery_address: gForm.delivery_address, delivery_lat: Number(gForm.delivery_lat), delivery_lng: Number(gForm.delivery_lng),
+        special_instructions: gForm.special_instructions || undefined,
+        driver_id:  gForm.driver_id  || undefined,
+        vehicle_id: gForm.vehicle_id || undefined,
+        cargo_image:     gCargoImage ?? undefined,
+        payment_receipt: gPaymentReceipt ?? undefined,
+        is_cross_border: gIsCrossBorder || undefined,
+        pickup_country_id:   gIsCrossBorder && pickupCountryObj ? pickupCountryObj.id : undefined,
+        delivery_country_id: gIsCrossBorder && gDeliveryCountryId ? Number(gDeliveryCountryId) : undefined,
+        hs_code:      gIsCrossBorder && gHsCode      ? gHsCode      : undefined,
+        shipper_tin:  gIsCrossBorder && gShipperTin  ? gShipperTin  : undefined,
+      })
+      showToast(`Guest order ${data.order?.reference_code ?? ''} created! Pickup OTP: ${data.otps?.pickup_otp}`)
+      setCreateModal(false)
+      load(1, search)
+    } catch (e: any) {
+      setGErr(e.response?.data?.message ?? 'Failed to create guest order')
+    } finally { setGSaving(false) }
+  }
+
   const totalPages = Math.max(1, Math.ceil(total / LIMIT))
 
   return (
     <div style={{ display:'flex', flexDirection:'column', gap:'1.25rem' }}>
+
+      {/* Header */}
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', flexWrap:'wrap', gap:'0.5rem' }}>
         <h2 style={{ fontSize:'1rem', fontWeight:800, color:'var(--clr-text)', display:'flex', alignItems:'center', gap:'0.45rem' }}>
           <LuUsers size={17}/> Guest Orders
           {total > 0 && <span className="badge badge-cyan" style={{ fontSize:'0.67rem' }}>{total}</span>}
         </h2>
-        <button onClick={() => load(page, search)} style={{ display:'flex', alignItems:'center', gap:'0.35rem', padding:'0.3rem 0.7rem', borderRadius:8, border:'1px solid rgba(255,255,255,0.1)', background:'rgba(255,255,255,0.04)', color:'var(--clr-muted)', fontFamily:'inherit', fontSize:'0.72rem', fontWeight:600, cursor:'pointer' }}>
-          <LuRefreshCw size={12}/> Refresh
-        </button>
+        <div style={{ display:'flex', gap:'0.5rem' }}>
+          <button onClick={() => load(page, search)} style={{ display:'flex', alignItems:'center', gap:'0.35rem', padding:'0.3rem 0.7rem', borderRadius:8, border:'1px solid rgba(255,255,255,0.1)', background:'rgba(255,255,255,0.04)', color:'var(--clr-muted)', fontFamily:'inherit', fontSize:'0.72rem', fontWeight:600, cursor:'pointer' }}>
+            <LuRefreshCw size={12}/> Refresh
+          </button>
+          <button onClick={openCreateModal} style={{ display:'flex', alignItems:'center', gap:'0.4rem', padding:'0.38rem 0.85rem', borderRadius:8, border:'none', background:'var(--clr-accent)', color:'#000', fontFamily:'inherit', fontSize:'0.8rem', fontWeight:700, cursor:'pointer' }}>
+            <LuPlus size={14}/> New Guest Order
+          </button>
+        </div>
       </div>
 
       {/* Search */}
@@ -5654,27 +5860,59 @@ function AdminGuestOrdersSection() {
         <button onClick={() => load(1, search)} style={{ padding:'0.3rem 0.7rem', borderRadius:7, border:'none', background:'var(--clr-accent)', color:'#000', fontFamily:'inherit', fontSize:'0.72rem', fontWeight:700, cursor:'pointer' }}>Search</button>
       </div>
 
-      {/* List */}
-      <div className="glass-inner" style={{ overflow:'hidden' }}>
-        {loading ? <LoadingSpinner /> : orders.length === 0 ? (
-          <p style={{ padding:'2rem', textAlign:'center', color:'var(--clr-muted)', fontSize:'0.875rem' }}>No guest orders found.</p>
-        ) : orders.map((o, i) => (
-          <div key={o.id} onClick={() => openDetail(o.id)}
-            style={{ display:'flex', alignItems:'flex-start', gap:'0.75rem', padding:'0.85rem 1rem', borderBottom: i < orders.length-1 ? '1px solid rgba(255,255,255,0.05)' : 'none', cursor:'pointer', transition:'background 0.15s' }}>
-            <div style={{ flex:1, minWidth:0 }}>
-              <div style={{ display:'flex', alignItems:'center', gap:'0.45rem', flexWrap:'wrap', marginBottom:'0.2rem' }}>
-                <span style={{ fontWeight:700, fontSize:'0.875rem', color:'var(--clr-text)' }}>{o.reference_code}</span>
+      {/* Grid of order cards — same design as normal orders */}
+      <div style={{ display:'grid', gap:'1rem', gridTemplateColumns:'repeat(auto-fill, minmax(320px, 1fr))' }}>
+        {loading ? (
+          <div style={{ gridColumn:'1/-1', display:'flex', justifyContent:'center', padding:'3rem' }}><LoadingSpinner /></div>
+        ) : orders.length === 0 ? (
+          <div className="glass-inner" style={{ gridColumn:'1/-1', padding:'3rem 1rem', textAlign:'center', color:'var(--clr-muted)', fontSize:'0.875rem' }}>
+            No guest orders found.
+          </div>
+        ) : orders.map(o => (
+          <div key={o.id} className="glass-inner"
+            onClick={e => { if ((e.target as HTMLElement).closest('button')) return; openDetail(o.id) }}
+            style={{ padding:'0.9rem 1rem', cursor:'pointer', transition:'background 0.15s', display:'flex', flexDirection:'column', justifyContent:'space-between' }}
+            onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.04)')}
+            onMouseLeave={e => (e.currentTarget.style.background = '')}>
+            {/* Top row */}
+            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', gap:'0.5rem', marginBottom:'0.5rem' }}>
+              <div style={{ display:'flex', alignItems:'center', gap:'0.5rem', flexWrap:'wrap' }}>
+                <span style={{ fontWeight:800, fontSize:'0.88rem', color:'var(--clr-text)' }}>{o.reference_code}</span>
                 {orderBadge(o.status)}
                 <span className="badge" style={{ fontSize:'0.62rem', background:'rgba(168,85,247,0.15)', color:'#c084fc', border:'1px solid rgba(168,85,247,0.25)' }}>Guest</span>
               </div>
-              <p style={{ fontSize:'0.73rem', color:'var(--clr-muted)', marginBottom:'0.1rem' }}>
-                {(o as any).guest_name ?? 'Unknown'} · {(o as any).guest_phone ?? '—'}
-              </p>
-              <p style={{ fontSize:'0.7rem', color:'var(--clr-muted)' }}>{o.pickup_address} → {o.delivery_address}</p>
+              <div style={{ textAlign:'right', flexShrink:0 }}>
+                <span style={{ fontWeight:800, fontSize:'0.88rem', color:'var(--clr-accent)' }}>{(o.final_price ?? o.estimated_price).toLocaleString()} ETB</span>
+                <div style={{ fontSize:'0.68rem', color:'var(--clr-muted)', marginTop:'0.2rem' }}>
+                  {new Date(o.created_at).toLocaleDateString('en-GB', { day:'numeric', month:'short', year:'numeric' })}
+                </div>
+              </div>
             </div>
-            <div style={{ textAlign:'right', flexShrink:0 }}>
-              <span style={{ fontWeight:800, fontSize:'0.88rem', color:'var(--clr-accent)' }}>{(o.final_price ?? o.estimated_price).toLocaleString()} ETB</span>
-              <p style={{ fontSize:'0.65rem', color:'var(--clr-muted)', marginTop:'0.2rem' }}>{new Date(o.created_at).toLocaleDateString()}</p>
+            {/* Route */}
+            <div style={{ display:'flex', flexDirection:'column', gap:'0.4rem', marginBottom:'0.75rem' }}>
+              <p style={{ fontSize:'0.75rem', color:'var(--clr-muted)', display:'flex', alignItems:'center', gap:'0.4rem' }}>
+                <LuMapPin size={12}/> {o.pickup_address}
+              </p>
+              <p style={{ fontSize:'0.75rem', color:'var(--clr-muted)', display:'flex', alignItems:'center', gap:'0.4rem' }}>
+                <LuArrowRight size={12}/> {o.delivery_address}
+              </p>
+            </div>
+            {/* Bottom info */}
+            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-end', gap:'0.5rem' }}>
+              <div style={{ display:'flex', flexDirection:'column', gap:'0.2rem' }}>
+                <p style={{ fontSize:'0.73rem', color:'var(--clr-muted)', display:'flex', gap:'0.25rem' }}>
+                  <span style={{color:'var(--clr-text)'}}>Guest:</span>
+                  {(o as any).guest_name ?? 'Unknown'} · {(o as any).guest_phone ?? '—'}
+                </p>
+                {o.driver_first_name && <p style={{ fontSize:'0.73rem', color:'var(--clr-muted)', display:'flex', gap:'0.25rem' }}><span style={{color:'var(--clr-text)'}}>Driver:</span> {o.driver_first_name} {o.driver_last_name}</p>}
+                {(o.cargo_type_name || o.vehicle_type_required) && (
+                  <p style={{ fontSize:'0.73rem', color:'var(--clr-muted)', display:'flex', gap:'0.4rem', marginTop:'0.2rem' }}>
+                    {o.cargo_type_name && <span>{o.cargo_type_name}</span>}
+                    {o.cargo_type_name && o.vehicle_type_required && <span>·</span>}
+                    {o.vehicle_type_required && <span>{o.vehicle_type_required}</span>}
+                  </p>
+                )}
+              </div>
             </div>
           </div>
         ))}
@@ -5707,14 +5945,12 @@ function AdminGuestOrdersSection() {
                   <button onClick={() => setDetailOrder(null)} style={{ background:'none', border:'none', cursor:'pointer', color:'var(--clr-muted)', padding:'0.2rem' }}><LuX size={18}/></button>
                 </div>
                 <div style={{ display:'flex', flexDirection:'column', gap:'0.75rem' }}>
-                  {/* Guest info */}
                   <div className="glass-inner" style={{ padding:'0.75rem 1rem' }}>
                     <p style={{ fontSize:'0.7rem', color:'var(--clr-muted)', fontWeight:600, marginBottom:'0.35rem' }}>GUEST CUSTOMER</p>
                     <p style={{ fontSize:'0.875rem', color:'var(--clr-text)', fontWeight:600 }}>{detailOrder.guest_name ?? 'Unknown Guest'}</p>
                     {detailOrder.guest_phone && <p style={{ fontSize:'0.78rem', color:'var(--clr-muted)' }}>{detailOrder.guest_phone}</p>}
                     {detailOrder.guest_email && <p style={{ fontSize:'0.78rem', color:'var(--clr-muted)' }}>{detailOrder.guest_email}</p>}
                   </div>
-                  {/* Driver */}
                   {detailOrder.driver_first_name && (
                     <div className="glass-inner" style={{ padding:'0.75rem 1rem' }}>
                       <p style={{ fontSize:'0.7rem', color:'var(--clr-muted)', fontWeight:600, marginBottom:'0.35rem' }}>DRIVER</p>
@@ -5722,7 +5958,6 @@ function AdminGuestOrdersSection() {
                       {detailOrder.driver_phone && <p style={{ fontSize:'0.78rem', color:'var(--clr-muted)' }}>{detailOrder.driver_phone}</p>}
                     </div>
                   )}
-                  {/* Route */}
                   <div className="glass-inner" style={{ padding:'0.75rem 1rem' }}>
                     <p style={{ fontSize:'0.7rem', color:'var(--clr-muted)', fontWeight:600, marginBottom:'0.35rem' }}>ROUTE</p>
                     <p style={{ fontSize:'0.78rem', color:'var(--clr-muted)', marginBottom:'0.1rem' }}>From</p>
@@ -5730,7 +5965,6 @@ function AdminGuestOrdersSection() {
                     <p style={{ fontSize:'0.78rem', color:'var(--clr-muted)', marginBottom:'0.1rem' }}>To</p>
                     <p style={{ fontSize:'0.85rem', color:'var(--clr-text)' }}>{detailOrder.delivery_address}</p>
                   </div>
-                  {/* Cargo */}
                   <div className="glass-inner" style={{ padding:'0.75rem 1rem' }}>
                     <p style={{ fontSize:'0.7rem', color:'var(--clr-muted)', fontWeight:600, marginBottom:'0.5rem' }}>SHIPMENT</p>
                     <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'0.5rem 1rem' }}>
@@ -5740,7 +5974,6 @@ function AdminGuestOrdersSection() {
                       {detailOrder.distance_km != null && <div><p style={{ fontSize:'0.7rem', color:'var(--clr-muted)' }}>Distance</p><p style={{ fontSize:'0.82rem', color:'var(--clr-text)', fontWeight:600 }}>{Number(detailOrder.distance_km).toFixed(1)} km</p></div>}
                     </div>
                   </div>
-                  {/* OTPs */}
                   <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'0.5rem', padding:'0.7rem', background:'rgba(0,229,255,0.06)', borderRadius:8, border:'1px solid rgba(0,229,255,0.12)' }}>
                     <div style={{ textAlign:'center' }}>
                       <p style={{ fontSize:'0.65rem', color:'var(--clr-muted)', fontWeight:600, marginBottom:'0.2rem' }}>PICKUP OTP</p>
@@ -5751,7 +5984,6 @@ function AdminGuestOrdersSection() {
                       <p style={{ fontSize:'1.1rem', fontWeight:900, color:'var(--clr-accent)', letterSpacing:2 }}>{detailOrder.delivery_otp ?? '—'}</p>
                     </div>
                   </div>
-                  {/* Pricing */}
                   <div className="glass-inner" style={{ padding:'0.75rem 1rem' }}>
                     <p style={{ fontSize:'0.7rem', color:'var(--clr-muted)', fontWeight:600, marginBottom:'0.35rem' }}>PRICING</p>
                     <div style={{ display:'flex', justifyContent:'space-between' }}>
@@ -5765,23 +5997,12 @@ function AdminGuestOrdersSection() {
                       </div>
                     )}
                   </div>
-                  {/* Media */}
                   {(detailOrder.cargo_image_url || detailOrder.payment_receipt_url) && (
                     <div className="glass-inner" style={{ padding:'0.75rem 1rem' }}>
                       <p style={{ fontSize:'0.7rem', color:'var(--clr-muted)', fontWeight:600, marginBottom:'0.5rem' }}>ATTACHMENTS</p>
                       <div style={{ display:'flex', gap:'0.65rem', flexWrap:'wrap' }}>
-                        {detailOrder.cargo_image_url && (
-                          <div style={{ textAlign:'center' }}>
-                            <img src={getUploadUrl(detailOrder.cargo_image_url)!} alt="Cargo" style={{ width:120, height:90, objectFit:'cover', borderRadius:8, border:'1px solid rgba(255,255,255,0.1)' }}/>
-                            <p style={{ fontSize:'0.65rem', color:'var(--clr-muted)', marginTop:'0.2rem' }}>Cargo Image</p>
-                          </div>
-                        )}
-                        {detailOrder.payment_receipt_url && (
-                          <div style={{ textAlign:'center' }}>
-                            <img src={getUploadUrl(detailOrder.payment_receipt_url)!} alt="Receipt" style={{ width:120, height:90, objectFit:'cover', borderRadius:8, border:'1px solid rgba(255,255,255,0.1)' }}/>
-                            <p style={{ fontSize:'0.65rem', color:'var(--clr-muted)', marginTop:'0.2rem' }}>Payment Receipt</p>
-                          </div>
-                        )}
+                        {detailOrder.cargo_image_url && <div style={{ textAlign:'center' }}><img src={getUploadUrl(detailOrder.cargo_image_url)!} alt="Cargo" style={{ width:120, height:90, objectFit:'cover', borderRadius:8, border:'1px solid rgba(255,255,255,0.1)' }}/><p style={{ fontSize:'0.65rem', color:'var(--clr-muted)', marginTop:'0.2rem' }}>Cargo Image</p></div>}
+                        {detailOrder.payment_receipt_url && <div style={{ textAlign:'center' }}><img src={getUploadUrl(detailOrder.payment_receipt_url)!} alt="Receipt" style={{ width:120, height:90, objectFit:'cover', borderRadius:8, border:'1px solid rgba(255,255,255,0.1)' }}/><p style={{ fontSize:'0.65rem', color:'var(--clr-muted)', marginTop:'0.2rem' }}>Payment Receipt</p></div>}
                       </div>
                     </div>
                   )}
@@ -5792,10 +6013,212 @@ function AdminGuestOrdersSection() {
         </div>
       )}
 
+      {/* ── Create Guest Order Modal ─────────────────────────────────────────────── */}
+      {createModal && (
+        <div className="modal-backdrop" onClick={e => { if (e.target === e.currentTarget) setCreateModal(false) }}>
+          <div className="glass modal-box" style={{ padding:'1.75rem', maxWidth:540, maxHeight:'90vh', overflowY:'auto' }}>
+            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'1rem' }}>
+              <h2 style={{ fontSize:'1rem', fontWeight:800, color:'var(--clr-text)', display:'flex', alignItems:'center', gap:'0.45rem' }}>
+                <LuUsers size={16}/> New Guest Order
+              </h2>
+              <button onClick={() => setCreateModal(false)} style={{ background:'none', border:'none', cursor:'pointer', color:'var(--clr-muted)' }}><LuX size={18}/></button>
+            </div>
+            {gErr && <div className="alert alert-error" style={{ marginBottom:'0.75rem' }}><LuTriangleAlert size={13}/> {gErr}</div>}
+
+            {gStep === 'form' ? (
+              <div style={{ display:'flex', flexDirection:'column', gap:'0.85rem' }}>
+                {/* Guest info */}
+                <div style={{ display:'flex', flexDirection:'column', gap:'0.6rem', padding:'0.85rem', borderRadius:10, border:'1px solid rgba(0,229,255,0.15)', background:'rgba(0,229,255,0.04)' }}>
+                  <p style={{ fontSize:'0.7rem', fontWeight:700, color:'var(--clr-accent)', marginBottom:'0.1rem' }}>GUEST CUSTOMER — all fields optional</p>
+                  <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'0.55rem' }}>
+                    <div>
+                      <label style={{ fontSize:'0.72rem', fontWeight:600, color:'var(--clr-muted)', marginBottom:'0.25rem', display:'block' }}>Name</label>
+                      <input value={gForm.guest_name} onChange={e => setGForm(f => ({ ...f, guest_name: e.target.value }))} placeholder="Auto-generated if empty"
+                        style={{ width:'100%', padding:'0.55rem 0.75rem', borderRadius:9, border:'1px solid rgba(255,255,255,0.1)', background:'rgba(255,255,255,0.04)', color:'var(--clr-text)', fontFamily:'inherit', fontSize:'0.82rem', boxSizing:'border-box' }}/>
+                    </div>
+                    <div>
+                      <label style={{ fontSize:'0.72rem', fontWeight:600, color:'var(--clr-muted)', marginBottom:'0.25rem', display:'block' }}>Phone</label>
+                      <input value={gForm.guest_phone} onChange={e => setGForm(f => ({ ...f, guest_phone: e.target.value }))} placeholder="+251…"
+                        style={{ width:'100%', padding:'0.55rem 0.75rem', borderRadius:9, border:'1px solid rgba(255,255,255,0.1)', background:'rgba(255,255,255,0.04)', color:'var(--clr-text)', fontFamily:'inherit', fontSize:'0.82rem', boxSizing:'border-box' }}/>
+                    </div>
+                  </div>
+                  <div>
+                    <label style={{ fontSize:'0.72rem', fontWeight:600, color:'var(--clr-muted)', marginBottom:'0.25rem', display:'block' }}>Email</label>
+                    <input type="email" value={gForm.guest_email} onChange={e => setGForm(f => ({ ...f, guest_email: e.target.value }))} placeholder="Optional"
+                      style={{ width:'100%', padding:'0.55rem 0.75rem', borderRadius:9, border:'1px solid rgba(255,255,255,0.1)', background:'rgba(255,255,255,0.04)', color:'var(--clr-text)', fontFamily:'inherit', fontSize:'0.82rem', boxSizing:'border-box' }}/>
+                  </div>
+                </div>
+
+                {/* Country */}
+                <div>
+                  <label style={{ fontSize:'0.73rem', fontWeight:600, color:'var(--clr-muted)', marginBottom:'0.3rem', display:'block' }}>Operating Country *</label>
+                  <select value={gForm.country_code} onChange={e => setGForm(f => ({ ...f, country_code: e.target.value, pickup_address:'', pickup_lat:'', pickup_lng:'', pickup_country_code:'', delivery_address:'', delivery_lat:'', delivery_lng:'', delivery_country_code:'' }))}
+                    style={{ width:'100%', padding:'0.6rem', borderRadius:9, border:'1px solid rgba(255,255,255,0.12)', background:'rgba(255,255,255,0.05)', color:'var(--clr-text)', fontFamily:'inherit', fontSize:'0.82rem', outline:'none' }}>
+                    <option value="" style={{ background:'#0f172a' }}>— Select country —</option>
+                    {countries.map(c => <option key={c.id} value={String(c.iso_code).toLowerCase()} style={{ background:'#0f172a' }}>{c.name}</option>)}
+                  </select>
+                </div>
+
+                {/* Cargo + Vehicle */}
+                <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'0.65rem' }}>
+                  <div>
+                    <label style={{ fontSize:'0.73rem', fontWeight:600, color:'var(--clr-muted)', marginBottom:'0.3rem', display:'block' }}>Cargo Type *</label>
+                    <select value={gForm.cargo_type_id} onChange={e => setGForm(f => ({ ...f, cargo_type_id: e.target.value }))}
+                      style={{ width:'100%', padding:'0.6rem', borderRadius:9, border:'1px solid rgba(255,255,255,0.12)', background:'rgba(255,255,255,0.05)', color:'var(--clr-text)', fontFamily:'inherit', fontSize:'0.82rem', outline:'none' }}>
+                      <option value="" style={{ background:'#0f172a' }}>— Select —</option>
+                      {cargoTypes.map(ct => <option key={ct.id} value={ct.id} style={{ background:'#0f172a' }}>{ct.name}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label style={{ fontSize:'0.73rem', fontWeight:600, color:'var(--clr-muted)', marginBottom:'0.3rem', display:'block' }}>Vehicle Type *</label>
+                    <VehicleTypeSelectFull value={gForm.vehicle_type} onChange={v => setGForm(f => ({ ...f, vehicle_type: v }))} />
+                  </div>
+                </div>
+                <div>
+                  <label style={{ fontSize:'0.73rem', fontWeight:600, color:'var(--clr-muted)', marginBottom:'0.3rem', display:'block' }}>Estimated Weight (kg)</label>
+                  <input type="number" min="0" step="0.1" value={gForm.estimated_weight_kg} onChange={e => setGForm(f => ({ ...f, estimated_weight_kg: e.target.value }))} placeholder="Optional"
+                    style={{ width:'100%', padding:'0.6rem 0.8rem', borderRadius:9, border:'1px solid rgba(255,255,255,0.12)', background:'rgba(255,255,255,0.05)', color:'var(--clr-text)', fontFamily:'inherit', fontSize:'0.85rem', boxSizing:'border-box' }}/>
+                </div>
+
+                {/* Map picker */}
+                <div>
+                  <label style={{ fontSize:'0.73rem', fontWeight:600, color:'var(--clr-muted)', marginBottom:'0.5rem', display:'block' }}>Pickup &amp; Delivery Locations *</label>
+                  <AdminMapPicker
+                    pickupLat={gForm.pickup_lat} pickupLng={gForm.pickup_lng} pickupAddress={gForm.pickup_address}
+                    deliveryLat={gForm.delivery_lat} deliveryLng={gForm.delivery_lng} deliveryAddress={gForm.delivery_address}
+                    selectedCountryCode={gForm.country_code || undefined}
+                    onChange={(field, val) => setGForm(f => ({ ...f, [field]: val }))}
+                  />
+                </div>
+
+                {/* Notes */}
+                <div>
+                  <label style={{ fontSize:'0.73rem', fontWeight:600, color:'var(--clr-muted)', marginBottom:'0.3rem', display:'block' }}>Notes / Instructions</label>
+                  <input value={gForm.special_instructions} onChange={e => setGForm(f => ({ ...f, special_instructions: e.target.value }))} placeholder="Optional…"
+                    style={{ width:'100%', padding:'0.6rem 0.8rem', borderRadius:9, border:'1px solid rgba(255,255,255,0.12)', background:'rgba(255,255,255,0.05)', color:'var(--clr-text)', fontFamily:'inherit', fontSize:'0.85rem', boxSizing:'border-box' }}/>
+                </div>
+
+                {/* Cross-border */}
+                <div style={{ padding:'0.75rem 0.9rem', borderRadius:10, border:'1px solid rgba(255,255,255,0.1)', background:'rgba(255,255,255,0.02)' }}>
+                  <label style={{ cursor:'pointer', display:'flex', alignItems:'center', gap:'0.6rem', fontWeight:600, fontSize:'0.83rem' }}>
+                    <input type="checkbox" checked={gIsCrossBorder} onChange={e => { setGIsCrossBorder(e.target.checked); setGDeliveryCountryId('') }} style={{ accentColor:'var(--clr-accent)', width:15, height:15 }}/>
+                    🌍 Cross-border shipment
+                  </label>
+                  {gIsCrossBorder && (
+                    <div style={{ marginTop:'0.75rem', display:'flex', flexDirection:'column', gap:'0.6rem' }}>
+                      <select value={gDeliveryCountryId} onChange={e => setGDeliveryCountryId(e.target.value)}
+                        style={{ width:'100%', padding:'0.6rem 0.8rem', borderRadius:9, border:'1px solid rgba(255,255,255,0.12)', background:'rgba(30,30,30,0.95)', color:'var(--clr-text)', fontFamily:'inherit', fontSize:'0.85rem' }}>
+                        <option value=''>-- Select destination country --</option>
+                        {countries.filter(c => String(c.iso_code).toLowerCase() !== gForm.country_code).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                      </select>
+                      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'0.6rem' }}>
+                        <input value={gHsCode} onChange={e => setGHsCode(e.target.value)} placeholder="HS Code (e.g. 8471.30)"
+                          style={{ padding:'0.6rem 0.8rem', borderRadius:9, border:'1px solid rgba(255,255,255,0.12)', background:'rgba(255,255,255,0.05)', color:'var(--clr-text)', fontFamily:'inherit', fontSize:'0.82rem' }}/>
+                        <input value={gShipperTin} onChange={e => setGShipperTin(e.target.value)} placeholder="Shipper TIN"
+                          style={{ padding:'0.6rem 0.8rem', borderRadius:9, border:'1px solid rgba(255,255,255,0.12)', background:'rgba(255,255,255,0.05)', color:'var(--clr-text)', fontFamily:'inherit', fontSize:'0.82rem' }}/>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Cargo image */}
+                <div>
+                  <label style={{ fontSize:'0.73rem', fontWeight:600, color:'var(--clr-muted)', marginBottom:'0.3rem', display:'block' }}>Cargo Image (optional)</label>
+                  {gCargoImage ? (
+                    <div style={{ position:'relative', display:'inline-block' }}>
+                      <img src={gCargoImage} alt="Cargo" style={{ width:100, height:72, objectFit:'cover', borderRadius:8, border:'1px solid rgba(255,255,255,0.12)' }}/>
+                      <button type="button" onClick={() => setGCargoImage(null)} style={{ position:'absolute', top:-6, right:-6, width:20, height:20, borderRadius:'50%', border:'none', background:'#ef4444', color:'#fff', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'0.65rem' }}>✕</button>
+                    </div>
+                  ) : (
+                    <label style={{ display:'flex', alignItems:'center', gap:'0.5rem', padding:'0.5rem 0.85rem', borderRadius:9, border:'1px dashed rgba(255,255,255,0.15)', background:'rgba(255,255,255,0.03)', cursor:'pointer', fontSize:'0.78rem', color:'var(--clr-muted)' }}>
+                      <LuImage size={15}/> Click to upload image
+                      <input type="file" accept="image/*" style={{ display:'none' }} onChange={e => { const f=e.target.files?.[0]; if(!f)return; const r=new FileReader(); r.onload=ev=>setGCargoImage(ev.target?.result as string); r.readAsDataURL(f) }}/>
+                    </label>
+                  )}
+                </div>
+
+                {/* Payment receipt */}
+                <div>
+                  <label style={{ fontSize:'0.73rem', fontWeight:600, color:'var(--clr-muted)', marginBottom:'0.3rem', display:'block' }}>Payment Receipt (optional)</label>
+                  {gPaymentReceipt ? (
+                    <div style={{ position:'relative', display:'inline-block' }}>
+                      <img src={gPaymentReceipt} alt="Receipt" style={{ width:100, height:72, objectFit:'cover', borderRadius:8, border:'1px solid rgba(255,255,255,0.12)' }}/>
+                      <button type="button" onClick={() => setGPaymentReceipt(null)} style={{ position:'absolute', top:-6, right:-6, width:20, height:20, borderRadius:'50%', border:'none', background:'#ef4444', color:'#fff', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'0.65rem' }}>✕</button>
+                    </div>
+                  ) : (
+                    <label style={{ display:'flex', alignItems:'center', gap:'0.5rem', padding:'0.5rem 0.85rem', borderRadius:9, border:'1px dashed rgba(255,255,255,0.15)', background:'rgba(255,255,255,0.03)', cursor:'pointer', fontSize:'0.78rem', color:'var(--clr-muted)' }}>
+                      <LuFileText size={15}/> Click to upload receipt
+                      <input type="file" accept="image/*,application/pdf" style={{ display:'none' }} onChange={e => { const f=e.target.files?.[0]; if(!f)return; const r=new FileReader(); r.onload=ev=>setGPaymentReceipt(ev.target?.result as string); r.readAsDataURL(f) }}/>
+                    </label>
+                  )}
+                </div>
+
+                {/* Assign driver (optional) */}
+                <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'0.65rem' }}>
+                  <div>
+                    <label style={{ fontSize:'0.73rem', fontWeight:600, color:'var(--clr-muted)', marginBottom:'0.3rem', display:'block' }}>Assign Driver (optional)</label>
+                    <select value={gForm.driver_id} onChange={e => { const did=e.target.value; const av=vehicles.find((v:AdminVehicle)=>v.driver_id===did); setGForm(f=>({...f,driver_id:did,vehicle_id:av?.id??''})) }}
+                      style={{ width:'100%', padding:'0.6rem', borderRadius:9, border:'1px solid rgba(255,255,255,0.12)', background:'rgba(255,255,255,0.05)', color:'var(--clr-text)', fontFamily:'inherit', fontSize:'0.78rem', outline:'none' }}>
+                      <option value="" style={{ background:'#0f172a' }}>— None —</option>
+                      {drivers.map(d => <option key={d.user_id} value={d.user_id} style={{ background:'#0f172a' }}>{d.first_name} {d.last_name}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label style={{ fontSize:'0.73rem', fontWeight:600, color:'var(--clr-muted)', marginBottom:'0.3rem', display:'block' }}>Vehicle</label>
+                    <select value={gForm.vehicle_id} onChange={e => setGForm(f => ({ ...f, vehicle_id: e.target.value }))}
+                      style={{ width:'100%', padding:'0.6rem', borderRadius:9, border:'1px solid rgba(255,255,255,0.12)', background:'rgba(255,255,255,0.05)', color:'var(--clr-text)', fontFamily:'inherit', fontSize:'0.78rem', outline:'none' }}>
+                      <option value="" style={{ background:'#0f172a' }}>— None —</option>
+                      {vehicles.map(v => <option key={v.id} value={v.id} style={{ background:'#0f172a' }}>{v.plate_number} · {v.vehicle_type}</option>)}
+                    </select>
+                  </div>
+                </div>
+
+                <button onClick={getGuestQuote} style={{ width:'100%', padding:'0.7rem', borderRadius:10, border:'none', background:'var(--clr-accent)', color:'#000', fontFamily:'inherit', fontSize:'0.88rem', fontWeight:700, cursor:'pointer', marginTop:'0.25rem' }}>
+                  Get Quote →
+                </button>
+              </div>
+            ) : (
+              /* Confirm step */
+              <div style={{ display:'flex', flexDirection:'column', gap:'0.85rem' }}>
+                <div className="glass-inner" style={{ padding:'1rem' }}>
+                  <p style={{ fontSize:'0.7rem', color:'var(--clr-muted)', fontWeight:600, marginBottom:'0.65rem' }}>PRICE BREAKDOWN</p>
+                  {[
+                    ['Base Fare', `${Number(gQuote?.base_fare ?? 0).toFixed(2)} ETB`],
+                    ['Distance', `${Number(gQuote?.distance_km ?? 0).toFixed(1)} km × ${Number(gQuote?.per_km_rate ?? 0)} ETB/km`],
+                    ...(gQuote?.weight_cost ? [['Weight Cost', `${Number(gQuote.weight_cost).toFixed(2)} ETB`]] : []),
+                    ...(gQuote?.fees_breakdown?.map(f => [f.name, `${Number(f.amount).toFixed(2)} ETB`]) ?? []),
+                  ].map(([l, v]) => (
+                    <div key={l} style={{ display:'flex', justifyContent:'space-between', fontSize:'0.82rem', marginBottom:'0.3rem' }}>
+                      <span style={{ color:'var(--clr-muted)' }}>{l}</span><span style={{ color:'var(--clr-text)' }}>{v}</span>
+                    </div>
+                  ))}
+                  <div style={{ borderTop:'1px solid rgba(255,255,255,0.1)', marginTop:'0.5rem', paddingTop:'0.5rem', display:'flex', justifyContent:'space-between' }}>
+                    <span style={{ fontWeight:700, color:'var(--clr-text)' }}>Total</span>
+                    <span style={{ fontWeight:800, fontSize:'1rem', color:'var(--clr-accent)' }}>{Number(gQuote?.estimated_price ?? 0).toLocaleString()} ETB</span>
+                  </div>
+                </div>
+                {gForm.guest_name && (
+                  <div style={{ padding:'0.6rem 0.85rem', borderRadius:8, background:'rgba(0,229,255,0.06)', border:'1px solid rgba(0,229,255,0.15)', fontSize:'0.75rem', color:'var(--clr-accent)' }}>
+                    Guest: {gForm.guest_name} · {gForm.guest_phone || '—'} · {gForm.guest_email || '—'}
+                  </div>
+                )}
+                <div style={{ display:'flex', gap:'0.5rem' }}>
+                  <button onClick={() => setGStep('form')} className="btn-outline" style={{ flex:1 }}>← Back</button>
+                  <button onClick={placeGuestOrder} disabled={gSaving} className="btn-primary" style={{ flex:2 }}>
+                    {gSaving ? <BtnSpinner text="Creating…"/> : 'Place Guest Order'}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {toast && <div style={{ position:'fixed', bottom:'1.25rem', right:'1.25rem', zIndex:200, background:'rgba(0,229,255,0.12)', border:'1px solid rgba(0,229,255,0.25)', color:'var(--clr-text)', padding:'0.65rem 1.1rem', borderRadius:12, fontSize:'0.85rem', fontWeight:600, backdropFilter:'blur(12px)' }}>{toast}</div>}
     </div>
   )
 }
+
 
 // ─── Admin Cargo Types Section ────────────────────────────────────────────────
 
