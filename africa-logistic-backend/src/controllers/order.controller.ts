@@ -29,6 +29,8 @@ import {
   cancelOrder,
   generateOtp,
   getUnreadCounts,
+  listCrossBorderDocs,
+  createCrossBorderDoc,
 } from '../services/order.service.js'
 import { findUserById } from '../services/auth.service.js'
 import {
@@ -59,6 +61,7 @@ interface QuoteBody {
   delivery_lng: number
   vehicle_type: string
   estimated_weight_kg?: number
+  is_cross_border?: boolean
 }
 
 interface PlaceOrderBody {
@@ -77,11 +80,18 @@ interface PlaceOrderBody {
   // Quote lock-in (caller echoes back the server's quote for auditability)
   distance_km?: number
   estimated_price?: number
+  // Cross-border
+  is_cross_border?: boolean
+  pickup_country_id?: number
+  delivery_country_id?: number
+  hs_code?: string
+  shipper_tin?: string
 }
 
 interface OrderParams { id: string }
 
 interface SendMessageBody { message: string }
+interface UploadCrossBorderDocBody { document_type: string; file_base64: string; notes?: string }
 
 interface OrderListQuery {
   page?: string
@@ -99,6 +109,24 @@ function saveOrderImage(base64Data: string, orderId: string, slot: 1 | 2): strin
   const filename = `${orderId}-${slot}.${ext}`
   fs.writeFileSync(path.join(dir, filename), Buffer.from(raw, 'base64'))
   return `/uploads/order-images/${filename}`
+}
+
+function saveCrossBorderDocFile(orderId: string, documentType: string, fileBase64: string): string {
+  const match = fileBase64.match(/^data:([a-zA-Z0-9+/]+\/[a-zA-Z0-9+/]+);base64,(.+)$/)
+  const raw   = match ? match[2] : fileBase64
+  const mime  = match ? match[1] : 'image/jpeg'
+  const extMap: Record<string, string> = {
+    'image/jpeg': 'jpg', 'image/jpg': 'jpg', 'image/png': 'png',
+    'image/webp': 'webp', 'application/pdf': 'pdf',
+  }
+  const ext = extMap[mime] ?? 'jpg'
+
+  const dir = path.join(process.cwd(), 'uploads', 'cross-border')
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true })
+
+  const filename = `cb_${orderId}_${documentType}_${Date.now()}.${ext}`
+  fs.writeFileSync(path.join(dir, filename), Buffer.from(raw, 'base64'))
+  return `/uploads/cross-border/${filename}`
 }
 // ─── Helper ───────────────────────────────────────────────────────────────────
 
@@ -127,7 +155,7 @@ export async function getQuoteHandler(
   request: FastifyRequest<{ Body: QuoteBody }>,
   reply:   FastifyReply
 ) {
-  const { pickup_lat, pickup_lng, delivery_lat, delivery_lng, vehicle_type, estimated_weight_kg } = request.body
+  const { pickup_lat, pickup_lng, delivery_lat, delivery_lng, vehicle_type, estimated_weight_kg, is_cross_border } = request.body
 
   if (!pickup_lat || !pickup_lng || !delivery_lat || !delivery_lng || !vehicle_type) {
     return reply.status(400).send({ success: false, message: 'pickup_lat, pickup_lng, delivery_lat, delivery_lng, vehicle_type are required.' })
@@ -147,7 +175,7 @@ export async function getQuoteHandler(
     reverseGeocode(delivery_lat, delivery_lng),
   ])
 
-  const quote = calculateQuote(distanceKm, rule, estimated_weight_kg)
+  const quote = calculateQuote(distanceKm, rule, estimated_weight_kg, is_cross_border)
 
   return reply.send({
     success: true,
@@ -172,6 +200,7 @@ export async function placeOrderHandler(
   const {
     cargo_type_id, pickup_lat, pickup_lng, delivery_lat, delivery_lng,
     estimated_weight_kg, vehicle_type, special_instructions,
+    is_cross_border, pickup_country_id, delivery_country_id, hs_code, shipper_tin,
   } = request.body
 
   if (!cargo_type_id || !pickup_lat || !pickup_lng || !delivery_lat || !delivery_lng || !vehicle_type) {
@@ -198,7 +227,7 @@ export async function placeOrderHandler(
     deliveryAddr = da
   }
 
-  const quote      = calculateQuote(distanceKm, rule, estimated_weight_kg)
+  const quote      = calculateQuote(distanceKm, rule, estimated_weight_kg, is_cross_border)
   const pickupOtp  = generateOtp()
   const deliveryOtp = generateOtp()
 
@@ -247,6 +276,11 @@ export async function placeOrderHandler(
     deliveryOtp,
     orderImage1Url:      img1Url,
     orderImage2Url:      img2Url,
+    isCrossBorder:       is_cross_border ?? false,
+    pickupCountryId:     pickup_country_id ?? 1,
+    deliveryCountryId:   delivery_country_id ?? 1,
+    hsCode:              hs_code ?? null,
+    shipperTin:          shipper_tin ?? null,
   })
 
   const order = await getOrderById(request.server.db, orderId)
@@ -370,6 +404,122 @@ export async function getOrderHistoryHandler(
 ) {
   const history = await getOrderStatusHistory(request.server.db, request.params.id)
   return reply.send({ success: true, history })
+}
+
+/** GET /api/orders/:id/cross-border-docs */
+export async function getCrossBorderDocsHandler(
+  request: FastifyRequest<{ Params: OrderParams }>,
+  reply: FastifyReply
+) {
+  const user = request.user as any
+  const order = await getOrderById(request.server.db, request.params.id)
+  if (!order) return reply.status(404).send({ success: false, message: 'Order not found.' })
+  if (user.role_id === 2 && order.shipper_id !== user.id) {
+    return reply.status(403).send({ success: false, message: 'Access denied.' })
+  }
+  if (!order.is_cross_border) {
+    return reply.status(400).send({ success: false, message: 'This is not a cross-border order.' })
+  }
+
+  const docs = await listCrossBorderDocs(request.server.db, request.params.id)
+  return reply.send({ success: true, documents: docs })
+}
+
+/** POST /api/orders/:id/cross-border-doc */
+export async function uploadCrossBorderDocHandler(
+  request: FastifyRequest<{ Params: OrderParams; Body: UploadCrossBorderDocBody }>,
+  reply: FastifyReply
+) {
+  const user = request.user as any
+  if (user.role_id !== 2) {
+    return reply.status(403).send({ success: false, message: 'Only shippers can upload here.' })
+  }
+
+  const order = await getOrderById(request.server.db, request.params.id)
+  if (!order) return reply.status(404).send({ success: false, message: 'Order not found.' })
+  if (order.shipper_id !== user.id) return reply.status(403).send({ success: false, message: 'Access denied.' })
+  if (!order.is_cross_border) {
+    return reply.status(400).send({ success: false, message: 'This is not a cross-border order.' })
+  }
+
+  const { document_type, file_base64, notes } = request.body
+  const VALID_DOC_TYPES = ['COMMERCIAL_INVOICE', 'BILL_OF_LADING', 'PACKING_LIST', 'CERTIFICATE_OF_ORIGIN', 'CHECKPOINT_PHOTO', 'OTHER']
+  if (!VALID_DOC_TYPES.includes(document_type)) {
+    return reply.status(400).send({ success: false, message: `document_type must be one of: ${VALID_DOC_TYPES.join(', ')}` })
+  }
+  if (!file_base64?.trim()) {
+    return reply.status(400).send({ success: false, message: 'file_base64 is required.' })
+  }
+
+  const fileUrl = saveCrossBorderDocFile(order.id, document_type, file_base64)
+  const docId = await createCrossBorderDoc(request.server.db, order.id, user.id, document_type as any, fileUrl, notes ?? null)
+
+  wsManager.broadcast(order.id, 'CB_DOC_UPLOADED', { doc_id: docId, document_type, file_url: fileUrl })
+
+  return reply.status(201).send({
+    success: true,
+    message: 'Document uploaded successfully. Pending admin review.',
+    doc_id: docId,
+    file_url: fileUrl,
+  })
+}
+
+/** PUT /api/orders/:id/cross-border-docs/:docId/review
+ * Allow shipper (owner) to mark their own uploaded documents as APPROVED/REJECTED
+ * Body: { action: 'APPROVED'|'REJECTED'|'PENDING_REVIEW', review_notes?: string }
+ */
+export async function shipperReviewCrossBorderDocHandler(
+  request: FastifyRequest<{ Params: { id: string; docId: string }; Body: { action?: string; review_notes?: string } }>,
+  reply: FastifyReply
+) {
+  const user = request.user as any
+  if (user.role_id !== 2) return reply.status(403).send({ success: false, message: 'Shipper access only.' })
+
+  const body = (request.body as any) ?? {}
+  const actionInput = String(body.action ?? '').trim().toLowerCase()
+  const actionMap: Record<string, string> = {
+    approve: 'APPROVED', approved: 'APPROVED',
+    reject: 'REJECTED',  rejected: 'REJECTED',
+    pending_review: 'PENDING_REVIEW',
+  }
+  const rawAction = actionMap[actionInput] ?? String(body.action ?? '').trim().toUpperCase()
+  const review_notes = body.review_notes ?? null
+  const allowed = ['APPROVED', 'REJECTED', 'PENDING_REVIEW']
+  if (!rawAction) return reply.status(400).send({ success: false, message: 'action is required in request body.' })
+  if (!allowed.includes(rawAction)) return reply.status(400).send({ success: false, message: 'action must be APPROVED, REJECTED, or PENDING_REVIEW.' })
+  if (rawAction === 'REJECTED' && !(String(review_notes ?? '').trim())) {
+    return reply.status(400).send({ success: false, message: 'review_notes is required when rejecting.' })
+  }
+
+  const order = await getOrderById(request.server.db, request.params.id)
+  if (!order) return reply.status(404).send({ success: false, message: 'Order not found.' })
+  if (String(order.shipper_id) !== String(user.id)) return reply.status(403).send({ success: false, message: 'Access denied.' })
+  if (!order.is_cross_border) return reply.status(400).send({ success: false, message: 'This is not a cross-border order.' })
+
+  const docId = String(request.params.docId || '').trim()
+  if (!docId) return reply.status(400).send({ success: false, message: 'Invalid docId.' })
+
+  // Verify doc belongs to this order
+  const [docRows] = await request.server.db.query<any[]>(
+    `SELECT id FROM cross_border_documents WHERE id = ? AND order_id = ?`,
+    [docId, request.params.id]
+  )
+  if (!docRows[0]) return reply.status(404).send({ success: false, message: 'Document not found on this order.' })
+
+  await reviewCrossBorderDoc(request.server.db, docId, user.id, rawAction as any, review_notes ?? null)
+
+  // Notify driver if assigned
+  if (order?.driver_id) {
+    const { sendPushToUser: pushToUser } = await import('../services/push.service.js')
+    await pushToUser(request.server.db, order.driver_id, {
+      title: `Document ${rawAction === 'APPROVED' ? 'Approved ✓' : rawAction === 'REJECTED' ? 'Rejected ✗' : 'Under Review'}`,
+      body: `Cross-border document for order ${order.reference_code} has been ${rawAction.toLowerCase()}.`,
+      url: '/driver/jobs',
+      data: { order_id: order.id, doc_id: docId, type: 'CB_DOC_REVIEWED' },
+    }).catch(() => {})
+  }
+
+  return reply.send({ success: true, message: `Document ${rawAction.toLowerCase()}.` })
 }
 
 /** GET /api/orders/:id/messages */

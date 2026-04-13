@@ -84,6 +84,12 @@ import {
   adminDeleteRoleHandler,
   // ── Security Events (Module 9) ────────────────────────────────────────────────
   adminGetSecurityEventsHandler,
+  // ── Cross-Border & Customs (Module 10) ───────────────────────────────────────
+  adminListCrossBorderOrdersHandler,
+  adminGetCrossBorderDocsHandler,
+  adminReviewCrossBorderDocHandler,
+  adminUpdateBorderInfoHandler,
+  adminSubmitToEswHandler,
 } from '../controllers/admin.controller.js'
 
 export default async function adminRoutes(fastify: FastifyInstance) {
@@ -439,4 +445,20 @@ export default async function adminRoutes(fastify: FastifyInstance) {
   // ─── Security Events (Module 9) ───────────────────────────────────────────
   /** GET /api/admin/security-events — audit log, super-admin only */
   fastify.get('/security-events', adminGetSecurityEventsHandler)
+
+  // ─── Cross-Border & Customs (Module 10) ──────────────────────────────────
+  /** GET /api/admin/cross-border/orders — list all cross-border orders */
+  fastify.get('/cross-border/orders', adminListCrossBorderOrdersHandler)
+
+  /** GET /api/admin/orders/:id/cross-border-docs — list docs for an order */
+  fastify.get('/orders/:id/cross-border-docs', adminGetCrossBorderDocsHandler)
+
+  /** PUT /api/admin/orders/:id/cross-border-docs/:docId — approve/reject a doc */
+  fastify.put('/orders/:id/cross-border-docs/:docId', adminReviewCrossBorderDocHandler)
+
+  /** PATCH /api/admin/orders/:id/border-info — update border reference fields */
+  fastify.patch('/orders/:id/border-info', adminUpdateBorderInfoHandler)
+
+  /** POST /api/admin/orders/:id/esw/submit — submit to eSW (mock) */
+  fastify.post('/orders/:id/esw/submit', adminSubmitToEswHandler)
 }

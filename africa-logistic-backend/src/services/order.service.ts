@@ -79,6 +79,13 @@ export interface OrderRow extends RowDataPacket {
   order_image_2_url: string | null
   invoice_url: string | null
   payment_status: 'UNPAID' | 'ESCROWED' | 'SETTLED'
+  is_cross_border: number
+  pickup_country_id: number
+  delivery_country_id: number
+  border_crossing_ref: string | null
+  customs_declaration_ref: string | null
+  hs_code: string | null
+  shipper_tin: string | null
   assigned_at: string | null
   picked_up_at: string | null
   delivered_at: string | null
@@ -156,6 +163,12 @@ export interface CreateOrderData {
   orderImage2Url?: string | null
   cargoImageUrl?: string | null
   paymentReceiptUrl?: string | null
+  // Cross-border fields
+  isCrossBorder?: boolean
+  pickupCountryId?: number
+  deliveryCountryId?: number
+  hsCode?: string | null
+  shipperTin?: string | null
   // Guest order fields (when shipperId is null)
   isGuestOrder?: boolean
   guestName?: string | null
@@ -275,8 +288,10 @@ export async function createOrder(db: Pool, data: CreateOrderData): Promise<stri
         pickup_otp_hash, pickup_otp, delivery_otp_hash, delivery_otp,
         order_image_1_url, order_image_2_url,
         cargo_image_url, payment_receipt_url,
-        is_guest_order, guest_name, guest_phone, guest_email
-      ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+        is_guest_order, guest_name, guest_phone, guest_email,
+        is_cross_border, pickup_country_id, delivery_country_id,
+        hs_code, shipper_tin
+      ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
     [
       id, refCode, data.shipperId ?? null, data.cargoTypeId,
       data.pickupLat, data.pickupLng, data.pickupAddress,
@@ -287,6 +302,11 @@ export async function createOrder(db: Pool, data: CreateOrderData): Promise<stri
       data.orderImage1Url ?? null, data.orderImage2Url ?? null,
       data.cargoImageUrl ?? null, data.paymentReceiptUrl ?? null,
       data.isGuestOrder ? 1 : 0, data.guestName ?? null, data.guestPhone ?? null, data.guestEmail ?? null,
+      data.isCrossBorder ? 1 : 0,
+      data.pickupCountryId ?? 1,
+      data.deliveryCountryId ?? 1,
+      data.hsCode ?? null,
+      data.shipperTin ?? null,
     ]
   )
 
@@ -780,4 +800,115 @@ export async function setOrderInvoiceUrl(
     `UPDATE orders SET invoice_url = ?, final_price = COALESCE(final_price, estimated_price) WHERE id = ?`,
     [invoiceUrl, orderId]
   )
+}
+
+// ─── Cross-Border Documents ───────────────────────────────────────────────────
+
+export type CrossBorderDocType =
+  | 'COMMERCIAL_INVOICE'
+  | 'BILL_OF_LADING'
+  | 'PACKING_LIST'
+  | 'CERTIFICATE_OF_ORIGIN'
+  | 'CHECKPOINT_PHOTO'
+  | 'OTHER'
+
+export type CrossBorderDocStatus = 'PENDING_REVIEW' | 'APPROVED' | 'REJECTED'
+
+export interface CrossBorderDocRow extends RowDataPacket {
+  id: string
+  order_id: string
+  uploaded_by: string
+  document_type: CrossBorderDocType
+  file_url: string
+  notes: string | null
+  status: CrossBorderDocStatus
+  reviewed_by: string | null
+  reviewed_at: string | null
+  review_notes: string | null
+  created_at: string
+  uploader_first_name?: string
+  uploader_last_name?: string
+  reviewer_first_name?: string
+  reviewer_last_name?: string
+}
+
+/** Save a cross-border document record to the DB */
+export async function createCrossBorderDoc(
+  db: Pool,
+  orderId: string,
+  uploadedBy: string,
+  documentType: CrossBorderDocType,
+  fileUrl: string,
+  notes?: string | null
+): Promise<string> {
+  const docId = uuidv4()
+  await db.query<ResultSetHeader>(
+    `INSERT INTO cross_border_documents
+       (id, order_id, uploaded_by, document_type, document_url, notes)
+     VALUES (?, ?, ?, ?, ?, ?)`,
+    [docId, orderId, uploadedBy, documentType, fileUrl, notes ?? null]
+  )
+  return docId
+}
+
+/** List all cross-border documents for an order */
+export async function listCrossBorderDocs(
+  db: Pool,
+  orderId: string
+): Promise<CrossBorderDocRow[]> {
+  const [rows] = await db.query<CrossBorderDocRow[]>(
+    `SELECT d.id, d.order_id, d.uploaded_by, d.document_type,
+        d.document_url AS file_url,
+        d.notes, d.status,
+        d.reviewed_by, d.reviewed_at, d.review_notes,
+        d.created_at,
+        u.first_name AS uploader_first_name, u.last_name AS uploader_last_name,
+        r.first_name AS reviewer_first_name, r.last_name AS reviewer_last_name
+     FROM cross_border_documents d
+     LEFT JOIN users u ON u.id = d.uploaded_by
+     LEFT JOIN users r ON r.id = d.reviewed_by
+     WHERE d.order_id = ?
+     ORDER BY d.created_at ASC`,
+    [orderId]
+  )
+  return rows
+}
+
+/** Update the review status of a cross-border document */
+export async function reviewCrossBorderDoc(
+  db: Pool,
+  docId: string,
+  reviewerId: string,
+  status: CrossBorderDocStatus,
+  reviewNotes?: string | null
+): Promise<void> {
+  await db.query(
+    `UPDATE cross_border_documents
+     SET status = ?, reviewed_by = ?, reviewed_at = NOW(), review_notes = ?
+     WHERE id = ?`,
+    [status, reviewerId, reviewNotes ?? null, docId]
+  )
+}
+
+/** Update border reference fields on an order */
+export async function updateOrderBorderInfo(
+  db: Pool,
+  orderId: string,
+  data: {
+    borderCrossingRef?: string | null
+    customsDeclarationRef?: string | null
+    hsCode?: string | null
+    shipperTin?: string | null
+  },
+  updatedBy: string
+): Promise<void> {
+  const fields: string[] = []
+  const values: any[] = []
+  if (data.borderCrossingRef !== undefined)    { fields.push('border_crossing_ref = ?');     values.push(data.borderCrossingRef) }
+  if (data.customsDeclarationRef !== undefined){ fields.push('customs_declaration_ref = ?'); values.push(data.customsDeclarationRef) }
+  if (data.hsCode !== undefined)               { fields.push('hs_code = ?');                 values.push(data.hsCode) }
+  if (data.shipperTin !== undefined)           { fields.push('shipper_tin = ?');              values.push(data.shipperTin) }
+  if (fields.length === 0) return
+  values.push(updatedBy, orderId)
+  await db.query(`UPDATE orders SET ${fields.join(', ')}, updated_by = ?, updated_at = NOW() WHERE id = ?`, values)
 }

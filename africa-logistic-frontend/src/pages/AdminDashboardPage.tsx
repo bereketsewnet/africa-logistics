@@ -10,7 +10,6 @@ import { normalisePhone } from '../lib/normalisePhone'
 import { MapContainer, TileLayer, Marker, Popup, Polyline } from 'react-leaflet'
 import AdminPaymentReview from '../components/AdminPaymentReview'
 import AdminWalletAdjustment from '../components/AdminWalletAdjustment'
-import AdminPerformanceBonus from '../components/AdminPerformanceBonus'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import {
@@ -178,7 +177,7 @@ interface Stats {
   total_users: number; total_admins: number; total_shippers: number
   total_drivers: number; active_users: number; new_today: number
 }
-type AdminSection = 'overview' | 'drivers' | 'shippers' | 'staff' | 'verify-drivers' | 'vehicles' | 'orders' | 'live-drivers' | 'guest-orders' | 'cargo-types' | 'pricing-rules' | 'profile' | 'payments' | 'wallet-adjustment' | 'performance-bonus' | 'notif-settings' | 'settings' | 'vehicle-types' | 'countries' | 'maintenance-mode' | 'role-management' | 'security-events'
+type AdminSection = 'overview' | 'drivers' | 'shippers' | 'staff' | 'verify-drivers' | 'vehicles' | 'orders' | 'live-drivers' | 'guest-orders' | 'cargo-types' | 'pricing-rules' | 'profile' | 'payments' | 'wallet-adjustment' | 'notif-settings' | 'settings' | 'vehicle-types' | 'countries' | 'maintenance-mode' | 'role-management' | 'security-events' | 'cross-border' | 'reports'
 type ProfileTab = 'profile' | 'security' | 'contact'
 
 interface DriverRow {
@@ -996,6 +995,447 @@ function AdminRoleManagementSection() {
       )}
 
       {toast && <div style={{ position:'fixed', bottom:'1.25rem', right:'1.25rem', zIndex:200, background:'rgba(0,229,255,0.12)', border:'1px solid rgba(0,229,255,0.25)', color:'var(--clr-text)', padding:'0.65rem 1.1rem', borderRadius:12, fontSize:'0.85rem', fontWeight:600, backdropFilter:'blur(12px)' }}>{toast}</div>}
+    </div>
+  )
+}
+
+// ─── Cross-Border & Customs Section ──────────────────────────────────────────
+
+const CB_STATUS_COLOR: Record<string, string> = {
+  AT_BORDER:       '#f59e0b',
+  IN_CUSTOMS:      '#ef4444',
+  CUSTOMS_CLEARED: '#10b981',
+  IN_TRANSIT:      '#60a5fa',
+  DELIVERED:       '#a3e635',
+}
+
+const CB_STATUS_LABEL: Record<string, string> = {
+  AT_BORDER:       'At Border',
+  IN_CUSTOMS:      'In Customs',
+  CUSTOMS_CLEARED: 'Customs Cleared',
+  IN_TRANSIT:      'In Transit',
+  DELIVERED:       'Delivered',
+}
+
+const DOC_TYPE_OPTIONS = [
+  { value: 'COMMERCIAL_INVOICE',    label: 'Commercial Invoice' },
+  { value: 'BILL_OF_LADING',        label: 'Bill of Lading' },
+  { value: 'PACKING_LIST',          label: 'Packing List' },
+  { value: 'CERTIFICATE_OF_ORIGIN', label: 'Certificate of Origin' },
+  { value: 'CHECKPOINT_PHOTO',      label: 'Checkpoint Photo' },
+  { value: 'OTHER',                 label: 'Other' },
+]
+
+function AdminCrossBorderSection() {
+  const [orders, setOrders] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  const [page, setPage] = useState(1)
+  const [pages, setPages] = useState(1)
+  const [statusFilter, setStatusFilter] = useState('')
+  const [toast, setToast] = useState('')
+  const showToast = (m: string) => { setToast(m); setTimeout(() => setToast(''), 3500) }
+
+  // Selected order + docs panel
+  const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null)
+  const [selectedOrder, setSelectedOrder] = useState<any | null>(null)
+  const [docs, setDocs] = useState<any[]>([])
+  const [docsLoading, setDocsLoading] = useState(false)
+  const [reviewNotes, setReviewNotes] = useState<Record<string, string>>({})
+
+  // Border info edit
+  const [editBorder, setEditBorder] = useState(false)
+  const [borderForm, setBorderForm] = useState({ border_crossing_ref: '', customs_declaration_ref: '', hs_code: '', shipper_tin: '' })
+  const [borderSaving, setBorderSaving] = useState(false)
+
+  // eSW
+  const [eswLoading, setEswLoading] = useState(false)
+
+  const inputStyle: React.CSSProperties = {
+    padding: '0.5rem 0.75rem', borderRadius: 9, border: '1px solid rgba(255,255,255,0.12)',
+    background: 'rgba(255,255,255,0.05)', color: 'var(--clr-text)', fontFamily: 'inherit',
+    fontSize: '0.82rem', outline: 'none', width: '100%',
+  }
+
+  const loadOrders = async (p = page, sf = statusFilter) => {
+    setLoading(true)
+    try {
+      const { data } = await adminOrderApi.getCrossBorderOrders({ page: p, limit: 20, ...(sf ? { status: sf } : {}) })
+      setOrders(data.orders ?? [])
+      setPages(data.pagination?.pages ?? 1)
+    } catch {
+      showToast('Failed to load cross-border orders')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const loadDocs = async (orderId: string) => {
+    setDocsLoading(true)
+    try {
+      const { data } = await adminOrderApi.getOrderCrossBorderDocs(orderId)
+      setDocs(data.documents ?? data.docs ?? [])
+    } catch {
+      showToast('Failed to load documents')
+    } finally {
+      setDocsLoading(false)
+    }
+  }
+
+  useEffect(() => { loadOrders(1, '') }, []) // eslint-disable-line
+
+  const openOrder = (ord: any) => {
+    setSelectedOrderId(ord.id)
+    setSelectedOrder(ord)
+    setBorderForm({
+      border_crossing_ref:     ord.border_crossing_ref     ?? '',
+      customs_declaration_ref: ord.customs_declaration_ref ?? '',
+      hs_code:                 ord.hs_code                 ?? '',
+      shipper_tin:             ord.shipper_tin              ?? '',
+    })
+    setEditBorder(false)
+    loadDocs(ord.id)
+  }
+
+  const closeOrder = () => {
+    setSelectedOrderId(null)
+    setSelectedOrder(null)
+    setDocs([])
+    setEditBorder(false)
+  }
+
+  const handleReview = async (docId: string, action: 'approve' | 'reject') => {
+    if (!selectedOrderId) return
+    try {
+      // Map UI action to backend enum and require notes when rejecting
+      const backendAction = action === 'approve' ? 'APPROVED' : 'REJECTED'
+      if (backendAction === 'REJECTED' && !(reviewNotes[docId] ?? '').trim()) {
+        showToast('Enter review notes when rejecting a document')
+        return
+      }
+      await adminOrderApi.reviewCrossBorderDoc(selectedOrderId, docId, { action: backendAction, review_notes: reviewNotes[docId] ?? '' })
+      showToast(`Document ${action === 'approve' ? 'approved' : 'rejected'}`)
+      loadDocs(selectedOrderId)
+    } catch {
+      showToast('Review failed')
+    }
+  }
+
+  const handleSaveBorderInfo = async () => {
+    if (!selectedOrderId) return
+    setBorderSaving(true)
+    try {
+      await adminOrderApi.updateOrderBorderInfo(selectedOrderId, borderForm)
+      showToast('Border info saved')
+      setEditBorder(false)
+      // refresh order in list
+      setSelectedOrder((prev: any) => prev ? { ...prev, ...borderForm } : prev)
+      setOrders(prev => prev.map(o => o.id === selectedOrderId ? { ...o, ...borderForm } : o))
+    } catch {
+      showToast('Failed to save border info')
+    } finally {
+      setBorderSaving(false)
+    }
+  }
+
+  const handleSubmitEsw = async () => {
+    if (!selectedOrderId) return
+    setEswLoading(true)
+    try {
+      const { data } = await adminOrderApi.submitToEsw(selectedOrderId)
+      showToast(`Submitted to eSW — ref: ${data.esw_reference ?? '—'}`)
+      setSelectedOrder((prev: any) => prev ? { ...prev, customs_declaration_ref: data.esw_reference } : prev)
+      setBorderForm(prev => ({ ...prev, customs_declaration_ref: data.esw_reference ?? prev.customs_declaration_ref }))
+    } catch {
+      showToast('eSW submission failed')
+    } finally {
+      setEswLoading(false)
+    }
+  }
+
+  const DOC_STATUS_COLOR: Record<string, string> = {
+    PENDING_REVIEW: '#facc15',
+    APPROVED:       '#10b981',
+    REJECTED:       '#f87171',
+  }
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+      <h2 style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--clr-text)', display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+        <LuGlobe size={17}/> Cross-Border & Customs
+      </h2>
+      <p style={{ fontSize: '0.78rem', color: 'var(--clr-muted)', marginTop: '-0.6rem' }}>
+        Manage international shipments, customs documents, and eSW declarations.
+      </p>
+
+      {/* Filter bar */}
+      <div style={{ display: 'flex', gap: '0.6rem', flexWrap: 'wrap', alignItems: 'center' }}>
+        <select
+          value={statusFilter}
+          onChange={e => { setStatusFilter(e.target.value); setPage(1); loadOrders(1, e.target.value) }}
+          style={{ ...inputStyle, width: 'auto', minWidth: 180 }}
+        >
+          <option value="" style={{ background: '#0f172a' }}>— All border statuses —</option>
+          {Object.entries(CB_STATUS_LABEL).map(([v, l]) => (
+            <option key={v} value={v} style={{ background: '#0f172a' }}>{l}</option>
+          ))}
+        </select>
+        <button className="btn-outline" style={{ fontSize: '0.78rem', padding: '0.45rem 0.85rem' }}
+          onClick={() => { setStatusFilter(''); setPage(1); loadOrders(1, '') }}>
+          <LuRefreshCw size={13}/>
+        </button>
+      </div>
+
+      {loading ? <LoadingSpinner /> : (
+        <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-start', flexWrap: 'wrap' }}>
+          {/* Orders table */}
+          <div className="glass-inner" style={{ flex: 1, minWidth: 340, overflow: 'hidden' }}>
+            {orders.length === 0 ? (
+              <p style={{ padding: '2rem', textAlign: 'center', color: 'var(--clr-muted)', fontSize: '0.85rem' }}>No cross-border orders found.</p>
+            ) : (
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.78rem' }}>
+                  <thead>
+                    <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.09)' }}>
+                      {['Order', 'Route', 'Status', 'Border Ref', 'Customs Ref', 'Shipper TIN', ''].map(h => (
+                        <th key={h} style={{ padding: '0.6rem 0.75rem', textAlign: 'left', color: 'var(--clr-muted)', fontWeight: 600, whiteSpace: 'nowrap' }}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {orders.map((ord, i) => (
+                      <tr
+                        key={ord.id}
+                        onClick={() => openOrder(ord)}
+                        style={{
+                          borderBottom: i < orders.length - 1 ? '1px solid rgba(255,255,255,0.05)' : 'none',
+                          cursor: 'pointer',
+                          background: selectedOrderId === ord.id ? 'rgba(0,229,255,0.06)' : 'transparent',
+                        }}
+                      >
+                        <td style={{ padding: '0.55rem 0.75rem', color: 'var(--clr-accent)', fontWeight: 700 }}>
+                          {ord.id?.slice(0, 8)}…
+                        </td>
+                        <td style={{ padding: '0.55rem 0.75rem', color: 'var(--clr-muted)', whiteSpace: 'nowrap' }}>
+                          {ord.pickup_country_name ?? '?'} → {ord.delivery_country_name ?? '?'}
+                        </td>
+                        <td style={{ padding: '0.55rem 0.75rem', whiteSpace: 'nowrap' }}>
+                          <span style={{ color: CB_STATUS_COLOR[ord.status] ?? 'var(--clr-muted)', fontWeight: 700, fontSize: '0.72rem' }}>
+                            {CB_STATUS_LABEL[ord.status] ?? ord.status}
+                          </span>
+                        </td>
+                        <td style={{ padding: '0.55rem 0.75rem', color: 'var(--clr-muted)', fontFamily: 'monospace', fontSize: '0.73rem' }}>
+                          {ord.border_crossing_ref ?? '—'}
+                        </td>
+                        <td style={{ padding: '0.55rem 0.75rem', color: 'var(--clr-muted)', fontFamily: 'monospace', fontSize: '0.73rem' }}>
+                          {ord.customs_declaration_ref ?? '—'}
+                        </td>
+                        <td style={{ padding: '0.55rem 0.75rem', color: 'var(--clr-muted)', fontFamily: 'monospace', fontSize: '0.73rem' }}>
+                          {ord.shipper_tin ?? '—'}
+                        </td>
+                        <td style={{ padding: '0.55rem 0.75rem' }}>
+                          <button className="btn-outline" style={{ fontSize: '0.72rem', padding: '0.3rem 0.65rem' }} onClick={e => { e.stopPropagation(); openOrder(ord) }}>
+                            Manage
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {/* Pagination */}
+            {pages > 1 && (
+              <div style={{ display: 'flex', gap: '0.4rem', padding: '0.75rem', justifyContent: 'center' }}>
+                {Array.from({ length: pages }, (_, i) => i + 1).map(p => (
+                  <button
+                    key={p}
+                    className={p === page ? 'btn-primary' : 'btn-outline'}
+                    style={{ fontSize: '0.75rem', padding: '0.3rem 0.6rem', minWidth: 32 }}
+                    onClick={() => { setPage(p); loadOrders(p, statusFilter) }}
+                  >{p}</button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Detail panel */}
+          {selectedOrder && (
+            <div className="glass-inner" style={{ width: 380, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontWeight: 800, fontSize: '0.88rem' }}>Order {selectedOrder.id?.slice(0, 8)}…</span>
+                <button className="btn-outline" style={{ fontSize: '0.72rem', padding: '0.3rem 0.65rem' }} onClick={closeOrder}>✕ Close</button>
+              </div>
+
+              {/* Status badge */}
+              <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                <span style={{ fontSize: '0.75rem', fontWeight: 700, color: CB_STATUS_COLOR[selectedOrder.status] ?? 'var(--clr-muted)', background: 'rgba(0,0,0,0.3)', border: `1px solid ${CB_STATUS_COLOR[selectedOrder.status] ?? '#555'}`, borderRadius: 6, padding: '0.2rem 0.55rem' }}>
+                  {CB_STATUS_LABEL[selectedOrder.status] ?? selectedOrder.status}
+                </span>
+                <span style={{ fontSize: '0.73rem', color: 'var(--clr-muted)' }}>
+                  {selectedOrder.pickup_country_name ?? '?'} → {selectedOrder.delivery_country_name ?? '?'}
+                </span>
+              </div>
+
+              {/* Border info */}
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                  <span style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--clr-muted)' }}>Border Info</span>
+                  {!editBorder && (
+                    <button className="btn-outline" style={{ fontSize: '0.72rem', padding: '0.25rem 0.55rem' }} onClick={() => setEditBorder(true)}>Edit</button>
+                  )}
+                </div>
+                {editBorder ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                    {([
+                      ['border_crossing_ref',     'Border Crossing Ref'],
+                      ['customs_declaration_ref',  'Customs Declaration Ref'],
+                      ['hs_code',                  'HS Code'],
+                      ['shipper_tin',              'Shipper TIN'],
+                    ] as [keyof typeof borderForm, string][]).map(([key, label]) => (
+                      <div key={key}>
+                        <label style={{ fontSize: '0.72rem', color: 'var(--clr-muted)', marginBottom: 4, display: 'block' }}>{label}</label>
+                        <input
+                          style={inputStyle}
+                          value={borderForm[key]}
+                          onChange={e => setBorderForm(prev => ({ ...prev, [key]: e.target.value }))}
+                          placeholder={label}
+                        />
+                      </div>
+                    ))}
+                    <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.25rem' }}>
+                      <button className="btn-primary" style={{ fontSize: '0.78rem', padding: '0.4rem 0.85rem' }} onClick={handleSaveBorderInfo} disabled={borderSaving}>
+                        {borderSaving ? 'Saving…' : 'Save'}
+                      </button>
+                      <button className="btn-outline" style={{ fontSize: '0.78rem', padding: '0.4rem 0.85rem' }} onClick={() => setEditBorder(false)}>Cancel</button>
+                    </div>
+                  </div>
+                ) : (
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.4rem 0.75rem', fontSize: '0.75rem' }}>
+                    {[
+                      ['Border Ref',     borderForm.border_crossing_ref     || '—'],
+                      ['Customs Ref',    borderForm.customs_declaration_ref  || '—'],
+                      ['HS Code',        borderForm.hs_code                  || '—'],
+                      ['Shipper TIN',    borderForm.shipper_tin               || '—'],
+                    ].map(([k, v]) => (
+                      <>
+                        <span key={`${k}-k`} style={{ color: 'var(--clr-muted)' }}>{k}</span>
+                        <span key={`${k}-v`} style={{ color: 'var(--clr-text)', fontFamily: 'monospace', wordBreak: 'break-all' }}>{v}</span>
+                      </>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* eSW */}
+              <div>
+                <div style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--clr-muted)', marginBottom: '0.4rem' }}>eSW Customs System</div>
+                <button className="btn-primary" style={{ fontSize: '0.78rem', padding: '0.4rem 0.9rem', opacity: eswLoading ? 0.6 : 1 }} onClick={handleSubmitEsw} disabled={eswLoading}>
+                  <LuGlobe size={13} style={{ marginRight: 5 }}/>{eswLoading ? 'Submitting…' : 'Submit to eSW'}
+                </button>
+              </div>
+
+              {/* Documents */}
+              <div>
+                <div style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--clr-muted)', marginBottom: '0.5rem' }}>Customs Documents</div>
+                {docsLoading ? (
+                  <p style={{ fontSize: '0.78rem', color: 'var(--clr-muted)' }}>Loading…</p>
+                ) : docs.length === 0 ? (
+                  <p style={{ fontSize: '0.78rem', color: 'var(--clr-muted)' }}>No documents uploaded yet.</p>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
+                    {docs.map(doc => {
+                      const borderClr = DOC_STATUS_COLOR[doc.status] ?? 'rgba(255,255,255,0.12)'
+                      const isApproved = doc.status === 'APPROVED'
+                      const isRejected = doc.status === 'REJECTED'
+                      const isPending  = doc.status === 'PENDING_REVIEW'
+                      return (
+                      <div key={doc.id} style={{ background: 'rgba(255,255,255,0.04)', border: `1px solid rgba(255,255,255,0.08)`, borderLeft: `3px solid ${borderClr}`, borderRadius: 10, padding: '0.65rem 0.85rem', display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <span style={{ fontSize: '0.78rem', fontWeight: 700 }}>
+                            {DOC_TYPE_OPTIONS.find(d => d.value === doc.document_type)?.label ?? doc.document_type}
+                          </span>
+                          <span style={{ fontSize: '0.7rem', fontWeight: 700, color: borderClr, background: 'rgba(0,0,0,0.3)', borderRadius: 5, padding: '0.15rem 0.45rem', border: `1px solid ${borderClr}` }}>
+                            {isApproved ? '✓ Approved' : isRejected ? '✕ Rejected' : '⏳ Pending Review'}
+                          </span>
+                        </div>
+                        {doc.notes && <p style={{ fontSize: '0.72rem', color: 'var(--clr-muted)', margin: 0 }}>{doc.notes}</p>}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.7rem', color: 'var(--clr-muted)' }}>
+                          <span>By {doc.uploader_first_name} {doc.uploader_last_name} · {new Date(doc.created_at).toLocaleString()}</span>
+                          <a href={doc.file_url} target="_blank" rel="noreferrer" style={{ color: 'var(--clr-accent)', marginLeft: 'auto', whiteSpace: 'nowrap' }}>
+                            View ↗
+                          </a>
+                        </div>
+                        {isApproved && doc.review_notes && (
+                          <div style={{ fontSize: '0.72rem', color: '#10b981', background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.2)', borderRadius: 6, padding: '0.3rem 0.55rem' }}>
+                            Note: {doc.review_notes}
+                          </div>
+                        )}
+                        {isRejected && (
+                          <div style={{ fontSize: '0.72rem', color: '#f87171', background: 'rgba(248,113,113,0.08)', border: '1px solid rgba(248,113,113,0.2)', borderRadius: 6, padding: '0.3rem 0.55rem' }}>
+                            {doc.review_notes ? `Reason: ${doc.review_notes}` : 'Rejected — no reason provided.'}
+                          </div>
+                        )}
+                        {doc.reviewed_at && (
+                          <div style={{ fontSize: '0.68rem', color: 'var(--clr-muted)' }}>
+                            Reviewed by {doc.reviewer_first_name} {doc.reviewer_last_name} · {new Date(doc.reviewed_at).toLocaleString()}
+                          </div>
+                        )}
+                        {isPending && (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem', marginTop: '0.25rem' }}>
+                            <input
+                              style={{ ...inputStyle, fontSize: '0.72rem' }}
+                              placeholder="Review notes (optional for approve, required for reject)"
+                              value={reviewNotes[doc.id] ?? ''}
+                              onChange={e => setReviewNotes(prev => ({ ...prev, [doc.id]: e.target.value }))}
+                            />
+                            <div style={{ display: 'flex', gap: '0.4rem' }}>
+                              <button className="btn-primary" style={{ fontSize: '0.72rem', padding: '0.3rem 0.7rem', background: 'linear-gradient(135deg,#10b981,#059669)', border: 'none', flex: 1 }} onClick={() => handleReview(doc.id, 'approve')}>
+                                ✓ Approve
+                              </button>
+                              <button className="btn-outline" style={{ fontSize: '0.72rem', padding: '0.3rem 0.7rem', color: '#f87171', borderColor: '#f87171', flex: 1 }} onClick={() => handleReview(doc.id, 'reject')}>
+                                ✕ Reject
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )})}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {toast && (
+        <div style={{ position: 'fixed', bottom: '1.25rem', right: '1.25rem', zIndex: 200, background: 'rgba(0,229,255,0.12)', border: '1px solid rgba(0,229,255,0.25)', color: 'var(--clr-text)', padding: '0.65rem 1.1rem', borderRadius: 12, fontSize: '0.85rem', fontWeight: 600, backdropFilter: 'blur(12px)' }}>
+          {toast}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ─── Reports Section ─────────────────────────────────────────────────────────
+
+function AdminReportsSection() {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+      <h2 style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--clr-text)', display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+        <LuChartBar size={17}/> Reports
+      </h2>
+      <p style={{ fontSize: '0.78rem', color: 'var(--clr-muted)', marginTop: '-0.6rem' }}>
+        Analytics, exports, and business intelligence reports.
+      </p>
+      <div className="glass-inner" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '4rem 2rem', gap: '0.85rem', textAlign: 'center' }}>
+        <LuChartBar size={40} style={{ color: 'var(--clr-muted)', opacity: 0.4 }}/>
+        <p style={{ fontSize: '0.92rem', fontWeight: 700, color: 'var(--clr-text)', margin: 0 }}>Reports Coming Soon</p>
+        <p style={{ fontSize: '0.78rem', color: 'var(--clr-muted)', maxWidth: 360, margin: 0 }}>
+          This section will include revenue summaries, driver performance reports, order analytics, and CSV exports.
+        </p>
+      </div>
     </div>
   )
 }
@@ -2943,6 +3383,7 @@ interface AdminOrder {
   shipper_first_name: string; shipper_last_name: string
   driver_first_name: string | null; driver_last_name: string | null
   created_at: string
+  is_cross_border?: number | boolean
 }
 interface OrderStats {
   by_status: Record<string, number>
@@ -3050,6 +3491,11 @@ function AdminOrdersSection({ initialDriverFilter, initialStatusFilter }: { init
   // Optional image uploads
   const [coCargoImage, setCoCargoImage] = useState<string | null>(null)
   const [coPaymentReceipt, setCoPaymentReceipt] = useState<string | null>(null)
+  // Cross-border fields for create order
+  const [coIsCrossBorder, setCoIsCrossBorder] = useState(false)
+  const [coDeliveryCountryId, setCoDeliveryCountryId] = useState('')
+  const [coHsCode, setCoHsCode] = useState('')
+  const [coShipperTin, setCoShipperTin] = useState('')
 
   const loadOrders = useCallback(async (pg = page, sf = statusFilter, q = search, df = driverFilter) => {
     setLoading(true)
@@ -3277,6 +3723,7 @@ function AdminOrdersSection({ initialDriverFilter, initialStatusFilter }: { init
     setCoQuote(null); setCoStep('form'); setCoErr('')
     setCoIsGuest(false); setCoGuestName(''); setCoGuestPhone(''); setCoGuestEmail('')
     setCoCargoImage(null); setCoPaymentReceipt(null)
+    setCoIsCrossBorder(false); setCoDeliveryCountryId(''); setCoHsCode(''); setCoShipperTin('')
     setCreateOrderModal(true)
     // Load shippers + cargo types + drivers/vehicles if not loaded
     try {
@@ -3330,8 +3777,11 @@ function AdminOrdersSection({ initialDriverFilter, initialStatusFilter }: { init
     if (coForm.pickup_country_code && coForm.pickup_country_code !== coForm.country_code) {
       setCoErr('Pickup is outside selected country'); return
     }
-    if (coForm.delivery_country_code && coForm.delivery_country_code !== coForm.country_code) {
+    if (!coIsCrossBorder && coForm.delivery_country_code && coForm.delivery_country_code !== coForm.country_code) {
       setCoErr('Delivery is outside selected country'); return
+    }
+    if (coIsCrossBorder && !coDeliveryCountryId) {
+      setCoErr('Select a delivery country for cross-border shipment'); return
     }
     if (!coForm.cargo_type_id || !coForm.vehicle_type || !coForm.pickup_lat || !coForm.delivery_lat) {
       setCoErr('Fill cargo type, vehicle, pickup & delivery locations first'); return
@@ -3343,6 +3793,7 @@ function AdminOrdersSection({ initialDriverFilter, initialStatusFilter }: { init
         estimated_weight_kg: coForm.estimated_weight_kg ? Number(coForm.estimated_weight_kg) : undefined,
         pickup_lat: Number(coForm.pickup_lat), pickup_lng: Number(coForm.pickup_lng),
         delivery_lat: Number(coForm.delivery_lat), delivery_lng: Number(coForm.delivery_lng),
+        is_cross_border: coIsCrossBorder || undefined,
       })
       setCoQuote(data.quote ?? data)
       setCoStep('confirm')
@@ -3351,9 +3802,13 @@ function AdminOrdersSection({ initialDriverFilter, initialStatusFilter }: { init
 
   const placeCoOrder = async () => {
     if (!coIsGuest && !coForm.shipper_id) { setCoErr('Select a shipper or toggle Guest mode'); return }
-    if (!coForm.country_code || (coForm.pickup_country_code && coForm.pickup_country_code !== coForm.country_code) || (coForm.delivery_country_code && coForm.delivery_country_code !== coForm.country_code)) {
+    const pickupCountryObj = coCountries.find(c => String(c.iso_code).toLowerCase() === coForm.country_code)
+    if (!coIsCrossBorder && (!coForm.country_code || (coForm.pickup_country_code && coForm.pickup_country_code !== coForm.country_code) || (coForm.delivery_country_code && coForm.delivery_country_code !== coForm.country_code))) {
       setCoErr('Pickup and delivery must be inside selected country')
       return
+    }
+    if (coIsCrossBorder && !coDeliveryCountryId) {
+      setCoErr('Select a delivery country for cross-border shipment'); return
     }
     setCoSaving(true); setCoErr('')
     try {
@@ -3371,6 +3826,11 @@ function AdminOrdersSection({ initialDriverFilter, initialStatusFilter }: { init
         vehicle_id: coForm.vehicle_id || undefined,
         cargo_image: coCargoImage ?? undefined,
         payment_receipt: coPaymentReceipt ?? undefined,
+        is_cross_border: coIsCrossBorder || undefined,
+        pickup_country_id: coIsCrossBorder && pickupCountryObj ? pickupCountryObj.id : undefined,
+        delivery_country_id: coIsCrossBorder && coDeliveryCountryId ? Number(coDeliveryCountryId) : undefined,
+        hs_code: coIsCrossBorder && coHsCode ? coHsCode : undefined,
+        shipper_tin: coIsCrossBorder && coShipperTin ? coShipperTin : undefined,
       })
       showToast(`Order ${data.order?.reference_code ?? ''} created! Pickup OTP: ${data.otps?.pickup_otp}`)
       setCreateOrderModal(false)
@@ -3475,6 +3935,7 @@ function AdminOrdersSection({ initialDriverFilter, initialStatusFilter }: { init
               <div style={{ display:'flex', alignItems:'center', gap:'0.5rem', flexWrap:'wrap' }}>
                 <span style={{ fontWeight:800, fontSize:'0.88rem', color:'var(--clr-text)' }}>{o.reference_code}</span>
                 {orderBadge(o.status)}
+                {!!o.is_cross_border && <span style={{ fontSize:'0.63rem', fontWeight:700, color:'#f59e0b', background:'rgba(245,158,11,0.08)', border:'1px solid rgba(245,158,11,0.25)', borderRadius:99, padding:'0.1rem 0.45rem' }}>🌍 Cross-Border</span>}
               </div>
               <div style={{ textAlign:'right', flexShrink:0 }}>
                 <span style={{ fontWeight:800, fontSize:'0.88rem', color:'var(--clr-accent)' }}>{(o.final_price ?? o.estimated_price).toLocaleString()} ETB</span>
@@ -3601,7 +4062,10 @@ function AdminOrdersSection({ initialDriverFilter, initialStatusFilter }: { init
                 <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:'1rem' }}>
                   <div>
                     <h2 style={{ fontSize:'1rem', fontWeight:800, color:'var(--clr-text)', marginBottom:'0.25rem' }}>{detailOrder.reference_code}</h2>
-                    <div style={{ display:'flex', gap:'0.4rem', flexWrap:'wrap' }}>{orderBadge(detailOrder.status)}</div>
+                    <div style={{ display:'flex', gap:'0.4rem', flexWrap:'wrap', alignItems:'center' }}>
+                      {orderBadge(detailOrder.status)}
+                      {!!detailOrder.is_cross_border && <span style={{ fontSize:'0.63rem', fontWeight:700, color:'#f59e0b', background:'rgba(245,158,11,0.08)', border:'1px solid rgba(245,158,11,0.25)', borderRadius:99, padding:'0.1rem 0.45rem' }}>🌍 Cross-Border</span>}
+                    </div>
                   </div>
                   <button onClick={() => setDetailOrder(null)} style={{ background:'none', border:'none', cursor:'pointer', color:'var(--clr-muted)', padding:'0.2rem' }}><LuX size={18}/></button>
                 </div>
@@ -3773,6 +4237,25 @@ function AdminOrdersSection({ initialDriverFilter, initialStatusFilter }: { init
                     <div className="glass-inner" style={{ padding:'0.75rem 1rem' }}>
                       <p style={{ fontSize:'0.7rem', color:'var(--clr-muted)', fontWeight:600, marginBottom:'0.25rem' }}>NOTES</p>
                       <p style={{ fontSize:'0.82rem', color:'var(--clr-text)' }}>{detailOrder.special_instructions}</p>
+                    </div>
+                  )}
+                  {/* Cross-border Info */}
+                  {!!detailOrder.is_cross_border && (
+                    <div className="glass-inner" style={{ padding:'0.75rem 1rem', border:'1px solid rgba(245,158,11,0.2)', background:'rgba(245,158,11,0.04)' }}>
+                      <p style={{ fontSize:'0.7rem', color:'#f59e0b', fontWeight:700, marginBottom:'0.45rem' }}>🌍 CROSS-BORDER SHIPMENT</p>
+                      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'0.4rem 1rem', fontSize:'0.8rem' }}>
+                        {detailOrder.hs_code && <div><p style={{ fontSize:'0.68rem', color:'var(--clr-muted)' }}>HS Code</p><p style={{ color:'var(--clr-text)', fontWeight:600 }}>{detailOrder.hs_code}</p></div>}
+                        {detailOrder.shipper_tin && <div><p style={{ fontSize:'0.68rem', color:'var(--clr-muted)' }}>Shipper TIN</p><p style={{ color:'var(--clr-text)', fontWeight:600 }}>{detailOrder.shipper_tin}</p></div>}
+                        {detailOrder.border_crossing_ref && <div><p style={{ fontSize:'0.68rem', color:'var(--clr-muted)' }}>Border Ref</p><p style={{ color:'var(--clr-text)', fontWeight:600 }}>{detailOrder.border_crossing_ref}</p></div>}
+                        {detailOrder.customs_declaration_ref && <div><p style={{ fontSize:'0.68rem', color:'var(--clr-muted)' }}>Customs Ref</p><p style={{ color:'var(--clr-text)', fontWeight:600 }}>{detailOrder.customs_declaration_ref}</p></div>}
+                      </div>
+                      {['AT_BORDER','IN_CUSTOMS','CUSTOMS_CLEARED'].includes(detailOrder.status) && (
+                        <p style={{ fontSize:'0.73rem', color:'#f59e0b', marginTop:'0.5rem' }}>
+                          {detailOrder.status === 'AT_BORDER' && '🛂 Driver is at the border crossing.'}
+                          {detailOrder.status === 'IN_CUSTOMS' && '📋 Shipment is under customs review.'}
+                          {detailOrder.status === 'CUSTOMS_CLEARED' && '✅ Customs cleared — driver will resume delivery.'}
+                        </p>
+                      )}
                     </div>
                   )}
                   {/* Order Images */}
@@ -3982,6 +4465,41 @@ function AdminOrdersSection({ initialDriverFilter, initialStatusFilter }: { init
                   <label style={{ fontSize:'0.73rem', fontWeight:600, color:'var(--clr-muted)', marginBottom:'0.3rem', display:'block' }}>Notes / Instructions</label>
                   <input value={coForm.special_instructions} onChange={e => setCoForm(f => ({ ...f, special_instructions: e.target.value }))} placeholder="Optional…"
                     style={{ width:'100%', padding:'0.6rem 0.8rem', borderRadius:9, border:'1px solid rgba(255,255,255,0.12)', background:'rgba(255,255,255,0.05)', color:'var(--clr-text)', fontFamily:'inherit', fontSize:'0.85rem', boxSizing:'border-box' }}/>
+                </div>
+
+                {/* Cross-border */}
+                <div style={{ padding:'0.75rem 0.9rem', borderRadius:10, border:'1px solid rgba(255,255,255,0.1)', background:'rgba(255,255,255,0.02)' }}>
+                  <label style={{ cursor:'pointer', display:'flex', alignItems:'center', gap:'0.6rem', fontWeight:600, fontSize:'0.83rem' }}>
+                    <input type="checkbox" checked={coIsCrossBorder} onChange={e => { setCoIsCrossBorder(e.target.checked); setCoDeliveryCountryId('') }} style={{ accentColor:'var(--clr-accent)', width:15, height:15 }}/>
+                    🌍 Cross-border shipment (different countries)
+                  </label>
+                  {coIsCrossBorder && (
+                    <div style={{ marginTop:'0.75rem', display:'flex', flexDirection:'column', gap:'0.6rem' }}>
+                      <div>
+                        <label style={{ fontSize:'0.73rem', fontWeight:600, color:'var(--clr-muted)', marginBottom:'0.25rem', display:'block' }}>Delivery Country *</label>
+                        <select value={coDeliveryCountryId} onChange={e => setCoDeliveryCountryId(e.target.value)}
+                          style={{ width:'100%', padding:'0.6rem 0.8rem', borderRadius:9, border:'1px solid rgba(255,255,255,0.12)', background:'rgba(30,30,30,0.95)', color:'var(--clr-text)', fontFamily:'inherit', fontSize:'0.85rem' }}>
+                          <option value=''>-- Select destination country --</option>
+                          {coCountries.filter(c => String(c.iso_code).toLowerCase() !== coForm.country_code).map(c => (
+                            <option key={c.id} value={c.id}>{c.name}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'0.6rem' }}>
+                        <div>
+                          <label style={{ fontSize:'0.73rem', fontWeight:600, color:'var(--clr-muted)', marginBottom:'0.25rem', display:'block' }}>HS Code (customs)</label>
+                          <input value={coHsCode} onChange={e => setCoHsCode(e.target.value)} placeholder="e.g. 8471.30"
+                            style={{ width:'100%', padding:'0.6rem 0.8rem', borderRadius:9, border:'1px solid rgba(255,255,255,0.12)', background:'rgba(255,255,255,0.05)', color:'var(--clr-text)', fontFamily:'inherit', fontSize:'0.85rem', boxSizing:'border-box' }}/>
+                        </div>
+                        <div>
+                          <label style={{ fontSize:'0.73rem', fontWeight:600, color:'var(--clr-muted)', marginBottom:'0.25rem', display:'block' }}>Shipper TIN</label>
+                          <input value={coShipperTin} onChange={e => setCoShipperTin(e.target.value)} placeholder="Tax ID number"
+                            style={{ width:'100%', padding:'0.6rem 0.8rem', borderRadius:9, border:'1px solid rgba(255,255,255,0.12)', background:'rgba(255,255,255,0.05)', color:'var(--clr-text)', fontFamily:'inherit', fontSize:'0.85rem', boxSizing:'border-box' }}/>
+                        </div>
+                      </div>
+                      <p style={{ fontSize:'0.72rem', color:'var(--clr-muted)', margin:0 }}>ℹ️ Cross-border orders go through AT_BORDER → IN_CUSTOMS → CUSTOMS_CLEARED before delivery.</p>
+                    </div>
+                  )}
                 </div>
 
                 {/* Cargo image upload (optional) */}
@@ -5023,33 +5541,29 @@ export default function AdminDashboardPage() {
 
   const can = (perm: string) => user?.role_id === 1 || myPermissions.includes(perm)
   const navItems: { id: AdminSection; icon: React.ReactNode; label: string; count?: number }[] = [
-    // 1. Dashboard overview — always first
     ...(can('overview.view') ? [{ id: 'overview' as AdminSection, icon: <LuChartBar size={16}/>, label: 'Overview' }] : []),
-    // 2. Orders & dispatch — highest daily-use
+    ...(user?.role_id === 1 ? [{ id: 'reports' as AdminSection, icon: <LuChartBar size={16}/>, label: 'Reports' }] : []),
     ...(can('orders.manage') ? [{ id: 'orders' as AdminSection, icon: <LuListOrdered size={16}/>, label: 'Orders' }] : []),
-    ...(can('dispatch.manage') ? [{ id: 'live-drivers' as AdminSection, icon: <LuMapPin size={16}/>, label: 'Live Drivers' }] : []),
     ...(can('orders.manage') ? [{ id: 'guest-orders' as AdminSection, icon: <LuUsers size={16}/>, label: 'Guest Orders' }] : []),
-    // 3. Payments & finance
+    ...(can('dispatch.manage') ? [{ id: 'live-drivers' as AdminSection, icon: <LuMapPin size={16}/>, label: 'Live Drivers' }] : []),
     ...(can('payments.approve') ? [{ id: 'payments' as AdminSection, icon: <LuFileText size={16}/>, label: 'Payment Reviews' }] : []),
     ...(can('wallet.manage') ? [{ id: 'wallet-adjustment' as AdminSection, icon: <LuHistory size={16}/>, label: 'Wallet Adjust' }] : []),
-    ...(can('bonuses.manage') ? [{ id: 'performance-bonus' as AdminSection, icon: <LuStar size={16}/>, label: 'Bonuses' }] : []),
-    // 4. Driver management
     ...(can('drivers.verify') ? [{ id: 'drivers' as AdminSection, icon: <LuTruck size={16}/>, label: 'Drivers', count: drivers.length }] : []),
     ...(can('drivers.verify') ? [{ id: 'verify-drivers' as AdminSection, icon: <LuBadgeCheck size={16}/>, label: 'Verify Drivers' }] : []),
-    // 5. Vehicles & users
-    ...(can('vehicles.manage') ? [{ id: 'vehicles' as AdminSection, icon: <LuCar size={16}/>, label: 'Vehicles' }] : []),
     ...(can('users.manage') ? [{ id: 'shippers' as AdminSection, icon: <LuPackage size={16}/>, label: 'Shippers', count: shippers.length }] : []),
     ...(can('users.manage') ? [{ id: 'staff' as AdminSection, icon: <LuBriefcase size={16}/>, label: 'Staff Users', count: staffUsers.length }] : []),
-    // 6. Security events — super-admin only
+    ...(user?.role_id === 1 ? [{ id: 'cross-border' as AdminSection, icon: <LuGlobe size={16}/>, label: 'Cross-Border' }] : []),
+    ...(can('vehicles.manage') ? [{ id: 'vehicles' as AdminSection, icon: <LuCar size={16}/>, label: 'Vehicles' }] : []),
     ...(user?.role_id === 1 ? [{ id: 'security-events' as AdminSection, icon: <LuShieldCheck size={16}/>, label: 'Security Events' }] : []),
-    // 7. Settings — least frequent
     ...(can('settings.manage') || can('notifications.manage') || can('roles.manage') || can('pricing.manage') || can('cargo.manage') ? [{ id: 'settings' as AdminSection, icon: <LuSettings size={16}/>, label: 'Settings' }] : []),
-    { id: 'profile', icon: <LuUser size={16}/>, label: 'My Profile' },
+    { id: 'profile' as AdminSection, icon: <LuUser size={16}/>, label: 'My Profile' },
   ]
+
+  const SETTINGS_SUBSECTIONS: AdminSection[] = ['cargo-types', 'pricing-rules', 'vehicle-types', 'countries', 'notif-settings', 'role-management', 'maintenance-mode']
 
   useEffect(() => {
     if (!navItems.length) return
-    const exists = navItems.some(n => n.id === section)
+    const exists = navItems.some(n => n.id === section) || SETTINGS_SUBSECTIONS.includes(section)
     if (!exists) setSection(navItems[0].id)
   }, [section, navItems])
 
@@ -5071,6 +5585,8 @@ export default function AdminDashboardPage() {
     'maintenance-mode':{ icon: <LuWrench size={16}/>,      label: 'Maintenance' },
     'role-management': { icon: <LuKey size={16}/>,         label: 'Role Management' },
     'security-events': { icon: <LuShieldCheck size={16}/>, label: 'Security Events' },
+    'cross-border':    { icon: <LuGlobe size={16}/>,       label: 'Cross-Border' },
+    'reports':         { icon: <LuChartBar size={16}/>,    label: 'Reports' },
     'settings':        { icon: <LuSettings size={16}/>,    label: 'Settings' },
   } as Record<string, { icon: React.ReactNode; label: string }>)[section]
 
@@ -5114,18 +5630,84 @@ export default function AdminDashboardPage() {
           <span className="badge badge-cyan" style={{ marginTop: '0.5rem', fontSize: '0.67rem' }}>Admin Panel</span>
         </div>
 
-        {/* Nav items */}
-        <nav style={{ flex: 1, padding: '0.65rem 0.55rem', display: 'flex', flexDirection: 'column', gap: '0.1rem', overflowY: 'auto' }}>
-          {navItems.map(item => (
-            <button key={item.id} onClick={() => { setSection(item.id); if (!pinned) setSidebarOpen(false) }}
-              style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', padding: '0.6rem 0.7rem', borderRadius: 10, border: 'none', background: section === item.id ? 'rgba(0,229,255,0.10)' : 'transparent', color: section === item.id ? 'var(--clr-accent)' : 'var(--clr-muted)', fontFamily: 'inherit', fontSize: '0.85rem', fontWeight: 600, cursor: 'pointer', textAlign: 'left', transition: 'all 0.18s', outline: section === item.id ? '1px solid rgba(0,229,255,0.18)' : 'none', width: '100%' }}>
-              <span style={{ width: 18, display:'flex', alignItems:'center', justifyContent:'center', flexShrink: 0 }}>{item.icon}</span>
-              <span style={{ flex: 1 }}>{item.label}</span>
-              {item.count !== undefined && item.count > 0 && (
-                <span style={{ background: section === item.id ? 'rgba(0,229,255,0.2)' : 'rgba(255,255,255,0.08)', color: section === item.id ? 'var(--clr-accent)' : 'var(--clr-muted)', borderRadius: 99, padding: '0.05rem 0.45rem', fontSize: '0.68rem', fontWeight: 700 }}>{item.count}</span>
-              )}
-            </button>
-          ))}
+        {/* Nav groups */}
+        <nav style={{ flex: 1, padding: '0.5rem 0.45rem 0.65rem', display: 'flex', flexDirection: 'column', gap: 0, overflowY: 'auto' }}>
+          {([
+            {
+              label: 'Main',
+              items: [
+                ...(can('overview.view') ? [{ id: 'overview' as AdminSection, icon: <LuChartBar size={15}/>, label: 'Overview' }] : []),
+                ...(user?.role_id === 1 ? [{ id: 'reports' as AdminSection, icon: <LuChartBar size={15}/>, label: 'Reports' }] : []),
+              ],
+            },
+            {
+              label: 'Orders',
+              items: [
+                ...(can('orders.manage') ? [{ id: 'orders' as AdminSection, icon: <LuListOrdered size={15}/>, label: 'Orders' }] : []),
+                ...(can('orders.manage') ? [{ id: 'guest-orders' as AdminSection, icon: <LuUsers size={15}/>, label: 'Guest Orders' }] : []),
+                ...(can('dispatch.manage') ? [{ id: 'live-drivers' as AdminSection, icon: <LuMapPin size={15}/>, label: 'Live Drivers' }] : []),
+              ],
+            },
+            {
+              label: 'Finance',
+              items: [
+                ...(can('payments.approve') ? [{ id: 'payments' as AdminSection, icon: <LuFileText size={15}/>, label: 'Payment Reviews' }] : []),
+                ...(can('wallet.manage') ? [{ id: 'wallet-adjustment' as AdminSection, icon: <LuHistory size={15}/>, label: 'Wallet Adjust' }] : []),
+              ],
+            },
+            {
+              label: 'Drivers',
+              items: [
+                ...(can('drivers.verify') ? [{ id: 'drivers' as AdminSection, icon: <LuTruck size={15}/>, label: 'Drivers', count: drivers.length }] : []),
+                ...(can('drivers.verify') ? [{ id: 'verify-drivers' as AdminSection, icon: <LuBadgeCheck size={15}/>, label: 'Verify Drivers' }] : []),
+              ],
+            },
+            {
+              label: 'Users',
+              items: [
+                ...(can('users.manage') ? [{ id: 'shippers' as AdminSection, icon: <LuPackage size={15}/>, label: 'Shippers', count: shippers.length }] : []),
+                ...(can('users.manage') ? [{ id: 'staff' as AdminSection, icon: <LuBriefcase size={15}/>, label: 'Staff Users', count: staffUsers.length }] : []),
+              ],
+            },
+            {
+              label: 'Logistics',
+              items: [
+                ...(user?.role_id === 1 ? [{ id: 'cross-border' as AdminSection, icon: <LuGlobe size={15}/>, label: 'Cross-Border' }] : []),
+                ...(can('vehicles.manage') ? [{ id: 'vehicles' as AdminSection, icon: <LuCar size={15}/>, label: 'Vehicles' }] : []),
+              ],
+            },
+            {
+              label: 'System',
+              items: [
+                ...(user?.role_id === 1 ? [{ id: 'security-events' as AdminSection, icon: <LuShieldCheck size={15}/>, label: 'Security Events' }] : []),
+                ...(can('settings.manage') || can('notifications.manage') || can('roles.manage') || can('pricing.manage') || can('cargo.manage') ? [{ id: 'settings' as AdminSection, icon: <LuSettings size={15}/>, label: 'Settings' }] : []),
+                { id: 'profile' as AdminSection, icon: <LuUser size={15}/>, label: 'My Profile' },
+              ],
+            },
+          ] as { label: string; items: { id: AdminSection; icon: React.ReactNode; label: string; count?: number }[] }[])
+            .filter(g => g.items.length > 0)
+            .map(group => (
+              <div key={group.label} style={{ marginBottom: '0.1rem' }}>
+                {/* Section divider */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', padding: '0.55rem 0.5rem 0.18rem 0.3rem' }}>
+                  <div style={{ width: 14, height: 1, background: 'rgba(255,255,255,0.1)', flexShrink: 0 }} />
+                  <span style={{ fontSize: '0.57rem', fontWeight: 700, letterSpacing: '0.1em', color: 'rgba(255,255,255,0.28)', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>{group.label}</span>
+                  <div style={{ flex: 1, height: 1, background: 'rgba(255,255,255,0.1)' }} />
+                </div>
+                {/* Items */}
+                {group.items.map(item => (
+                  <button key={item.id} onClick={() => { setSection(item.id); if (!pinned) setSidebarOpen(false) }}
+                    style={{ display: 'flex', alignItems: 'center', gap: '0.55rem', padding: '0.52rem 0.6rem 0.52rem 0.85rem', borderRadius: 9, border: 'none', background: section === item.id ? 'rgba(0,229,255,0.10)' : 'transparent', color: section === item.id ? 'var(--clr-accent)' : 'var(--clr-muted)', fontFamily: 'inherit', fontSize: '0.83rem', fontWeight: 600, cursor: 'pointer', textAlign: 'left', transition: 'all 0.18s', outline: section === item.id ? '1px solid rgba(0,229,255,0.18)' : 'none', width: '100%' }}>
+                    <span style={{ width: 17, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>{item.icon}</span>
+                    <span style={{ flex: 1 }}>{item.label}</span>
+                    {item.count !== undefined && item.count > 0 && (
+                      <span style={{ background: section === item.id ? 'rgba(0,229,255,0.2)' : 'rgba(255,255,255,0.08)', color: section === item.id ? 'var(--clr-accent)' : 'var(--clr-muted)', borderRadius: 99, padding: '0.05rem 0.42rem', fontSize: '0.67rem', fontWeight: 700 }}>{item.count}</span>
+                    )}
+                  </button>
+                ))}
+              </div>
+            ))
+          }
         </nav>
 
         {/* User footer */}
@@ -5179,10 +5761,11 @@ export default function AdminDashboardPage() {
           {section === 'maintenance-mode' && <AdminMaintenanceSection />}
           {section === 'role-management' && <AdminRoleManagementSection />}
           {section === 'security-events' && <AdminSecurityEventsSection />}
+          {section === 'cross-border'    && <AdminCrossBorderSection />}
+          {section === 'reports'         && <AdminReportsSection />}
           {section === 'profile'        && <ProfileSection />}
             {section === 'payments'       && <AdminPaymentReview />}
             {section === 'wallet-adjustment' && <AdminWalletAdjustment />}
-            {section === 'performance-bonus' && <AdminPerformanceBonus />}
             {section === 'notif-settings'   && <AdminNotifSettings />}
         </main>
       </div>

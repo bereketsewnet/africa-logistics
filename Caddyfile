@@ -1,7 +1,16 @@
 # ─── Africa Logistics — Frontend ──────────────────────────────────────────────
-# Use the corrected domain names (afri- prefix)
+# Canonical frontend domain
 africa-logistics.lula.com.et {
+    handle_path /uploads/* {
+        root * /srv/uploads
+        file_server
+    }
     reverse_proxy africa_frontend:80
+}
+
+# Legacy alias -> redirect to canonical domain so users always get latest UI.
+afri-logistics.lula.com.et {
+    redir https://africa-logistics.lula.com.et{uri} 308
 }
 
 # ─── Africa Logistics — Backend API ───────────────────────────────────────────
@@ -15,4 +24,9 @@ africa-logistics-api.lula.com.et {
     handle {
         reverse_proxy africa_backend:3000
     }
+}
+
+# Legacy API alias -> redirect to canonical API domain.
+afri-logistics-api.lula.com.et {
+    redir https://africa-logistics-api.lula.com.et{uri} 308
 }

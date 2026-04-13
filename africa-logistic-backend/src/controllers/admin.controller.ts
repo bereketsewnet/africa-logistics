@@ -740,6 +740,10 @@ import {
   getOrderMessages,
   createOrderMessage,
   markMessagesRead,
+  listCrossBorderDocs,
+  reviewCrossBorderDoc,
+  updateOrderBorderInfo,
+  type CrossBorderDocStatus,
 } from '../services/order.service.js'
 
 import {
@@ -1107,6 +1111,12 @@ interface AdminCreateOrderBody {
   // Optional media (base64)
   cargo_image?: string
   payment_receipt?: string
+  // Cross-border
+  is_cross_border?: boolean
+  pickup_country_id?: number
+  delivery_country_id?: number
+  hs_code?: string
+  shipper_tin?: string
 }
 
 /** POST /api/admin/orders — admin creates an order on behalf of a shipper or as a guest */
@@ -1125,6 +1135,7 @@ export async function adminCreateOrderOnBehalfHandler(
     special_instructions,
     driver_id, vehicle_id,
     cargo_image, payment_receipt,
+    is_cross_border, pickup_country_id, delivery_country_id, hs_code, shipper_tin,
   } = request.body
 
   // Either a registered shipper OR guest mode must be provided
@@ -1149,7 +1160,7 @@ export async function adminCreateOrderOnBehalfHandler(
   const pickupAddr   = pickup_address   || await reverseGeocode(pickup_lat, pickup_lng) || `${pickup_lat},${pickup_lng}`
   const deliveryAddr = delivery_address || await reverseGeocode(delivery_lat, delivery_lng) || `${delivery_lat},${delivery_lng}`
 
-  const quote       = calculateQuote(distanceKm, rule, estimated_weight_kg)
+  const quote       = calculateQuote(distanceKm, rule, estimated_weight_kg, is_cross_border)
   const pickupOtp   = generateOtp()
   const deliveryOtp = generateOtp()
 
@@ -1212,6 +1223,11 @@ export async function adminCreateOrderOnBehalfHandler(
     guestName:      resolvedGuestName,
     guestPhone:     resolvedGuestPhone,
     guestEmail:     resolvedGuestEmail,
+    isCrossBorder:      is_cross_border ?? false,
+    pickupCountryId:    pickup_country_id ?? 1,
+    deliveryCountryId:  delivery_country_id ?? 1,
+    hsCode:             hs_code ?? null,
+    shipperTin:         shipper_tin ?? null,
   })
 
   // Optionally assign driver right away
@@ -2606,4 +2622,280 @@ export async function adminGetSecurityEventsHandler(
     events: rows,
     pagination: { page, limit, total, pages: Math.ceil(total / limit) },
   })
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// ── CROSS-BORDER & CUSTOMS (Module 10) ───────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/**
+ * GET /api/admin/cross-border/orders
+ * List all orders where is_cross_border = 1, optionally filtered by border status.
+ */
+export async function adminListCrossBorderOrdersHandler(
+  request: FastifyRequest<{ Querystring: { status?: string; page?: string; limit?: string } }>,
+  reply:   FastifyReply
+) {
+  const caller = request.user as any
+  if ([2, 3].includes(caller.role_id)) return reply.status(403).send({ message: 'Admin access required.' })
+
+  const page  = parseInt(request.query.page  ?? '1',  10)
+  const limit = parseInt(request.query.limit ?? '25', 10)
+  const offset = (page - 1) * limit
+  const db = request.server.db
+
+  const params: any[] = []
+  let statusClause = ''
+  if (request.query.status) {
+    statusClause = ' AND o.status = ?'
+    params.push(request.query.status)
+  }
+
+  const [countRows] = await db.query<any[]>(
+    `SELECT COUNT(*) AS total FROM orders o WHERE o.is_cross_border = 1${statusClause}`,
+    params
+  )
+  const total = Number(countRows[0]?.total ?? 0)
+
+  const [orders] = await db.query<any[]>(
+    `SELECT o.*,
+        ct.name AS cargo_type_name,
+        s.first_name AS shipper_first_name, s.last_name AS shipper_last_name, s.phone_number AS shipper_phone,
+        d.first_name AS driver_first_name,  d.last_name AS driver_last_name,  d.phone_number AS driver_phone,
+        cp.name AS pickup_country_name, cd.name AS delivery_country_name
+     FROM orders o
+     LEFT JOIN cargo_types ct ON ct.id = o.cargo_type_id
+     LEFT JOIN users s ON s.id = o.shipper_id
+     LEFT JOIN users d ON d.id = o.driver_id
+     LEFT JOIN countries cp ON cp.id = o.pickup_country_id
+     LEFT JOIN countries cd ON cd.id = o.delivery_country_id
+     WHERE o.is_cross_border = 1${statusClause}
+     ORDER BY o.created_at DESC
+     LIMIT ? OFFSET ?`,
+    [...params, limit, offset]
+  )
+
+  return reply.send({
+    success: true,
+    orders,
+    pagination: { total, page, limit, pages: Math.ceil(total / limit) },
+  })
+}
+
+/**
+ * GET /api/admin/orders/:id/cross-border-docs
+ * List all cross-border documents for an order.
+ */
+export async function adminGetCrossBorderDocsHandler(
+  request: FastifyRequest<{ Params: { id: string } }>,
+  reply:   FastifyReply
+) {
+  const caller = request.user as any
+  if ([2, 3].includes(caller.role_id)) return reply.status(403).send({ message: 'Admin access required.' })
+
+  const order = await getOrderById(request.server.db, request.params.id)
+  if (!order) return reply.status(404).send({ success: false, message: 'Order not found.' })
+
+  const docs = await listCrossBorderDocs(request.server.db, request.params.id)
+  return reply.send({ success: true, documents: docs })
+}
+
+/**
+ * PUT /api/admin/orders/:id/cross-border-docs/:docId
+ * Approve or reject a cross-border document.
+ * Body: { action: 'APPROVED'|'REJECTED', review_notes?: string }
+ */
+export async function adminReviewCrossBorderDocHandler(
+  request: FastifyRequest<{ Params: { id: string; docId: string }; Body: { action: CrossBorderDocStatus; review_notes?: string } }>,
+  reply:   FastifyReply
+) {
+  const caller = request.user as any
+  // Admins (1) may review any document. Shippers (2) may review documents on their own orders.
+  if (caller.role_id === 3) return reply.status(403).send({ message: 'Admin access required.' })
+
+  const body = (request.body as any) ?? {}
+  const actionInput = String(body.action ?? '').trim().toLowerCase()
+  const actionMap: Record<string, string> = {
+    approve: 'APPROVED', approved: 'APPROVED',
+    reject: 'REJECTED',  rejected: 'REJECTED',
+    pending_review: 'PENDING_REVIEW',
+  }
+  const rawAction = actionMap[actionInput] ?? String(body.action ?? '').trim().toUpperCase()
+  const review_notes = body.review_notes ?? null
+  const allowed = ['APPROVED', 'REJECTED', 'PENDING_REVIEW']
+  if (!rawAction) {
+    return reply.status(400).send({ success: false, message: 'action is required in request body.' })
+  }
+  if (!allowed.includes(rawAction)) {
+    return reply.status(400).send({ success: false, message: 'action must be APPROVED, REJECTED, or PENDING_REVIEW.' })
+  }
+  if (rawAction === 'REJECTED' && !(String(review_notes ?? '').trim())) {
+    return reply.status(400).send({ success: false, message: 'review_notes is required when rejecting.' })
+  }
+  const action = rawAction as any
+
+  const docId = String(request.params.docId || '').trim()
+  if (!docId) return reply.status(400).send({ success: false, message: 'Invalid docId.' })
+
+  const db = request.server.db
+
+  // Verify doc belongs to this order
+  const [docRows] = await db.query<any[]>(
+    `SELECT id, order_id, uploaded_by FROM cross_border_documents WHERE id = ? AND order_id = ?`,
+    [docId, request.params.id]
+  )
+  if (!docRows[0]) return reply.status(404).send({ success: false, message: 'Document not found on this order.' })
+
+  // If caller is a shipper, we'll verify ownership after loading the order below
+
+  await reviewCrossBorderDoc(db, docId, caller.id, action, review_notes ?? null)
+
+  // Notify the driver
+  const order = await getOrderById(db, request.params.id)
+  if (!order) return reply.status(404).send({ success: false, message: 'Order not found.' })
+  // If caller is a shipper, ensure they own the order
+  if (caller.role_id === 2 && String(order.shipper_id) !== String(caller.id)) {
+    return reply.status(403).send({ success: false, message: 'Access denied.' })
+  }
+  if (order?.driver_id) {
+    const { sendPushToUser: pushToUser } = await import('../services/push.service.js')
+    await pushToUser(db, order.driver_id, {
+      title: `Document ${action === 'APPROVED' ? 'Approved ✓' : action === 'REJECTED' ? 'Rejected ✗' : 'Under Review'}`,
+      body: `Cross-border document for order ${order.reference_code} has been ${action.toLowerCase()}.`,
+      url: '/driver/jobs',
+      data: { order_id: order.id, doc_id: docId, type: 'CB_DOC_REVIEWED' },
+    }).catch(() => {})
+  }
+
+  return reply.send({ success: true, message: `Document ${action.toLowerCase()}.` })
+}
+
+/**
+ * PATCH /api/admin/orders/:id/border-info
+ * Update border reference information on an order.
+ * Body: { border_crossing_ref?, customs_declaration_ref?, hs_code?, shipper_tin? }
+ */
+export async function adminUpdateBorderInfoHandler(
+  request: FastifyRequest<{ Params: { id: string }; Body: {
+    border_crossing_ref?: string
+    customs_declaration_ref?: string
+    hs_code?: string
+    shipper_tin?: string
+  } }>,
+  reply: FastifyReply
+) {
+  const caller = request.user as any
+  if ([2, 3].includes(caller.role_id)) return reply.status(403).send({ message: 'Admin access required.' })
+
+  const order = await getOrderById(request.server.db, request.params.id)
+  if (!order) return reply.status(404).send({ success: false, message: 'Order not found.' })
+
+  const { border_crossing_ref, customs_declaration_ref, hs_code, shipper_tin } = request.body
+
+  await updateOrderBorderInfo(request.server.db, request.params.id, {
+    borderCrossingRef:    border_crossing_ref,
+    customsDeclarationRef: customs_declaration_ref,
+    hsCode:               hs_code,
+    shipperTin:           shipper_tin,
+  }, caller.id)
+
+  const updated = await getOrderById(request.server.db, request.params.id)
+  return reply.send({ success: true, message: 'Border info updated.', order: updated })
+}
+
+/**
+ * POST /api/admin/orders/:id/esw/submit
+ * Mock eSW (Ethiopian Single Window) submission.
+ * In production this would call the real eSW API.
+ * Sets customs_declaration_ref and a mock reference, ready for real API swap.
+ */
+export async function adminSubmitToEswHandler(
+  request: FastifyRequest<{ Params: { id: string } }>,
+  reply:   FastifyReply
+) {
+  const caller = request.user as any
+  if ([2, 3].includes(caller.role_id)) return reply.status(403).send({ message: 'Admin access required.' })
+
+  const db = request.server.db
+  const order = await getOrderById(db, request.params.id)
+  if (!order) return reply.status(404).send({ success: false, message: 'Order not found.' })
+  if (!order.is_cross_border) return reply.status(400).send({ success: false, message: 'Order is not cross-border.' })
+
+  // Generate mock eSW reference (replace with real API call in production)
+  const eswRef = `ESW-${Date.now()}-${Math.floor(Math.random() * 9000 + 1000)}`
+
+  await updateOrderBorderInfo(db, order.id, {
+    customsDeclarationRef: eswRef,
+  }, caller.id)
+
+  // Record submission in status history
+  await db.query(
+    `INSERT INTO order_status_history (order_id, status, changed_by, notes) VALUES (?, ?, ?, ?)`,
+    [order.id, order.status, caller.id, `Submitted to eSW. Mock reference: ${eswRef}`]
+  )
+
+  return reply.send({
+    success: true,
+    message: 'Submitted to eSW (mock). Real integration ready — replace with actual API call.',
+    esw_reference: eswRef,
+    note: 'Configure ESW_API_URL and ESW_CLIENT_ID in env to enable real eSW calls.',
+  })
+}
+
+/**
+ * POST /api/esw/webhook
+ * Receive eSW status callback (CUSTOMS_CLEARED from eSW system).
+ * Secured by shared webhook secret (ESW_WEBHOOK_SECRET in env).
+ */
+export async function eswWebhookHandler(
+  request: FastifyRequest,
+  reply:   FastifyReply
+) {
+  const secret = process.env.ESW_WEBHOOK_SECRET
+  if (secret) {
+    const provided = request.headers['x-esw-secret']
+    if (provided !== secret) {
+      return reply.status(401).send({ success: false, message: 'Invalid webhook secret.' })
+    }
+  }
+
+  const body = request.body as any
+  const { customs_declaration_ref, status, order_id } = body ?? {}
+
+  if (!customs_declaration_ref && !order_id) {
+    return reply.status(400).send({ success: false, message: 'customs_declaration_ref or order_id is required.' })
+  }
+
+  const db = request.server.db
+
+  // Look up order by customs_declaration_ref or order_id
+  let order: any = null
+  if (order_id) {
+    order = await getOrderById(db, order_id)
+  } else {
+    const [rows] = await db.query<any[]>(
+      `SELECT id FROM orders WHERE customs_declaration_ref = ? LIMIT 1`,
+      [customs_declaration_ref]
+    )
+    if (rows[0]) order = await getOrderById(db, rows[0].id)
+  }
+
+  if (!order) return reply.status(404).send({ success: false, message: 'Order not found.' })
+
+  // Update to CUSTOMS_CLEARED if in IN_CUSTOMS or AT_BORDER
+  if (['IN_CUSTOMS', 'AT_BORDER'].includes(order.status) && status === 'CUSTOMS_CLEARED') {
+    await updateOrderStatus(db, order.id, 'CUSTOMS_CLEARED', 'esw_webhook', 'Customs cleared via eSW webhook')
+    
+    if (order.driver_id) {
+      const { sendPushToUser: pushToUser } = await import('../services/push.service.js')
+      await pushToUser(db, order.driver_id, {
+        title: 'Customs Cleared!',
+        body: `Order ${order.reference_code} customs has been cleared. Please proceed.`,
+        url: '/driver/jobs',
+        data: { order_id: order.id, type: 'CUSTOMS_CLEARED' },
+      }).catch(() => {})
+    }
+  }
+
+  return reply.send({ success: true, message: 'Webhook received.' })
 }

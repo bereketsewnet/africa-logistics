@@ -7,7 +7,7 @@ import {
   LuCircleCheck, LuTriangleAlert, LuTruck, LuMapPin,
   LuFileText, LuChevronRight, LuChevronLeft,
   LuSend, LuArrowRight, LuBan, LuNavigation,
-  LuEye, LuEyeOff, LuCopy, LuMessageSquare, LuCamera, LuTrash2, LuStar,
+  LuEye, LuEyeOff, LuCopy, LuMessageSquare, LuCamera, LuTrash2, LuStar, LuUpload,
 } from 'react-icons/lu'
 
 // ─── Leaflet icon fix (Vite bundler) ─────────────────────────────────────────
@@ -44,6 +44,22 @@ interface Order {
   description: string | null; estimated_value: number | null
   driver_first_name: string | null; driver_last_name: string | null; driver_phone: string | null
   created_at: string; pickup_otp?: string | null; delivery_otp?: string | null
+  is_cross_border?: number
+  hs_code?: string | null
+  shipper_tin?: string | null
+  border_crossing_ref?: string | null
+  customs_declaration_ref?: string | null
+}
+interface CrossBorderDoc {
+  id: string
+  document_type: string
+  status: string
+  notes?: string | null
+  file_url: string
+  created_at: string
+  uploader_first_name?: string
+  uploader_last_name?: string
+  review_notes?: string | null
 }
 interface StatusHistory { id: number; status: string; notes: string | null; created_at: string }
 interface Message { id: string; sender_first_name: string; sender_last_name: string; sender_role_id: number; message: string; created_at: string; sender_name?: string; sender_role?: string; channel?: string }
@@ -70,6 +86,15 @@ const STATUS_LABEL: Record<string, string> = {
   DELIVERED: 'Delivered',
   CANCELLED: 'Cancelled',
 }
+
+const DOC_TYPE_OPTIONS = [
+  { value: 'COMMERCIAL_INVOICE', label: 'Commercial Invoice' },
+  { value: 'BILL_OF_LADING', label: 'Bill of Lading' },
+  { value: 'PACKING_LIST', label: 'Packing List' },
+  { value: 'CERTIFICATE_OF_ORIGIN', label: 'Certificate of Origin' },
+  { value: 'CHECKPOINT_PHOTO', label: 'Checkpoint Photo' },
+  { value: 'OTHER', label: 'Other' },
+]
 
 function statusBadge(status: string) {
   const c = STATUS_COLOR[status] ?? '#94a3b8'
@@ -358,6 +383,11 @@ function PlaceOrderWizard({ cargoTypes, onDone, onClose }: WizardProps) {
   const [img2, setImg2] = useState<string>('')  // base64
   const [img1Preview, setImg1Preview] = useState<string>('')
   const [img2Preview, setImg2Preview] = useState<string>('')
+  // Cross-border
+  const [isCrossBorder, setIsCrossBorder] = useState(false)
+  const [cbDeliveryCountryId, setCbDeliveryCountryId] = useState(0)
+  const [cbHsCode, setCbHsCode] = useState('')
+  const [cbShipperTin, setCbShipperTin] = useState('')
 
   useEffect(() => {
     configApi.getVehicleTypes()
@@ -394,8 +424,12 @@ function PlaceOrderWizard({ cargoTypes, onDone, onClose }: WizardProps) {
       setErr('Pickup point is outside the selected country.')
       return
     }
-    if (form.delivery_country_code && form.delivery_country_code !== form.country_code) {
+    if (!isCrossBorder && form.delivery_country_code && form.delivery_country_code !== form.country_code) {
       setErr('Delivery point is outside the selected country.')
+      return
+    }
+    if (isCrossBorder && !cbDeliveryCountryId) {
+      setErr('Select a delivery country for cross-border shipment.')
       return
     }
     // Same-location guard
@@ -415,6 +449,7 @@ function PlaceOrderWizard({ cargoTypes, onDone, onClose }: WizardProps) {
         pickup_lng:    parseFloat(form.pickup_lng),
         delivery_lat:  parseFloat(form.delivery_lat),
         delivery_lng:  parseFloat(form.delivery_lng),
+        is_cross_border: isCrossBorder || undefined,
       })
       setQuote(data.quote)
       setStep(2)
@@ -424,11 +459,17 @@ function PlaceOrderWizard({ cargoTypes, onDone, onClose }: WizardProps) {
 
   const handlePlace = async () => {
     setErr(''); setLoading(true)
-    if (!form.country_code || (form.pickup_country_code && form.pickup_country_code !== form.country_code) || (form.delivery_country_code && form.delivery_country_code !== form.country_code)) {
+    if (!form.country_code || (form.pickup_country_code && form.pickup_country_code !== form.country_code) || (!isCrossBorder && form.delivery_country_code && form.delivery_country_code !== form.country_code)) {
       setLoading(false)
       setErr('Selected locations must both be inside the selected country.')
       return
     }
+    if (isCrossBorder && !cbDeliveryCountryId) {
+      setLoading(false)
+      setErr('Select a delivery country for cross-border shipment.')
+      return
+    }
+    const pickupCountryObj = countries.find(c => String(c.iso_code).toLowerCase() === form.country_code)
     try {
       const { data } = await orderApi.placeOrder({
         cargo_type_id:       Number(form.cargo_type_id),
@@ -444,6 +485,11 @@ function PlaceOrderWizard({ cargoTypes, onDone, onClose }: WizardProps) {
         estimated_value:  form.estimated_value ? parseFloat(form.estimated_value) : undefined,
         order_image_1:    img1 || undefined,
         order_image_2:    img2 || undefined,
+        is_cross_border:      isCrossBorder || undefined,
+        pickup_country_id:    isCrossBorder && pickupCountryObj ? pickupCountryObj.id : undefined,
+        delivery_country_id:  isCrossBorder && cbDeliveryCountryId ? cbDeliveryCountryId : undefined,
+        hs_code:              isCrossBorder && cbHsCode ? cbHsCode : undefined,
+        shipper_tin:          isCrossBorder && cbShipperTin ? cbShipperTin : undefined,
       })
       setPlacedOrder({ reference_code: data.order.reference_code, pickup_otp: data.otps.pickup_otp, delivery_otp: data.otps.delivery_otp })
     } catch (e: any) { setErr(e.response?.data?.message ?? 'Failed to place order.') }
@@ -608,6 +654,42 @@ function PlaceOrderWizard({ cargoTypes, onDone, onClose }: WizardProps) {
                 </button>
               )}
             </div>
+          </div>
+
+          {/* Cross-border toggle */}
+          <div style={{ padding:'0.75rem 0.9rem', borderRadius:10, border:'1px solid rgba(255,255,255,0.1)', background:'rgba(255,255,255,0.02)' }}>
+            <label style={{ cursor:'pointer', display:'flex', alignItems:'center', gap:'0.65rem', fontWeight:600, fontSize:'0.83rem' }}>
+              <input type="checkbox" checked={isCrossBorder} onChange={e => { setIsCrossBorder(e.target.checked); setCbDeliveryCountryId(0) }}
+                style={{ accentColor:'var(--clr-accent)', width:15, height:15 }}/>
+              🌍 Cross-border shipment (different countries)
+            </label>
+            {isCrossBorder && (
+              <div style={{ marginTop:'0.75rem', display:'flex', flexDirection:'column', gap:'0.6rem' }}>
+                <div>
+                  <label style={{ fontSize:'0.73rem', fontWeight:600, color:'var(--clr-muted)', marginBottom:'0.25rem', display:'block' }}>Delivery Country *</label>
+                  <select value={cbDeliveryCountryId || ''} onChange={e => setCbDeliveryCountryId(Number(e.target.value))}
+                    style={{ width:'100%', padding:'0.6rem 0.8rem', borderRadius:9, border:'1px solid rgba(255,255,255,0.12)', background:'rgba(30,30,30,0.95)', color:'var(--clr-text)', fontFamily:'inherit', fontSize:'0.85rem' }}>
+                    <option value=''>-- Select destination country --</option>
+                    {countries.filter(c => String(c.iso_code).toLowerCase() !== form.country_code).map(c => (
+                      <option key={c.id} value={c.id}>{c.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'0.6rem' }}>
+                  <div>
+                    <label style={{ fontSize:'0.73rem', fontWeight:600, color:'var(--clr-muted)', marginBottom:'0.25rem', display:'block' }}>HS Code (customs)</label>
+                    <input value={cbHsCode} onChange={e => setCbHsCode(e.target.value)} placeholder="e.g. 8471.30"
+                      style={{ width:'100%', padding:'0.6rem 0.8rem', borderRadius:9, border:'1px solid rgba(255,255,255,0.12)', background:'rgba(255,255,255,0.05)', color:'var(--clr-text)', fontFamily:'inherit', fontSize:'0.85rem', boxSizing:'border-box' }}/>
+                  </div>
+                  <div>
+                    <label style={{ fontSize:'0.73rem', fontWeight:600, color:'var(--clr-muted)', marginBottom:'0.25rem', display:'block' }}>Your TIN</label>
+                    <input value={cbShipperTin} onChange={e => setCbShipperTin(e.target.value)} placeholder="Tax ID number"
+                      style={{ width:'100%', padding:'0.6rem 0.8rem', borderRadius:9, border:'1px solid rgba(255,255,255,0.12)', background:'rgba(255,255,255,0.05)', color:'var(--clr-text)', fontFamily:'inherit', fontSize:'0.85rem', boxSizing:'border-box' }}/>
+                  </div>
+                </div>
+                <p style={{ fontSize:'0.72rem', color:'var(--clr-muted)', margin:0 }}>ℹ️ Delivery country list shows only countries enabled by the operator. Your shipment will go through border &amp; customs checks.</p>
+              </div>
+            )}
           </div>
 
           {/* Missing-field hints */}
@@ -904,10 +986,19 @@ function OtpRevealBox({ pickupOtp, deliveryOtp }: { pickupOtp?: string | null; d
 
 // ─── Order Detail Modal ───────────────────────────────────────────────────────
 function OrderDetailModal({ order, onClose, onCancelled }: { order: Order; onClose: () => void; onCancelled: () => void }) {
-  const [tab, setTab] = useState<'info' | 'history' | 'chat' | 'track'>('info')
+  const isCrossBorder = !!order.is_cross_border
+  const [tab, setTab] = useState<'info' | 'history' | 'chat' | 'track' | 'docs'>('info')
   const [chatChannel, setChatChannel] = useState<'main' | 'shipper'>('main')
   const [history, setHistory] = useState<StatusHistory[]>([])
   const [messages, setMessages] = useState<Message[]>([])
+  const [cbDocs, setCbDocs] = useState<CrossBorderDoc[]>([])
+  const [docsLoading, setDocsLoading] = useState(false)
+  const [docType, setDocType] = useState('CHECKPOINT_PHOTO')
+  const [docFile, setDocFile] = useState<string>('')
+  const [docNotes, setDocNotes] = useState('')
+  const [docUploading, setDocUploading] = useState(false)
+  const [docErr, setDocErr] = useState('')
+  const [docSuccess, setDocSuccess] = useState('')
   const [msgText, setMsgText] = useState('')
   const [sending, setSending] = useState(false)
   const [cancelling, setCancelling] = useState(false)
@@ -922,9 +1013,11 @@ function OrderDetailModal({ order, onClose, onCancelled }: { order: Order; onClo
   const [tipMsg, setTipMsg] = useState('')
   const [charges, setCharges] = useState<OrderCharge[]>([])
   const msgBottom = useRef<HTMLDivElement>(null)
+  const docInputRef = useRef<HTMLInputElement>(null)
+  const [reviewNotes, setReviewNotes] = useState<Record<string,string>>({})
 
   // ─── WS for real-time NEW_MESSAGE events ───────────────────────────────────
-  const tabRef = useRef<'info' | 'history' | 'chat' | 'track'>('info')
+  const tabRef = useRef<'info' | 'history' | 'chat' | 'track' | 'docs'>('info')
   const chatChannelRef = useRef<'main' | 'shipper'>('main')
   const [unreadChat, setUnreadChat] = useState(false)
   useEffect(() => { tabRef.current = tab }, [tab])
@@ -966,9 +1059,23 @@ function OrderDetailModal({ order, onClose, onCancelled }: { order: Order; onClo
     setTimeout(() => msgBottom.current?.scrollIntoView({ behavior:'smooth' }), 100)
   }, [order.id, chatChannel])
 
+  const loadCrossBorderDocs = useCallback(async () => {
+    if (!isCrossBorder) return
+    setDocsLoading(true)
+    try {
+      const { data } = await orderApi.getCrossBorderDocs(order.id)
+      setCbDocs(data.documents ?? data.docs ?? [])
+    } catch {
+      setDocErr('Failed to load documents')
+    } finally {
+      setDocsLoading(false)
+    }
+  }, [isCrossBorder, order.id])
+
   useEffect(() => {
     if (tab === 'history') loadHistory()
     if (tab === 'chat') { setUnreadChat(false); loadMessages() }
+    if (tab === 'docs') loadCrossBorderDocs()
   }, [tab]) // eslint-disable-line
 
   useEffect(() => {
@@ -984,6 +1091,30 @@ function OrderDetailModal({ order, onClose, onCancelled }: { order: Order; onClo
       await loadMessages()
     } catch { /* silent */ }
     finally { setSending(false) }
+  }
+
+  const handleDocFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = ev => setDocFile(ev.target?.result as string)
+    reader.readAsDataURL(file)
+  }
+
+  const handleUploadCrossBorderDoc = async () => {
+    if (!docFile) { setDocErr('Please select a file.'); return }
+    setDocErr(''); setDocSuccess(''); setDocUploading(true)
+    try {
+      await orderApi.uploadCrossBorderDoc(order.id, { document_type: docType, file_base64: docFile, notes: docNotes || undefined })
+      setDocSuccess('Document uploaded successfully. Pending admin review.')
+      setDocFile(''); setDocNotes('')
+      if (docInputRef.current) docInputRef.current.value = ''
+      await loadCrossBorderDocs()
+    } catch (e: any) {
+      setDocErr(e.response?.data?.message ?? 'Upload failed')
+    } finally {
+      setDocUploading(false)
+    }
   }
 
   const handleCancel = async () => {
@@ -1095,11 +1226,11 @@ function OrderDetailModal({ order, onClose, onCancelled }: { order: Order; onClo
 
           {/* Tabs */}
           <div style={{ display:'flex', gap:'0.25rem', background:'rgba(255,255,255,0.04)', borderRadius:10, padding:'0.25rem', marginBottom:'1rem' }}>
-            {(['info','history','chat','track'] as const).map(t => (
+            {([...(isCrossBorder ? ['info','history','chat','track','docs'] as const : ['info','history','chat','track'] as const)]).map(t => (
               <button key={t} onClick={() => setTab(t)} style={{ flex:1, padding:'0.4rem 0.25rem', border:'none', borderRadius:8, background: tab === t ? 'rgba(0,229,255,0.12)' : 'transparent', color: tab === t ? 'var(--clr-accent)' : 'var(--clr-muted)', fontFamily:'inherit', fontSize:'0.72rem', fontWeight:700, cursor:'pointer', transition:'all 0.15s', outline: tab === t ? '1px solid rgba(0,229,255,0.2)' : 'none', textTransform:'capitalize', position:'relative' }}>
                 {t === 'history' ? 'Timeline' : t === 'chat' ? (
                   <>{unreadChat && tab !== 'chat' && <span style={{ position:'absolute', top:2, right:2, width:7, height:7, borderRadius:'50%', background:'#f87171', boxShadow:'0 0 4px #f87171' }}/>}Chat</>
-                ) : t === 'track' ? 'Track' : 'Details'}
+                ) : t === 'track' ? 'Track' : t === 'docs' ? 'Docs' : 'Details'}
               </button>
             ))}
           </div>
@@ -1340,6 +1471,155 @@ function OrderDetailModal({ order, onClose, onCancelled }: { order: Order; onClo
                   </button>
                 </div>
               )}
+            </div>
+          )}
+
+          {/* ── Docs tab (cross-border) ── */}
+          {tab === 'docs' && isCrossBorder && (
+            <div style={{ display:'flex', flexDirection:'column', gap:'0.85rem' }}>
+              <div className="glass-inner" style={{ padding:'0.85rem 1rem', fontSize:'0.8rem' }}>
+                <p style={{ fontWeight:700, color:'var(--clr-text)', marginBottom:'0.45rem' }}>Border Info</p>
+                {[
+                  ['Border Ref', order.border_crossing_ref],
+                  ['Customs Ref', order.customs_declaration_ref],
+                  ['HS Code', order.hs_code],
+                  ['Shipper TIN', order.shipper_tin],
+                ].map(([l, v]) => (
+                  <div key={String(l)} style={{ display:'flex', gap:'0.5rem', marginBottom:'0.25rem' }}>
+                    <span style={{ color:'var(--clr-muted)', width:95, flexShrink:0 }}>{l}</span>
+                    <span style={{ color:'var(--clr-text)', fontWeight:500, wordBreak:'break-all' }}>{v || '—'}</span>
+                  </div>
+                ))}
+              </div>
+
+              <div className="glass-inner" style={{ padding:'0.85rem 1rem' }}>
+                <p style={{ fontWeight:700, color:'var(--clr-text)', marginBottom:'0.5rem', fontSize:'0.85rem' }}>Upload Document</p>
+                {docErr && <div className="alert alert-error" style={{ marginBottom:'0.6rem', fontSize:'0.78rem' }}><LuTriangleAlert size={12}/> {docErr}</div>}
+                {docSuccess && <div className="alert alert-success" style={{ marginBottom:'0.6rem', fontSize:'0.78rem' }}><LuCircleCheck size={12}/> {docSuccess}</div>}
+                <div style={{ display:'flex', flexDirection:'column', gap:'0.5rem' }}>
+                  <select value={docType} onChange={e => setDocType(e.target.value)}
+                    style={{ padding:'0.5rem 0.75rem', borderRadius:8, border:'1px solid rgba(255,255,255,0.1)', background:'rgba(255,255,255,0.04)', color:'var(--clr-text)', fontFamily:'inherit', fontSize:'0.8rem', outline:'none' }}>
+                    {DOC_TYPE_OPTIONS.map(t => <option key={t.value} value={t.value} style={{ background:'#0f172a' }}>{t.label}</option>)}
+                  </select>
+                  <input ref={docInputRef} type="file" accept="image/*,application/pdf" onChange={handleDocFileChange}
+                    style={{ padding:'0.4rem', borderRadius:8, border:'1px solid rgba(255,255,255,0.1)', background:'rgba(255,255,255,0.04)', color:'var(--clr-text)', fontSize:'0.78rem' }}/>
+                  <input value={docNotes} onChange={e => setDocNotes(e.target.value)} placeholder="Notes (optional)"
+                    style={{ padding:'0.5rem 0.75rem', borderRadius:8, border:'1px solid rgba(255,255,255,0.1)', background:'rgba(255,255,255,0.04)', color:'var(--clr-text)', fontFamily:'inherit', fontSize:'0.8rem', outline:'none' }}/>
+                  <button onClick={handleUploadCrossBorderDoc} disabled={docUploading || !docFile}
+                    style={{ padding:'0.6rem', borderRadius:10, border:'none', background: docFile ? 'var(--clr-accent)' : 'rgba(255,255,255,0.08)', color: docFile ? '#080b14' : 'var(--clr-muted)', fontFamily:'inherit', fontSize:'0.82rem', fontWeight:700, cursor: docFile ? 'pointer' : 'not-allowed', display:'flex', alignItems:'center', justifyContent:'center', gap:'0.4rem' }}>
+                    {docUploading ? <Spinner/> : <><LuUpload size={14}/> Upload</>}
+                  </button>
+                </div>
+              </div>
+
+              <div className="glass-inner" style={{ padding:'0.85rem 1rem' }}>
+                <p style={{ fontWeight:700, color:'var(--clr-text)', marginBottom:'0.5rem', fontSize:'0.85rem' }}>Uploaded Documents</p>
+                {docsLoading ? (
+                  <div style={{ display:'flex', alignItems:'center', gap:'0.5rem', padding:'0.75rem 0', color:'var(--clr-muted)', fontSize:'0.8rem' }}><Spinner/> Loading…</div>
+                ) : cbDocs.length === 0 ? (
+                  <p style={{ fontSize:'0.78rem', color:'var(--clr-muted)', padding:'0.5rem 0' }}>No documents uploaded yet.</p>
+                ) : (
+                  <div style={{ display:'flex', flexDirection:'column', gap:'0.75rem' }}>
+                    {cbDocs.map(doc => {
+                      const apiBase = (import.meta.env.VITE_API_BASE_URL as string ?? '').replace(/\/api$/, '')
+                      const fileHref = doc.file_url?.startsWith('/') ? `${apiBase}${doc.file_url}` : doc.file_url
+                      const statusColor = doc.status === 'APPROVED' ? '#10b981' : doc.status === 'REJECTED' ? '#f87171' : '#f59e0b'
+                      const statusBg   = doc.status === 'APPROVED' ? 'rgba(16,185,129,0.12)' : doc.status === 'REJECTED' ? 'rgba(248,113,113,0.12)' : 'rgba(245,158,11,0.12)'
+                      const borderColor = doc.status === 'APPROVED' ? 'rgba(16,185,129,0.25)' : doc.status === 'REJECTED' ? 'rgba(248,113,113,0.25)' : 'rgba(245,158,11,0.25)'
+                      return (
+                        <div key={doc.id} style={{ background:'rgba(255,255,255,0.03)', border:`1px solid ${borderColor}`, borderRadius:12, padding:'0.75rem 0.9rem', display:'flex', flexDirection:'column', gap:'0.4rem' }}>
+                          {/* Header: doc type + status badge */}
+                          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', gap:'0.5rem', flexWrap:'wrap' }}>
+                            <span style={{ fontSize:'0.82rem', fontWeight:700, color:'var(--clr-text)' }}>
+                              {DOC_TYPE_OPTIONS.find(d => d.value === doc.document_type)?.label ?? doc.document_type?.replace(/_/g,' ')}
+                            </span>
+                            <span style={{ fontSize:'0.7rem', fontWeight:700, color: statusColor, background: statusBg, border:`1px solid ${borderColor}`, borderRadius:99, padding:'0.15rem 0.55rem', letterSpacing:'0.04em', textTransform:'uppercase', whiteSpace:'nowrap' }}>
+                              {doc.status === 'PENDING_REVIEW' ? '⏳ Pending' : doc.status === 'APPROVED' ? '✓ Approved' : '✗ Rejected'}
+                            </span>
+                          </div>
+
+                          {/* Upload notes */}
+                          {doc.notes && <p style={{ fontSize:'0.73rem', color:'var(--clr-muted)', margin:0, fontStyle:'italic' }}>"{doc.notes}"</p>}
+
+                          {/* Uploader + date */}
+                          <div style={{ fontSize:'0.71rem', color:'var(--clr-muted)' }}>
+                            By {doc.uploader_first_name ?? 'User'} {doc.uploader_last_name ?? ''} · {fmtDate(doc.created_at)}
+                          </div>
+
+                          {/* View link */}
+                          <a href={fileHref} target="_blank" rel="noreferrer"
+                            style={{ fontSize:'0.74rem', color:'var(--clr-accent)', display:'inline-flex', alignItems:'center', gap:'0.25rem', width:'fit-content' }}>
+                            <LuFileText size={12}/> View document ↗
+                          </a>
+
+                          {/* Review result for APPROVED */}
+                          {doc.status === 'APPROVED' && doc.review_notes && (
+                            <div style={{ marginTop:'0.2rem', padding:'0.4rem 0.6rem', borderRadius:8, background:'rgba(16,185,129,0.08)', border:'1px solid rgba(16,185,129,0.2)', fontSize:'0.73rem', color:'#10b981' }}>
+                              <b>Review note:</b> {doc.review_notes}
+                            </div>
+                          )}
+
+                          {/* Review result for REJECTED */}
+                          {doc.status === 'REJECTED' && (
+                            <div style={{ marginTop:'0.2rem', padding:'0.4rem 0.6rem', borderRadius:8, background:'rgba(248,113,113,0.08)', border:'1px solid rgba(248,113,113,0.2)', fontSize:'0.73rem', color:'#f87171' }}>
+                              <b>Reason:</b> {doc.review_notes || 'No reason provided.'}
+                            </div>
+                          )}
+
+                          {/* Approve / Reject controls for PENDING_REVIEW */}
+                          {doc.status === 'PENDING_REVIEW' && (() => {
+                            const docId = doc.id
+                            const note  = reviewNotes[docId] ?? ''
+                            const doApprove = async (e: React.MouseEvent) => {
+                              e.stopPropagation()
+                              setDocErr(''); setDocSuccess('')
+                              try {
+                                await orderApi.shipperReviewCrossBorderDoc(order.id, docId, { action: 'APPROVED', review_notes: note })
+                                setDocSuccess('Document approved ✓')
+                                await loadCrossBorderDocs()
+                              } catch { setDocErr('Failed to approve. Please try again.') }
+                            }
+                            const doReject = async (e: React.MouseEvent) => {
+                              e.stopPropagation()
+                              if (!note.trim()) { setDocErr('Please enter a reason before rejecting.'); return }
+                              setDocErr(''); setDocSuccess('')
+                              try {
+                                await orderApi.shipperReviewCrossBorderDoc(order.id, docId, { action: 'REJECTED', review_notes: note })
+                                setDocSuccess('Document rejected.')
+                                await loadCrossBorderDocs()
+                              } catch { setDocErr('Failed to reject. Please try again.') }
+                            }
+                            return (
+                              <div style={{ marginTop:'0.5rem', display:'flex', flexDirection:'column', gap:'0.5rem' }}>
+                                <input
+                                  placeholder="Review notes (optional for approve, required for reject)"
+                                  value={note}
+                                  onChange={e => setReviewNotes(prev => ({ ...prev, [docId]: e.target.value }))}
+                                  style={{ width:'100%', boxSizing:'border-box', padding:'0.5rem 0.7rem', borderRadius:8, border:'1px solid rgba(255,255,255,0.12)', background:'rgba(255,255,255,0.04)', color:'var(--clr-text)', fontFamily:'inherit', fontSize:'0.8rem', outline:'none' }}
+                                />
+                                <div style={{ display:'flex', gap:'0.5rem' }}>
+                                  <button
+                                    type="button"
+                                    onClick={doApprove}
+                                    style={{ flex:1, padding:'0.55rem 0.5rem', borderRadius:9, border:'none', background:'linear-gradient(135deg,#059669,#10b981)', color:'#fff', fontFamily:'inherit', fontSize:'0.82rem', fontWeight:700, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:'0.35rem', boxShadow:'0 2px 8px rgba(16,185,129,0.3)' }}>
+                                    <LuCircleCheck size={14}/> Approve
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={doReject}
+                                    style={{ flex:1, padding:'0.55rem 0.5rem', borderRadius:9, border:'1px solid rgba(248,113,113,0.5)', background:'rgba(248,113,113,0.08)', color:'#f87171', fontFamily:'inherit', fontSize:'0.82rem', fontWeight:700, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:'0.35rem' }}>
+                                    <LuBan size={14}/> Reject
+                                  </button>
+                                </div>
+                              </div>
+                            )
+                          })()}
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
             </div>
           )}
 

@@ -92,6 +92,7 @@ export const orderApi = {
   getQuote: (data: {
     cargo_type_id: number; vehicle_type: string; estimated_weight_kg?: number
     pickup_lat: number; pickup_lng: number; delivery_lat: number; delivery_lng: number
+    is_cross_border?: boolean
   }) => apiClient.post('/orders/quote', data),
 
   placeOrder: (data: {
@@ -100,6 +101,11 @@ export const orderApi = {
     delivery_address: string; delivery_lat: number; delivery_lng: number
     description?: string; estimated_value?: number
     order_image_1?: string; order_image_2?: string
+    is_cross_border?: boolean
+    pickup_country_id?: number
+    delivery_country_id?: number
+    hs_code?: string
+    shipper_tin?: string
   }) => apiClient.post('/orders', data),
 
   listOrders: (params?: { status?: string; page?: number; limit?: number }) =>
@@ -143,6 +149,15 @@ export const orderApi = {
 
   getDriverRatingSummary: (driverId: string) =>
     apiClient.get(`/orders/drivers/${driverId}/rating-summary`),
+
+  getCrossBorderDocs: (orderId: string) =>
+    apiClient.get(`/orders/${orderId}/cross-border-docs`),
+
+  uploadCrossBorderDoc: (orderId: string, data: { document_type: string; file_base64: string; notes?: string }) =>
+    apiClient.post(`/orders/${orderId}/cross-border-doc`, data),
+  // Allow shippers to review their own uploaded documents
+  shipperReviewCrossBorderDoc: (orderId: string, docId: string | number, data: { action: string; review_notes?: string }) =>
+    apiClient.put(`/orders/${orderId}/cross-border-docs/${docId}/review`, data),
 }
 
 // ─── Driver API ───────────────────────────────────────────────────────────────
@@ -151,7 +166,7 @@ export const driverApi = {
     apiClient.post('/driver/location', data),
 
   listJobs: (params?: { status?: string }) =>
-    apiClient.get('/driver/jobs', { params }),
+    apiClient.get('/driver/jobs', { params: { ...(params ?? {}), _ts: Date.now() } }),
 
   getJob: (id: string) =>
     apiClient.get(`/driver/jobs/${id}`),
@@ -185,6 +200,9 @@ export const driverApi = {
 
   updateAvailabilityStatus: (status: 'AVAILABLE' | 'OFFLINE') =>
     apiClient.patch('/driver/status', { status }),
+
+  uploadCrossBorderDoc: (jobId: string, data: { document_type: string; file_base64: string; notes?: string }) =>
+    apiClient.post(`/driver/jobs/${jobId}/cross-border-doc`, data),
 }
 
 // ─── Admin Order API ──────────────────────────────────────────────────────────
@@ -259,6 +277,11 @@ export const adminOrderApi = {
     driver_id?: string; vehicle_id?: string
     cargo_image?: string
     payment_receipt?: string
+    is_cross_border?: boolean
+    pickup_country_id?: number
+    delivery_country_id?: number
+    hs_code?: string
+    shipper_tin?: string
   }) => apiClient.post('/admin/orders', data),
 
   getLiveDrivers: () =>
@@ -323,6 +346,22 @@ export const adminOrderApi = {
   // ── Security Events (Module 9) ───────────────────────────────────────────
   getSecurityEvents: (params?: { page?: number; limit?: number; event_type?: string; role_id?: number }) =>
     apiClient.get('/admin/security-events', { params }),
+
+  // ── Cross-Border & Customs (Module 10) ──────────────────────────────────
+  getCrossBorderOrders: (params?: { status?: string; page?: number; limit?: number }) =>
+    apiClient.get('/admin/cross-border/orders', { params }),
+
+  getOrderCrossBorderDocs: (orderId: string) =>
+    apiClient.get(`/admin/orders/${orderId}/cross-border-docs`),
+
+  reviewCrossBorderDoc: (orderId: string, docId: string | number, data: { action: string; review_notes?: string }) =>
+    apiClient.put(`/admin/orders/${orderId}/cross-border-docs/${docId}`, data),
+
+  updateOrderBorderInfo: (orderId: string, data: { border_crossing_ref?: string; customs_declaration_ref?: string; hs_code?: string; shipper_tin?: string }) =>
+    apiClient.patch(`/admin/orders/${orderId}/border-info`, data),
+
+  submitToEsw: (orderId: string) =>
+    apiClient.post(`/admin/orders/${orderId}/esw/submit`, {}),
 }
 
 // ─── Public Config API (no auth required) ────────────────────────────────────

@@ -1,10 +1,11 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { driverApi } from '../lib/apiClient'
+import { driverApi, orderApi } from '../lib/apiClient'
+import { useAuth } from '../context/AuthContext'
 import {
   LuTruck, LuRefreshCw, LuMapPin, LuCheck, LuX, LuBan,
   LuCircleCheck, LuTriangleAlert, LuChevronRight,
   LuSend, LuArrowRight, LuClock, LuCircleDot, LuNavigation,
-  LuMessageSquare, LuSquareCheck, LuSquare,
+  LuMessageSquare, LuSquareCheck, LuSquare, LuFileText, LuUpload,
 } from 'react-icons/lu'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -16,27 +17,41 @@ interface Job {
   description: string | null
   shipper_first_name: string; shipper_last_name: string; shipper_phone: string
   created_at: string; assigned_at: string | null
+  // Cross-border
+  is_cross_border: number
+  pickup_country_id: number
+  delivery_country_id: number
+  border_crossing_ref: string | null
+  customs_declaration_ref: string | null
+  hs_code: string | null
+  shipper_tin: string | null
 }
 interface Message { id: string; sender_first_name: string; sender_last_name: string; sender_role_id: number; message: string; created_at: string }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 const STATUS_COLOR: Record<string, string> = {
-  PENDING:    '#fbbf24',
-  ASSIGNED:   '#60a5fa',
-  EN_ROUTE:   '#a78bfa',
-  AT_PICKUP:  '#fb923c',
-  IN_TRANSIT: '#34d399',
-  DELIVERED:  '#4ade80',
-  CANCELLED:  '#f87171',
+  PENDING:         '#fbbf24',
+  ASSIGNED:        '#60a5fa',
+  EN_ROUTE:        '#a78bfa',
+  AT_PICKUP:       '#fb923c',
+  IN_TRANSIT:      '#34d399',
+  AT_BORDER:       '#f59e0b',
+  IN_CUSTOMS:      '#ef4444',
+  CUSTOMS_CLEARED: '#10b981',
+  DELIVERED:       '#4ade80',
+  CANCELLED:       '#f87171',
 }
 const STATUS_LABEL: Record<string, string> = {
-  PENDING:    'Pending',
-  ASSIGNED:   'Assigned',
-  EN_ROUTE:   'En Route',
-  AT_PICKUP:  'At Pickup',
-  IN_TRANSIT: 'In Transit',
-  DELIVERED:  'Delivered',
-  CANCELLED:  'Cancelled',
+  PENDING:         'Pending',
+  ASSIGNED:        'Assigned',
+  EN_ROUTE:        'En Route',
+  AT_PICKUP:       'At Pickup',
+  IN_TRANSIT:      'In Transit',
+  AT_BORDER:       'At Border',
+  IN_CUSTOMS:      'In Customs',
+  CUSTOMS_CLEARED: 'Customs Cleared',
+  DELIVERED:       'Delivered',
+  CANCELLED:       'Cancelled',
 }
 
 function statusBadge(status: string) {
@@ -60,9 +75,12 @@ function Spinner() {
 
 // Next valid statuses a driver can manually set
 const DRIVER_STATUS_FLOW: Record<string, string[]> = {
-  EN_ROUTE:   ['AT_PICKUP'],
-  AT_PICKUP:  [],       // requires OTP
-  IN_TRANSIT: [],       // requires OTP
+  EN_ROUTE:        ['AT_PICKUP'],
+  AT_PICKUP:       [],              // requires OTP
+  IN_TRANSIT:      [],              // requires OTP — or AT_BORDER for cross-border
+  AT_BORDER:       ['IN_CUSTOMS'],
+  IN_CUSTOMS:      ['CUSTOMS_CLEARED'],
+  CUSTOMS_CLEARED: ['IN_TRANSIT'],
 }
 
 // ─── OTP Modal ────────────────────────────────────────────────────────────────
@@ -103,7 +121,7 @@ function OtpModal({ title, onConfirm, onClose }: { title: string; onConfirm: (ot
 
 // ─── Job Detail Modal ─────────────────────────────────────────────────────────
 function JobDetailModal({ job, onClose, onRefresh }: { job: Job; onClose: () => void; onRefresh: () => void }) {
-  const [tab, setTab] = useState<'info' | 'chat'>('info')
+  const [tab, setTab] = useState<'info' | 'chat' | 'docs'>('info')
   const [messages, setMessages] = useState<Message[]>([])
   const [msgText, setMsgText] = useState('')
   const [sending, setSending] = useState(false)
@@ -111,10 +129,21 @@ function JobDetailModal({ job, onClose, onRefresh }: { job: Job; onClose: () => 
   const [actionErr, setActionErr] = useState('')
   const [otpModal, setOtpModal] = useState<'pickup' | 'delivery' | null>(null)
   const [localJob, setLocalJob] = useState<Job>(job)
+  // Cross-border doc upload state
+  const [docType, setDocType] = useState('CHECKPOINT_PHOTO')
+  const [docFile, setDocFile] = useState<string>('')
+  const [docNotes, setDocNotes] = useState('')
+  const [docUploading, setDocUploading] = useState(false)
+  const [docErr, setDocErr] = useState('')
+  const [docSuccess, setDocSuccess] = useState('')
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  // Cross-border document list (existing uploads)
+  const [cbDocs, setCbDocs] = useState<any[]>([])
+  const [docsLoading, setDocsLoading] = useState(false)
   const msgBottom = useRef<HTMLDivElement>(null)
 
   // ─── WS for real-time NEW_MESSAGE events ───────────────────────────────────
-  const tabRef = useRef<'info' | 'chat'>('info')
+  const tabRef = useRef<'info' | 'chat' | 'docs'>('info')
   const [unreadChat, setUnreadChat] = useState(false)
   useEffect(() => { tabRef.current = tab }, [tab])
 
@@ -149,6 +178,20 @@ function JobDetailModal({ job, onClose, onRefresh }: { job: Job; onClose: () => 
   }, [localJob.id])
 
   useEffect(() => { if (tab === 'chat') { setUnreadChat(false); loadMessages() } }, [tab]) // eslint-disable-line
+
+  useEffect(() => {
+    if (tab === 'docs') {
+      (async () => {
+        setDocsLoading(true)
+        try {
+          const { data } = await orderApi.getCrossBorderDocs(localJob.id)
+          setCbDocs(data.documents ?? [])
+        } catch {
+          setCbDocs([])
+        } finally { setDocsLoading(false) }
+      })()
+    }
+  }, [tab, localJob.id])
 
   const refreshJob = async () => {
     const { data } = await driverApi.getJob(localJob.id)
@@ -198,6 +241,30 @@ function JobDetailModal({ job, onClose, onRefresh }: { job: Job; onClose: () => 
 
   const { status } = localJob
   const nextStatuses = DRIVER_STATUS_FLOW[status] ?? []
+  // For cross-border: IN_TRANSIT can also go to AT_BORDER
+  const isCrossBorder = !!localJob.is_cross_border
+
+  const handleUploadDoc = async () => {
+    if (!docFile) { setDocErr('Please select a file.'); return }
+    setDocErr(''); setDocSuccess(''); setDocUploading(true)
+    try {
+      await driverApi.uploadCrossBorderDoc(localJob.id, { document_type: docType, file_base64: docFile, notes: docNotes || undefined })
+      setDocSuccess('Document uploaded successfully. Pending admin review.')
+      setDocFile(''); setDocNotes(''); if (fileInputRef.current) fileInputRef.current.value = ''
+    } catch (e: any) {
+      setDocErr(e.response?.data?.message ?? 'Upload failed.')
+    } finally {
+      setDocUploading(false)
+    }
+  }
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = ev => setDocFile(ev.target?.result as string)
+    reader.readAsDataURL(file)
+  }
 
   return (
     <>
@@ -210,6 +277,7 @@ function JobDetailModal({ job, onClose, onRefresh }: { job: Job; onClose: () => 
                 <div style={{ display:'flex', alignItems:'center', gap:'0.5rem', flexWrap:'wrap' }}>
                   <h2 style={{ fontSize:'1rem', fontWeight:800, color:'var(--clr-text)' }}>{localJob.reference_code}</h2>
                   {statusBadge(status)}
+                  {isCrossBorder && <span style={{ fontSize:'0.65rem', fontWeight:700, color:'#f59e0b', background:'rgba(245,158,11,0.1)', border:'1px solid rgba(245,158,11,0.3)', borderRadius:99, padding:'0.12rem 0.5rem' }}>🌍 Cross-Border</span>}
                 </div>
                 <p style={{ fontSize:'0.75rem', color:'var(--clr-muted)', marginTop:'0.15rem' }}>{fmtDate(localJob.created_at)}</p>
               </div>
@@ -219,9 +287,9 @@ function JobDetailModal({ job, onClose, onRefresh }: { job: Job; onClose: () => 
             </div>
             {/* Tabs */}
             <div style={{ display:'flex', gap:'0.25rem', background:'rgba(255,255,255,0.04)', borderRadius:10, padding:'0.25rem', marginBottom:'1rem' }}>
-              {(['info','chat'] as const).map(t => (
-                <button key={t} onClick={() => setTab(t)} style={{ flex:1, padding:'0.4rem', border:'none', borderRadius:8, background: tab === t ? 'rgba(0,229,255,0.12)' : 'transparent', color: tab === t ? 'var(--clr-accent)' : 'var(--clr-muted)', fontFamily:'inherit', fontSize:'0.78rem', fontWeight:700, cursor:'pointer', transition:'all 0.15s', outline: tab === t ? '1px solid rgba(0,229,255,0.2)' : 'none', position:'relative' }}>
-                  {t === 'info' ? 'Job Details' : (
+              {(isCrossBorder ? ['info','chat','docs'] as const : ['info','chat'] as const).map(t => (
+                <button key={t} onClick={() => setTab(t as any)} style={{ flex:1, padding:'0.4rem', border:'none', borderRadius:8, background: tab === t ? 'rgba(0,229,255,0.12)' : 'transparent', color: tab === t ? 'var(--clr-accent)' : 'var(--clr-muted)', fontFamily:'inherit', fontSize:'0.78rem', fontWeight:700, cursor:'pointer', transition:'all 0.15s', outline: tab === t ? '1px solid rgba(0,229,255,0.2)' : 'none', position:'relative' }}>
+                  {t === 'info' ? 'Job Details' : t === 'docs' ? <><LuFileText size={12} style={{ marginRight:3 }}/> Docs</> : (
                     <>{unreadChat && tab !== 'chat' && <span style={{ position:'absolute', top:2, right:2, width:7, height:7, borderRadius:'50%', background:'#f87171', boxShadow:'0 0 4px #f87171' }}/>}Chat</>
                   )}
                 </button>
@@ -297,12 +365,129 @@ function JobDetailModal({ job, onClose, onRefresh }: { job: Job; onClose: () => 
                     </button>
                   )}
 
-                  {/* IN_TRANSIT → DELIVERED via OTP */}
+                  {/* IN_TRANSIT: cross-border can go to AT_BORDER, regular goes to DELIVERED */}
+                  {status === 'IN_TRANSIT' && isCrossBorder && (
+                    <button onClick={() => handleStatus('AT_BORDER')} disabled={actionLoading}
+                      style={{ width:'100%', padding:'0.65rem', borderRadius:10, border:'1px solid rgba(245,158,11,0.3)', background:'rgba(245,158,11,0.08)', color:'#f59e0b', fontFamily:'inherit', fontSize:'0.82rem', fontWeight:700, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:'0.4rem' }}>
+                      {actionLoading ? <Spinner/> : <>🌍 Arrived at Border Crossing</>}
+                    </button>
+                  )}
                   {status === 'IN_TRANSIT' && (
                     <button onClick={() => setOtpModal('delivery')}
                       style={{ width:'100%', padding:'0.65rem', borderRadius:10, border:'none', background:'#4ade80', color:'#080b14', fontFamily:'inherit', fontSize:'0.82rem', fontWeight:700, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:'0.4rem' }}>
                       <LuCircleCheck size={14}/> Verify Delivery OTP → Delivered
                     </button>
+                  )}
+
+                  {/* Cross-border status info banner */}
+                  {['AT_BORDER','IN_CUSTOMS','CUSTOMS_CLEARED'].includes(status) && (
+                    <div style={{ padding:'0.75rem 1rem', borderRadius:10, background:'rgba(245,158,11,0.06)', border:'1px solid rgba(245,158,11,0.2)', fontSize:'0.78rem', color:'#f59e0b' }}>
+                      {status === 'AT_BORDER' && '🛂 Waiting at border. Upload checkpoint photo in the Docs tab.'}
+                      {status === 'IN_CUSTOMS' && '📋 Shipment is under customs review.'}
+                      {status === 'CUSTOMS_CLEARED' && '✅ Customs cleared! Mark as In Transit to resume delivery.'}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* ── Docs tab (cross-border only) ── */}
+            {tab === 'docs' && isCrossBorder && (
+              <div style={{ display:'flex', flexDirection:'column', gap:'1rem' }}>
+                <div className="glass-inner" style={{ padding:'0.85rem 1rem', fontSize:'0.8rem' }}>
+                  <p style={{ fontWeight:700, color:'var(--clr-text)', marginBottom:'0.5rem' }}>Border Info</p>
+                  {[
+                    ['Border Ref', localJob.border_crossing_ref],
+                    ['Customs Ref', localJob.customs_declaration_ref],
+                    ['HS Code', localJob.hs_code],
+                    ['Shipper TIN', localJob.shipper_tin],
+                  ].map(([l, v]) => v ? (
+                    <div key={l} style={{ display:'flex', gap:'0.5rem', marginBottom:'0.3rem' }}>
+                      <span style={{ color:'var(--clr-muted)', width:90, flexShrink:0 }}>{l}</span>
+                      <span style={{ color:'var(--clr-text)', fontWeight:500, wordBreak:'break-all' }}>{v}</span>
+                    </div>
+                  ) : null)}
+                </div>
+
+                <div className="glass-inner" style={{ padding:'1rem' }}>
+                  <p style={{ fontWeight:700, color:'var(--clr-text)', fontSize:'0.85rem', marginBottom:'0.75rem' }}>Upload Document</p>
+                  {docErr && <div className="alert alert-error" style={{ marginBottom:'0.6rem', fontSize:'0.78rem' }}><LuTriangleAlert size={12}/> {docErr}</div>}
+                  {docSuccess && <div className="alert alert-success" style={{ marginBottom:'0.6rem', fontSize:'0.78rem' }}><LuCheck size={12}/> {docSuccess}</div>}
+                  <div style={{ display:'flex', flexDirection:'column', gap:'0.5rem' }}>
+                    <select value={docType} onChange={e => setDocType(e.target.value)}
+                      style={{ padding:'0.5rem 0.75rem', borderRadius:8, border:'1px solid rgba(255,255,255,0.1)', background:'rgba(255,255,255,0.04)', color:'var(--clr-text)', fontFamily:'inherit', fontSize:'0.8rem', outline:'none' }}>
+                      {['CHECKPOINT_PHOTO','COMMERCIAL_INVOICE','BILL_OF_LADING','PACKING_LIST','CERTIFICATE_OF_ORIGIN','OTHER'].map(t => (
+                        <option key={t} value={t}>{t.replace(/_/g,' ')}</option>
+                      ))}
+                    </select>
+                    <input ref={fileInputRef} type="file" accept="image/*,application/pdf" onChange={handleFileChange}
+                      style={{ padding:'0.4rem', borderRadius:8, border:'1px solid rgba(255,255,255,0.1)', background:'rgba(255,255,255,0.04)', color:'var(--clr-text)', fontSize:'0.78rem' }}/>
+                    <input value={docNotes} onChange={e => setDocNotes(e.target.value)} placeholder="Notes (optional)"
+                      style={{ padding:'0.5rem 0.75rem', borderRadius:8, border:'1px solid rgba(255,255,255,0.1)', background:'rgba(255,255,255,0.04)', color:'var(--clr-text)', fontFamily:'inherit', fontSize:'0.8rem', outline:'none' }}/>
+                    <button onClick={handleUploadDoc} disabled={docUploading || !docFile}
+                      style={{ padding:'0.6rem', borderRadius:10, border:'none', background: docFile ? 'var(--clr-accent)' : 'rgba(255,255,255,0.08)', color: docFile ? '#080b14' : 'var(--clr-muted)', fontFamily:'inherit', fontSize:'0.82rem', fontWeight:700, cursor: docFile ? 'pointer' : 'not-allowed', display:'flex', alignItems:'center', justifyContent:'center', gap:'0.4rem' }}>
+                      {docUploading ? <Spinner/> : <><LuUpload size={14}/> Upload</>}
+                    </button>
+                  </div>
+                </div>
+                <div className="glass-inner" style={{ padding:'0.85rem 1rem', marginTop:'0.6rem' }}>
+                  <p style={{ fontWeight:700, color:'var(--clr-text)', marginBottom:'0.6rem', fontSize:'0.85rem' }}>Uploaded Documents</p>
+                  {docsLoading ? (
+                    <div style={{ display:'flex', alignItems:'center', gap:'0.5rem', color:'var(--clr-muted)', fontSize:'0.8rem' }}><Spinner/> Loading…</div>
+                  ) : cbDocs.length === 0 ? (
+                    <p style={{ fontSize:'0.78rem', color:'var(--clr-muted)', padding:'0.25rem 0' }}>No documents uploaded yet.</p>
+                  ) : (
+                    <div style={{ display:'flex', flexDirection:'column', gap:'0.75rem' }}>
+                      {cbDocs.map(doc => {
+                        const apiBase = (import.meta.env.VITE_API_BASE_URL as string ?? '').replace(/\/api$/, '')
+                        const href = doc.file_url?.startsWith('/') ? `${apiBase}${doc.file_url}` : doc.file_url
+                        const statusColor  = doc.status === 'APPROVED' ? '#10b981' : doc.status === 'REJECTED' ? '#f87171' : '#f59e0b'
+                        const statusBg     = doc.status === 'APPROVED' ? 'rgba(16,185,129,0.12)' : doc.status === 'REJECTED' ? 'rgba(248,113,113,0.12)' : 'rgba(245,158,11,0.12)'
+                        const borderColor  = doc.status === 'APPROVED' ? 'rgba(16,185,129,0.25)' : doc.status === 'REJECTED' ? 'rgba(248,113,113,0.25)' : 'rgba(245,158,11,0.25)'
+                        const statusLabel  = doc.status === 'APPROVED' ? '✓ Approved' : doc.status === 'REJECTED' ? '✗ Rejected' : '⏳ Pending Review'
+                        return (
+                          <div key={doc.id} style={{ background:'rgba(255,255,255,0.03)', border:`1px solid ${borderColor}`, borderRadius:12, padding:'0.75rem 0.9rem', display:'flex', flexDirection:'column', gap:'0.4rem' }}>
+                            {/* Doc type + status badge */}
+                            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', gap:'0.5rem', flexWrap:'wrap' }}>
+                              <span style={{ fontSize:'0.82rem', fontWeight:700, color:'var(--clr-text)' }}>
+                                {doc.document_type?.replace(/_/g,' ')}
+                              </span>
+                              <span style={{ fontSize:'0.7rem', fontWeight:700, color: statusColor, background: statusBg, border:`1px solid ${borderColor}`, borderRadius:99, padding:'0.15rem 0.55rem', letterSpacing:'0.04em', textTransform:'uppercase', whiteSpace:'nowrap' }}>
+                                {statusLabel}
+                              </span>
+                            </div>
+
+                            {/* Upload notes */}
+                            {doc.notes && <p style={{ fontSize:'0.73rem', color:'var(--clr-muted)', margin:0, fontStyle:'italic' }}>"{doc.notes}"</p>}
+
+                            {/* Uploader + date */}
+                            <div style={{ fontSize:'0.71rem', color:'var(--clr-muted)' }}>
+                              By {doc.uploader_first_name ?? 'You'} {doc.uploader_last_name ?? ''} · {new Date(doc.created_at).toLocaleString()}
+                            </div>
+
+                            {/* View link */}
+                            <a href={href} target="_blank" rel="noreferrer"
+                              style={{ fontSize:'0.74rem', color:'var(--clr-accent)', display:'inline-flex', alignItems:'center', gap:'0.25rem', width:'fit-content' }}>
+                              <LuFileText size={12}/> View document ↗
+                            </a>
+
+                            {/* Approved with notes */}
+                            {doc.status === 'APPROVED' && doc.review_notes && (
+                              <div style={{ padding:'0.4rem 0.6rem', borderRadius:8, background:'rgba(16,185,129,0.08)', border:'1px solid rgba(16,185,129,0.2)', fontSize:'0.73rem', color:'#10b981' }}>
+                                <b>Review note:</b> {doc.review_notes}
+                              </div>
+                            )}
+
+                            {/* Rejected: show reason */}
+                            {doc.status === 'REJECTED' && (
+                              <div style={{ padding:'0.4rem 0.6rem', borderRadius:8, background:'rgba(248,113,113,0.08)', border:'1px solid rgba(248,113,113,0.2)', fontSize:'0.73rem', color:'#f87171' }}>
+                                <b>Reason for rejection:</b> {doc.review_notes || 'No reason provided.'}
+                              </div>
+                            )}
+                          </div>
+                        )
+                      })}
+                    </div>
                   )}
                 </div>
               </div>
@@ -487,9 +672,11 @@ function GpsPingButton({ activeJobId }: { activeJobId: string | null }) {
 type JobTab = 'active' | 'completed'
 
 export default function DriverJobsPage() {
+  const { user } = useAuth()
   const [jobTab, setJobTab] = useState<JobTab>('active')
   const [jobs, setJobs] = useState<Job[]>([])
   const [loading, setLoading] = useState(false)
+  const [lastSyncAt, setLastSyncAt] = useState<Date | null>(null)
   const [selectedJob, setSelectedJob] = useState<Job | null>(null)
   const [selectedJobs, setSelectedJobs] = useState<Set<string>>(new Set())
   const [unreadCounts, setUnreadCounts] = useState<Record<string, number>>({})
@@ -505,11 +692,30 @@ export default function DriverJobsPage() {
     try {
       const { data } = await driverApi.listJobs()
       setJobs(data.jobs ?? [])
+      setLastSyncAt(new Date())
     } catch { /* silent */ }
     finally { setLoading(false) }
   }, [])
 
   useEffect(() => { loadJobs(); loadUnreadCounts() }, []) // eslint-disable-line
+
+  useEffect(() => {
+    const refresh = () => { loadJobs(); loadUnreadCounts() }
+    const timer = window.setInterval(refresh, 15000)
+    const onFocus = () => refresh()
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') refresh()
+    }
+
+    window.addEventListener('focus', onFocus)
+    document.addEventListener('visibilitychange', onVisible)
+
+    return () => {
+      window.clearInterval(timer)
+      window.removeEventListener('focus', onFocus)
+      document.removeEventListener('visibilitychange', onVisible)
+    }
+  }, [loadJobs, loadUnreadCounts])
 
   const active = jobs.filter(j => !['DELIVERED','CANCELLED'].includes(j.status))
   const completed = jobs.filter(j => ['DELIVERED','CANCELLED'].includes(j.status))
@@ -566,6 +772,10 @@ export default function DriverJobsPage() {
               </h2>
               <p style={{ fontSize:'0.78rem', color:'var(--clr-muted)', marginTop:'0.15rem' }}>
                 {active.length} active · {completed.length} completed
+              </p>
+              <p style={{ fontSize:'0.72rem', color:'var(--clr-muted)', marginTop:'0.15rem' }}>
+                Driver: {user?.first_name ?? '—'} {user?.last_name ?? ''}{user?.phone_number ? ` (${user.phone_number})` : ''}
+                {lastSyncAt ? ` · Synced ${lastSyncAt.toLocaleTimeString()}` : ''}
               </p>
             </div>
             <div style={{ display:'flex', gap:'0.5rem', alignItems:'center', flexWrap:'wrap' }}>
@@ -649,6 +859,7 @@ export default function DriverJobsPage() {
                   <div style={{ display:'flex', alignItems:'center', gap:'0.5rem', flexWrap:'wrap' }} onClick={() => setSelectedJob(job)}>
                     <span style={{ fontWeight:800, fontSize:'0.88rem', color:'var(--clr-text)' }}>{job.reference_code}</span>
                     {statusBadge(job.status)}
+                    {!!job.is_cross_border && <span style={{ fontSize:'0.63rem', fontWeight:700, color:'#f59e0b', background:'rgba(245,158,11,0.08)', border:'1px solid rgba(245,158,11,0.25)', borderRadius:99, padding:'0.1rem 0.45rem' }}>🌍 Cross-Border</span>}
                     {unread > 0 && (
                       <span style={{ display:'flex', alignItems:'center', gap:'0.25rem', fontSize:'0.68rem', fontWeight:700, color:'#fff', background:'#ef4444', borderRadius:99, padding:'0.12rem 0.45rem', lineHeight:1 }}>
                         <LuMessageSquare size={10}/> {unread}

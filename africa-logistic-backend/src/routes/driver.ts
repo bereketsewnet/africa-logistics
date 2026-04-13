@@ -19,6 +19,7 @@ import {
   sendDriverMessageHandler,
   getDriverUnreadCountsHandler,
   updateDriverStatusHandler,
+  uploadCrossBorderDocHandler,
 } from '../controllers/driver.controller.js'
 
 export default async function driverRoutes(fastify: FastifyInstance) {
@@ -95,4 +96,13 @@ export default async function driverRoutes(fastify: FastifyInstance) {
    * Driver changes own availability (blocked when active order in progress).
    */
   fastify.patch('/status', updateDriverStatusHandler)
+
+  // ── Cross-Border Documents ────────────────────────────────────────────────────
+
+  /**
+   * POST /api/driver/jobs/:id/cross-border-doc
+   * Body: { document_type, file_base64, notes? }
+   * Upload a cross-border document (checkpoint photo, invoice scan, etc.) for admin review.
+   */
+  fastify.post('/jobs/:id/cross-border-doc', uploadCrossBorderDocHandler)
 }

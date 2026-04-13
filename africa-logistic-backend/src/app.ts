@@ -54,6 +54,17 @@ app.decorate('authenticate', async function (request: any, reply: any) {
   }
 })
 
+// Prevent stale API payloads in browsers/proxies (critical for live driver job lists).
+app.addHook('onSend', async (request, reply) => {
+  const url = request.url || ''
+  if (url.startsWith('/api/')) {
+    reply.header('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0')
+    reply.header('Pragma', 'no-cache')
+    reply.header('Expires', '0')
+    reply.header('Surrogate-Control', 'no-store')
+  }
+})
+
 // ─── 3. DATABASE ─────────────────────────────────────────────────────────────
 // Register the MySQL pool plugin. After this, fastify.db is available everywhere.
 import dbPlugin from './plugins/db.js'
@@ -104,6 +115,7 @@ import orderRoutes from './routes/orders.js'
 import driverRoutes from './routes/driver.js'
 import wsRoutes from './routes/ws.js'
 import configRoutes from './routes/config.js'
+import { eswWebhookHandler } from './controllers/admin.controller.js'
 
 app.register(healthRoutes)
 app.register(authRoutes)
@@ -113,5 +125,8 @@ app.register(orderRoutes,   { prefix: '/api/orders' })
 app.register(driverRoutes,  { prefix: '/api/driver' })
 app.register(wsRoutes,      { prefix: '/api' })
 app.register(configRoutes,  { prefix: '/api/config' })
+
+// eSW webhook — public (secured by shared secret header)
+app.post('/api/esw/webhook', eswWebhookHandler)
 
 export default app

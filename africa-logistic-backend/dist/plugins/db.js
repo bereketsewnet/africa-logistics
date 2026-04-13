@@ -173,6 +173,25 @@ export default fp(async function dbPlugin(fastify) {
         CONSTRAINT om_fk_sender FOREIGN KEY (sender_id) REFERENCES users(id)
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     `);
+        // ─── Module 10: Cross-Border Documents ────────────────────────────────────
+        await conn.query(`
+      CREATE TABLE IF NOT EXISTS cross_border_documents (
+        id            CHAR(36)     NOT NULL PRIMARY KEY,
+        order_id      CHAR(36)     NOT NULL,
+        document_type ENUM('COMMERCIAL_INVOICE','BILL_OF_LADING','PACKING_LIST',
+                           'CERTIFICATE_OF_ORIGIN','CHECKPOINT_PHOTO','OTHER')
+                      NOT NULL DEFAULT 'CHECKPOINT_PHOTO',
+        document_url  VARCHAR(500) NOT NULL,
+        uploaded_by   CHAR(36)     NOT NULL,
+        status        ENUM('PENDING_REVIEW','APPROVED','REJECTED') NOT NULL DEFAULT 'PENDING_REVIEW',
+        notes         TEXT         NULL,
+        created_at    TIMESTAMP    DEFAULT CURRENT_TIMESTAMP,
+        INDEX idx_cbd_order  (order_id),
+        INDEX idx_cbd_status (status),
+        CONSTRAINT cbd_fk_order     FOREIGN KEY (order_id)    REFERENCES orders(id) ON DELETE CASCADE,
+        CONSTRAINT cbd_fk_uploader  FOREIGN KEY (uploaded_by) REFERENCES users(id)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    `);
         await conn.query(`
       CREATE TABLE IF NOT EXISTS web_push_subscriptions (
         id           BIGINT AUTO_INCREMENT PRIMARY KEY,
@@ -242,6 +261,15 @@ export default fp(async function dbPlugin(fastify) {
         await addColIfMissing('orders', 'updated_by', 'CHAR(36) NULL');
         // Chat channel separation: 'main' = shipper+driver visible, 'driver' = admin↔driver only
         await addColIfMissing('order_messages', 'channel', "VARCHAR(20) NOT NULL DEFAULT 'main'");
+        // ─── Module 10: Cross-Border & Customs columns ────────────────────────────
+        await addColIfMissing('orders', 'is_cross_border', "TINYINT(1) NOT NULL DEFAULT 0");
+        await addColIfMissing('orders', 'pickup_country_id', "INT NOT NULL DEFAULT 1");
+        await addColIfMissing('orders', 'delivery_country_id', "INT NOT NULL DEFAULT 1");
+        await addColIfMissing('orders', 'border_crossing_ref', "VARCHAR(100) NULL");
+        await addColIfMissing('orders', 'customs_declaration_ref', "VARCHAR(100) NULL");
+        await addColIfMissing('orders', 'hs_code', "VARCHAR(20) NULL");
+        await addColIfMissing('orders', 'shipper_tin', "VARCHAR(50) NULL");
+        await addColIfMissing('pricing_rules', 'cross_border_multiplier', "DECIMAL(5,2) NOT NULL DEFAULT 1.00");
         // ─── Create Triggers for Audit Logs ──────────────────────────────────────
         await conn.query(`DROP TRIGGER IF EXISTS trg_orders_update_audit;`);
         await conn.query(`

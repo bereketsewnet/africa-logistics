@@ -15,6 +15,8 @@
  */
 
 import { FastifyRequest, FastifyReply } from 'fastify'
+import fs from 'fs'
+import path from 'path'
 import {
   getOrderById,
   getDriverOrders,
@@ -29,6 +31,8 @@ import {
   verifyOtpHash,
   markPickupOtpVerified,
   markDeliveryOtpVerified,
+  createCrossBorderDoc,
+  type CrossBorderDocType,
   type OrderStatus,
 } from '../services/order.service.js'
 import { generateInvoice } from '../services/invoice.service.js'
@@ -57,6 +61,7 @@ interface JobParams { id: string }
 interface StatusUpdateBody {
   status: OrderStatus
   notes?: string
+  border_crossing_ref?: string
 }
 
 interface VerifyOtpBody { otp: string }
@@ -155,12 +160,19 @@ export async function declineJobHandler(
  *   ASSIGNED → EN_ROUTE
  *   EN_ROUTE → AT_PICKUP
  *   IN_TRANSIT → DELIVERED  (use verify-delivery-otp instead for OTP flow)
+ *   IN_TRANSIT → AT_BORDER  (cross-border orders only)
+ *   AT_BORDER  → IN_CUSTOMS
+ *   IN_CUSTOMS → CUSTOMS_CLEARED
+ *   CUSTOMS_CLEARED → IN_TRANSIT
  */
 const DRIVER_ALLOWED_TRANSITIONS: Record<string, OrderStatus[]> = {
-  ASSIGNED:   ['EN_ROUTE'],
-  EN_ROUTE:   ['AT_PICKUP'],
-  AT_PICKUP:  ['IN_TRANSIT'],
-  IN_TRANSIT: ['DELIVERED'],
+  ASSIGNED:        ['EN_ROUTE'],
+  EN_ROUTE:        ['AT_PICKUP'],
+  AT_PICKUP:       ['IN_TRANSIT'],
+  IN_TRANSIT:      ['DELIVERED', 'AT_BORDER'],
+  AT_BORDER:       ['IN_CUSTOMS'],
+  IN_CUSTOMS:      ['CUSTOMS_CLEARED'],
+  CUSTOMS_CLEARED: ['IN_TRANSIT'],
 }
 
 export async function updateJobStatusHandler(
@@ -183,12 +195,26 @@ export async function updateJobStatusHandler(
     })
   }
 
+  // AT_BORDER is only allowed for cross-border orders
+  if (status === 'AT_BORDER' && !order.is_cross_border) {
+    return reply.status(400).send({ success: false, message: 'AT_BORDER transition is only allowed for cross-border orders.' })
+  }
+
   // IN_TRANSIT transition requires pickup OTP to have been verified
-  if (status === 'IN_TRANSIT' && !order.pickup_otp_verified_at) {
+  if (status === 'IN_TRANSIT' && order.status === 'AT_PICKUP' && !order.pickup_otp_verified_at) {
     return reply.status(400).send({ success: false, message: 'Pickup OTP must be verified before marking IN_TRANSIT.' })
   }
 
   await updateOrderStatus(request.server.db, order.id, status, driver.id, notes)
+
+  // If driver is arriving at border, record the border_crossing_ref if provided
+  if (status === 'AT_BORDER' && request.body.border_crossing_ref) {
+    await request.server.db.query(
+      `UPDATE orders SET border_crossing_ref = ? WHERE id = ?`,
+      [request.body.border_crossing_ref, order.id]
+    )
+  }
+
   wsManager.broadcast(order.id, 'STATUS_CHANGED', { status })
   notifyOrderStatus(request.server.db, order.id, status)
 
@@ -526,4 +552,70 @@ export async function updateDriverStatusHandler(
   const result = await updateDriverAvailabilityStatus(request.server.db, driver.id, status)
   if (!result.ok) return reply.status(400).send({ success: false, message: result.message })
   return reply.send({ success: true, message: result.message, status })
+}
+
+// ─── Cross-Border Document Upload ────────────────────────────────────────────
+
+interface UploadCBDocBody {
+  document_type: CrossBorderDocType
+  file_base64: string       // data URI or raw base64
+  notes?: string
+}
+
+/**
+ * POST /api/driver/jobs/:id/cross-border-doc
+ * Upload a cross-border document (checkpoint photo, commercial invoice scan, etc.)
+ * Body: { document_type, file_base64, notes? }
+ */
+export async function uploadCrossBorderDocHandler(
+  request: FastifyRequest<{ Params: JobParams; Body: UploadCBDocBody }>,
+  reply:   FastifyReply
+) {
+  if (!requireDriver(request, reply)) return
+  const driver = request.user as any
+  const order  = await getOrderById(request.server.db, request.params.id)
+
+  if (!order)                        return reply.status(404).send({ success: false, message: 'Job not found.' })
+  if (order.driver_id !== driver.id) return reply.status(403).send({ success: false, message: 'Not your job.' })
+  if (!order.is_cross_border)        return reply.status(400).send({ success: false, message: 'This is not a cross-border order.' })
+
+  const VALID_DOC_TYPES: CrossBorderDocType[] = [
+    'COMMERCIAL_INVOICE', 'BILL_OF_LADING', 'PACKING_LIST',
+    'CERTIFICATE_OF_ORIGIN', 'CHECKPOINT_PHOTO', 'OTHER',
+  ]
+  const { document_type, file_base64, notes } = request.body
+  if (!VALID_DOC_TYPES.includes(document_type)) {
+    return reply.status(400).send({ success: false, message: `document_type must be one of: ${VALID_DOC_TYPES.join(', ')}` })
+  }
+  if (!file_base64?.trim()) {
+    return reply.status(400).send({ success: false, message: 'file_base64 is required.' })
+  }
+
+  // Save file to disk
+  const match = file_base64.match(/^data:([a-zA-Z0-9+/]+\/[a-zA-Z0-9+/]+);base64,(.+)$/)
+  const raw   = match ? match[2] : file_base64
+  const mime  = match ? match[1] : 'image/jpeg'
+  const extMap: Record<string, string> = {
+    'image/jpeg': 'jpg', 'image/jpg': 'jpg', 'image/png': 'png',
+    'image/webp': 'webp', 'application/pdf': 'pdf',
+  }
+  const ext = extMap[mime] ?? 'jpg'
+  const dir  = path.join(process.cwd(), 'uploads', 'cross-border')
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true })
+  const filename = `cb_${order.id}_${document_type}_${Date.now()}.${ext}`
+  fs.writeFileSync(path.join(dir, filename), Buffer.from(raw, 'base64'))
+  const fileUrl = `/uploads/cross-border/${filename}`
+
+  const docId = await createCrossBorderDoc(
+    request.server.db, order.id, driver.id, document_type, fileUrl, notes ?? null
+  )
+
+  wsManager.broadcast(order.id, 'CB_DOC_UPLOADED', { doc_id: docId, document_type, file_url: fileUrl })
+
+  return reply.status(201).send({
+    success: true,
+    message: 'Document uploaded successfully. Pending admin review.',
+    doc_id: docId,
+    file_url: fileUrl,
+  })
 }

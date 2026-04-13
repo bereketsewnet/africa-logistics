@@ -25,6 +25,8 @@ import {
   addTipHandler,
   getOrderChargesHandler,
   addExtraChargeHandler,
+  getCrossBorderDocsHandler,
+  uploadCrossBorderDocHandler,
 } from '../controllers/order.controller.js'
 
 export default async function orderRoutes(fastify: FastifyInstance) {
@@ -72,6 +74,12 @@ export default async function orderRoutes(fastify: FastifyInstance) {
 
   /** GET /api/orders/:id/history — status change audit trail */
   fastify.get('/:id/history', getOrderHistoryHandler)
+
+  /** GET /api/orders/:id/cross-border-docs — list docs for this cross-border order */
+  fastify.get('/:id/cross-border-docs', getCrossBorderDocsHandler)
+
+  /** POST /api/orders/:id/cross-border-doc — upload doc as shipper */
+  fastify.post('/:id/cross-border-doc', uploadCrossBorderDocHandler)
 
   /** GET /api/orders/:id/messages — in-app chat thread */
   fastify.get('/:id/messages', getMessagesHandler)

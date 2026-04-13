@@ -22,6 +22,7 @@ export interface PricingRuleRow extends RowDataPacket {
   additional_fees: string | null // JSON: [{name,value,type:'fixed'|'percent'}]
   min_distance_km: number
   max_weight_kg: number | null
+  cross_border_multiplier: number   // multiplier applied to cross-border orders (default 1.00)
   is_active: number
   created_at: string
   updated_at: string
@@ -46,6 +47,8 @@ export interface QuoteResult {
   estimated_price: number
   vehicle_type: string
   rule_id: number
+  is_cross_border: boolean
+  cross_border_multiplier: number
 }
 
 // ─── Haversine Formula ────────────────────────────────────────────────────────
@@ -145,12 +148,14 @@ export async function listPricingRules(db: Pool): Promise<PricingRuleRow[]> {
 export function calculateQuote(
   distanceKm: number,
   rule: PricingRuleRow,
-  weightKg?: number | null
+  weightKg?: number | null,
+  isCrossBorder?: boolean
 ): QuoteResult {
   const baseFare    = Number(rule.base_fare)
   const perKmRate   = Number(rule.per_km_rate)
   const perKgRate   = Number(rule.per_kg_rate ?? 0)
   const minDistance = Number(rule.min_distance_km ?? 0)
+  const cbMultiplier = isCrossBorder ? Number(rule.cross_border_multiplier ?? 1) : 1
 
   const usedDistance = Math.max(distanceKm, minDistance)
   const distanceCost = Math.round(usedDistance * perKmRate * 100) / 100
@@ -173,7 +178,8 @@ export function calculateQuote(
   } catch { /* ignore parse errors */ }
 
   const citySurcharge = Math.round(feesTotal * 100) / 100
-  const total         = Math.round((subtotal + citySurcharge) * 100) / 100
+  const baseTotal     = Math.round((subtotal + citySurcharge) * 100) / 100
+  const total         = Math.round(baseTotal * cbMultiplier * 100) / 100
 
   return {
     distance_km:    Math.round(distanceKm * 1000) / 1000,
@@ -187,5 +193,7 @@ export function calculateQuote(
     estimated_price: total,
     vehicle_type:   rule.vehicle_type,
     rule_id:        rule.id,
+    is_cross_border: isCrossBorder ?? false,
+    cross_border_multiplier: cbMultiplier,
   }
 }
