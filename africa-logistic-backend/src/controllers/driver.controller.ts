@@ -77,6 +77,30 @@ interface LocationBody {
 interface SendMessageBody { message: string }
 interface DriverReportQuery { from?: string; to?: string }
 
+function parseDateOnly(input: string | undefined, fallback: Date): Date {
+  if (!input) return fallback
+  const m = input.match(/^(\d{4})-(\d{2})-(\d{2})$/)
+  if (!m) return fallback
+  const y = Number(m[1])
+  const mo = Number(m[2]) - 1
+  const d = Number(m[3])
+  return new Date(y, mo, d)
+}
+
+function sqlDateTime(date: Date, endOfDay = false): string {
+  const y = date.getFullYear()
+  const m = String(date.getMonth() + 1).padStart(2, '0')
+  const d = String(date.getDate()).padStart(2, '0')
+  return `${y}-${m}-${d} ${endOfDay ? '23:59:59' : '00:00:00'}`
+}
+
+function sqlDate(date: Date): string {
+  const y = date.getFullYear()
+  const m = String(date.getMonth() + 1).padStart(2, '0')
+  const d = String(date.getDate()).padStart(2, '0')
+  return `${y}-${m}-${d}`
+}
+
 // ─── Handlers ─────────────────────────────────────────────────────────────────
 
 /** GET /api/driver/jobs */
@@ -100,13 +124,14 @@ export async function getDriverReportHandler(
   const driver = request.user as any
   const db = request.server.db
   const now = new Date()
-  const toDate = request.query.to ? new Date(request.query.to) : now
-  const fromDate = request.query.from
-    ? new Date(request.query.from)
-    : new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
+  const toDate = parseDateOnly(request.query.to, now)
+  const fromDate = parseDateOnly(
+    request.query.from,
+    new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
+  )
 
-  const fromStr = fromDate.toISOString().slice(0, 10) + ' 00:00:00'
-  const toStr = toDate.toISOString().slice(0, 10) + ' 23:59:59'
+  const fromStr = sqlDateTime(fromDate, false)
+  const toStr = sqlDateTime(toDate, true)
 
   const [profileRows] = await db.query<any[]>(`
     SELECT
@@ -179,7 +204,7 @@ export async function getDriverReportHandler(
 
   const [dailyRows] = await db.query<any[]>(`
     SELECT
-      DATE(o.created_at)                                           AS date,
+      DATE_FORMAT(o.created_at, '%Y-%m-%d')                        AS date,
       COUNT(*)                                                     AS jobs,
       SUM(CASE WHEN o.status IN ('DELIVERED','COMPLETED') THEN 1 ELSE 0 END) AS completed,
       ROUND(SUM(COALESCE(o.distance_km, 0)), 1)                    AS km,
@@ -188,7 +213,7 @@ export async function getDriverReportHandler(
     LEFT JOIN order_invoices oi ON oi.order_id = o.id
     WHERE o.driver_id = ?
       AND o.created_at BETWEEN ? AND ?
-    GROUP BY DATE(o.created_at)
+    GROUP BY DATE_FORMAT(o.created_at, '%Y-%m-%d')
     ORDER BY date ASC
   `, [driver.id, fromStr, toStr])
 
@@ -260,8 +285,8 @@ export async function getDriverReportHandler(
     report: {
       generated_at: new Date().toISOString(),
       date_range: {
-        from: fromDate.toISOString().slice(0, 10),
-        to: toDate.toISOString().slice(0, 10),
+        from: sqlDate(fromDate),
+        to: sqlDate(toDate),
       },
       driver: {
         id: String(profile.id ?? driver.id),

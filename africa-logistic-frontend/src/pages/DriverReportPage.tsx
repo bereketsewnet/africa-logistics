@@ -235,11 +235,11 @@ export default function DriverReportPage() {
           })}
           <div style={{ flex: 1 }} />
           <button
-            onClick={() => load()}
+            onClick={() => load(from, to)}
             disabled={loading}
             style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', padding: '0.38rem 0.85rem', borderRadius: 9, border: '1px solid rgba(255,255,255,0.12)', background: 'rgba(255,255,255,0.06)', color: 'var(--clr-text)', fontSize: '0.78rem', fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}
           >
-            <LuRefreshCw size={13} style={{ animation: loading ? 'spin 1s linear infinite' : 'none' }} /> Refresh
+            <LuRefreshCw size={13} style={{ animation: loading ? 'spin 1s linear infinite' : 'none' }} /> Apply
           </button>
         </div>
 

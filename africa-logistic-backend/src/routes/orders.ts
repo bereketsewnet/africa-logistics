@@ -11,6 +11,7 @@ import {
   getQuoteHandler,
   placeOrderHandler,
   listMyOrdersHandler,
+  getShipperReportHandler,
   getOrderHandler,
   trackOrderHandler,
   getOrderHistoryHandler,
@@ -63,6 +64,9 @@ export default async function orderRoutes(fastify: FastifyInstance) {
    * Query: ?page=1&limit=20&status=PENDING
    */
   fastify.get('/', listMyOrdersHandler)
+
+  /** GET /api/orders/report — consolidated self-report for current shipper */
+  fastify.get('/report', getShipperReportHandler)
 
   /** GET /api/orders/:id — Single order details */
   fastify.get('/:id', getOrderHandler)

@@ -135,6 +135,9 @@ export const orderApi = {
   getUnreadCounts: () =>
     apiClient.get('/orders/unread-counts'),
 
+  getReport: (params?: { from?: string; to?: string }) =>
+    apiClient.get('/orders/report', { params }),
+
   rateDriver: (orderId: string, stars: number, comment?: string) =>
     apiClient.post(`/orders/${orderId}/rate-driver`, { stars, comment }),
 

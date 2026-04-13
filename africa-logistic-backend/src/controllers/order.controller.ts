@@ -99,6 +99,35 @@ interface OrderListQuery {
   limit?: string
   status?: string
 }
+
+interface ShipperReportQuery {
+  from?: string
+  to?: string
+}
+
+function parseDateOnly(input: string | undefined, fallback: Date): Date {
+  if (!input) return fallback
+  const m = input.match(/^(\d{4})-(\d{2})-(\d{2})$/)
+  if (!m) return fallback
+  const y = Number(m[1])
+  const mo = Number(m[2]) - 1
+  const d = Number(m[3])
+  return new Date(y, mo, d)
+}
+
+function sqlDateTime(date: Date, endOfDay = false): string {
+  const y = date.getFullYear()
+  const m = String(date.getMonth() + 1).padStart(2, '0')
+  const d = String(date.getDate()).padStart(2, '0')
+  return `${y}-${m}-${d} ${endOfDay ? '23:59:59' : '00:00:00'}`
+}
+
+function sqlDate(date: Date): string {
+  const y = date.getFullYear()
+  const m = String(date.getMonth() + 1).padStart(2, '0')
+  const d = String(date.getDate()).padStart(2, '0')
+  return `${y}-${m}-${d}`
+}
 // ─── Image helpers ─────────────────────────────────────────────────────────────
 
 function saveOrderImage(base64Data: string, orderId: string, slot: 1 | 2): string {
@@ -341,6 +370,229 @@ export async function listMyOrdersHandler(
     success: true,
     orders,
     pagination: { total, page, limit, pages: Math.ceil(total / limit) },
+  })
+}
+
+/** GET /api/orders/report?from=YYYY-MM-DD&to=YYYY-MM-DD */
+export async function getShipperReportHandler(
+  request: FastifyRequest<{ Querystring: ShipperReportQuery }>,
+  reply: FastifyReply
+) {
+  const user = request.user as any
+  if (user.role_id !== 2) {
+    return reply.status(403).send({ success: false, message: 'Shipper access only.' })
+  }
+
+  const db = request.server.db
+  const now = new Date()
+  const toDate = parseDateOnly(request.query.to, now)
+  const fromDate = parseDateOnly(
+    request.query.from,
+    new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
+  )
+
+  const fromStr = sqlDateTime(fromDate, false)
+  const toStr = sqlDateTime(toDate, true)
+
+  const [shipperRows] = await db.query<any[]>(`
+    SELECT id, first_name, last_name, phone_number, email
+    FROM users
+    WHERE id = ?
+    LIMIT 1
+  `, [user.id])
+  const shipper = shipperRows[0] ?? {}
+
+  const [summaryRows] = await db.query<any[]>(`
+    SELECT
+      COUNT(*) AS total_orders,
+      SUM(CASE WHEN status IN ('DELIVERED','COMPLETED') THEN 1 ELSE 0 END) AS completed_orders,
+      SUM(CASE WHEN status IN ('ASSIGNED','EN_ROUTE','AT_PICKUP','IN_TRANSIT','AT_BORDER','IN_CUSTOMS','CUSTOMS_CLEARED') THEN 1 ELSE 0 END) AS active_orders,
+      SUM(CASE WHEN status = 'CANCELLED' THEN 1 ELSE 0 END) AS cancelled_orders,
+      SUM(CASE WHEN status = 'FAILED' THEN 1 ELSE 0 END) AS failed_orders,
+      SUM(is_cross_border) AS cross_border_orders,
+      ROUND(SUM(COALESCE(final_price, estimated_price, 0)), 2) AS total_spent,
+      ROUND(AVG(COALESCE(final_price, estimated_price, 0)), 2) AS avg_order_value,
+      ROUND(SUM(COALESCE(distance_km, 0)), 1) AS total_distance_km,
+      ROUND(AVG(CASE WHEN picked_up_at IS NOT NULL AND delivered_at IS NOT NULL
+                     THEN TIMESTAMPDIFF(MINUTE, picked_up_at, delivered_at) / 60 END), 2) AS avg_delivery_hours,
+      SUM(CASE WHEN payment_status = 'SETTLED' THEN 1 ELSE 0 END) AS paid_orders,
+      SUM(CASE WHEN payment_status IN ('UNPAID','ESCROWED') THEN 1 ELSE 0 END) AS unpaid_orders
+    FROM orders
+    WHERE shipper_id = ?
+      AND created_at BETWEEN ? AND ?
+  `, [user.id, fromStr, toStr])
+  const summary = summaryRows[0] ?? {}
+
+  const [dailyRows] = await db.query<any[]>(`
+    SELECT
+      DATE_FORMAT(created_at, '%Y-%m-%d') AS date,
+      COUNT(*) AS orders,
+      SUM(CASE WHEN status IN ('DELIVERED','COMPLETED') THEN 1 ELSE 0 END) AS completed,
+      ROUND(SUM(COALESCE(final_price, estimated_price, 0)), 2) AS spent,
+      ROUND(SUM(COALESCE(distance_km, 0)), 1) AS distance_km
+    FROM orders
+    WHERE shipper_id = ?
+      AND created_at BETWEEN ? AND ?
+    GROUP BY DATE_FORMAT(created_at, '%Y-%m-%d')
+    ORDER BY date ASC
+  `, [user.id, fromStr, toStr])
+
+  const [statusRows] = await db.query<any[]>(`
+    SELECT status, COUNT(*) AS count
+    FROM orders
+    WHERE shipper_id = ?
+      AND created_at BETWEEN ? AND ?
+    GROUP BY status
+    ORDER BY count DESC
+  `, [user.id, fromStr, toStr])
+
+  const [paymentRows] = await db.query<any[]>(`
+    SELECT payment_status, COUNT(*) AS count
+    FROM orders
+    WHERE shipper_id = ?
+      AND created_at BETWEEN ? AND ?
+    GROUP BY payment_status
+    ORDER BY count DESC
+  `, [user.id, fromStr, toStr])
+
+  const [vehicleRows] = await db.query<any[]>(`
+    SELECT
+      COALESCE(vehicle_type_required, 'Unspecified') AS vehicle_type,
+      COUNT(*) AS orders,
+      ROUND(SUM(COALESCE(final_price, estimated_price, 0)), 2) AS spent,
+      ROUND(AVG(COALESCE(distance_km, 0)), 1) AS avg_km
+    FROM orders
+    WHERE shipper_id = ?
+      AND created_at BETWEEN ? AND ?
+    GROUP BY vehicle_type_required
+    ORDER BY orders DESC
+  `, [user.id, fromStr, toStr])
+
+  const [routeRows] = await db.query<any[]>(`
+    SELECT
+      TRIM(SUBSTRING_INDEX(pickup_address, ',', 1)) AS from_city,
+      TRIM(SUBSTRING_INDEX(delivery_address, ',', 1)) AS to_city,
+      COUNT(*) AS count,
+      ROUND(AVG(COALESCE(distance_km, 0)), 1) AS avg_km
+    FROM orders
+    WHERE shipper_id = ?
+      AND created_at BETWEEN ? AND ?
+      AND pickup_address IS NOT NULL
+      AND delivery_address IS NOT NULL
+    GROUP BY from_city, to_city
+    ORDER BY count DESC
+    LIMIT 8
+  `, [user.id, fromStr, toStr])
+
+  const [recentRows] = await db.query<any[]>(`
+    SELECT
+      o.id,
+      o.reference_code,
+      o.status,
+      o.payment_status,
+      o.pickup_address,
+      o.delivery_address,
+      o.created_at,
+      o.delivered_at,
+      ROUND(COALESCE(o.final_price, o.estimated_price, 0), 2) AS amount,
+      ROUND(COALESCE(o.distance_km, 0), 1) AS distance_km,
+      o.is_cross_border,
+      CONCAT_WS(' ', d.first_name, d.last_name) AS driver_name
+    FROM orders o
+    LEFT JOIN users d ON d.id = o.driver_id
+    WHERE o.shipper_id = ?
+      AND o.created_at BETWEEN ? AND ?
+    ORDER BY o.created_at DESC
+    LIMIT 10
+  `, [user.id, fromStr, toStr])
+
+  const [ratingRows] = await db.query<any[]>(`
+    SELECT
+      COUNT(*) AS ratings_given,
+      ROUND(AVG(stars), 2) AS avg_stars_given
+    FROM driver_ratings
+    WHERE shipper_id = ?
+      AND is_deleted = 0
+      AND created_at BETWEEN ? AND ?
+  `, [user.id, fromStr, toStr])
+  const ratings = ratingRows[0] ?? {}
+
+  return reply.send({
+    success: true,
+    report: {
+      generated_at: new Date().toISOString(),
+      date_range: {
+        from: sqlDate(fromDate),
+        to: sqlDate(toDate),
+      },
+      shipper: {
+        id: String(shipper.id ?? user.id),
+        first_name: String(shipper.first_name ?? ''),
+        last_name: String(shipper.last_name ?? ''),
+        name: `${String(shipper.first_name ?? '')} ${String(shipper.last_name ?? '')}`.trim(),
+        phone_number: String(shipper.phone_number ?? ''),
+        email: String(shipper.email ?? ''),
+      },
+      summary: {
+        total_orders: Number(summary.total_orders ?? 0),
+        completed_orders: Number(summary.completed_orders ?? 0),
+        active_orders: Number(summary.active_orders ?? 0),
+        cancelled_orders: Number(summary.cancelled_orders ?? 0),
+        failed_orders: Number(summary.failed_orders ?? 0),
+        cross_border_orders: Number(summary.cross_border_orders ?? 0),
+        total_spent: Number(summary.total_spent ?? 0),
+        avg_order_value: Number(summary.avg_order_value ?? 0),
+        total_distance_km: Number(summary.total_distance_km ?? 0),
+        avg_delivery_hours: Number(summary.avg_delivery_hours ?? 0),
+        paid_orders: Number(summary.paid_orders ?? 0),
+        unpaid_orders: Number(summary.unpaid_orders ?? 0),
+      },
+      daily: (dailyRows as any[]).map((row) => ({
+        date: String(row.date),
+        orders: Number(row.orders ?? 0),
+        completed: Number(row.completed ?? 0),
+        spent: Number(row.spent ?? 0),
+        distance_km: Number(row.distance_km ?? 0),
+      })),
+      by_status: (statusRows as any[]).map((row) => ({
+        status: String(row.status),
+        count: Number(row.count ?? 0),
+      })),
+      by_payment: (paymentRows as any[]).map((row) => ({
+        payment_status: String(row.payment_status),
+        count: Number(row.count ?? 0),
+      })),
+      by_vehicle: (vehicleRows as any[]).map((row) => ({
+        vehicle_type: String(row.vehicle_type),
+        orders: Number(row.orders ?? 0),
+        spent: Number(row.spent ?? 0),
+        avg_km: Number(row.avg_km ?? 0),
+      })),
+      top_routes: (routeRows as any[]).map((row) => ({
+        from_city: String(row.from_city ?? ''),
+        to_city: String(row.to_city ?? ''),
+        count: Number(row.count ?? 0),
+        avg_km: Number(row.avg_km ?? 0),
+      })),
+      recent_orders: (recentRows as any[]).map((row) => ({
+        id: String(row.id),
+        reference_code: String(row.reference_code),
+        status: String(row.status),
+        payment_status: String(row.payment_status),
+        pickup_address: String(row.pickup_address ?? ''),
+        delivery_address: String(row.delivery_address ?? ''),
+        created_at: String(row.created_at),
+        delivered_at: row.delivered_at ? String(row.delivered_at) : null,
+        amount: Number(row.amount ?? 0),
+        distance_km: Number(row.distance_km ?? 0),
+        is_cross_border: Boolean(row.is_cross_border),
+        driver_name: String(row.driver_name ?? 'Unassigned'),
+      })),
+      feedback: {
+        ratings_given: Number(ratings.ratings_given ?? 0),
+        avg_stars_given: Number(ratings.avg_stars_given ?? 0),
+      },
+    },
   })
 }
 
