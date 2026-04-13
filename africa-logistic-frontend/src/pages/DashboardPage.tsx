@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, type FormEvent, type ChangeEvent } from 'r
 import { useAuth } from '../context/AuthContext'
 import { useNavigate } from 'react-router-dom'
 import apiClient, { authApi, configApi } from '../lib/apiClient'
+import aiLogoSrc from '../assets/logo-ai-assistant.webp'
 import ShipperOrdersPage from './ShipperOrdersPage'
 import DriverJobsPage from './DriverJobsPage'
 import PhoneField from '../components/PhoneField'
@@ -17,7 +18,7 @@ import {
   LuLock, LuContact, LuBell, LuSun, LuMoon, LuMonitor, LuFileText,
   LuUpload, LuRefreshCw, LuStar, LuWallet, LuMessageSquare,
   LuLifeBuoy, LuClock, LuCar, LuX, LuChevronLeft, LuChevronRight,
-    LuHistory, LuPlus,
+  LuHistory, LuPlus, LuMapPin,
 } from 'react-icons/lu'
 
 // ─── Sub-components ──────────────────────────────────────────────────────────
@@ -90,26 +91,388 @@ function SectionRow({
 }
 
 type Tab = 'profile' | 'security' | 'contact' | 'preferences' | 'documents' | 'rating'
-type DockPage = 'account' | 'orders' | 'payments' | 'transactions' | 'messages' | 'help' | 'vehicle' | 'shipments'
+type DockPage = 'account' | 'orders' | 'payments' | 'transactions' | 'help' | 'vehicle' | 'shipments'
 
-function ComingSoon({ title, icon, desc }: { title: string; icon: React.ReactNode; desc: string }) {
-  return (
-    <div style={{ display:'flex', alignItems:'center', justifyContent:'center', minHeight:'70vh', padding:'2rem 1rem' }}>
-      <div className="glass page-enter" style={{ padding:'3rem 2rem', textAlign:'center', maxWidth:360, width:'100%' }}>
-        <div style={{ width:72, height:72, borderRadius:'50%', background:'rgba(0,229,255,0.07)', border:'1px solid rgba(0,229,255,0.15)', display:'flex', alignItems:'center', justifyContent:'center', margin:'0 auto 1.5rem', color:'var(--clr-muted)' }}>
-          {icon}
-        </div>
-        <h2 style={{ fontSize:'1.3rem', fontWeight:800, color:'var(--clr-text)', marginBottom:'0.4rem' }}>{title}</h2>
-        <div style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:'0.4rem', color:'var(--clr-accent)', fontSize:'0.8rem', fontWeight:700, marginBottom:'0.75rem' }}>
-          <LuClock size={13}/> Coming Soon
-        </div>
-        <p style={{ fontSize:'0.84rem', color:'var(--clr-muted)', lineHeight:1.65 }}>{desc}</p>
-        <div style={{ marginTop:'1.75rem', height:3, borderRadius:99, background:'rgba(255,255,255,0.06)', overflow:'hidden' }}>
-          <div style={{ height:'100%', width:'28%', borderRadius:99, background:'linear-gradient(90deg,var(--clr-accent2),var(--clr-accent))' }}/>
-        </div>
-        <p style={{ fontSize:'0.68rem', color:'rgba(100,116,139,0.7)', marginTop:'0.4rem' }}>28% complete</p>
-      </div>
+
+
+// ── Social icon SVGs ──────────────────────────────────────────────────────────
+function IconYouTube() {
+  return <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M23.5 6.2a3 3 0 0 0-2.1-2.1C19.5 3.6 12 3.6 12 3.6s-7.5 0-9.4.5A3 3 0 0 0 .5 6.2 31 31 0 0 0 0 12a31 31 0 0 0 .5 5.8 3 3 0 0 0 2.1 2.1C4.5 20.4 12 20.4 12 20.4s7.5 0 9.4-.5a3 3 0 0 0 2.1-2.1A31 31 0 0 0 24 12a31 31 0 0 0-.5-5.8zM9.7 15.5V8.5l6.3 3.5-6.3 3.5z"/></svg>
+}
+function IconTikTok() {
+  return <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M19.6 3h-3.2v11.6a3.2 3.2 0 1 1-3.2-3.2c.3 0 .6 0 .9.1V8.1a6.4 6.4 0 1 0 5.6 6.5V8.3a8.7 8.7 0 0 0 5.1 1.6V6.8A5.6 5.6 0 0 1 19.6 3z"/></svg>
+}
+function IconInstagram() {
+  return <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M12 2.2c3.2 0 3.6 0 4.9.1 3.3.1 4.8 1.7 4.9 4.9.1 1.3.1 1.6.1 4.8s0 3.6-.1 4.8c-.1 3.2-1.7 4.8-4.9 4.9-1.3.1-1.6.1-4.9.1s-3.6 0-4.8-.1c-3.3-.1-4.8-1.7-4.9-4.9C2.2 15.6 2.2 15.3 2.2 12s0-3.6.1-4.8C2.4 3.9 4 2.3 7.2 2.3 8.4 2.2 8.8 2.2 12 2.2zm0-2.2C8.7 0 8.3 0 7.1.1 2.7.3.3 2.7.1 7.1 0 8.3 0 8.7 0 12s0 3.7.1 4.9C.3 21.3 2.7 23.7 7.1 23.9 8.3 24 8.7 24 12 24s3.7 0 4.9-.1c4.4-.2 6.8-2.6 7-7 .1-1.2.1-1.6.1-4.9s0-3.7-.1-4.9C23.7 2.7 21.4.3 16.9.1 15.7 0 15.3 0 12 0zm0 5.8a6.2 6.2 0 1 0 0 12.4A6.2 6.2 0 0 0 12 5.8zm0 10.2a4 4 0 1 1 0-8 4 4 0 0 1 0 8zm6.4-11.8a1.4 1.4 0 1 0 0 2.8 1.4 1.4 0 0 0 0-2.8z"/></svg>
+}
+function IconX() {
+  return <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M18.3 1.5h3.3L14.3 10l8.6 11.5h-7L10.7 14l-6 7.5H1.4l8-9.1L1.3 1.5h7.1l4.6 6.1zm-1.2 18.5h1.8L7 3.3H5L17.1 20z"/></svg>
+}
+function IconLinkedIn() {
+  return <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M20.4 20.4h-3.6v-5.6c0-1.4 0-3.1-1.9-3.1s-2.2 1.5-2.2 3v5.7H9.2V9h3.4v1.6h.1a3.8 3.8 0 0 1 3.4-1.9c3.6 0 4.3 2.4 4.3 5.5v6.2zM5.3 7.4a2.1 2.1 0 1 1 0-4.2 2.1 2.1 0 0 1 0 4.2zM7.1 20.4H3.5V9h3.6v11.4zM22.2 0H1.8A1.8 1.8 0 0 0 0 1.8v20.4A1.8 1.8 0 0 0 1.8 24h20.4A1.8 1.8 0 0 0 24 22.2V1.8A1.8 1.8 0 0 0 22.2 0z"/></svg>
+}
+function IconWhatsApp() {
+  return <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M17.5 14.4c-.3-.1-1.7-.8-1.9-.9-.3-.1-.5-.1-.7.1-.2.3-.7.9-.9 1.1-.2.2-.3.2-.6.1s-1.2-.5-2.3-1.4a8.7 8.7 0 0 1-1.6-1.9c-.2-.3 0-.4.1-.6l.5-.5c.1-.2.2-.3.3-.5s0-.4 0-.5c0-.2-.7-1.6-1-2.2-.2-.5-.5-.5-.7-.5h-.6c-.2 0-.5.1-.8.4C9 8.4 8.1 9.3 8.1 11s1.2 3.3 1.4 3.5c.2.2 2.4 3.6 5.8 5.1 2.3 1 3.2 1 4.4.6 1.3-.4 2.2-1.5 2.4-3 .2-1.5.2-2.7 0-2.8z"/><path d="M12 0C5.4 0 0 5.4 0 12c0 2.1.6 4.2 1.6 6L0 24l6.3-1.6A12 12 0 1 0 12 0zm0 21.8a9.8 9.8 0 0 1-5-1.4l-.4-.2-3.7.9.9-3.6-.2-.4A9.8 9.8 0 1 1 12 21.8z"/></svg>
+}
+function IconTelegram() {
+  return <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M11.9 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.5 0 11.9 0zm5.9 8.2-2 9.5c-.1.6-.5.8-1 .5l-2.8-2-1.3 1.3c-.2.2-.4.2-.7.2l.2-2.9 5-4.5c.2-.2 0-.3-.3-.1L7.3 14.8 4.6 13.9c-.6-.2-.6-.6.1-.8l11.5-4.4c.5-.2 1 .1.8.8.1 0 .1 0-.1-.3z"/></svg>
+}
+
+// ── Help & Support Page ───────────────────────────────────────────────────────
+interface ContactInfo {
+  phone1?: string; phone2?: string; email1?: string; email2?: string; po_box?: string
+  youtube_url?: string; tiktok_url?: string; instagram_url?: string; x_url?: string
+  linkedin_url?: string; whatsapp_number?: string; telegram_url?: string
+}
+
+function HelpAndSupportPage() {
+  const [contact, setContact] = useState<ContactInfo>({})
+  const [aiEnabled, setAiEnabled] = useState(false)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    Promise.all([configApi.getContactInfo(), configApi.getAiStatus()])
+      .then(([c, a]) => {
+        setContact((c.data as any).contact ?? {})
+        setAiEnabled(Boolean((a.data as any).ai_enabled))
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false))
+  }, [])
+
+  if (loading) return (
+    <div style={{ display:'flex', alignItems:'center', justifyContent:'center', minHeight:'70vh' }}>
+      <LuRefreshCw size={26} style={{ color:'var(--clr-accent)', animation:'spin 1s linear infinite' }}/>
     </div>
+  )
+
+  const contactItems = [
+    ...(contact.phone1 ? [{ href:`tel:${contact.phone1}`,       icon:<LuPhone size={16}/>,  text:contact.phone1,  color:'#00e5ff', bg:'rgba(0,229,255,0.08)',   border:'rgba(0,229,255,0.18)'   }] : []),
+    ...(contact.phone2 ? [{ href:`tel:${contact.phone2}`,       icon:<LuPhone size={16}/>,  text:contact.phone2,  color:'#00e5ff', bg:'rgba(0,229,255,0.08)',   border:'rgba(0,229,255,0.18)'   }] : []),
+    ...(contact.email1 ? [{ href:`mailto:${contact.email1}`,    icon:<LuMail size={16}/>,   text:contact.email1,  color:'#818cf8', bg:'rgba(129,140,248,0.08)', border:'rgba(129,140,248,0.18)' }] : []),
+    ...(contact.email2 ? [{ href:`mailto:${contact.email2}`,    icon:<LuMail size={16}/>,   text:contact.email2,  color:'#818cf8', bg:'rgba(129,140,248,0.08)', border:'rgba(129,140,248,0.18)' }] : []),
+    ...(contact.po_box  ? [{ href:undefined,                    icon:<LuMapPin size={16}/>, text:contact.po_box,  color:'#fbbf24', bg:'rgba(251,191,36,0.08)',  border:'rgba(251,191,36,0.18)'  }] : []),
+  ]
+
+  const socialLinks = [
+    { key:'youtube_url',     url:contact.youtube_url,     icon:<IconYouTube />,   label:'YouTube',   color:'#ff4444', bg:'rgba(255,68,68,0.1)',   border:'rgba(255,68,68,0.22)'   },
+    { key:'tiktok_url',      url:contact.tiktok_url,      icon:<IconTikTok />,    label:'TikTok',    color:'#f0f0f0', bg:'rgba(255,255,255,0.06)', border:'rgba(255,255,255,0.12)' },
+    { key:'instagram_url',   url:contact.instagram_url,   icon:<IconInstagram />, label:'Instagram', color:'#e1306c', bg:'rgba(225,48,108,0.1)',   border:'rgba(225,48,108,0.22)'  },
+    { key:'x_url',           url:contact.x_url,           icon:<IconX />,         label:'X',         color:'#e7e9ea', bg:'rgba(231,233,234,0.06)', border:'rgba(231,233,234,0.12)' },
+    { key:'linkedin_url',    url:contact.linkedin_url,    icon:<IconLinkedIn />,  label:'LinkedIn',  color:'#0a9ede', bg:'rgba(10,158,222,0.1)',   border:'rgba(10,158,222,0.22)'  },
+    { key:'whatsapp_number', url:contact.whatsapp_number ? `https://wa.me/${contact.whatsapp_number.replace(/\D/g,'')}` : undefined, icon:<IconWhatsApp />, label:'WhatsApp', color:'#25d366', bg:'rgba(37,211,102,0.1)', border:'rgba(37,211,102,0.22)' },
+    { key:'telegram_url',    url:contact.telegram_url,    icon:<IconTelegram />,  label:'Telegram',  color:'#2aabee', bg:'rgba(42,171,238,0.1)',   border:'rgba(42,171,238,0.22)'  },
+  ].filter(s => s.url)
+
+  const hasContact = contactItems.length > 0
+  const nothingToShow = !hasContact && socialLinks.length === 0 && !aiEnabled
+
+  return (
+    <div className="page-enter" style={{ padding:'1.75rem 1.25rem 5rem', maxWidth:740, margin:'0 auto', width:'100%' }}>
+
+      {/* ── Hero banner ── */}
+      <div style={{ position:'relative', textAlign:'center', padding:'2.5rem 1.5rem 2.25rem', borderRadius:'1.5rem', background:'linear-gradient(155deg,rgba(0,229,255,0.06) 0%,rgba(139,92,246,0.07) 100%)', border:'1px solid rgba(255,255,255,0.07)', marginBottom:'1.5rem', overflow:'hidden' }}>
+        <div style={{ position:'absolute', top:-50, right:-50, width:180, height:180, borderRadius:'50%', background:'radial-gradient(circle,rgba(0,229,255,0.1) 0%,transparent 70%)', pointerEvents:'none' }}/>
+        <div style={{ position:'absolute', bottom:-30, left:-30, width:130, height:130, borderRadius:'50%', background:'radial-gradient(circle,rgba(139,92,246,0.1) 0%,transparent 70%)', pointerEvents:'none' }}/>
+        <div style={{ position:'relative', width:80, height:80, borderRadius:'50%', background:'linear-gradient(135deg,rgba(0,229,255,0.12),rgba(139,92,246,0.12))', border:'1.5px solid rgba(0,229,255,0.22)', display:'flex', alignItems:'center', justifyContent:'center', margin:'0 auto 1.25rem', color:'var(--clr-accent)' }}>
+          <LuLifeBuoy size={36}/>
+        </div>
+        <h1 style={{ fontSize:'clamp(1.6rem,4.5vw,2.1rem)', fontWeight:900, color:'var(--clr-text)', margin:'0 0 0.5rem', letterSpacing:'-0.025em' }}>Help &amp; Support</h1>
+        <p style={{ fontSize:'0.9rem', color:'var(--clr-muted)', margin:0 }}>Fast, friendly help — whenever you need it</p>
+      </div>
+
+      {/* ── AI spotlight ── */}
+      {aiEnabled && (
+        <div style={{ display:'flex', alignItems:'center', gap:'1.25rem', flexWrap:'wrap', padding:'1.4rem 1.6rem', borderRadius:'1.25rem', background:'linear-gradient(135deg,rgba(99,102,241,0.13) 0%,rgba(139,92,246,0.09) 100%)', border:'1px solid rgba(99,102,241,0.28)', marginBottom:'1.5rem', boxShadow:'0 4px 24px rgba(99,102,241,0.12)' }}>
+          <div style={{ width:54, height:54, borderRadius:'14px', background:'rgba(99,102,241,0.18)', border:'1px solid rgba(99,102,241,0.32)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'1.7rem', flexShrink:0 }}>🤖</div>
+          <div style={{ flex:1, minWidth:150 }}>
+            <div style={{ fontWeight:800, color:'var(--clr-text)', fontSize:'1rem', marginBottom:'0.22rem' }}>AI Assistant</div>
+            <div style={{ fontSize:'0.8rem', color:'var(--clr-muted)', lineHeight:1.5 }}>Ask anything — instant intelligent answers, 24/7</div>
+          </div>
+          <button style={{ display:'flex', alignItems:'center', gap:'0.5rem', padding:'0.72rem 1.4rem', borderRadius:'0.75rem', border:'none', cursor:'pointer', background:'linear-gradient(135deg,#6366f1,#8b5cf6)', color:'#fff', fontWeight:700, fontSize:'0.87rem', whiteSpace:'nowrap', boxShadow:'0 4px 16px rgba(99,102,241,0.38)', flexShrink:0 }}>
+            <LuMessageSquare size={15}/> Ask AI Assistant
+          </button>
+        </div>
+      )}
+
+      {/* ── Contact + Social grid ── */}
+      {(hasContact || socialLinks.length > 0) && (
+        <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(270px,1fr))', gap:'1rem' }}>
+
+          {/* Contact card */}
+          {hasContact && (
+            <div className="glass" style={{ borderRadius:'1.25rem', padding:'1.5rem' }}>
+              <div style={{ display:'flex', alignItems:'center', gap:'0.55rem', marginBottom:'1.15rem' }}>
+                <div style={{ width:30, height:30, borderRadius:'8px', background:'rgba(0,229,255,0.1)', border:'1px solid rgba(0,229,255,0.18)', display:'flex', alignItems:'center', justifyContent:'center', color:'var(--clr-accent)', flexShrink:0 }}>
+                  <LuPhone size={13}/>
+                </div>
+                <span style={{ fontSize:'0.68rem', fontWeight:800, letterSpacing:'0.1em', textTransform:'uppercase', color:'var(--clr-accent)' }}>Contact Us</span>
+              </div>
+              <div style={{ display:'flex', flexDirection:'column', gap:'0.55rem' }}>
+                {contactItems.map((item, i) => (
+                  item.href
+                    ? <a key={i} href={item.href} style={{ display:'flex', alignItems:'center', gap:'0.85rem', padding:'0.75rem 1rem', borderRadius:'0.75rem', background:item.bg, border:`1px solid ${item.border}`, textDecoration:'none' }}>
+                        <span style={{ color:item.color, display:'flex', flexShrink:0 }}>{item.icon}</span>
+                        <span style={{ fontSize:'0.875rem', fontWeight:500, color:'var(--clr-text)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{item.text}</span>
+                      </a>
+                    : <div key={i} style={{ display:'flex', alignItems:'center', gap:'0.85rem', padding:'0.75rem 1rem', borderRadius:'0.75rem', background:item.bg, border:`1px solid ${item.border}` }}>
+                        <span style={{ color:item.color, display:'flex', flexShrink:0 }}>{item.icon}</span>
+                        <span style={{ fontSize:'0.875rem', fontWeight:500, color:'var(--clr-text)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{item.text}</span>
+                      </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Social links card */}
+          {socialLinks.length > 0 && (
+            <div className="glass" style={{ borderRadius:'1.25rem', padding:'1.5rem' }}>
+              <div style={{ display:'flex', alignItems:'center', gap:'0.55rem', marginBottom:'1.15rem' }}>
+                <div style={{ width:30, height:30, borderRadius:'8px', background:'rgba(139,92,246,0.12)', border:'1px solid rgba(139,92,246,0.22)', display:'flex', alignItems:'center', justifyContent:'center', color:'#a78bfa', flexShrink:0 }}>
+                  <LuStar size={13}/>
+                </div>
+                <span style={{ fontSize:'0.68rem', fontWeight:800, letterSpacing:'0.1em', textTransform:'uppercase', color:'#a78bfa' }}>Follow Us</span>
+              </div>
+              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'0.5rem' }}>
+                {socialLinks.map(s => (
+                  <a key={s.key} href={s.url} target="_blank" rel="noopener noreferrer"
+                    style={{ display:'flex', alignItems:'center', gap:'0.55rem', padding:'0.72rem 0.9rem', borderRadius:'0.75rem', background:s.bg, border:`1px solid ${s.border}`, textDecoration:'none', color:s.color, fontSize:'0.8rem', fontWeight:700 }}>
+                    <span style={{ display:'flex', flexShrink:0 }}>{s.icon}</span>
+                    <span style={{ overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{s.label}</span>
+                  </a>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── Empty state ── */}
+      {nothingToShow && (
+        <div className="glass" style={{ padding:'3.5rem 2rem', textAlign:'center', borderRadius:'1.25rem' }}>
+          <LuLifeBuoy size={40} style={{ color:'var(--clr-muted)', opacity:.25, marginBottom:'1rem' }}/>
+          <p style={{ fontSize:'0.9rem', color:'var(--clr-muted)', margin:0 }}>Support details coming soon.</p>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── Bemnet AI Chat Widget ─────────────────────────────────────────────────────
+
+interface ChatMsg { id: number; from: 'user'|'bot'; text: string; ts: string }
+
+const BEMNET_GREET = "Hi! I'm **Bemnet**, your AI logistics assistant 👋\nHow can I help you today?"
+
+const SAMPLE_QA: { q: RegExp; a: string }[] = [
+  { q: /track|where.*order|order.*status/i,   a: "To track your order, go to **My Jobs** or **My Shipments** in the menu. You'll find real-time status updates there — including pickup, in-transit, and delivery confirmations." },
+  { q: /pay|wallet|fund|balance/i,             a: "You can manage your wallet under the **Wallet** section. Add funds, view transaction history, and download invoices all in one place." },
+  { q: /docum|verif|approv|kyc/i,              a: "Document verification is reviewed by our admin team within 24 hours. You can check your document status under **Account → Documents**." },
+  { q: /price|cost|fee|rate|charg/i,           a: "Pricing is calculated based on route distance, vehicle type, and cargo weight. You'll see the exact quote before confirming any shipment." },
+  { q: /driver|assign|pickup/i,                a: "Once your order is confirmed, a nearby verified driver will be assigned automatically. You'll receive a notification when assignment happens." },
+  { q: /cancel|refund/i,                       a: "Cancellations can be made before a driver is assigned. For refunds, our support team processes them within 3–5 business days." },
+  { q: /contact|email|phone|support/i,         a: "You can reach our support team via the **Help & Support** page in the menu. We're available 24/7 to assist you." },
+  { q: /register|sign.?up|account/i,           a: "Registration is quick! Just provide your phone number, verify it with the OTP, and complete your profile. Drivers additionally need to upload their vehicle documents." },
+  { q: /hello|hi|hey|good/i,                   a: "Hello! 😊 Great to hear from you. What can I help you with today — tracking, payments, or something else?" },
+  { q: /thank/i,                               a: "You're welcome! 🙌 Feel free to ask me anything else." },
+]
+
+function fmtTime(d: Date) { return d.toLocaleTimeString([], { hour:'2-digit', minute:'2-digit' }) }
+
+function BemnetChat({ aiEnabled }: { aiEnabled: boolean }) {
+  const [open, setOpen]     = useState(false)
+  const [msgs, setMsgs]     = useState<ChatMsg[]>([])
+  const [input, setInput]   = useState('')
+  const [typing, setTyping] = useState(false)
+  const [mounted, setMounted] = useState(false)
+  const bottomRef = useRef<HTMLDivElement>(null)
+  const inputRef  = useRef<HTMLInputElement>(null)
+
+  // Animate FAB in
+  useEffect(() => { setTimeout(() => setMounted(true), 400) }, [])
+
+  // Seed greeting when chat first opens
+  useEffect(() => {
+    if (open && msgs.length === 0) {
+      setMsgs([{ id: 1, from:'bot', text: BEMNET_GREET, ts: fmtTime(new Date()) }])
+    }
+    if (open) setTimeout(() => inputRef.current?.focus(), 80)
+  }, [open])
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior:'smooth' })
+  }, [msgs, typing])
+
+  function renderText(text: string) {
+    return text.split(/\*\*(.+?)\*\*/g).map((part, i) =>
+      i % 2 === 1 ? <strong key={i} style={{ color:'var(--clr-accent)', fontWeight:700 }}>{part}</strong> : part
+    )
+  }
+
+  function getBotReply(userMsg: string): string {
+    for (const { q, a } of SAMPLE_QA) {
+      if (q.test(userMsg)) return a
+    }
+    return "That's a great question! Our team is always improving Bemnet's knowledge base. For now, please visit the **Help & Support** page or contact our team directly — we'll get back to you ASAP. 🚀"
+  }
+
+  // Only render if AI is enabled
+  if (!aiEnabled) return null
+
+  function send() {
+    const text = input.trim()
+    if (!text) return
+    const now = new Date()
+    const userMsg: ChatMsg = { id: Date.now(), from:'user', text, ts: fmtTime(now) }
+    setMsgs(prev => [...prev, userMsg])
+    setInput('')
+    setTyping(true)
+    setTimeout(() => {
+      setTyping(false)
+      const reply: ChatMsg = { id: Date.now()+1, from:'bot', text: getBotReply(text), ts: fmtTime(new Date()) }
+      setMsgs(prev => [...prev, reply])
+    }, 900 + Math.random()*600)
+  }
+
+  return (
+    <>
+      {/* ── Floating action button ── */}
+      {!open && (
+        <button
+          onClick={() => setOpen(true)}
+          title="Chat with Bemnet AI"
+          style={{
+            position:'fixed', bottom:'5rem', right:'1.25rem', zIndex:1200,
+            width:58, height:58, borderRadius:'50%', border:'none', cursor:'pointer', padding:0,
+            background:'linear-gradient(135deg,#6366f1,#8b5cf6)',
+            boxShadow:'0 8px 32px rgba(99,102,241,0.45)',
+            display:'flex', alignItems:'center', justifyContent:'center',
+            animation: mounted ? 'fab-pop 0.5s cubic-bezier(0.34,1.56,0.64,1) both, fab-pulse 2.5s 1.5s ease-in-out infinite' : 'none',
+            transition:'transform .18s',
+          }}
+        >
+          <img src={aiLogoSrc} alt="Bemnet AI" style={{ width:38, height:38, borderRadius:'50%', objectFit:'cover' }}/>
+          {/* Notification badge */}
+          <span style={{ position:'absolute', top:2, right:2, width:14, height:14, borderRadius:'50%', background:'#22c55e', border:'2px solid #080b14', display:'flex', alignItems:'center', justifyContent:'center' }}>
+            <span style={{ width:6, height:6, borderRadius:'50%', background:'#fff' }}/>
+          </span>
+        </button>
+      )}
+
+      {/* ── Chat panel ── */}
+      {open && (
+        <div style={{
+          position:'fixed', bottom:'1rem', right:'1.25rem', zIndex:1200,
+          width:'min(390px, calc(100vw - 2rem))',
+          height:'min(580px, calc(100vh - 2rem))',
+          display:'flex', flexDirection:'column',
+          borderRadius:'1.5rem', overflow:'hidden',
+          background:'rgba(8,11,20,0.96)',
+          border:'1px solid rgba(99,102,241,0.3)',
+          boxShadow:'0 32px 80px rgba(0,0,0,0.7), 0 0 0 1px rgba(99,102,241,0.15), inset 0 1px 0 rgba(255,255,255,0.06)',
+          backdropFilter:'blur(24px)',
+          animation:'chat-open 0.35s cubic-bezier(0.34,1.56,0.64,1) both',
+        }}>
+
+          {/* Header */}
+          <div style={{
+            padding:'1rem 1.1rem 0.9rem', flexShrink:0,
+            background:'linear-gradient(135deg,rgba(99,102,241,0.18) 0%,rgba(139,92,246,0.12) 100%)',
+            borderBottom:'1px solid rgba(99,102,241,0.2)',
+            display:'flex', alignItems:'center', gap:'0.75rem',
+          }}>
+            {/* Avatar with online ring */}
+            <div style={{ position:'relative', flexShrink:0 }}>
+              <img src={aiLogoSrc} alt="Bemnet" style={{ width:44, height:44, borderRadius:'50%', objectFit:'cover', border:'2px solid rgba(99,102,241,0.5)' }}/>
+              <span style={{ position:'absolute', bottom:1, right:1, width:11, height:11, borderRadius:'50%', background:'#22c55e', border:'2px solid rgba(8,11,20,0.96)' }}/>
+            </div>
+            <div style={{ flex:1 }}>
+              <div style={{ fontWeight:800, fontSize:'0.97rem', color:'#e2e8f0', letterSpacing:'-0.01em' }}>Bemnet</div>
+              <div style={{ fontSize:'0.72rem', color:'#22c55e', fontWeight:600, display:'flex', alignItems:'center', gap:'0.3rem' }}>
+                <span style={{ width:6, height:6, borderRadius:'50%', background:'#22c55e', display:'inline-block' }}/> Online · AI Assistant
+              </div>
+            </div>
+            {/* Close */}
+            <button onClick={() => setOpen(false)} style={{ background:'rgba(255,255,255,0.06)', border:'1px solid rgba(255,255,255,0.1)', borderRadius:'50%', width:32, height:32, cursor:'pointer', color:'#94a3b8', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, transition:'all .15s' }}>
+              <LuX size={14}/>
+            </button>
+          </div>
+
+          {/* Messages */}
+          <div style={{ flex:1, overflowY:'auto', padding:'1rem 0.9rem', display:'flex', flexDirection:'column', gap:'0.75rem', scrollbarWidth:'thin', scrollbarColor:'rgba(99,102,241,0.3) transparent' }}>
+            {msgs.map(msg => (
+              <div key={msg.id} style={{ display:'flex', alignItems:'flex-end', gap:'0.5rem', flexDirection: msg.from==='user' ? 'row-reverse' : 'row', animation: msg.from==='user' ? 'msg-in-user 0.28s cubic-bezier(0.4,0,0.2,1) both' : 'msg-in-bot 0.28s cubic-bezier(0.4,0,0.2,1) both' }}>
+                {/* Avatar */}
+                {msg.from === 'bot' && (
+                  <img src={aiLogoSrc} alt="Bemnet" style={{ width:28, height:28, borderRadius:'50%', objectFit:'cover', flexShrink:0, border:'1.5px solid rgba(99,102,241,0.4)' }}/>
+                )}
+                {msg.from === 'user' && (
+                  <div style={{ width:28, height:28, borderRadius:'50%', background:'linear-gradient(135deg,#6366f1,#8b5cf6)', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+                    <LuUser size={13} color="#fff"/>
+                  </div>
+                )}
+                {/* Bubble */}
+                <div style={{ maxWidth:'72%', display:'flex', flexDirection:'column', gap:'0.2rem', alignItems: msg.from==='user' ? 'flex-end' : 'flex-start' }}>
+                  <div style={{
+                    padding:'0.6rem 0.9rem', borderRadius: msg.from==='user' ? '1.1rem 1.1rem 0.25rem 1.1rem' : '1.1rem 1.1rem 1.1rem 0.25rem',
+                    background: msg.from==='user' ? 'linear-gradient(135deg,#6366f1,#8b5cf6)' : 'rgba(255,255,255,0.06)',
+                    border: msg.from==='user' ? 'none' : '1px solid rgba(255,255,255,0.08)',
+                    fontSize:'0.845rem', lineHeight:1.6, color: msg.from==='user' ? '#fff' : '#e2e8f0', fontWeight:450,
+                    boxShadow: msg.from==='user' ? '0 4px 16px rgba(99,102,241,0.3)' : 'none',
+                  }}>
+                    {renderText(msg.text)}
+                  </div>
+                  <span style={{ fontSize:'0.65rem', color:'rgba(100,116,139,0.7)', padding:'0 0.2rem' }}>{msg.ts}</span>
+                </div>
+              </div>
+            ))}
+
+            {/* Typing indicator */}
+            {typing && (
+              <div style={{ display:'flex', alignItems:'flex-end', gap:'0.5rem' }}>
+                <img src={aiLogoSrc} alt="Bemnet" style={{ width:28, height:28, borderRadius:'50%', objectFit:'cover', flexShrink:0, border:'1.5px solid rgba(99,102,241,0.4)' }}/>
+                <div style={{ padding:'0.7rem 1rem', borderRadius:'1.1rem 1.1rem 1.1rem 0.25rem', background:'rgba(255,255,255,0.06)', border:'1px solid rgba(255,255,255,0.08)', display:'flex', gap:'4px', alignItems:'center' }}>
+                  {[0,1,2].map(i=><span key={i} style={{ width:7, height:7, borderRadius:'50%', background:'var(--clr-accent)', display:'inline-block', animation:`typing-dot 1.2s ${i*0.2}s ease-in-out infinite` }}/>)}
+                </div>
+              </div>
+            )}
+            <div ref={bottomRef}/>
+          </div>
+
+          {/* Quick reply chips */}
+          <div style={{ padding:'0 0.9rem 0.6rem', display:'flex', gap:'0.4rem', flexWrap:'wrap', flexShrink:0 }}>
+            {['Track order','Wallet','Documents','Pricing'].map(q=>(
+              <button key={q} onClick={() => { setInput(q); setTimeout(()=>{ const trimmed=q.trim(); if(!trimmed)return; const now=new Date(); setMsgs(prev=>[...prev,{id:Date.now(),from:'user',text:trimmed,ts:fmtTime(now)}]); setInput(''); setTyping(true); setTimeout(()=>{setTyping(false);setMsgs(prev=>[...prev,{id:Date.now()+1,from:'bot',text:getBotReply(trimmed),ts:fmtTime(new Date())}])},900+Math.random()*600) },0) }}
+                style={{ padding:'0.35rem 0.75rem', borderRadius:99, background:'rgba(99,102,241,0.12)', border:'1px solid rgba(99,102,241,0.25)', color:'#a5b4fc', fontSize:'0.73rem', fontWeight:600, cursor:'pointer', whiteSpace:'nowrap' }}>
+                {q}
+              </button>
+            ))}
+          </div>
+
+          {/* Input bar */}
+          <div style={{ padding:'0.75rem 0.9rem 0.9rem', flexShrink:0, borderTop:'1px solid rgba(255,255,255,0.06)', background:'rgba(255,255,255,0.015)', display:'flex', gap:'0.6rem', alignItems:'center' }}>
+            <input
+              ref={inputRef}
+              value={input}
+              onChange={e => setInput(e.target.value)}
+              onKeyDown={e => { if (e.key==='Enter' && !e.shiftKey) { e.preventDefault(); send() } }}
+              placeholder="Message Bemnet…"
+              style={{ flex:1, background:'rgba(255,255,255,0.05)', border:'1px solid rgba(99,102,241,0.25)', borderRadius:'0.85rem', padding:'0.65rem 1rem', color:'#e2e8f0', fontSize:'0.875rem', fontFamily:'inherit', outline:'none', transition:'border-color .2s, box-shadow .2s' }}
+              onFocus={e => { e.target.style.borderColor='rgba(99,102,241,0.6)'; e.target.style.boxShadow='0 0 0 3px rgba(99,102,241,0.15)' }}
+              onBlur={e => { e.target.style.borderColor='rgba(99,102,241,0.25)'; e.target.style.boxShadow='none' }}
+            />
+            <button
+              onClick={send}
+              disabled={!input.trim()}
+              style={{ width:42, height:42, borderRadius:'0.75rem', border:'none', cursor:input.trim()?'pointer':'not-allowed', flexShrink:0, display:'flex', alignItems:'center', justifyContent:'center', background: input.trim()?'linear-gradient(135deg,#6366f1,#8b5cf6)':'rgba(99,102,241,0.2)', transition:'all .2s', boxShadow:input.trim()?'0 4px 14px rgba(99,102,241,0.38)':'none' }}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={input.trim()?"#fff":"rgba(99,102,241,0.5)"} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+      )}
+    </>
   )
 }
 
@@ -501,13 +864,21 @@ export default function DashboardPage() {
     ...(user?.role_id === 3 ? [{ id: 'orders' as DockPage, icon: <LuTruck size={19}/>, label: 'My Jobs' }] : []),
     { id: 'payments',     icon: <LuWallet size={19}/>,        label: 'Wallet'        },
     { id: 'transactions', icon: <LuHistory size={19}/>,       label: 'History'       },
-    { id: 'messages',     icon: <LuMessageSquare size={19}/>, label: 'Messages',     soon: true },
-    { id: 'help',         icon: <LuLifeBuoy size={19}/>,      label: 'Help & Support', soon: true },
+    { id: 'help',         icon: <LuLifeBuoy size={19}/>,      label: 'Help & Support' },
   ]
+
+  // ── AI enabled state (for Bemnet chat) ────────────────────────────────────
+  const [chatAiEnabled, setChatAiEnabled] = useState(false)
+  useEffect(() => {
+    configApi.getAiStatus().then(r => setChatAiEnabled(Boolean((r.data as any).ai_enabled))).catch(() => {})
+  }, [])
 
   return (
     <div className="aurora-bg" style={{ minHeight: '100vh' }}>
       <div className="aurora-orb aurora-orb-1" />
+
+      {/* ── Bemnet AI floating chat (shipper & driver only) ── */}
+      <BemnetChat aiEnabled={chatAiEnabled} />
 
       {/* ── MOBILE BOTTOM DOCK ── */}
       <div className="dash-dock-mobile">
@@ -1080,8 +1451,7 @@ export default function DashboardPage() {
           </div>
         )}
         {activePage === 'transactions' && <TransactionHistory />}
-        {activePage === 'messages' && <ComingSoon title="Messages" icon={<LuMessageSquare size={30}/>} desc="Communicate directly with drivers and dispatchers through the in-app secure messaging channel." />}
-        {activePage === 'help'     && <ComingSoon title="Help & Support" icon={<LuLifeBuoy size={30}/>} desc="Access guides, FAQs and contact customer support for any platform-related issues." />}
+        {activePage === 'help'         && <HelpAndSupportPage />}
 
         {/* ── My Shipments (shippers only) ── */}
         {activePage === 'shipments' && user?.role_id === 2 && <ShipperOrdersPage />}

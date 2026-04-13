@@ -388,4 +388,8 @@ export const configApi = {
     apiClient.get('/config/countries'),
   getMaintenance: () =>
     apiClient.get('/config/maintenance'),
+  getContactInfo: () =>
+    apiClient.get('/config/contact-info'),
+  getAiStatus: () =>
+    apiClient.get('/config/ai-status'),
 }

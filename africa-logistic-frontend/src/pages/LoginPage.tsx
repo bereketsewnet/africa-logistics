@@ -61,7 +61,7 @@ export default function LoginPage() {
           {/* Logo */}
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', marginBottom: '2rem' }}>
             <img
-              src="/logo-with-name.jpeg"
+              src="/logo-with-name.webp"
               alt="Africa Logistics"
               style={{ height: 72, width: 'auto', objectFit: 'contain', marginBottom: '0.5rem', borderRadius: 12, display: 'block' }}
             />

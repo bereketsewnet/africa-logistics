@@ -38,4 +38,22 @@ export default async function configRoutes(fastify: FastifyInstance) {
       app_version: map['app_version'] ?? '1.0.0',
     })
   })
+
+  // ─── GET /api/config/contact-info ────────────────────────────────────────────
+  // Returns company contact info for the Help & Support page.
+  fastify.get('/contact-info', async (_request, reply) => {
+    const [rows] = await fastify.db.query<any[]>(
+      'SELECT phone1, phone2, email1, email2, po_box, youtube_url, tiktok_url, instagram_url, x_url, linkedin_url, whatsapp_number, telegram_url FROM company_contact WHERE id = 1 LIMIT 1'
+    )
+    return reply.send({ success: true, contact: rows[0] ?? {} })
+  })
+
+  // ─── GET /api/config/ai-status ────────────────────────────────────────────
+  // Returns only whether AI assistance is enabled (no credentials exposed).
+  fastify.get('/ai-status', async (_request, reply) => {
+    const [rows] = await fastify.db.query<any[]>(
+      'SELECT ai_enabled FROM ai_assistance_settings WHERE id = 1 LIMIT 1'
+    )
+    return reply.send({ success: true, ai_enabled: Boolean(rows[0]?.ai_enabled) })
+  })
 }

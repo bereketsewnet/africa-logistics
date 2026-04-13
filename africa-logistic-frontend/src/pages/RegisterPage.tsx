@@ -192,7 +192,7 @@ export default function RegisterPage() {
           {/* Logo */}
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', marginBottom: '1.5rem' }}>
             <img
-              src="/logo-with-name.jpeg"
+              src="/logo-with-name.webp"
               alt="Africa Logistics"
               style={{ height: 64, width: 'auto', objectFit: 'contain', marginBottom: '0.5rem', borderRadius: 10, display: 'block' }}
             />
