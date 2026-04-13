@@ -7,6 +7,7 @@
 
 import { FastifyInstance } from 'fastify'
 import {
+  getDriverReportHandler,
   getDriverJobsHandler,
   getDriverJobHandler,
   acceptJobHandler,
@@ -35,6 +36,9 @@ export default async function driverRoutes(fastify: FastifyInstance) {
   fastify.post('/location', pingLocationHandler)
 
   // ── Job Management ────────────────────────────────────────────────────────────
+
+  /** GET /api/driver/report — consolidated self-report for the logged-in driver */
+  fastify.get('/report', getDriverReportHandler)
 
   /** GET /api/driver/jobs — all active + recent jobs for this driver */
   fastify.get('/jobs', getDriverJobsHandler)

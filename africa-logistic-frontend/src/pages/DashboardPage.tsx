@@ -5,6 +5,7 @@ import apiClient, { authApi, configApi } from '../lib/apiClient'
 import aiLogoSrc from '../assets/logo-ai-assistant.webp'
 import ShipperOrdersPage from './ShipperOrdersPage'
 import DriverJobsPage from './DriverJobsPage'
+import DriverReportPage from './DriverReportPage'
 import PhoneField from '../components/PhoneField'
 import { normalisePhone } from '../lib/normalisePhone'
 import WalletDashboard from '../components/WalletDashboard'
@@ -18,7 +19,7 @@ import {
   LuLock, LuContact, LuBell, LuSun, LuMoon, LuMonitor, LuFileText,
   LuUpload, LuRefreshCw, LuStar, LuWallet, LuMessageSquare,
   LuLifeBuoy, LuClock, LuCar, LuX, LuChevronLeft, LuChevronRight,
-  LuHistory, LuPlus, LuMapPin,
+  LuHistory, LuPlus, LuMapPin, LuChartColumnBig,
 } from 'react-icons/lu'
 
 // ─── Sub-components ──────────────────────────────────────────────────────────
@@ -91,7 +92,7 @@ function SectionRow({
 }
 
 type Tab = 'profile' | 'security' | 'contact' | 'preferences' | 'documents' | 'rating'
-type DockPage = 'account' | 'orders' | 'payments' | 'transactions' | 'help' | 'vehicle' | 'shipments'
+type DockPage = 'account' | 'orders' | 'payments' | 'transactions' | 'help' | 'vehicle' | 'shipments' | 'report'
 
 
 
@@ -863,6 +864,7 @@ export default function DashboardPage() {
     ...(user?.role_id === 3 ? [{ id: 'vehicle' as DockPage, icon: <LuCar size={19}/>, label: 'My Vehicle' }] : []),
     ...(user?.role_id === 2 ? [{ id: 'shipments' as DockPage, icon: <LuPackage size={19}/>, label: 'My Shipments' }] : []),
     ...(user?.role_id === 3 ? [{ id: 'orders' as DockPage, icon: <LuTruck size={19}/>, label: 'My Jobs' }] : []),
+    ...(user?.role_id === 3 ? [{ id: 'report' as DockPage, icon: <LuChartColumnBig size={19}/>, label: 'Report' }] : []),
     { id: 'payments',     icon: <LuWallet size={19}/>,        label: 'Wallet'        },
     { id: 'transactions', icon: <LuHistory size={19}/>,       label: 'History'       },
     { id: 'help',         icon: <LuLifeBuoy size={19}/>,      label: 'Help & Support' },
@@ -1459,6 +1461,9 @@ export default function DashboardPage() {
 
         {/* ── My Jobs (drivers only) ── */}
         {activePage === 'orders' && user?.role_id === 3 && <DriverJobsPage />}
+
+        {/* ── Driver Report (drivers only) ── */}
+        {activePage === 'report' && user?.role_id === 3 && <DriverReportPage />}
 
         {/* ── My Vehicle (drivers only) ── */}
         {activePage === 'vehicle' && user?.role_id === 3 && (

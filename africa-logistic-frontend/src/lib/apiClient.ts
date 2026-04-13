@@ -165,6 +165,9 @@ export const driverApi = {
   pingLocation: (data: { lat: number; lng: number; order_id?: string; heading?: number; speed_kmh?: number }) =>
     apiClient.post('/driver/location', data),
 
+  getReport: (params?: { from?: string; to?: string }) =>
+    apiClient.get('/driver/report', { params }),
+
   listJobs: (params?: { status?: string }) =>
     apiClient.get('/driver/jobs', { params: { ...(params ?? {}), _ts: Date.now() } }),
 

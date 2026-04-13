@@ -75,6 +75,7 @@ interface LocationBody {
 }
 
 interface SendMessageBody { message: string }
+interface DriverReportQuery { from?: string; to?: string }
 
 // ─── Handlers ─────────────────────────────────────────────────────────────────
 
@@ -87,6 +88,268 @@ export async function getDriverJobsHandler(
   const driver = request.user as any
   const jobs   = await getDriverOrders(request.server.db, driver.id)
   return reply.send({ success: true, jobs })
+}
+
+/** GET /api/driver/report?from=YYYY-MM-DD&to=YYYY-MM-DD */
+export async function getDriverReportHandler(
+  request: FastifyRequest<{ Querystring: DriverReportQuery }>,
+  reply:   FastifyReply
+) {
+  if (!requireDriver(request, reply)) return
+
+  const driver = request.user as any
+  const db = request.server.db
+  const now = new Date()
+  const toDate = request.query.to ? new Date(request.query.to) : now
+  const fromDate = request.query.from
+    ? new Date(request.query.from)
+    : new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
+
+  const fromStr = fromDate.toISOString().slice(0, 10) + ' 00:00:00'
+  const toStr = toDate.toISOString().slice(0, 10) + ' 23:59:59'
+
+  const [profileRows] = await db.query<any[]>(`
+    SELECT
+      u.id,
+      CONCAT_WS(' ', u.first_name, u.last_name)                     AS name,
+      u.first_name,
+      u.last_name,
+      u.phone_number,
+      u.email,
+      dp.status,
+      dp.is_verified,
+      dp.rating,
+      dp.total_trips,
+      dp.national_id_status,
+      dp.license_status,
+      dp.libre_status,
+      dpm.total_trips                                              AS metrics_total_trips,
+      dpm.on_time_trips,
+      dpm.late_trips,
+      dpm.cancelled_trips,
+      dpm.average_rating,
+      dpm.total_earned,
+      dpm.on_time_percentage,
+      dpm.bonus_earned,
+      dpm.last_trip_date,
+      dpm.streak_days,
+      v.plate_number,
+      v.vehicle_type,
+      v.max_capacity_kg,
+      v.driver_submission_status,
+      v.is_approved,
+      v.is_active
+    FROM users u
+    LEFT JOIN driver_profiles dp             ON dp.user_id = u.id
+    LEFT JOIN driver_performance_metrics dpm ON dpm.driver_id = u.id
+    LEFT JOIN vehicles v                     ON v.driver_id = u.id AND v.is_active = 1
+    WHERE u.id = ?
+    LIMIT 1
+  `, [driver.id])
+
+  const profile = profileRows[0] ?? {}
+
+  const [summaryRows] = await db.query<any[]>(`
+    SELECT
+      COUNT(*)                                                                 AS total_jobs,
+      SUM(CASE WHEN o.status IN ('DELIVERED','COMPLETED') THEN 1 ELSE 0 END)   AS completed_jobs,
+      SUM(CASE WHEN o.status IN ('ASSIGNED','EN_ROUTE','AT_PICKUP','IN_TRANSIT',
+                                 'AT_BORDER','IN_CUSTOMS','CUSTOMS_CLEARED')
+               THEN 1 ELSE 0 END)                                              AS active_jobs,
+      SUM(CASE WHEN o.status = 'CANCELLED' THEN 1 ELSE 0 END)                   AS cancelled_jobs,
+      SUM(CASE WHEN o.status = 'FAILED' THEN 1 ELSE 0 END)                      AS failed_jobs,
+      SUM(o.is_cross_border)                                                    AS cross_border_jobs,
+      ROUND(SUM(COALESCE(o.distance_km, 0)), 1)                                 AS total_distance_km,
+      ROUND(AVG(CASE WHEN o.distance_km > 0 THEN o.distance_km END), 1)         AS avg_distance_km,
+      ROUND(AVG(CASE WHEN o.assigned_at IS NOT NULL
+                     THEN TIMESTAMPDIFF(MINUTE, o.created_at, o.assigned_at) END), 1) AS avg_assign_min,
+      ROUND(AVG(CASE WHEN o.picked_up_at IS NOT NULL AND o.delivered_at IS NOT NULL
+                     THEN TIMESTAMPDIFF(MINUTE, o.picked_up_at, o.delivered_at) / 60 END), 2) AS avg_delivery_hours,
+      ROUND(SUM(COALESCE(oi.driver_amount, 0)), 2)                              AS period_earnings,
+      ROUND(AVG(CASE WHEN dr.stars > 0 THEN dr.stars END), 2)                   AS period_avg_rating,
+      COUNT(DISTINCT dr.id)                                                     AS reviews_count
+    FROM orders o
+    LEFT JOIN order_invoices oi ON oi.order_id = o.id
+    LEFT JOIN driver_ratings dr ON dr.order_id = o.id AND dr.driver_id = o.driver_id AND dr.is_deleted = 0
+    WHERE o.driver_id = ?
+      AND o.created_at BETWEEN ? AND ?
+  `, [driver.id, fromStr, toStr])
+
+  const summary = summaryRows[0] ?? {}
+
+  const [dailyRows] = await db.query<any[]>(`
+    SELECT
+      DATE(o.created_at)                                           AS date,
+      COUNT(*)                                                     AS jobs,
+      SUM(CASE WHEN o.status IN ('DELIVERED','COMPLETED') THEN 1 ELSE 0 END) AS completed,
+      ROUND(SUM(COALESCE(o.distance_km, 0)), 1)                    AS km,
+      ROUND(SUM(COALESCE(oi.driver_amount, 0)), 2)                 AS earnings
+    FROM orders o
+    LEFT JOIN order_invoices oi ON oi.order_id = o.id
+    WHERE o.driver_id = ?
+      AND o.created_at BETWEEN ? AND ?
+    GROUP BY DATE(o.created_at)
+    ORDER BY date ASC
+  `, [driver.id, fromStr, toStr])
+
+  const [statusRows] = await db.query<any[]>(`
+    SELECT o.status, COUNT(*) AS count
+    FROM orders o
+    WHERE o.driver_id = ?
+      AND o.created_at BETWEEN ? AND ?
+    GROUP BY o.status
+    ORDER BY count DESC
+  `, [driver.id, fromStr, toStr])
+
+  const [ratingRows] = await db.query<any[]>(`
+    SELECT stars, COUNT(*) AS count
+    FROM driver_ratings
+    WHERE driver_id = ?
+      AND is_deleted = 0
+      AND created_at BETWEEN ? AND ?
+    GROUP BY stars
+    ORDER BY stars ASC
+  `, [driver.id, fromStr, toStr])
+
+  const [jobRows] = await db.query<any[]>(`
+    SELECT
+      o.id,
+      o.reference_code,
+      o.status,
+      o.pickup_address,
+      o.delivery_address,
+      o.created_at,
+      o.delivered_at,
+      ROUND(COALESCE(oi.driver_amount, 0), 2)                     AS driver_amount,
+      ROUND(COALESCE(o.final_price, o.estimated_price, 0), 2)     AS order_value,
+      ROUND(COALESCE(o.distance_km, 0), 1)                        AS distance_km,
+      o.is_cross_border
+    FROM orders o
+    LEFT JOIN order_invoices oi ON oi.order_id = o.id
+    WHERE o.driver_id = ?
+      AND o.created_at BETWEEN ? AND ?
+    ORDER BY o.created_at DESC
+    LIMIT 10
+  `, [driver.id, fromStr, toStr])
+
+  const [feedbackRows] = await db.query<any[]>(`
+    SELECT
+      dr.id,
+      dr.stars,
+      COALESCE(dr.comment, '')                                    AS comment,
+      dr.created_at,
+      CONCAT_WS(' ', u.first_name, u.last_name)                   AS shipper_name
+    FROM driver_ratings dr
+    JOIN users u ON u.id = dr.shipper_id
+    WHERE dr.driver_id = ?
+      AND dr.is_deleted = 0
+    ORDER BY dr.created_at DESC
+    LIMIT 8
+  `, [driver.id])
+
+  const [reviewRows] = await db.query<any[]>(`
+    SELECT document_type, action, COALESCE(reason, '') AS reason, reviewed_at
+    FROM driver_document_reviews
+    WHERE driver_id = ?
+    ORDER BY reviewed_at DESC
+    LIMIT 8
+  `, [driver.id])
+
+  return reply.send({
+    success: true,
+    report: {
+      generated_at: new Date().toISOString(),
+      date_range: {
+        from: fromDate.toISOString().slice(0, 10),
+        to: toDate.toISOString().slice(0, 10),
+      },
+      driver: {
+        id: String(profile.id ?? driver.id),
+        name: String(profile.name ?? ''),
+        first_name: String(profile.first_name ?? ''),
+        last_name: String(profile.last_name ?? ''),
+        phone_number: String(profile.phone_number ?? ''),
+        email: String(profile.email ?? ''),
+        status: String(profile.status ?? 'OFFLINE'),
+        is_verified: Boolean(profile.is_verified),
+        rating: Number(profile.rating ?? profile.average_rating ?? 0),
+        total_trips: Number(profile.metrics_total_trips ?? profile.total_trips ?? 0),
+        national_id_status: String(profile.national_id_status ?? 'PENDING'),
+        license_status: String(profile.license_status ?? 'PENDING'),
+        libre_status: String(profile.libre_status ?? 'PENDING'),
+        on_time_percentage: Number(profile.on_time_percentage ?? 0),
+        total_earned: Number(profile.total_earned ?? 0),
+        bonus_earned: Number(profile.bonus_earned ?? 0),
+        average_rating: Number(profile.average_rating ?? 0),
+        streak_days: Number(profile.streak_days ?? 0),
+        last_trip_date: profile.last_trip_date ? String(profile.last_trip_date) : null,
+        vehicle: profile.plate_number ? {
+          plate_number: String(profile.plate_number),
+          vehicle_type: String(profile.vehicle_type ?? '—'),
+          max_capacity_kg: Number(profile.max_capacity_kg ?? 0),
+          driver_submission_status: String(profile.driver_submission_status ?? 'APPROVED'),
+          is_approved: Boolean(profile.is_approved),
+          is_active: Boolean(profile.is_active),
+        } : null,
+      },
+      summary: {
+        total_jobs: Number(summary.total_jobs ?? 0),
+        completed_jobs: Number(summary.completed_jobs ?? 0),
+        active_jobs: Number(summary.active_jobs ?? 0),
+        cancelled_jobs: Number(summary.cancelled_jobs ?? 0),
+        failed_jobs: Number(summary.failed_jobs ?? 0),
+        cross_border_jobs: Number(summary.cross_border_jobs ?? 0),
+        total_distance_km: Number(summary.total_distance_km ?? 0),
+        avg_distance_km: Number(summary.avg_distance_km ?? 0),
+        avg_assign_min: Number(summary.avg_assign_min ?? 0),
+        avg_delivery_hours: Number(summary.avg_delivery_hours ?? 0),
+        period_earnings: Number(summary.period_earnings ?? 0),
+        period_avg_rating: Number(summary.period_avg_rating ?? 0),
+        reviews_count: Number(summary.reviews_count ?? 0),
+      },
+      daily: (dailyRows as any[]).map((row) => ({
+        date: String(row.date),
+        jobs: Number(row.jobs ?? 0),
+        completed: Number(row.completed ?? 0),
+        km: Number(row.km ?? 0),
+        earnings: Number(row.earnings ?? 0),
+      })),
+      status_breakdown: (statusRows as any[]).map((row) => ({
+        status: String(row.status),
+        count: Number(row.count ?? 0),
+      })),
+      rating_breakdown: (ratingRows as any[]).map((row) => ({
+        stars: Number(row.stars ?? 0),
+        count: Number(row.count ?? 0),
+      })),
+      recent_jobs: (jobRows as any[]).map((row) => ({
+        id: String(row.id),
+        reference_code: String(row.reference_code),
+        status: String(row.status),
+        pickup_address: String(row.pickup_address ?? ''),
+        delivery_address: String(row.delivery_address ?? ''),
+        created_at: String(row.created_at),
+        delivered_at: row.delivered_at ? String(row.delivered_at) : null,
+        driver_amount: Number(row.driver_amount ?? 0),
+        order_value: Number(row.order_value ?? 0),
+        distance_km: Number(row.distance_km ?? 0),
+        is_cross_border: Boolean(row.is_cross_border),
+      })),
+      recent_feedback: (feedbackRows as any[]).map((row) => ({
+        id: String(row.id),
+        stars: Number(row.stars ?? 0),
+        comment: String(row.comment ?? ''),
+        created_at: String(row.created_at),
+        shipper_name: String(row.shipper_name ?? 'Shipper'),
+      })),
+      document_reviews: (reviewRows as any[]).map((row) => ({
+        document_type: String(row.document_type),
+        action: String(row.action),
+        reason: String(row.reason ?? ''),
+        reviewed_at: String(row.reviewed_at),
+      })),
+    },
+  })
 }
 
 /** GET /api/driver/jobs/:id */
