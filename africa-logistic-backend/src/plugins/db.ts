@@ -745,6 +745,39 @@ export default fp(async function dbPlugin(fastify: FastifyInstance) {
         (5, 'drivers.verify',  1)
     `)
 
+    // ─── Company Contact Information ─────────────────────────────────────────
+    await conn.query(`
+      CREATE TABLE IF NOT EXISTS company_contact (
+        id            INT          NOT NULL DEFAULT 1 PRIMARY KEY,
+        phone1        VARCHAR(30)  NULL,
+        phone2        VARCHAR(30)  NULL,
+        email1        VARCHAR(120) NULL,
+        email2        VARCHAR(120) NULL,
+        po_box        VARCHAR(60)  NULL,
+        youtube_url   VARCHAR(255) NULL,
+        tiktok_url    VARCHAR(255) NULL,
+        instagram_url VARCHAR(255) NULL,
+        x_url         VARCHAR(255) NULL,
+        linkedin_url  VARCHAR(255) NULL,
+        whatsapp_number VARCHAR(30) NULL,
+        telegram_url  VARCHAR(255) NULL,
+        updated_at    TIMESTAMP    DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    `)
+    await conn.query(`INSERT IGNORE INTO company_contact (id) VALUES (1)`)
+
+    // ─── AI Assistance Settings ─────────────────────────────────────────────
+    await conn.query(`
+      CREATE TABLE IF NOT EXISTS ai_assistance_settings (
+        id            INT          NOT NULL DEFAULT 1 PRIMARY KEY,
+        ai_enabled    TINYINT(1)   NOT NULL DEFAULT 0,
+        customer_id   VARCHAR(255) NULL,
+        api_key       VARCHAR(255) NULL,
+        updated_at    TIMESTAMP    DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    `)
+    await conn.query(`INSERT IGNORE INTO ai_assistance_settings (id) VALUES (1)`)
+
     conn.release() // Return the connection back to the pool
   } catch (err) {
     fastify.log.error('❌ MySQL connection failed. Is XAMPP running?')

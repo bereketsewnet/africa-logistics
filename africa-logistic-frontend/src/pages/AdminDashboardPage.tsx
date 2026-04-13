@@ -23,7 +23,7 @@ import {
   LuListOrdered, LuSettings, LuBox, LuBan,
   LuLeaf, LuFlame, LuThermometer, LuHeart, LuMonitor, LuArchive, LuGem, LuFish, LuImage,
   LuMapPin, LuMessageSquare, LuSend, LuNavigation, LuBell,
-  LuGlobe, LuWrench, LuBike, LuKey,
+  LuGlobe, LuWrench, LuBike, LuKey, LuLayoutDashboard, LuLink, LuToggleLeft, LuToggleRight,
 } from 'react-icons/lu'
 
 // ─── Upload URL helper ───────────────────────────────────────────────────────
@@ -177,7 +177,7 @@ interface Stats {
   total_users: number; total_admins: number; total_shippers: number
   total_drivers: number; active_users: number; new_today: number
 }
-type AdminSection = 'overview' | 'drivers' | 'shippers' | 'staff' | 'verify-drivers' | 'vehicles' | 'orders' | 'live-drivers' | 'guest-orders' | 'cargo-types' | 'pricing-rules' | 'profile' | 'payments' | 'wallet-adjustment' | 'notif-settings' | 'settings' | 'vehicle-types' | 'countries' | 'maintenance-mode' | 'role-management' | 'security-events' | 'cross-border' | 'reports'
+type AdminSection = 'overview' | 'drivers' | 'shippers' | 'staff' | 'verify-drivers' | 'vehicles' | 'orders' | 'live-drivers' | 'guest-orders' | 'cargo-types' | 'pricing-rules' | 'profile' | 'payments' | 'wallet-adjustment' | 'notif-settings' | 'settings' | 'vehicle-types' | 'countries' | 'maintenance-mode' | 'role-management' | 'security-events' | 'cross-border' | 'reports' | 'contact-info' | 'ai-settings'
 type ProfileTab = 'profile' | 'security' | 'contact'
 
 interface DriverRow {
@@ -1418,6 +1418,258 @@ function AdminCrossBorderSection() {
   )
 }
 
+// ─── Contact Information Section ─────────────────────────────────────────────
+
+// Inline SVG icons for social platforms not in lucide
+const IconYouTube = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M23.5 6.2a3 3 0 0 0-2.1-2.1C19.5 3.6 12 3.6 12 3.6s-7.5 0-9.4.5A3 3 0 0 0 .5 6.2C0 8.1 0 12 0 12s0 3.9.5 5.8a3 3 0 0 0 2.1 2.1c1.9.5 9.4.5 9.4.5s7.5 0 9.4-.5a3 3 0 0 0 2.1-2.1C24 15.9 24 12 24 12s0-3.9-.5-5.8zM9.6 15.6V8.4l6.3 3.6-6.3 3.6z"/></svg>
+const IconTikTok = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M19.6 3.3a4.8 4.8 0 0 1-2.8-.9 4.8 4.8 0 0 1-1.8-3.1h-3.3v13.9a2.3 2.3 0 0 1-2.3 2.2 2.3 2.3 0 0 1-2.3-2.3 2.3 2.3 0 0 1 2.3-2.3c.2 0 .4 0 .6.1V7.6a5.7 5.7 0 0 0-.6 0 5.6 5.6 0 0 0-5.6 5.6 5.6 5.6 0 0 0 5.6 5.6 5.6 5.6 0 0 0 5.6-5.6V8.6a8.1 8.1 0 0 0 4.7 1.5V6.8a4.8 4.8 0 0 1-1.9-.4v-.1z" style={{fill: 'currentColor'}}/></svg>
+const IconInstagram = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2.2c3.2 0 3.6 0 4.9.1 3.3.1 4.8 1.7 4.9 4.9.1 1.3.1 1.6.1 4.8s0 3.6-.1 4.8c-.1 3.2-1.6 4.8-4.9 4.9-1.3.1-1.6.1-4.9.1s-3.6 0-4.8-.1C3.7 21.6 2.2 20 2.1 16.8 2 15.6 2 15.2 2 12s0-3.6.1-4.8C2.2 3.9 3.8 2.2 7.2 2.1 8.4 2 8.8 2.2 12 2.2zm0-2.2C8.7 0 8.3 0 7 .1 2.7.3.3 2.7.1 7 0 8.3 0 8.7 0 12s0 3.7.1 5c.2 4.3 2.6 6.7 6.9 6.9C8.3 24 8.7 24 12 24s3.7 0 5-.1c4.3-.2 6.7-2.6 6.9-6.9.1-1.3.1-1.7.1-5s0-3.7-.1-5c-.2-4.3-2.6-6.7-6.9-6.9C15.7 0 15.3 0 12 0zm0 5.8a6.2 6.2 0 1 0 0 12.4A6.2 6.2 0 0 0 12 5.8zm0 10.2a4 4 0 1 1 0-8 4 4 0 0 1 0 8zm6.4-11.8a1.4 1.4 0 1 0 0 2.8 1.4 1.4 0 0 0 0-2.8z"/></svg>
+const IconX = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M18.3 1h3.1l-6.8 7.8L22.7 23h-6.3l-4.9-6.4L5.9 23H2.8l7.3-8.3L1.3 1h6.4l4.5 5.8L18.3 1zm-1.1 19.8h1.7L7.4 2.8H5.6l11.6 18z"/></svg>
+const IconLinkedIn = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M20.4 20.4H17v-5.6c0-1.3 0-3-1.8-3s-2.1 1.4-2.1 2.9v5.7H9.5V9h3.3v1.6h.1c.5-.9 1.6-1.8 3.3-1.8 3.5 0 4.2 2.3 4.2 5.3v6.3zM5.3 7.4A2 2 0 1 1 5.3 3.5a2 2 0 0 1 0 3.9zm1.7 13H3.6V9h3.4v11.4zM22.2 0H1.8C.8 0 0 .8 0 1.8v20.4C0 23.2.8 24 1.8 24h20.4c1 0 1.8-.8 1.8-1.8V1.8C24 .8 23.2 0 22.2 0z"/></svg>
+const IconWhatsApp = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M20.5 3.5A12 12 0 0 0 3.5 20.5L2 22l1.5-5.5A12 12 0 0 0 20.5 3.5zM12 22a10 10 0 1 1 0-20A10 10 0 0 1 12 22zM8 8.5c.2-.5.5-1 1-1.2.3-.1.6-.1.8 0 .2.2.7 1.4.8 1.5.1.2.1.4 0 .6-.1.2-.4.6-.5.7-.1.2-.3.4-.1.7.2.4.8 1.3 1.6 2 .8.8 1.6 1.2 2 1.4.3.1.5 0 .7-.2.2-.2.6-.7.8-.9.2-.2.4-.2.7-.1.3.1 1.3.6 1.5.8.2.2.2.3.2.5s-.3 1.1-1 1.6c-.6.4-1.5.7-2.6.3-1-.3-2.3-1-3.6-2.3-1.3-1.3-2-2.6-2.3-3.6-.3-1-.1-1.9.2-2.4z"/></svg>
+const IconTelegram = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.6 0 12 0zm5.9 8.2-2 9.4c-.1.6-.5.8-.9.5l-2.5-1.9-1.2 1.1c-.1.1-.3.2-.6.2l.2-2.7 5.2-4.7c.2-.2 0-.3-.3-.1L6.8 14.6l-2.4-.8c-.5-.2-.5-.5.1-.7l11.5-4.4c.5-.2.9.1.8.8-.1-.3 0-.3-.1-.3z"/></svg>
+
+function AdminContactInfoSection() {
+  const [form, setForm] = useState({
+    phone1: '', phone2: '', email1: '', email2: '', po_box: '',
+    youtube_url: '', tiktok_url: '', instagram_url: '', x_url: '',
+    linkedin_url: '', whatsapp_number: '', telegram_url: '',
+  })
+  const [loading, setLoading]   = useState(true)
+  const [saving, setSaving]     = useState(false)
+  const [toast, setToast]       = useState('')
+  const showToast = (m: string) => { setToast(m); setTimeout(() => setToast(''), 3500) }
+
+  useEffect(() => {
+    adminOrderApi.getContactInfo()
+      .then(({ data }) => {
+        const c = data.contact ?? {}
+        setForm({
+          phone1:          c.phone1          ?? '',
+          phone2:          c.phone2          ?? '',
+          email1:          c.email1          ?? '',
+          email2:          c.email2          ?? '',
+          po_box:          c.po_box          ?? '',
+          youtube_url:     c.youtube_url     ?? '',
+          tiktok_url:      c.tiktok_url      ?? '',
+          instagram_url:   c.instagram_url   ?? '',
+          x_url:           c.x_url           ?? '',
+          linkedin_url:    c.linkedin_url    ?? '',
+          whatsapp_number: c.whatsapp_number ?? '',
+          telegram_url:    c.telegram_url    ?? '',
+        })
+      })
+      .catch(() => showToast('Failed to load contact info.'))
+      .finally(() => setLoading(false))
+  }, [])
+
+  const set = (k: keyof typeof form) => (e: ChangeEvent<HTMLInputElement>) =>
+    setForm(prev => ({ ...prev, [k]: e.target.value }))
+
+  const handleSave = async () => {
+    setSaving(true)
+    try {
+      const payload: Record<string, string | null> = {}
+      for (const [k, v] of Object.entries(form)) payload[k] = v.trim() || null
+      await adminOrderApi.updateContactInfo(payload as any)
+      showToast('Contact info saved.')
+    } catch { showToast('Failed to save.') }
+    finally  { setSaving(false) }
+  }
+
+  const inputStyle: React.CSSProperties = {
+    padding: '0.5rem 0.75rem', borderRadius: 9, border: '1px solid rgba(255,255,255,0.12)',
+    background: 'rgba(255,255,255,0.05)', color: 'var(--clr-text)', fontFamily: 'inherit',
+    fontSize: '0.82rem', outline: 'none', width: '100%', boxSizing: 'border-box',
+  }
+  const labelStyle: React.CSSProperties = {
+    fontSize: '0.7rem', color: 'var(--clr-muted)', marginBottom: 4, display: 'flex', alignItems: 'center', gap: '0.35rem',
+  }
+  const Field = ({ label, icon, fkey, placeholder }: { label: string; icon: React.ReactNode; fkey: keyof typeof form; placeholder?: string }) => (
+    <div>
+      <label style={labelStyle}>{icon} {label} <span style={{ color: 'rgba(255,255,255,0.2)', fontSize: '0.65rem' }}>optional</span></label>
+      <input style={inputStyle} value={form[fkey]} onChange={set(fkey)} placeholder={placeholder ?? label} />
+    </div>
+  )
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+      <h2 style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--clr-text)', display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+        <LuPhone size={17}/> Contact Information
+      </h2>
+      <p style={{ fontSize: '0.78rem', color: 'var(--clr-muted)', marginTop: '-0.75rem' }}>
+        Company-wide contact details shown to users. All fields are optional.
+      </p>
+
+      {loading ? <LoadingSpinner /> : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          {/* Contact details */}
+          <div className="glass-inner" style={{ padding: '1.1rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+            <p style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--clr-muted)', marginBottom: '0.25rem' }}>Contact Details</p>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(240px,1fr))', gap: '0.75rem' }}>
+              <Field label="Phone Number 1" icon={<LuPhone size={12}/>} fkey="phone1" placeholder="+251 9XX XXX XXX" />
+              <Field label="Phone Number 2" icon={<LuPhone size={12}/>} fkey="phone2" placeholder="+251 9XX XXX XXX" />
+              <Field label="Email Address 1" icon={<LuMail size={12}/>} fkey="email1" placeholder="info@company.com" />
+              <Field label="Email Address 2" icon={<LuMail size={12}/>} fkey="email2" placeholder="support@company.com" />
+              <Field label="PO Box" icon={<LuFileText size={12}/>} fkey="po_box" placeholder="P.O. Box 1234" />
+            </div>
+          </div>
+
+          {/* Social media */}
+          <div className="glass-inner" style={{ padding: '1.1rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+            <p style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--clr-muted)', marginBottom: '0.25rem' }}>Social Media</p>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(240px,1fr))', gap: '0.75rem' }}>
+              <Field label="YouTube"   icon={<span style={{ color: '#ff0000' }}><IconYouTube/></span>}   fkey="youtube_url"     placeholder="https://youtube.com/@channel" />
+              <Field label="TikTok"    icon={<span style={{ color: '#e0e0e0' }}><IconTikTok/></span>}    fkey="tiktok_url"      placeholder="https://tiktok.com/@handle" />
+              <Field label="Instagram" icon={<span style={{ color: '#c13584' }}><IconInstagram/></span>} fkey="instagram_url"   placeholder="https://instagram.com/handle" />
+              <Field label="X (Twitter)" icon={<span style={{ color: '#e0e0e0' }}><IconX/></span>}      fkey="x_url"           placeholder="https://x.com/handle" />
+              <Field label="LinkedIn"  icon={<span style={{ color: '#0077b5' }}><IconLinkedIn/></span>}  fkey="linkedin_url"    placeholder="https://linkedin.com/company/..." />
+              <Field label="WhatsApp"  icon={<span style={{ color: '#25d366' }}><IconWhatsApp/></span>}  fkey="whatsapp_number" placeholder="+251 9XX XXX XXX" />
+              <Field label="Telegram"  icon={<span style={{ color: '#229ed9' }}><IconTelegram/></span>}  fkey="telegram_url"    placeholder="https://t.me/channel" />
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+            <button className="btn-primary" onClick={handleSave} disabled={saving} style={{ padding: '0.5rem 1.4rem', fontSize: '0.85rem' }}>
+              {saving ? 'Saving…' : 'Save Changes'}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {toast && (
+        <div style={{ position: 'fixed', bottom: '1.25rem', right: '1.25rem', zIndex: 200, background: 'rgba(0,229,255,0.12)', border: '1px solid rgba(0,229,255,0.25)', color: 'var(--clr-text)', padding: '0.65rem 1.1rem', borderRadius: 12, fontSize: '0.85rem', fontWeight: 600, backdropFilter: 'blur(12px)' }}>
+          {toast}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ─── AI Assistance Section ────────────────────────────────────────────────────
+
+function AdminAiSettingsSection() {
+  const [aiEnabled, setAiEnabled] = useState(false)
+  const [customerId, setCustomerId] = useState('')
+  const [apiKey, setApiKey]         = useState('')
+  const [apiKeySet, setApiKeySet]   = useState(false)
+  const [loading, setLoading]       = useState(true)
+  const [saving, setSaving]         = useState(false)
+  const [toast, setToast]           = useState('')
+  const showToast = (m: string) => { setToast(m); setTimeout(() => setToast(''), 3500) }
+
+  useEffect(() => {
+    adminOrderApi.getAiSettings()
+      .then(({ data }) => {
+        const s = data.settings ?? {}
+        setAiEnabled(Boolean(s.ai_enabled))
+        setCustomerId(s.customer_id ?? '')
+        setApiKeySet(Boolean(s.api_key_set))
+        setApiKey('')
+      })
+      .catch(() => showToast('Failed to load AI settings.'))
+      .finally(() => setLoading(false))
+  }, [])
+
+  const handleSave = async () => {
+    setSaving(true)
+    try {
+      const payload: { ai_enabled: boolean; customer_id: string; api_key?: string } = {
+        ai_enabled: aiEnabled,
+        customer_id: customerId.trim(),
+      }
+      if (apiKey.trim()) payload.api_key = apiKey.trim()
+      const { data } = await adminOrderApi.updateAiSettings(payload)
+      const s = data.settings ?? {}
+      setAiEnabled(Boolean(s.ai_enabled))
+      setCustomerId(s.customer_id ?? '')
+      setApiKeySet(Boolean(s.api_key_set))
+      setApiKey('')
+      showToast('AI settings saved.')
+    } catch { showToast('Failed to save.') }
+    finally  { setSaving(false) }
+  }
+
+  const inputStyle: React.CSSProperties = {
+    padding: '0.5rem 0.75rem', borderRadius: 9, border: '1px solid rgba(255,255,255,0.12)',
+    background: 'rgba(255,255,255,0.05)', color: 'var(--clr-text)', fontFamily: 'inherit',
+    fontSize: '0.82rem', outline: 'none', width: '100%', boxSizing: 'border-box',
+  }
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+      <h2 style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--clr-text)', display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+        <LuLink size={17}/> AI Assistance
+      </h2>
+      <p style={{ fontSize: '0.78rem', color: 'var(--clr-muted)', marginTop: '-0.75rem' }}>
+        Configure the AI assistant integration. Enable to unlock chat-based AI support for your platform.
+      </p>
+
+      {loading ? <LoadingSpinner /> : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          <div className="glass-inner" style={{ padding: '1.25rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            {/* Toggle */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingBottom: '0.85rem', borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
+              <div>
+                <p style={{ fontWeight: 700, fontSize: '0.88rem', color: 'var(--clr-text)' }}>Enable AI Assistance</p>
+                <p style={{ fontSize: '0.72rem', color: 'var(--clr-muted)', marginTop: 2 }}>When enabled, the AI assistant will be available on the platform.</p>
+              </div>
+              <button
+                onClick={() => setAiEnabled(v => !v)}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, color: aiEnabled ? '#10b981' : 'var(--clr-muted)', display: 'flex', alignItems: 'center', transition: 'color 0.2s', flexShrink: 0 }}
+              >
+                {aiEnabled
+                  ? <LuToggleRight size={38} style={{ filter: 'drop-shadow(0 0 6px rgba(16,185,129,0.5))' }}/>
+                  : <LuToggleLeft  size={38}/>}
+              </button>
+            </div>
+
+            {/* Credentials — only shown when enabled */}
+            {aiEnabled && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                <div style={{ background: 'rgba(168,85,247,0.06)', border: '1px solid rgba(168,85,247,0.2)', borderRadius: 10, padding: '0.65rem 0.9rem' }}>
+                  <p style={{ fontSize: '0.72rem', color: 'rgba(168,85,247,0.9)' }}>
+                    Enter the credentials provided by your AI service provider. These are stored securely on the server and are never exposed to users.
+                  </p>
+                </div>
+                <div>
+                  <label style={{ fontSize: '0.7rem', color: 'var(--clr-muted)', marginBottom: 4, display: 'block' }}>Customer ID</label>
+                  <input style={inputStyle} value={customerId} onChange={e => setCustomerId(e.target.value)} placeholder="e.g. cust_abc123xyz" />
+                </div>
+                <div>
+                  <label style={{ fontSize: '0.7rem', color: 'var(--clr-muted)', marginBottom: 4, display: 'block' }}>
+                    API Key {apiKeySet && <span style={{ color: '#10b981', marginLeft: 6 }}>✓ Key is set — enter a new value to replace it</span>}
+                  </label>
+                  <input
+                    style={inputStyle}
+                    type="password"
+                    value={apiKey}
+                    onChange={e => setApiKey(e.target.value)}
+                    placeholder={apiKeySet ? 'Leave blank to keep existing key' : 'Paste your API key here'}
+                    autoComplete="new-password"
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+            <button className="btn-primary" onClick={handleSave} disabled={saving} style={{ padding: '0.5rem 1.4rem', fontSize: '0.85rem' }}>
+              {saving ? 'Saving…' : 'Save Changes'}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {toast && (
+        <div style={{ position: 'fixed', bottom: '1.25rem', right: '1.25rem', zIndex: 200, background: 'rgba(0,229,255,0.12)', border: '1px solid rgba(0,229,255,0.25)', color: 'var(--clr-text)', padding: '0.65rem 1.1rem', borderRadius: 12, fontSize: '0.85rem', fontWeight: 600, backdropFilter: 'blur(12px)' }}>
+          {toast}
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ─── Reports Section ─────────────────────────────────────────────────────────
 
 function AdminReportsSection() {
@@ -1590,6 +1842,8 @@ function AdminSettingsHub({ onNav }: { onNav: (s: AdminSection) => void }) {
     { id: 'notif-settings', icon: <LuBell size={22}/>,     label: 'Notifications',     desc: 'Global on/off switches for push and email notification channels.',      accent: 'rgba(250,204,21,0.10)' },
     { id: 'role-management', icon: <LuKey size={22}/>,      label: 'Role Management',   desc: 'Set exactly what cashier and dispatcher accounts are allowed to do.',   accent: 'rgba(14,165,233,0.10)' },
     { id: 'maintenance-mode', icon: <LuWrench size={22}/>, label: 'Maintenance',       desc: 'Activate maintenance kill-switch and manage app version string.',       accent: 'rgba(239,68,68,0.10)' },
+    { id: 'contact-info',   icon: <LuPhone size={22}/>,    label: 'Contact Info',      desc: 'Company phone numbers, emails, PO Box and all social media links.',     accent: 'rgba(16,185,129,0.10)' },
+    { id: 'ai-settings',    icon: <LuLink size={22}/>,     label: 'AI Assistance',     desc: 'Enable AI integration and configure Customer ID and API key.',          accent: 'rgba(168,85,247,0.12)' },
   ]
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
@@ -1620,7 +1874,7 @@ function OverviewSection({ stats, users, onNav }: { stats: Stats | null; users: 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
       <div>
-        <h2 style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--clr-text)', marginBottom: '1rem', display:'flex', alignItems:'center', gap:'0.45rem' }}><LuChartBar size={17}/> Overview</h2>
+        <h2 style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--clr-text)', marginBottom: '1rem', display:'flex', alignItems:'center', gap:'0.45rem' }}><LuLayoutDashboard size={17}/> Overview</h2>
         {stats ? (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(130px,1fr))', gap: '0.65rem' }}>
             <StatCard icon={<LuUsers size={16}/>}        label="Total"    value={stats.total_users}    sub="all users" />
@@ -5541,7 +5795,7 @@ export default function AdminDashboardPage() {
 
   const can = (perm: string) => user?.role_id === 1 || myPermissions.includes(perm)
   const navItems: { id: AdminSection; icon: React.ReactNode; label: string; count?: number }[] = [
-    ...(can('overview.view') ? [{ id: 'overview' as AdminSection, icon: <LuChartBar size={16}/>, label: 'Overview' }] : []),
+    ...(can('overview.view') ? [{ id: 'overview' as AdminSection, icon: <LuLayoutDashboard size={16}/>, label: 'Overview' }] : []),
     ...(user?.role_id === 1 ? [{ id: 'reports' as AdminSection, icon: <LuChartBar size={16}/>, label: 'Reports' }] : []),
     ...(can('orders.manage') ? [{ id: 'orders' as AdminSection, icon: <LuListOrdered size={16}/>, label: 'Orders' }] : []),
     ...(can('orders.manage') ? [{ id: 'guest-orders' as AdminSection, icon: <LuUsers size={16}/>, label: 'Guest Orders' }] : []),
@@ -5559,7 +5813,7 @@ export default function AdminDashboardPage() {
     { id: 'profile' as AdminSection, icon: <LuUser size={16}/>, label: 'My Profile' },
   ]
 
-  const SETTINGS_SUBSECTIONS: AdminSection[] = ['cargo-types', 'pricing-rules', 'vehicle-types', 'countries', 'notif-settings', 'role-management', 'maintenance-mode']
+  const SETTINGS_SUBSECTIONS: AdminSection[] = ['cargo-types', 'pricing-rules', 'vehicle-types', 'countries', 'notif-settings', 'role-management', 'maintenance-mode', 'contact-info', 'ai-settings']
 
   useEffect(() => {
     if (!navItems.length) return
@@ -5587,6 +5841,8 @@ export default function AdminDashboardPage() {
     'security-events': { icon: <LuShieldCheck size={16}/>, label: 'Security Events' },
     'cross-border':    { icon: <LuGlobe size={16}/>,       label: 'Cross-Border' },
     'reports':         { icon: <LuChartBar size={16}/>,    label: 'Reports' },
+    'contact-info':    { icon: <LuPhone size={16}/>,       label: 'Contact Info' },
+    'ai-settings':     { icon: <LuLink size={16}/>,        label: 'AI Assistance' },
     'settings':        { icon: <LuSettings size={16}/>,    label: 'Settings' },
   } as Record<string, { icon: React.ReactNode; label: string }>)[section]
 
@@ -5636,7 +5892,7 @@ export default function AdminDashboardPage() {
             {
               label: 'Main',
               items: [
-                ...(can('overview.view') ? [{ id: 'overview' as AdminSection, icon: <LuChartBar size={15}/>, label: 'Overview' }] : []),
+                ...(can('overview.view') ? [{ id: 'overview' as AdminSection, icon: <LuLayoutDashboard size={15}/>, label: 'Overview' }] : []),
                 ...(user?.role_id === 1 ? [{ id: 'reports' as AdminSection, icon: <LuChartBar size={15}/>, label: 'Reports' }] : []),
               ],
             },
@@ -5763,6 +6019,8 @@ export default function AdminDashboardPage() {
           {section === 'security-events' && <AdminSecurityEventsSection />}
           {section === 'cross-border'    && <AdminCrossBorderSection />}
           {section === 'reports'         && <AdminReportsSection />}
+          {section === 'contact-info'     && <AdminContactInfoSection />}
+          {section === 'ai-settings'      && <AdminAiSettingsSection />}
           {section === 'profile'        && <ProfileSection />}
             {section === 'payments'       && <AdminPaymentReview />}
             {section === 'wallet-adjustment' && <AdminWalletAdjustment />}

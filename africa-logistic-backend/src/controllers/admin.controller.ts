@@ -2899,3 +2899,103 @@ export async function eswWebhookHandler(
 
   return reply.send({ success: true, message: 'Webhook received.' })
 }
+
+// ─── Company Contact Information ──────────────────────────────────────────────
+
+/**
+ * GET /api/admin/settings/contact
+ * Returns the company contact info row.
+ */
+export async function adminGetContactInfoHandler(
+  request: FastifyRequest,
+  reply:   FastifyReply
+) {
+  const caller = request.user as any
+  if (caller.role_id !== 1) return reply.status(403).send({ message: 'Super-admin access required.' })
+
+  const db = request.server.db
+  const [rows] = await db.query<any[]>(`SELECT * FROM company_contact WHERE id = 1 LIMIT 1`)
+  return reply.send({ success: true, contact: rows[0] ?? {} })
+}
+
+/**
+ * PUT /api/admin/settings/contact
+ * Update company contact info.
+ */
+export async function adminUpdateContactInfoHandler(
+  request: FastifyRequest,
+  reply:   FastifyReply
+) {
+  const caller = request.user as any
+  if (caller.role_id !== 1) return reply.status(403).send({ message: 'Super-admin access required.' })
+
+  const body = (request.body as any) ?? {}
+  const allowed = ['phone1','phone2','email1','email2','po_box','youtube_url','tiktok_url','instagram_url','x_url','linkedin_url','whatsapp_number','telegram_url']
+  const sets: string[] = []
+  const vals: any[]    = []
+  for (const key of allowed) {
+    if (key in body) {
+      sets.push(`${key} = ?`)
+      vals.push(body[key] === '' ? null : body[key])
+    }
+  }
+  if (sets.length === 0) return reply.status(400).send({ success: false, message: 'No valid fields provided.' })
+  vals.push(1)
+
+  await request.server.db.query(`UPDATE company_contact SET ${sets.join(', ')} WHERE id = ?`, vals)
+  const [rows] = await request.server.db.query<any[]>(`SELECT * FROM company_contact WHERE id = 1 LIMIT 1`)
+  return reply.send({ success: true, contact: rows[0] })
+}
+
+// ─── AI Assistance Settings ───────────────────────────────────────────────────
+
+/**
+ * GET /api/admin/settings/ai
+ * Returns AI assistance settings (api_key masked for security).
+ */
+export async function adminGetAiSettingsHandler(
+  request: FastifyRequest,
+  reply:   FastifyReply
+) {
+  const caller = request.user as any
+  if (caller.role_id !== 1) return reply.status(403).send({ message: 'Super-admin access required.' })
+
+  const db = request.server.db
+  const [rows] = await db.query<any[]>(`SELECT id, ai_enabled, customer_id, api_key FROM ai_assistance_settings WHERE id = 1 LIMIT 1`)
+  const row = rows[0] ?? {}
+  // Mask the API key in the response
+  const masked = row.api_key ? '••••••••' + String(row.api_key).slice(-4) : null
+  return reply.send({ success: true, settings: { ...row, api_key: masked, api_key_set: !!row.api_key } })
+}
+
+/**
+ * PUT /api/admin/settings/ai
+ * Update AI assistance settings.
+ */
+export async function adminUpdateAiSettingsHandler(
+  request: FastifyRequest,
+  reply:   FastifyReply
+) {
+  const caller = request.user as any
+  if (caller.role_id !== 1) return reply.status(403).send({ message: 'Super-admin access required.' })
+
+  const body = (request.body as any) ?? {}
+  const sets: string[] = []
+  const vals: any[]    = []
+
+  if ('ai_enabled' in body) { sets.push('ai_enabled = ?'); vals.push(body.ai_enabled ? 1 : 0) }
+  if ('customer_id' in body) { sets.push('customer_id = ?'); vals.push(body.customer_id === '' ? null : body.customer_id) }
+  // Only update api_key when a real value is sent (not the masked placeholder)
+  if ('api_key' in body && body.api_key && !body.api_key.startsWith('••')) {
+    sets.push('api_key = ?'); vals.push(body.api_key)
+  }
+
+  if (sets.length === 0) return reply.status(400).send({ success: false, message: 'No valid fields provided.' })
+  vals.push(1)
+
+  await request.server.db.query(`UPDATE ai_assistance_settings SET ${sets.join(', ')} WHERE id = ?`, vals)
+  const [rows] = await request.server.db.query<any[]>(`SELECT id, ai_enabled, customer_id, api_key FROM ai_assistance_settings WHERE id = 1 LIMIT 1`)
+  const row = rows[0] ?? {}
+  const masked = row.api_key ? '••••••••' + String(row.api_key).slice(-4) : null
+  return reply.send({ success: true, settings: { ...row, api_key: masked, api_key_set: !!row.api_key } })
+}

@@ -90,6 +90,10 @@ import {
   adminReviewCrossBorderDocHandler,
   adminUpdateBorderInfoHandler,
   adminSubmitToEswHandler,
+  adminGetContactInfoHandler,
+  adminUpdateContactInfoHandler,
+  adminGetAiSettingsHandler,
+  adminUpdateAiSettingsHandler,
 } from '../controllers/admin.controller.js'
 
 export default async function adminRoutes(fastify: FastifyInstance) {
@@ -461,4 +465,10 @@ export default async function adminRoutes(fastify: FastifyInstance) {
 
   /** POST /api/admin/orders/:id/esw/submit — submit to eSW (mock) */
   fastify.post('/orders/:id/esw/submit', adminSubmitToEswHandler)
+
+  // ─── Company Contact & AI Settings ────────────────────────────────────────
+  fastify.get('/settings/contact',    adminGetContactInfoHandler)
+  fastify.put('/settings/contact',    adminUpdateContactInfoHandler)
+  fastify.get('/settings/ai',         adminGetAiSettingsHandler)
+  fastify.put('/settings/ai',         adminUpdateAiSettingsHandler)
 }

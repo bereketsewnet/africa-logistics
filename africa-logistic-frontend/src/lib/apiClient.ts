@@ -362,6 +362,22 @@ export const adminOrderApi = {
 
   submitToEsw: (orderId: string) =>
     apiClient.post(`/admin/orders/${orderId}/esw/submit`, {}),
+
+  // ── Company Contact & AI Settings ────────────────────────────────────────
+  getContactInfo: () =>
+    apiClient.get('/admin/settings/contact'),
+
+  updateContactInfo: (data: {
+    phone1?: string; phone2?: string; email1?: string; email2?: string; po_box?: string
+    youtube_url?: string; tiktok_url?: string; instagram_url?: string; x_url?: string
+    linkedin_url?: string; whatsapp_number?: string; telegram_url?: string
+  }) => apiClient.put('/admin/settings/contact', data),
+
+  getAiSettings: () =>
+    apiClient.get('/admin/settings/ai'),
+
+  updateAiSettings: (data: { ai_enabled?: boolean; customer_id?: string; api_key?: string }) =>
+    apiClient.put('/admin/settings/ai', data),
 }
 
 // ─── Public Config API (no auth required) ────────────────────────────────────
