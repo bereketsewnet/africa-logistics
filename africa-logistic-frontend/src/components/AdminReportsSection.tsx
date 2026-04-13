@@ -14,6 +14,7 @@ import {
   LuTriangleAlert, LuWallet, LuBanknote, LuArrowDownLeft,
   LuArrowUpRight, LuReceipt, LuCoins, LuShieldCheck, LuUser,
   LuStar, LuThumbsUp, LuBadgeCheck, LuBan, LuCircleDot,
+  LuRoute, LuContainer, LuArrowRight, LuWeight, LuTimer,
 } from 'react-icons/lu'
 import jsPDF from 'jspdf'
 import html2canvas from 'html2canvas'
@@ -105,7 +106,7 @@ function ChartCard({ title, children, height = 280 }: { title: string; children:
   return (
     <div style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.09)', borderRadius: 14, padding: '1.2rem' }}>
       <p style={{ margin: '0 0 1rem', fontWeight: 700, fontSize: '0.83rem', color: 'var(--clr-text)' }}>{title}</p>
-      <div style={{ height }}>{children}</div>
+      <div style={{ height, minWidth: 0, overflow: 'hidden' }}>{children}</div>
     </div>
   )
 }
@@ -1329,14 +1330,462 @@ function DriverReportPage() {
   )
 }
 
-function PlaceholderReportPage({ title, icon }: { title: string; icon: React.ReactNode }) {
+// ─── Logistics Report Types ───────────────────────────────────────────────────
+
+interface LogisticsReport {
+  generated_at: string
+  date_range: { from: string; to: string }
+  summary: {
+    total_orders: number; cross_border_orders: number; delivered: number
+    cancelled: number; failed: number; in_transit: number
+    avg_distance_km: number; total_distance_km: number; avg_weight_kg: number
+    avg_assign_min: number; avg_delivery_min: number
+    prev_total_orders: number; prev_delivered: number
+  }
+  daily: { date: string; orders: number; delivered: number; total_km: number; cross_border: number }[]
+  by_vehicle: { vehicle_type: string; orders: number; avg_km: number; revenue: number }[]
+  by_cargo: { cargo_type: string; orders: number; avg_km: number; avg_weight_kg: number }[]
+  by_status: { status: string; count: number }[]
+  cb_documents: { document_type: string; total: number; approved: number; pending: number; rejected: number }[]
+  pickup_cities: { city: string; orders: number }[]
+  top_routes: { from_city: string; to_city: string; count: number; avg_km: number }[]
+  extra_charges: { charge_type: string; count: number; total_amount: number; avg_amount: number; applied: number; pending: number }[]
+  stage_times: { from_status: string; to_status: string; avg_minutes: number }[]
+}
+
+const STATUS_ORDER_COLORS: Record<string, string> = {
+  PENDING: '#9ca3af', ASSIGNED: '#818cf8', EN_ROUTE: '#38bdf8',
+  AT_PICKUP: '#fbbf24', IN_TRANSIT: '#60a5fa', AT_BORDER: '#f97316',
+  IN_CUSTOMS: '#fb923c', CUSTOMS_CLEARED: '#a3e635',
+  DELIVERED: '#4ade80', COMPLETED: '#34d399', CANCELLED: '#f87171', FAILED: '#ef4444',
+}
+
+// ─── Logistics Report Page ────────────────────────────────────────────────────
+
+function LogisticsReportPage() {
+  const today = new Date()
+  const defaultTo   = today.toISOString().slice(0, 10)
+  const defaultFrom = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
+
+  const [from, setFrom]       = useState(defaultFrom)
+  const [to, setTo]           = useState(defaultTo)
+  const [report, setReport]   = useState<LogisticsReport | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [error, setError]     = useState('')
+  const [downloading, setDownloading] = useState(false)
+  const reportRef = useRef<HTMLDivElement>(null)
+
+  const load = useCallback(async (f = from, t = to) => {
+    setLoading(true); setError('')
+    try {
+      const { data } = await apiClient.get('/admin/reports/logistics', { params: { from: f, to: t } })
+      setReport(data.report)
+    } catch { setError('Failed to load logistics report. Please try again.') }
+    finally   { setLoading(false) }
+  }, [from, to])
+
+  useEffect(() => { load() }, []) // eslint-disable-line
+
+  const handleDownload = async () => {
+    if (!reportRef.current) return
+    setDownloading(true)
+    try {
+      const canvas = await html2canvas(reportRef.current, { scale: 2, useCORS: true, backgroundColor: '#0f1220', logging: false })
+      const imgData = canvas.toDataURL('image/png')
+      const pdf = new jsPDF('p', 'mm', 'a4')
+      const pw = pdf.internal.pageSize.getWidth()
+      const ph = pdf.internal.pageSize.getHeight()
+      const ih = (canvas.height * pw) / canvas.width
+      let yPos = 0; let rem = ih
+      while (rem > 0) {
+        pdf.addImage(imgData, 'PNG', 0, -yPos, pw, ih)
+        rem -= ph; yPos += ph
+        if (rem > 0) pdf.addPage()
+      }
+      pdf.save(`Logistics_Report_${from}_to_${to}.pdf`)
+    } catch { /**/ } finally { setDownloading(false) }
+  }
+
+  const sm = report?.summary
+  const changeOrders   = sm ? pct(sm.total_orders,  sm.prev_total_orders) : null
+  const changeDelivery = sm ? pct(sm.delivered,      sm.prev_delivered)    : null
+
+  const statusPieData = (report?.by_status ?? [])
+    .map(s => ({ name: s.status, value: s.count, fill: STATUS_ORDER_COLORS[s.status] ?? '#888' }))
+
+  const fmtMin = (mins: number) => {
+    if (!mins || mins <= 0) return '—'
+    if (mins < 60)  return `${mins.toFixed(0)}m`
+    if (mins < 1440) return `${(mins / 60).toFixed(1)}h`
+    return `${(mins / 1440).toFixed(1)}d`
+  }
+
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '5rem 2rem', gap: '1rem', textAlign: 'center', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 16 }}>
-      <span style={{ opacity: 0.3, color: 'var(--clr-accent)' }}>{icon}</span>
-      <p style={{ margin: 0, fontWeight: 700, fontSize: '0.95rem', color: 'var(--clr-text)' }}>{title} Report</p>
-      <p style={{ margin: 0, fontSize: '0.78rem', color: 'var(--clr-muted)', maxWidth: 340 }}>
-        Coming soon — this report is under construction. Check back after the Orders report is finalized.
-      </p>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', width: '100%' }}>
+
+      {/* Controls bar */}
+      <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '0.65rem', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 12, padding: '0.7rem 1rem' }}>
+        <LuCalendar size={14} style={{ color: 'var(--clr-muted)', flexShrink: 0 }}/>
+        {(['From', 'To'] as const).map((lbl, i) => (
+          <div key={lbl} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+            <label style={{ fontSize: '0.72rem', color: 'var(--clr-muted)', fontWeight: 600 }}>{lbl}</label>
+            <input type="date" value={i === 0 ? from : to} max={i === 0 ? to : undefined} min={i === 1 ? from : undefined}
+              onChange={e => i === 0 ? setFrom(e.target.value) : setTo(e.target.value)}
+              style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 8, padding: '0.28rem 0.55rem', color: 'var(--clr-text)', fontSize: '0.78rem', fontFamily: 'inherit', colorScheme: 'dark' }}/>
+          </div>
+        ))}
+        {[{ label: '7D', days: 7 }, { label: '30D', days: 30 }, { label: '90D', days: 90 }, { label: '1Y', days: 365 }].map(p => {
+          const f = new Date(today.getTime() - p.days * 86400000).toISOString().slice(0, 10)
+          const active = from === f && to === defaultTo
+          return (
+            <button key={p.label} onClick={() => { setFrom(f); setTo(defaultTo); load(f, defaultTo) }}
+              style={{ padding: '0.28rem 0.65rem', borderRadius: 8, border: '1px solid rgba(255,255,255,0.12)', background: active ? 'rgba(0,229,255,0.12)' : 'rgba(255,255,255,0.04)', color: active ? 'var(--clr-accent)' : 'var(--clr-muted)', fontSize: '0.72rem', fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
+              {p.label}
+            </button>
+          )
+        })}
+        <div style={{ flex: 1 }}/>
+        <button onClick={() => load()} disabled={loading}
+          style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', padding: '0.38rem 0.85rem', borderRadius: 9, border: '1px solid rgba(255,255,255,0.12)', background: 'rgba(255,255,255,0.06)', color: 'var(--clr-text)', fontSize: '0.78rem', fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
+          <LuRefreshCw size={13} style={{ animation: loading ? 'spin 1s linear infinite' : 'none' }}/> Apply
+        </button>
+        <button onClick={handleDownload} disabled={downloading || !report}
+          style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', padding: '0.38rem 0.9rem', borderRadius: 9, border: 'none', background: 'var(--clr-accent)', color: '#000', fontSize: '0.78rem', fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', opacity: (downloading || !report) ? 0.5 : 1 }}>
+          <LuDownload size={13}/> {downloading ? 'Generating…' : 'Download PDF'}
+        </button>
+      </div>
+
+      {error && (
+        <div style={{ background: 'rgba(248,113,113,0.1)', border: '1px solid rgba(248,113,113,0.3)', borderRadius: 10, padding: '0.7rem 1rem', fontSize: '0.8rem', color: '#f87171', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <LuTriangleAlert size={14}/> {error}
+        </div>
+      )}
+
+      {loading && (
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '4rem', gap: '0.75rem', color: 'var(--clr-muted)', fontSize: '0.85rem' }}>
+          <LuRefreshCw size={18} style={{ animation: 'spin 1s linear infinite', color: 'var(--clr-accent)' }}/> Loading logistics report…
+        </div>
+      )}
+
+      {report && !loading && (
+        <div ref={reportRef} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', width: '100%' }}>
+
+          {/* Report header */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'linear-gradient(135deg, rgba(56,189,248,0.08), rgba(74,222,128,0.06))', border: '1px solid rgba(56,189,248,0.2)', borderRadius: 14, padding: '1.2rem 1.5rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+              <img src={logoImg} alt="Africa Logistics" style={{ height: 44, width: 'auto', objectFit: 'contain', borderRadius: 8 }}/>
+              <div>
+                <p style={{ margin: 0, fontWeight: 800, fontSize: '1rem', color: 'var(--clr-text)' }}>Africa Logistics</p>
+                <p style={{ margin: 0, fontSize: '0.72rem', color: 'var(--clr-muted)' }}>Logistics Operations & Network Report</p>
+              </div>
+            </div>
+            <div style={{ textAlign: 'right' }}>
+              <p style={{ margin: 0, fontSize: '0.72rem', color: 'var(--clr-muted)' }}>Report Period</p>
+              <p style={{ margin: 0, fontWeight: 700, fontSize: '0.85rem', color: 'var(--clr-text)' }}>
+                {fmtDateFull(report.date_range.from)} — {fmtDateFull(report.date_range.to)}
+              </p>
+              <p style={{ margin: '0.2rem 0 0', fontSize: '0.7rem', color: 'var(--clr-muted)' }}>
+                Generated: {new Date(report.generated_at).toLocaleString('en-ET')}
+              </p>
+            </div>
+          </div>
+
+          {/* ─ KPI Cards ─ */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: '0.85rem' }}>
+            <KpiCard label="Total Orders"        value={fmt(sm!.total_orders)}           change={changeOrders}   sub="vs previous period" icon={<LuPackage size={18}/>}    accent="#38bdf8"/>
+            <KpiCard label="Delivered"           value={fmt(sm!.delivered)}              change={changeDelivery} sub="vs previous period" icon={<LuCircleCheck size={18}/>} accent="#4ade80"/>
+            <KpiCard label="In Transit"          value={fmt(sm!.in_transit)}             sub="currently active"           icon={<LuTruck size={18}/>}      accent="#fbbf24"/>
+            <KpiCard label="Cross-Border"        value={fmt(sm!.cross_border_orders)}    sub="international orders"       icon={<LuGlobe size={18}/>}      accent="#a78bfa"/>
+            <KpiCard label="Cancelled"           value={fmt(sm!.cancelled)}              sub="in period"                  icon={<LuCircleX size={18}/>}    accent="#f87171"/>
+            <KpiCard label="Total Distance"      value={`${sm!.total_distance_km.toFixed(0)} km`} sub="all orders combined"  icon={<LuRoute size={18}/>}      accent="#34d399"/>
+            <KpiCard label="Avg Distance"        value={`${(sm!.avg_distance_km || 0).toFixed(1)} km`} sub="per order"         icon={<LuMapPin size={18}/>}     accent="#60a5fa"/>
+            <KpiCard label="Avg Weight"          value={sm!.avg_weight_kg > 0 ? `${sm!.avg_weight_kg.toFixed(0)} kg` : '—'} sub="per order"  icon={<LuWeight size={18}/>}     accent="#fb923c"/>
+            <KpiCard label="Avg Assign Time"     value={fmtMin(sm!.avg_assign_min)}      sub="order → driver"             icon={<LuTimer size={18}/>}      accent="#fbbf24"/>
+            <KpiCard label="Avg Delivery Time"   value={fmtMin(sm!.avg_delivery_min)}    sub="pickup → delivery"          icon={<LuClock size={18}/>}      accent="#4ade80"/>
+          </div>
+
+          {/* ─ Daily Volume + Distance ─ */}
+          {report.daily.length > 0 && (
+            <ChartCard title="Daily Order Volume — Delivered vs Total" height={270}>
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={report.daily} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="gradLogTotal" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%"  stopColor="#38bdf8" stopOpacity={0.3}/>
+                      <stop offset="95%" stopColor="#38bdf8" stopOpacity={0}/>
+                    </linearGradient>
+                    <linearGradient id="gradLogDel" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%"  stopColor="#4ade80" stopOpacity={0.25}/>
+                      <stop offset="95%" stopColor="#4ade80" stopOpacity={0}/>
+                    </linearGradient>
+                    <linearGradient id="gradLogCB" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%"  stopColor="#a78bfa" stopOpacity={0.2}/>
+                      <stop offset="95%" stopColor="#a78bfa" stopOpacity={0}/>
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)"/>
+                  <XAxis dataKey="date" tickFormatter={fmtDate} tick={{ fill: '#9ca3af', fontSize: 10 }} tickLine={false} axisLine={false}/>
+                  <YAxis tick={{ fill: '#9ca3af', fontSize: 10 }} tickLine={false} axisLine={false}/>
+                  <Tooltip content={<CustomTooltip/>}/>
+                  <Legend wrapperStyle={{ fontSize: '0.72rem' }}/>
+                  <Area type="monotone" dataKey="orders"       name="Total Orders"      stroke="#38bdf8" fill="url(#gradLogTotal)" strokeWidth={2} dot={false}/>
+                  <Area type="monotone" dataKey="delivered"    name="Delivered"         stroke="#4ade80" fill="url(#gradLogDel)"   strokeWidth={2} dot={false}/>
+                  <Area type="monotone" dataKey="cross_border" name="Cross-Border"      stroke="#a78bfa" fill="url(#gradLogCB)"    strokeWidth={2} dot={false}/>
+                </AreaChart>
+              </ResponsiveContainer>
+            </ChartCard>
+          )}
+
+          {/* ─ Status Pie + Vehicle Breakdown ─ */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.85rem' }}>
+            <ChartCard title="Orders by Status" height={260}>
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie data={statusPieData} cx="38%" cy="50%" innerRadius={55} outerRadius={90} paddingAngle={2} dataKey="value">
+                    {statusPieData.map((d, i) => <Cell key={i} fill={d.fill}/>)}
+                  </Pie>
+                  <Tooltip formatter={(v: any, n: any) => [fmt(Number(v)), n]}
+                    contentStyle={{ background: '#1a1f2e', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 10, fontSize: '0.74rem' }}/>
+                  <Legend iconSize={9} wrapperStyle={{ fontSize: '0.68rem', paddingLeft: '0.5rem' }}/>
+                </PieChart>
+              </ResponsiveContainer>
+            </ChartCard>
+
+            <ChartCard title="Orders by Vehicle Type" height={260}>
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={report.by_vehicle} layout="vertical" margin={{ top: 5, right: 50, left: 0, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" horizontal={false}/>
+                  <XAxis type="number" tick={{ fill: '#9ca3af', fontSize: 9 }} tickLine={false} axisLine={false}/>
+                  <YAxis type="category" dataKey="vehicle_type" tick={{ fill: '#9ca3af', fontSize: 10 }} tickLine={false} axisLine={false} width={85}/>
+                  <Tooltip content={<CustomTooltip/>}/>
+                  <Bar dataKey="orders" name="Orders" radius={[0, 4, 4, 0]} maxBarSize={18}>
+                    {report.by_vehicle.map((_, i) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]}/>)}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </ChartCard>
+          </div>
+
+          {/* ─ Daily km chart ─ */}
+          {report.daily.some(d => d.total_km > 0) && (
+            <ChartCard title="Daily Total Distance Covered (km)" height={220}>
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={report.daily} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="gradKm" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%"  stopColor="#34d399" stopOpacity={0.35}/>
+                      <stop offset="95%" stopColor="#34d399" stopOpacity={0}/>
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)"/>
+                  <XAxis dataKey="date" tickFormatter={fmtDate} tick={{ fill: '#9ca3af', fontSize: 10 }} tickLine={false} axisLine={false}/>
+                  <YAxis tick={{ fill: '#9ca3af', fontSize: 10 }} tickLine={false} axisLine={false} tickFormatter={v => `${v}km`}/>
+                  <Tooltip content={<CustomTooltip/>}/>
+                  <Area type="monotone" dataKey="total_km" name="Distance (km)" stroke="#34d399" fill="url(#gradKm)" strokeWidth={2} dot={false}/>
+                </AreaChart>
+              </ResponsiveContainer>
+            </ChartCard>
+          )}
+
+          {/* ─ Cargo Types + Stage Times ─ */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.85rem' }}>
+            {/* Cargo type table */}
+            <div style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.09)', borderRadius: 14, overflow: 'hidden' }}>
+              <div style={{ padding: '0.9rem 1.2rem', borderBottom: '1px solid rgba(255,255,255,0.07)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <LuContainer size={14} style={{ color: '#38bdf8' }}/>
+                <p style={{ margin: 0, fontWeight: 700, fontSize: '0.83rem', color: 'var(--clr-text)' }}>Orders by Cargo Type</p>
+              </div>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.75rem' }}>
+                <thead>
+                  <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
+                    {['Cargo Type', 'Orders', 'Avg Dist', 'Avg Wt'].map(h => (
+                      <th key={h} style={{ padding: '0.5rem 0.9rem', textAlign: 'left', color: 'var(--clr-muted)', fontWeight: 600, fontSize: '0.68rem', textTransform: 'uppercase' }}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {report.by_cargo.map((c, i) => (
+                    <tr key={i} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)', background: i % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.015)' }}>
+                      <td style={{ padding: '0.55rem 0.9rem', fontWeight: 600, color: 'var(--clr-text)' }}>{c.cargo_type}</td>
+                      <td style={{ padding: '0.55rem 0.9rem', fontWeight: 700, color: 'var(--clr-accent)' }}>{fmt(c.orders)}</td>
+                      <td style={{ padding: '0.55rem 0.9rem', color: 'var(--clr-muted)' }}>{c.avg_km > 0 ? `${c.avg_km}km` : '—'}</td>
+                      <td style={{ padding: '0.55rem 0.9rem', color: 'var(--clr-muted)' }}>{c.avg_weight_kg > 0 ? `${c.avg_weight_kg}kg` : '—'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Stage transition times */}
+            <div style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.09)', borderRadius: 14, overflow: 'hidden' }}>
+              <div style={{ padding: '0.9rem 1.2rem', borderBottom: '1px solid rgba(255,255,255,0.07)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <LuTimer size={14} style={{ color: '#fbbf24' }}/>
+                <p style={{ margin: 0, fontWeight: 700, fontSize: '0.83rem', color: 'var(--clr-text)' }}>Avg Time per Stage Transition</p>
+              </div>
+              {report.stage_times.length > 0 ? (
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.75rem' }}>
+                  <thead>
+                    <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
+                      {['From', '', 'To', 'Avg Time'].map((h, i) => (
+                        <th key={i} style={{ padding: '0.5rem 0.75rem', textAlign: 'left', color: 'var(--clr-muted)', fontWeight: 600, fontSize: '0.68rem', textTransform: 'uppercase' }}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {report.stage_times.map((st, i) => (
+                      <tr key={i} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)', background: i % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.015)' }}>
+                        <td style={{ padding: '0.52rem 0.75rem' }}>
+                          <span style={{ padding: '0.15rem 0.45rem', borderRadius: 12, background: `${STATUS_ORDER_COLORS[st.from_status] ?? '#888'}22`, color: STATUS_ORDER_COLORS[st.from_status] ?? '#888', fontSize: '0.67rem', fontWeight: 700 }}>{st.from_status}</span>
+                        </td>
+                        <td style={{ padding: '0.52rem 0', color: 'var(--clr-muted)' }}><LuArrowRight size={11}/></td>
+                        <td style={{ padding: '0.52rem 0.75rem' }}>
+                          <span style={{ padding: '0.15rem 0.45rem', borderRadius: 12, background: `${STATUS_ORDER_COLORS[st.to_status] ?? '#888'}22`, color: STATUS_ORDER_COLORS[st.to_status] ?? '#888', fontSize: '0.67rem', fontWeight: 700 }}>{st.to_status}</span>
+                        </td>
+                        <td style={{ padding: '0.52rem 0.75rem', fontWeight: 700, color: '#fbbf24' }}>{fmtMin(st.avg_minutes)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              ) : (
+                <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--clr-muted)', fontSize: '0.75rem' }}>No stage history data in this period</div>
+              )}
+            </div>
+          </div>
+
+          {/* ─ Top Routes ─ */}
+          {report.top_routes.length > 0 && (
+            <div style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.09)', borderRadius: 14, overflow: 'hidden' }}>
+              <div style={{ padding: '1rem 1.2rem', borderBottom: '1px solid rgba(255,255,255,0.07)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <LuRoute size={15} style={{ color: '#34d399' }}/>
+                <p style={{ margin: 0, fontWeight: 700, fontSize: '0.83rem', color: 'var(--clr-text)' }}>Top Routes</p>
+              </div>
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.78rem' }}>
+                  <thead>
+                    <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
+                      {['#', 'From', '', 'To', 'Trips', 'Avg km'].map((h, i) => (
+                        <th key={i} style={{ padding: '0.65rem 1rem', textAlign: 'left', color: 'var(--clr-muted)', fontWeight: 600, fontSize: '0.7rem', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {report.top_routes.map((r, i) => (
+                      <tr key={i} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)', background: i % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.015)' }}>
+                        <td style={{ padding: '0.6rem 1rem', color: 'var(--clr-muted)', fontWeight: 700 }}>#{i + 1}</td>
+                        <td style={{ padding: '0.6rem 1rem', fontWeight: 600, color: 'var(--clr-text)', maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.from_city}</td>
+                        <td style={{ padding: '0.6rem 0.3rem', color: 'var(--clr-muted)' }}><LuArrowRight size={12}/></td>
+                        <td style={{ padding: '0.6rem 1rem', fontWeight: 600, color: 'var(--clr-text)', maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.to_city}</td>
+                        <td style={{ padding: '0.6rem 1rem', fontWeight: 700, color: '#38bdf8' }}>{fmt(r.count)}</td>
+                        <td style={{ padding: '0.6rem 1rem', color: 'var(--clr-muted)' }}>{r.avg_km > 0 ? `${r.avg_km} km` : '—'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* ─ Pickup City Heatmap bar ─ */}
+          {report.pickup_cities.length > 0 && (
+            <ChartCard title="Most Active Pickup Cities" height={240}>
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={report.pickup_cities} layout="vertical" margin={{ top: 5, right: 60, left: 0, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" horizontal={false}/>
+                  <XAxis type="number" tick={{ fill: '#9ca3af', fontSize: 9 }} tickLine={false} axisLine={false}/>
+                  <YAxis type="category" dataKey="city" tick={{ fill: '#9ca3af', fontSize: 10 }} tickLine={false} axisLine={false} width={150} tickFormatter={v => v.length > 20 ? v.slice(0, 20) + '…' : v}/>
+                  <Tooltip content={<CustomTooltip/>}/>
+                  <Bar dataKey="orders" name="Orders" radius={[0, 4, 4, 0]} maxBarSize={18}>
+                    {report.pickup_cities.map((_, i) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]}/>)}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </ChartCard>
+          )}
+
+          {/* ─ Cross-Border Documents ─ */}
+          {report.cb_documents.length > 0 && (
+            <div style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.09)', borderRadius: 14, overflow: 'hidden' }}>
+              <div style={{ padding: '1rem 1.2rem', borderBottom: '1px solid rgba(255,255,255,0.07)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <LuGlobe size={15} style={{ color: '#a78bfa' }}/>
+                <p style={{ margin: 0, fontWeight: 700, fontSize: '0.83rem', color: 'var(--clr-text)' }}>Cross-Border Documents</p>
+              </div>
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.78rem' }}>
+                  <thead>
+                    <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
+                      {['Document Type', 'Total', 'Approved', 'Pending', 'Rejected', 'Rate'].map(h => (
+                        <th key={h} style={{ padding: '0.65rem 1rem', textAlign: 'left', color: 'var(--clr-muted)', fontWeight: 600, fontSize: '0.7rem', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {report.cb_documents.map((doc, i) => {
+                      const approvalRate = doc.total ? ((doc.approved / doc.total) * 100).toFixed(0) : '0'
+                      return (
+                        <tr key={i} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)', background: i % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.015)' }}>
+                          <td style={{ padding: '0.6rem 1rem', fontWeight: 600, color: 'var(--clr-text)' }}>{doc.document_type.replace(/_/g, ' ')}</td>
+                          <td style={{ padding: '0.6rem 1rem', fontWeight: 700 }}>{fmt(doc.total)}</td>
+                          <td style={{ padding: '0.6rem 1rem', color: '#4ade80', fontWeight: 700 }}>{fmt(doc.approved)}</td>
+                          <td style={{ padding: '0.6rem 1rem', color: '#fbbf24', fontWeight: 700 }}>{fmt(doc.pending)}</td>
+                          <td style={{ padding: '0.6rem 1rem', color: '#f87171', fontWeight: 700 }}>{fmt(doc.rejected)}</td>
+                          <td style={{ padding: '0.6rem 1rem', minWidth: 110 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                              <div style={{ flex: 1, height: 5, borderRadius: 3, background: 'rgba(255,255,255,0.08)' }}>
+                                <div style={{ width: `${approvalRate}%`, height: '100%', background: '#4ade80', borderRadius: 3 }}/>
+                              </div>
+                              <span style={{ fontSize: '0.7rem', color: '#4ade80', fontWeight: 700, flexShrink: 0 }}>{approvalRate}%</span>
+                            </div>
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* ─ Extra Charges ─ */}
+          {report.extra_charges.length > 0 && (
+            <div style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.09)', borderRadius: 14, overflow: 'hidden' }}>
+              <div style={{ padding: '1rem 1.2rem', borderBottom: '1px solid rgba(255,255,255,0.07)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <LuCoins size={15} style={{ color: '#fbbf24' }}/>
+                <p style={{ margin: 0, fontWeight: 700, fontSize: '0.83rem', color: 'var(--clr-text)' }}>Extra Charges Breakdown</p>
+              </div>
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.78rem' }}>
+                  <thead>
+                    <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
+                      {['Type', 'Count', 'Total Amount', 'Avg Amount', 'Applied', 'Pending'].map(h => (
+                        <th key={h} style={{ padding: '0.65rem 1rem', textAlign: 'left', color: 'var(--clr-muted)', fontWeight: 600, fontSize: '0.7rem', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {report.extra_charges.map((ec, i) => (
+                      <tr key={i} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)', background: i % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.015)' }}>
+                        <td style={{ padding: '0.6rem 1rem', fontWeight: 600, color: 'var(--clr-text)' }}>{ec.charge_type.replace(/_/g, ' ')}</td>
+                        <td style={{ padding: '0.6rem 1rem', fontWeight: 700 }}>{fmt(ec.count)}</td>
+                        <td style={{ padding: '0.6rem 1rem', color: '#fbbf24', fontWeight: 700 }}>{fmtCurrency(ec.total_amount)}</td>
+                        <td style={{ padding: '0.6rem 1rem', color: 'var(--clr-muted)' }}>{fmtCurrency(ec.avg_amount)}</td>
+                        <td style={{ padding: '0.6rem 1rem', color: '#4ade80', fontWeight: 700 }}>{fmt(ec.applied)}</td>
+                        <td style={{ padding: '0.6rem 1rem', color: '#fbbf24', fontWeight: 700 }}>{fmt(ec.pending)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* Report footer */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.75rem 1rem', borderTop: '1px solid rgba(255,255,255,0.07)', fontSize: '0.68rem', color: 'var(--clr-muted)' }}>
+            <span>Africa Logistics — Confidential Logistics Operations Report</span>
+            <span>Generated on {new Date(report.generated_at).toLocaleString('en-ET')}</span>
+          </div>
+        </div>
+      )}
+      <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
     </div>
   )
 }
@@ -1382,7 +1831,7 @@ export default function AdminReportsSection() {
       {activeTab === 'orders'    && <OrderReportPage />}
       {activeTab === 'finance'   && <FinanceReportPage />}
       {activeTab === 'drivers'   && <DriverReportPage />}
-      {activeTab === 'logistics' && <PlaceholderReportPage title="Logistics" icon={<LuGlobe size={48}/>} />}
+      {activeTab === 'logistics' && <LogisticsReportPage />}
     </div>
   )
 }

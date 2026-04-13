@@ -3240,6 +3240,218 @@ export async function adminFinanceReportHandler(
   })
 }
 
+// ─── Logistics Report ───────────────────────────────────────────────────────────
+
+/** GET /api/admin/reports/logistics?from=YYYY-MM-DD&to=YYYY-MM-DD */
+export async function adminLogisticsReportHandler(
+  request: FastifyRequest<{ Querystring: { from?: string; to?: string } }>,
+  reply:   FastifyReply
+) {
+  const db  = request.server.db
+  const now = new Date()
+  const toDate   = request.query.to   ? new Date(request.query.to)   : now
+  const fromDate = request.query.from ? new Date(request.query.from) : new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
+
+  const fromStr = fromDate.toISOString().slice(0, 10) + ' 00:00:00'
+  const toStr   = toDate.toISOString().slice(0, 10)   + ' 23:59:59'
+
+  // prev period for % change
+  const rangeDays = Math.max(1, Math.round((toDate.getTime() - fromDate.getTime()) / 86400000))
+  const prevFromStr = new Date(fromDate.getTime() - rangeDays * 86400000).toISOString().slice(0, 10) + ' 00:00:00'
+  const prevToStr   = new Date(fromDate.getTime() - 1000).toISOString().slice(0, 10)                  + ' 23:59:59'
+
+  // 1. Overall operational summary
+  const [summaryRows] = await db.query<any[]>(`
+    SELECT
+      COUNT(*)                                                                      AS total_orders,
+      SUM(is_cross_border)                                                          AS cross_border_orders,
+      SUM(CASE WHEN status IN ('DELIVERED','COMPLETED') THEN 1 ELSE 0 END)          AS delivered,
+      SUM(CASE WHEN status = 'CANCELLED'                THEN 1 ELSE 0 END)          AS cancelled,
+      SUM(CASE WHEN status = 'FAILED'                   THEN 1 ELSE 0 END)          AS failed,
+      SUM(CASE WHEN status IN ('ASSIGNED','EN_ROUTE','AT_PICKUP','IN_TRANSIT',
+                               'AT_BORDER','IN_CUSTOMS','CUSTOMS_CLEARED')
+               THEN 1 ELSE 0 END)                                                   AS in_transit,
+      ROUND(AVG(CASE WHEN distance_km > 0 THEN distance_km END),2)                 AS avg_distance_km,
+      ROUND(SUM(distance_km),2)                                                     AS total_distance_km,
+      ROUND(AVG(estimated_weight_kg),2)                                             AS avg_weight_kg,
+      ROUND(AVG(CASE WHEN assigned_at IS NOT NULL
+                     THEN TIMESTAMPDIFF(MINUTE, created_at, assigned_at) END),1)    AS avg_assign_min,
+      ROUND(AVG(CASE WHEN picked_up_at IS NOT NULL AND delivered_at IS NOT NULL
+                     THEN TIMESTAMPDIFF(MINUTE, picked_up_at, delivered_at) END),1) AS avg_delivery_min
+    FROM orders
+    WHERE created_at BETWEEN ? AND ?
+  `, [fromStr, toStr])
+  const s = summaryRows[0] ?? {}
+
+  // prev period totals for % change
+  const [prevRows] = await db.query<any[]>(`
+    SELECT
+      COUNT(*) AS total_orders,
+      SUM(CASE WHEN status IN ('DELIVERED','COMPLETED') THEN 1 ELSE 0 END) AS delivered
+    FROM orders WHERE created_at BETWEEN ? AND ?
+  `, [prevFromStr, prevToStr])
+  const prev = prevRows[0] ?? {}
+
+  // 2. Daily order volume + distance
+  const [dailyRows] = await db.query<any[]>(`
+    SELECT
+      DATE(created_at)                                                          AS date,
+      COUNT(*)                                                                   AS orders,
+      SUM(CASE WHEN status IN ('DELIVERED','COMPLETED') THEN 1 ELSE 0 END)      AS delivered,
+      ROUND(SUM(distance_km),1)                                                  AS total_km,
+      SUM(is_cross_border)                                                       AS cross_border
+    FROM orders
+    WHERE created_at BETWEEN ? AND ?
+    GROUP BY DATE(created_at)
+    ORDER BY date ASC
+  `, [fromStr, toStr])
+
+  // 3. Orders by vehicle type
+  const [vehicleRows] = await db.query<any[]>(`
+    SELECT
+      COALESCE(vehicle_type_required, 'Unspecified') AS vehicle_type,
+      COUNT(*)                                        AS orders,
+      ROUND(AVG(distance_km),1)                       AS avg_km,
+      ROUND(SUM(COALESCE(final_price, estimated_price, 0)),2) AS revenue
+    FROM orders
+    WHERE created_at BETWEEN ? AND ?
+    GROUP BY vehicle_type_required
+    ORDER BY orders DESC
+  `, [fromStr, toStr])
+
+  // 4. Orders by cargo type
+  const [cargoRows] = await db.query<any[]>(`
+    SELECT
+      ct.name                                         AS cargo_type,
+      COUNT(o.id)                                     AS orders,
+      ROUND(AVG(o.distance_km),1)                     AS avg_km,
+      ROUND(AVG(o.estimated_weight_kg),1)             AS avg_weight_kg
+    FROM orders o
+    JOIN cargo_types ct ON ct.id = o.cargo_type_id
+    WHERE o.created_at BETWEEN ? AND ?
+    GROUP BY ct.name
+    ORDER BY orders DESC
+  `, [fromStr, toStr])
+
+  // 5. Order status funnel (all statuses in period)
+  const [statusRows] = await db.query<any[]>(`
+    SELECT status, COUNT(*) AS count
+    FROM   orders
+    WHERE  created_at BETWEEN ? AND ?
+    GROUP  BY status
+    ORDER  BY count DESC
+  `, [fromStr, toStr])
+
+  // 6. Cross-border documents breakdown
+  const [cbDocRows] = await db.query<any[]>(`
+    SELECT
+      document_type,
+      COUNT(*)                                                AS total,
+      SUM(status = 'APPROVED')                               AS approved,
+      SUM(status = 'PENDING_REVIEW')                         AS pending,
+      SUM(status = 'REJECTED')                               AS rejected
+    FROM cross_border_documents
+    WHERE created_at BETWEEN ? AND ?
+    GROUP BY document_type
+    ORDER BY total DESC
+  `, [fromStr, toStr])
+
+  // 7. Top pickup cities (by address prefix up to first comma)
+  const [pickupCityRows] = await db.query<any[]>(`
+    SELECT
+      TRIM(SUBSTRING_INDEX(pickup_address, ',', 1)) AS city,
+      COUNT(*) AS orders
+    FROM   orders
+    WHERE  created_at BETWEEN ? AND ?
+      AND  pickup_address IS NOT NULL
+    GROUP  BY city
+    ORDER  BY orders DESC
+    LIMIT  10
+  `, [fromStr, toStr])
+
+  // 8. Top routes
+  const [routeRows] = await db.query<any[]>(`
+    SELECT
+      TRIM(SUBSTRING_INDEX(pickup_address, ',', 1))   AS from_city,
+      TRIM(SUBSTRING_INDEX(delivery_address, ',', 1)) AS to_city,
+      COUNT(*)                                         AS count,
+      ROUND(AVG(distance_km),1)                        AS avg_km
+    FROM   orders
+    WHERE  created_at BETWEEN ? AND ?
+      AND  pickup_address IS NOT NULL
+      AND  delivery_address IS NOT NULL
+    GROUP  BY from_city, to_city
+    ORDER  BY count DESC
+    LIMIT  10
+  `, [fromStr, toStr])
+
+  // 9. Extra charges summary
+  const [chargeRows] = await db.query<any[]>(`
+    SELECT
+      charge_type,
+      COUNT(*)        AS count,
+      SUM(amount)     AS total_amount,
+      AVG(amount)     AS avg_amount,
+      SUM(status = 'APPLIED')  AS applied,
+      SUM(status = 'PENDING')  AS pending
+    FROM order_charges
+    WHERE created_at BETWEEN ? AND ?
+    GROUP BY charge_type
+    ORDER BY total_amount DESC
+  `, [fromStr, toStr])
+
+  // 10. Order status history — avg time per stage (minutes)
+  const [stageTimeRows] = await db.query<any[]>(`
+    SELECT
+      a.status AS from_status,
+      b.status AS to_status,
+      ROUND(AVG(TIMESTAMPDIFF(MINUTE, a.created_at, b.created_at)),1) AS avg_minutes
+    FROM order_status_history a
+    JOIN order_status_history b
+      ON b.order_id = a.order_id
+      AND b.id = (
+        SELECT MIN(c.id) FROM order_status_history c
+        WHERE c.order_id = a.order_id AND c.id > a.id
+      )
+    WHERE a.created_at BETWEEN ? AND ?
+    GROUP BY a.status, b.status
+    ORDER BY avg_minutes ASC
+    LIMIT 20
+  `, [fromStr, toStr])
+
+  return reply.send({
+    success: true,
+    report: {
+      generated_at: new Date().toISOString(),
+      date_range: { from: fromDate.toISOString().slice(0, 10), to: toDate.toISOString().slice(0, 10) },
+      summary: {
+        total_orders:       Number(s.total_orders      ?? 0),
+        cross_border_orders:Number(s.cross_border_orders ?? 0),
+        delivered:          Number(s.delivered         ?? 0),
+        cancelled:          Number(s.cancelled         ?? 0),
+        failed:             Number(s.failed            ?? 0),
+        in_transit:         Number(s.in_transit        ?? 0),
+        avg_distance_km:    Number(s.avg_distance_km   ?? 0),
+        total_distance_km:  Number(s.total_distance_km ?? 0),
+        avg_weight_kg:      Number(s.avg_weight_kg     ?? 0),
+        avg_assign_min:     Number(s.avg_assign_min    ?? 0),
+        avg_delivery_min:   Number(s.avg_delivery_min  ?? 0),
+        prev_total_orders:  Number(prev.total_orders   ?? 0),
+        prev_delivered:     Number(prev.delivered      ?? 0),
+      },
+      daily:         (dailyRows    as any[]).map(r => ({ date: String(r.date), orders: Number(r.orders), delivered: Number(r.delivered), total_km: Number(r.total_km), cross_border: Number(r.cross_border) })),
+      by_vehicle:    (vehicleRows  as any[]).map(r => ({ vehicle_type: String(r.vehicle_type), orders: Number(r.orders), avg_km: Number(r.avg_km), revenue: Number(r.revenue) })),
+      by_cargo:      (cargoRows    as any[]).map(r => ({ cargo_type: String(r.cargo_type), orders: Number(r.orders), avg_km: Number(r.avg_km), avg_weight_kg: Number(r.avg_weight_kg) })),
+      by_status:     (statusRows   as any[]).map(r => ({ status: String(r.status), count: Number(r.count) })),
+      cb_documents:  (cbDocRows    as any[]).map(r => ({ document_type: String(r.document_type), total: Number(r.total), approved: Number(r.approved), pending: Number(r.pending), rejected: Number(r.rejected) })),
+      pickup_cities: (pickupCityRows as any[]).map(r => ({ city: String(r.city), orders: Number(r.orders) })),
+      top_routes:    (routeRows    as any[]).map(r => ({ from_city: String(r.from_city), to_city: String(r.to_city), count: Number(r.count), avg_km: Number(r.avg_km) })),
+      extra_charges: (chargeRows   as any[]).map(r => ({ charge_type: String(r.charge_type), count: Number(r.count), total_amount: Number(r.total_amount), avg_amount: Number(r.avg_amount), applied: Number(r.applied), pending: Number(r.pending) })),
+      stage_times:   (stageTimeRows as any[]).map(r => ({ from_status: String(r.from_status), to_status: String(r.to_status), avg_minutes: Number(r.avg_minutes) })),
+    },
+  })
+}
+
 // ─── Driver Report ──────────────────────────────────────────────────────────────
 
 /** GET /api/admin/reports/drivers?from=YYYY-MM-DD&to=YYYY-MM-DD */
