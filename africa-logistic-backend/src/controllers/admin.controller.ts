@@ -2999,3 +2999,190 @@ export async function adminUpdateAiSettingsHandler(
   const masked = row.api_key ? '••••••••' + String(row.api_key).slice(-4) : null
   return reply.send({ success: true, settings: { ...row, api_key: masked, api_key_set: !!row.api_key } })
 }
+
+// ─── Order Report ─────────────────────────────────────────────────────────────
+
+/** GET /api/admin/reports/orders?from=YYYY-MM-DD&to=YYYY-MM-DD */
+export async function adminOrderReportHandler(
+  request: FastifyRequest<{ Querystring: { from?: string; to?: string } }>,
+  reply:   FastifyReply
+) {
+  const db  = request.server.db
+  const now = new Date()
+  const toDate   = request.query.to   ? new Date(request.query.to)   : now
+  const fromDate = request.query.from ? new Date(request.query.from) : new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
+
+  const fromStr = fromDate.toISOString().slice(0, 10) + ' 00:00:00'
+  const toStr   = toDate.toISOString().slice(0, 10)   + ' 23:59:59'
+
+  // 1. Summary totals
+  const [summaryRows] = await db.query<any[]>(`
+    SELECT
+      COUNT(*)                                                                    AS total_orders,
+      SUM(CASE WHEN is_guest_order = 0 THEN 1 ELSE 0 END)                        AS normal_orders,
+      SUM(CASE WHEN is_guest_order = 1 THEN 1 ELSE 0 END)                        AS guest_orders,
+      SUM(COALESCE(final_price, estimated_price, 0))                             AS total_revenue,
+      AVG(COALESCE(final_price, estimated_price, 0))                             AS avg_order_value,
+      COUNT(DISTINCT driver_id)                                                   AS active_drivers,
+      SUM(COALESCE(distance_km, 0))                                               AS total_distance_km,
+      SUM(CASE WHEN status IN ('DELIVERED','COMPLETED') THEN 1 ELSE 0 END)       AS completed_orders,
+      SUM(CASE WHEN status = 'CANCELLED'                THEN 1 ELSE 0 END)       AS cancelled_orders,
+      SUM(CASE WHEN status = 'FAILED'                   THEN 1 ELSE 0 END)       AS failed_orders,
+      SUM(CASE WHEN status IN ('ASSIGNED','EN_ROUTE','AT_PICKUP','IN_TRANSIT',
+                               'AT_BORDER','IN_CUSTOMS','CUSTOMS_CLEARED')
+               THEN 1 ELSE 0 END)                                                AS active_orders
+    FROM orders
+    WHERE created_at BETWEEN ? AND ?
+  `, [fromStr, toStr])
+
+  // 2. By status breakdown
+  const [statusRows] = await db.query<any[]>(`
+    SELECT status, COUNT(*) AS count
+    FROM   orders
+    WHERE  created_at BETWEEN ? AND ?
+    GROUP  BY status
+    ORDER  BY count DESC
+  `, [fromStr, toStr])
+
+  // 3. Payment status breakdown
+  const [paymentRows] = await db.query<any[]>(`
+    SELECT payment_status, COUNT(*) AS count
+    FROM   orders
+    WHERE  created_at BETWEEN ? AND ?
+    GROUP  BY payment_status
+  `, [fromStr, toStr])
+
+  // 4. Daily trend
+  const [dailyRows] = await db.query<any[]>(`
+    SELECT
+      DATE(created_at)                                                       AS date,
+      COUNT(*)                                                               AS orders,
+      SUM(CASE WHEN is_guest_order = 0 THEN 1 ELSE 0 END)                   AS normal_orders,
+      SUM(CASE WHEN is_guest_order = 1 THEN 1 ELSE 0 END)                   AS guest_orders,
+      SUM(COALESCE(final_price, estimated_price, 0))                        AS revenue,
+      SUM(CASE WHEN status IN ('DELIVERED','COMPLETED') THEN 1 ELSE 0 END)  AS completed
+    FROM   orders
+    WHERE  created_at BETWEEN ? AND ?
+    GROUP  BY DATE(created_at)
+    ORDER  BY date ASC
+  `, [fromStr, toStr])
+
+  // 5. Top routes (top 10)
+  const [routeRows] = await db.query<any[]>(`
+    SELECT
+      pickup_address,
+      delivery_address,
+      COUNT(*)                                               AS count,
+      SUM(COALESCE(final_price, estimated_price, 0))        AS total_revenue,
+      ROUND(AVG(COALESCE(distance_km, 0)), 2)               AS avg_distance_km
+    FROM   orders
+    WHERE  created_at BETWEEN ? AND ?
+      AND  pickup_address   IS NOT NULL
+      AND  delivery_address IS NOT NULL
+    GROUP  BY pickup_address, delivery_address
+    ORDER  BY count DESC
+    LIMIT  10
+  `, [fromStr, toStr])
+
+  // 6. Cargo type breakdown
+  const [cargoRows] = await db.query<any[]>(`
+    SELECT
+      ct.name                                                AS cargo_type,
+      COUNT(o.id)                                            AS count,
+      SUM(COALESCE(o.final_price, o.estimated_price, 0))    AS revenue
+    FROM   orders o
+    JOIN   cargo_types ct ON o.cargo_type_id = ct.id
+    WHERE  o.created_at BETWEEN ? AND ?
+    GROUP  BY ct.id, ct.name
+    ORDER  BY count DESC
+  `, [fromStr, toStr])
+
+  // 7. Average delivery time
+  const [dtRows] = await db.query<any[]>(`
+    SELECT
+      ROUND(AVG(TIMESTAMPDIFF(MINUTE, created_at, delivered_at)) / 60.0, 1) AS avg_hours,
+      ROUND(MIN(TIMESTAMPDIFF(MINUTE, created_at, delivered_at)) / 60.0, 1) AS min_hours,
+      ROUND(MAX(TIMESTAMPDIFF(MINUTE, created_at, delivered_at)) / 60.0, 1) AS max_hours
+    FROM   orders
+    WHERE  status IN ('DELIVERED','COMPLETED')
+      AND  delivered_at IS NOT NULL
+      AND  created_at   BETWEEN ? AND ?
+  `, [fromStr, toStr])
+
+  // 8. Previous period comparison (same duration before fromDate)
+  const durationMs  = toDate.getTime() - fromDate.getTime()
+  const prevFrom    = new Date(fromDate.getTime() - durationMs)
+  const prevFromStr = prevFrom.toISOString().slice(0, 10) + ' 00:00:00'
+  const prevToStr   = fromDate.toISOString().slice(0, 10) + ' 23:59:59'
+
+  const [prevRows] = await db.query<any[]>(`
+    SELECT
+      COUNT(*)                                            AS total_orders,
+      SUM(COALESCE(final_price, estimated_price, 0))     AS total_revenue
+    FROM orders
+    WHERE created_at BETWEEN ? AND ?
+  `, [prevFromStr, prevToStr])
+
+  const s   = summaryRows[0] ?? {}
+  const prev = prevRows[0]   ?? {}
+
+  const byStatus: Record<string, number> = {}
+  for (const r of statusRows) byStatus[r.status] = Number(r.count)
+  const byPayment: Record<string, number> = {}
+  for (const r of paymentRows) byPayment[r.payment_status] = Number(r.count)
+
+  const toDateStr   = toDate.toISOString().slice(0, 10)
+  const fromDateStr = fromDate.toISOString().slice(0, 10)
+
+  return reply.send({
+    success: true,
+    report: {
+      generated_at: new Date().toISOString(),
+      date_range: { from: fromDateStr, to: toDateStr },
+      summary: {
+        total_orders:      Number(s.total_orders     ?? 0),
+        normal_orders:     Number(s.normal_orders    ?? 0),
+        guest_orders:      Number(s.guest_orders     ?? 0),
+        total_revenue:     Number(s.total_revenue    ?? 0),
+        avg_order_value:   Number(s.avg_order_value  ?? 0),
+        active_drivers:    Number(s.active_drivers   ?? 0),
+        total_distance_km: Number(s.total_distance_km ?? 0),
+        completed_orders:  Number(s.completed_orders ?? 0),
+        cancelled_orders:  Number(s.cancelled_orders ?? 0),
+        failed_orders:     Number(s.failed_orders    ?? 0),
+        active_orders:     Number(s.active_orders    ?? 0),
+      },
+      comparison: {
+        prev_total_orders:  Number(prev.total_orders  ?? 0),
+        prev_total_revenue: Number(prev.total_revenue ?? 0),
+      },
+      by_status:         byStatus,
+      by_payment_status: byPayment,
+      daily_trend: dailyRows.map(r => ({
+        date:          r.date instanceof Date ? r.date.toISOString().slice(0, 10) : String(r.date).slice(0, 10),
+        orders:        Number(r.orders),
+        normal_orders: Number(r.normal_orders),
+        guest_orders:  Number(r.guest_orders),
+        revenue:       Number(r.revenue  ?? 0),
+        completed:     Number(r.completed ?? 0),
+      })),
+      top_routes: routeRows.map(r => ({
+        pickup:          r.pickup_address,
+        delivery:        r.delivery_address,
+        count:           Number(r.count),
+        total_revenue:   Number(r.total_revenue  ?? 0),
+        avg_distance_km: Number(r.avg_distance_km ?? 0),
+      })),
+      cargo_breakdown: cargoRows.map(r => ({
+        cargo_type: r.cargo_type,
+        count:      Number(r.count),
+        revenue:    Number(r.revenue ?? 0),
+      })),
+      delivery_time: {
+        avg_hours: dtRows[0]?.avg_hours ?? null,
+        min_hours: dtRows[0]?.min_hours ?? null,
+        max_hours: dtRows[0]?.max_hours ?? null,
+      },
+    },
+  })
+}

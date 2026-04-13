@@ -94,6 +94,7 @@ import {
   adminUpdateContactInfoHandler,
   adminGetAiSettingsHandler,
   adminUpdateAiSettingsHandler,
+  adminOrderReportHandler,
 } from '../controllers/admin.controller.js'
 
 export default async function adminRoutes(fastify: FastifyInstance) {
@@ -151,6 +152,7 @@ export default async function adminRoutes(fastify: FastifyInstance) {
     if (url.includes('/drivers/') && (url.includes('/review-document') || url.includes('/verify') || url.includes('/reject') || url.includes('/status'))) return 'drivers.verify'
     if (url.includes('/users') || url.includes('/staff')) return 'users.manage'
     if (url.includes('/orders')) return 'orders.manage'
+    if (url.includes('/reports/')) return 'orders.manage'
     return 'overview.view'
   }
 
@@ -315,6 +317,9 @@ export default async function adminRoutes(fastify: FastifyInstance) {
 
   /** GET /api/admin/orders/stats — order counts + revenue summary */
   fastify.get('/orders/stats', adminOrderStatsHandler)
+
+  /** GET /api/admin/reports/orders?from=YYYY-MM-DD&to=YYYY-MM-DD — full order report */
+  fastify.get('/reports/orders', adminOrderReportHandler)
 
   /**
    * GET /api/admin/orders/guest — list guest-only orders

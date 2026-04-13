@@ -13,6 +13,7 @@ import AdminWalletAdjustment from '../components/AdminWalletAdjustment'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import logoImg from '../assets/logo.webp'
+import AdminReportsSectionComponent from '../components/AdminReportsSection'
 import {
   LuTruck, LuUser, LuShield, LuPackage, LuPhone, LuMail,
   LuIdCard, LuCircleCheck, LuTriangleAlert, LuCamera, LuTrash2,
@@ -25,7 +26,6 @@ import {
   LuLeaf, LuFlame, LuThermometer, LuHeart, LuMonitor, LuArchive, LuGem, LuFish, LuImage,
   LuMapPin, LuMessageSquare, LuSend, LuNavigation, LuBell,
   LuGlobe, LuWrench, LuBike, LuKey, LuLayoutDashboard, LuLink, LuToggleLeft, LuToggleRight,
-  LuChevronDown,
 } from 'react-icons/lu'
 
 // ─── Upload URL helper ───────────────────────────────────────────────────────
@@ -1664,105 +1664,7 @@ function AdminAiSettingsSection() {
 // ─── Reports Section ─────────────────────────────────────────────────────────
 
 function AdminReportsSection() {
-  const [openSections, setOpenSections] = useState<string[]>(['Orders'])
-
-  const toggleSection = (label: string) => {
-    setOpenSections(prev => prev.includes(label) ? prev.filter(s => s !== label) : [...prev, label])
-  }
-
-  const reportGroups: { label: string; icon: React.ReactNode; reports: { title: string; description: string; icon: React.ReactNode }[] }[] = [
-    {
-      label: 'Orders',
-      icon: <LuListOrdered size={16}/>,
-      reports: [
-        { title: 'Order Analytics', description: 'Breakdown of orders by status, date range, and route.', icon: <LuChartBar size={20}/> },
-        { title: 'Guest Order Report', description: 'Summary of guest orders, conversion rates, and trends.', icon: <LuUsers size={20}/> },
-        { title: 'Order Completion Rate', description: 'Track successful vs failed and cancelled order rates.', icon: <LuBadgeCheck size={20}/> },
-      ],
-    },
-    {
-      label: 'Finance',
-      icon: <LuFileText size={16}/>,
-      reports: [
-        { title: 'Revenue Summary', description: 'Total revenue by period, order type, and route.', icon: <LuChartBar size={20}/> },
-        { title: 'Payment Reviews Report', description: 'Pending and approved payment submissions overview.', icon: <LuFileText size={20}/> },
-        { title: 'Wallet Transactions', description: 'Credit and debit wallet activity across all users.', icon: <LuHistory size={20}/> },
-      ],
-    },
-    {
-      label: 'Drivers',
-      icon: <LuTruck size={16}/>,
-      reports: [
-        { title: 'Driver Performance', description: 'On-time rate, delivery completion, and ratings per driver.', icon: <LuTruck size={20}/> },
-        { title: 'Verification Report', description: 'Status of driver document verifications and approvals.', icon: <LuBadgeCheck size={20}/> },
-        { title: 'Driver Earnings', description: 'Earnings breakdown and payout history per driver.', icon: <LuChartBar size={20}/> },
-      ],
-    },
-    {
-      label: 'Users',
-      icon: <LuPackage size={16}/>,
-      reports: [
-        { title: 'Shipper Activity', description: 'Orders placed, spending trends, and account status.', icon: <LuPackage size={20}/> },
-        { title: 'Staff Activity', description: 'Admin actions, login history, and permission usage.', icon: <LuBriefcase size={20}/> },
-        { title: 'User Growth', description: 'New registrations, churn rate, and active user trends.', icon: <LuUsers size={20}/> },
-      ],
-    },
-    {
-      label: 'Logistics',
-      icon: <LuGlobe size={16}/>,
-      reports: [
-        { title: 'Cross-Border Report', description: 'International shipment volume and route performance.', icon: <LuGlobe size={20}/> },
-        { title: 'Vehicle Utilization', description: 'Fleet usage rates and idle time by vehicle type.', icon: <LuCar size={20}/> },
-        { title: 'Route Analysis', description: 'Most common routes, average distances, and delivery times.', icon: <LuMapPin size={20}/> },
-      ],
-    },
-  ]
-
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', width: '100%' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', marginBottom: '0.25rem' }}>
-        <LuChartBar size={17}/>
-        <h2 style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--clr-text)', margin: 0 }}>Reports</h2>
-        <span style={{ fontSize: '0.7rem', color: 'var(--clr-muted)', marginLeft: '0.25rem' }}>Analytics &amp; Business Intelligence</span>
-      </div>
-
-      {reportGroups.map(group => {
-        const isOpen = openSections.includes(group.label)
-        return (
-          <div key={group.label} className="glass-inner" style={{ padding: 0, overflow: 'hidden', borderRadius: 14 }}>
-            {/* Accordion header */}
-            <button
-              onClick={() => toggleSection(group.label)}
-              style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', width: '100%', padding: '0.85rem 1.1rem', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--clr-text)', textAlign: 'left', borderBottom: isOpen ? '1px solid rgba(255,255,255,0.07)' : 'none', transition: 'border 0.18s' }}
-            >
-              <span style={{ color: 'var(--clr-accent)', display: 'flex', alignItems: 'center' }}>{group.icon}</span>
-              <span style={{ flex: 1, fontWeight: 700, fontSize: '0.9rem' }}>{group.label}</span>
-              <span style={{ fontSize: '0.72rem', color: 'var(--clr-muted)', marginRight: '0.5rem' }}>{group.reports.length} reports</span>
-              <span style={{ color: 'var(--clr-muted)', transition: 'transform 0.2s', transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)', display: 'flex', alignItems: 'center' }}>
-                <LuChevronDown size={15}/>
-              </span>
-            </button>
-
-            {/* Accordion body */}
-            {isOpen && (
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: '0.85rem', padding: '1rem 1.1rem' }}>
-                {group.reports.map(report => (
-                  <div key={report.title} style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 10, padding: '1rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                    <span style={{ color: 'var(--clr-accent)', opacity: 0.7 }}>{report.icon}</span>
-                    <p style={{ margin: 0, fontWeight: 700, fontSize: '0.83rem', color: 'var(--clr-text)' }}>{report.title}</p>
-                    <p style={{ margin: 0, fontSize: '0.72rem', color: 'var(--clr-muted)', lineHeight: 1.5 }}>{report.description}</p>
-                    <button disabled style={{ marginTop: 'auto', padding: '0.38rem 0.85rem', borderRadius: 8, border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.04)', color: 'var(--clr-muted)', fontSize: '0.72rem', fontWeight: 600, cursor: 'not-allowed', fontFamily: 'inherit' }}>
-                      Coming Soon
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )
-      })}
-    </div>
-  )
+  return <AdminReportsSectionComponent />
 }
 
 // ─── Security Events Section ─────────────────────────────────────────────────
