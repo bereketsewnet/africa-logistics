@@ -293,18 +293,7 @@ function CustomSelect({ value, onChange, options }: {
     </div>
   )
 }
-function StatCard({ icon, label, value, sub }: { icon: React.ReactNode; label: string; value: number | string; sub?: string }) {
-  return (
-    <div className="glass-inner" style={{ padding: '1rem 1.1rem', display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', marginBottom: '0.2rem' }}>
-        <span style={{ display:'flex', alignItems:'center', color:'var(--clr-accent)' }}>{icon}</span>
-        <span style={{ fontSize: '0.7rem', color: 'var(--clr-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{label}</span>
-      </div>
-      <span style={{ fontSize: '1.75rem', fontWeight: 800, color: 'var(--clr-text)', lineHeight: 1 }}>{value}</span>
-      {sub && <span style={{ fontSize: '0.7rem', color: 'var(--clr-muted)' }}>{sub}</span>}
-    </div>
-  )
-}
+
 function LoadingSpinner() {
   return (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', padding: '2.5rem', color: 'var(--clr-muted)', fontSize: '0.875rem' }}>
@@ -1869,46 +1858,414 @@ function AdminSettingsHub({ onNav }: { onNav: (s: AdminSection) => void }) {
 
 // ─── Overview section ─────────────────────────────────────────────────────────
 
+/* Animated count-up hook */
+function useCountUp(target: number, duration = 1200) {
+  const [val, setVal] = useState(0)
+  useEffect(() => {
+    if (!target) { setVal(0); return }
+    let start = 0
+    const step = target / (duration / 16)
+    const id = setInterval(() => {
+      start += step
+      if (start >= target) { setVal(target); clearInterval(id) }
+      else setVal(Math.floor(start))
+    }, 16)
+    return () => clearInterval(id)
+  }, [target, duration])
+  return val
+}
+
+/* Mini SVG Pie chart — pure inline SVG, no lib */
+function PieChart({ slices, size = 110 }: { slices: { value: number; color: string; label: string }[]; size?: number }) {
+  const total = slices.reduce((s, x) => s + x.value, 0)
+  if (!total) return <div style={{ width: size, height: size, borderRadius: '50%', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}/>
+  const r = size / 2 - 8
+  const cx = size / 2, cy = size / 2
+  let angle = -Math.PI / 2
+  const paths = slices.filter(s => s.value > 0).map(s => {
+    const sweep = (s.value / total) * 2 * Math.PI
+    const x1 = cx + r * Math.cos(angle), y1 = cy + r * Math.sin(angle)
+    angle += sweep
+    const x2 = cx + r * Math.cos(angle), y2 = cy + r * Math.sin(angle)
+    const large = sweep > Math.PI ? 1 : 0
+    return { d: `M${cx},${cy} L${x1},${y1} A${r},${r},0,${large},1,${x2},${y2} Z`, color: s.color, label: s.label, value: s.value }
+  })
+  return (
+    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ filter: 'drop-shadow(0 4px 16px rgba(0,0,0,0.4))' }}>
+      {paths.map((p, i) => <path key={i} d={p.d} fill={p.color} opacity={0.9} stroke="rgba(8,11,20,0.8)" strokeWidth={1.5}/>)}
+      <circle cx={cx} cy={cy} r={r * 0.52} fill="rgba(8,11,20,0.88)"/>
+    </svg>
+  )
+}
+
+/* Horizontal bar chart — pure SVG */
+function BarChart({ bars, maxVal }: { bars: { label: string; value: number; color: string }[]; maxVal: number }) {
+  const H = 14
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', width: '100%' }}>
+      {bars.map((b, i) => (
+        <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '0.55rem' }}>
+          <span style={{ fontSize: '0.7rem', color: 'var(--clr-muted)', width: 72, flexShrink: 0, textAlign: 'right', fontWeight: 600 }}>{b.label}</span>
+          <div style={{ flex: 1, height: H, borderRadius: 99, background: 'rgba(255,255,255,0.04)', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.05)' }}>
+            <div style={{
+              height: '100%', borderRadius: 99,
+              width: maxVal > 0 ? `${Math.max(2, (b.value / maxVal) * 100)}%` : '2%',
+              background: b.color,
+              boxShadow: `0 0 8px ${b.color}66`,
+              animation: 'progress-fill 1s cubic-bezier(0.4,0,0.2,1) both',
+              animationDelay: `${i * 80}ms`,
+            }}/>
+          </div>
+          <span style={{ fontSize: '0.72rem', fontWeight: 800, color: b.color, width: 28, textAlign: 'left' }}>{b.value}</span>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+/* Sparkline — tiny inline SVG trend line */
+function Sparkline({ data, color, width = 80, height = 32 }: { data: number[]; color: string; width?: number; height?: number }) {
+  if (data.length < 2) return null
+  const max = Math.max(...data) || 1
+  const min = Math.min(...data)
+  const range = max - min || 1
+  const pts = data.map((v, i) => {
+    const x = (i / (data.length - 1)) * width
+    const y = height - ((v - min) / range) * (height - 4) - 2
+    return `${x},${y}`
+  }).join(' ')
+  return (
+    <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none">
+      <polyline points={pts} fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" opacity={0.9}/>
+      <polyline points={`0,${height} ${pts} ${width},${height}`} fill={`${color}18`} stroke="none"/>
+    </svg>
+  )
+}
+
+/* KPI hero card */
+function KpiCard({
+  icon, label, value, sub, color, trend, trendLabel, onClick,
+}: {
+  icon: React.ReactNode; label: string; value: number; sub?: string
+  color: string; trend?: number[]; trendLabel?: string; onClick?: () => void
+}) {
+  const displayed = useCountUp(value)
+  return (
+    <div
+      onClick={onClick}
+      className="glass"
+      style={{
+        padding: '1rem 1.1rem', borderRadius: '1rem', cursor: onClick ? 'pointer' : 'default',
+        border: `1px solid ${color}22`, background: `linear-gradient(135deg,${color}08 0%,rgba(8,11,20,0.5) 100%)`,
+        display: 'flex', flexDirection: 'column', gap: '0.4rem', position: 'relative', overflow: 'hidden',
+        transition: 'transform .18s, box-shadow .18s',
+      }}
+      onMouseEnter={e => { if (onClick) { (e.currentTarget as HTMLElement).style.transform = 'translateY(-3px)'; (e.currentTarget as HTMLElement).style.boxShadow = `0 12px 32px ${color}22` } }}
+      onMouseLeave={e => { (e.currentTarget as HTMLElement).style.transform = ''; (e.currentTarget as HTMLElement).style.boxShadow = '' }}
+    >
+      {/* Glow orb */}
+      <div style={{ position: 'absolute', top: -20, right: -20, width: 80, height: 80, borderRadius: '50%', background: `radial-gradient(circle,${color}20 0%,transparent 70%)`, pointerEvents: 'none' }}/>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+        <div style={{ width: 32, height: 32, borderRadius: '8px', background: `${color}18`, border: `1px solid ${color}30`, display: 'flex', alignItems: 'center', justifyContent: 'center', color }}>
+          {icon}
+        </div>
+        {trend && <Sparkline data={trend} color={color}/>}
+      </div>
+      <div style={{ fontSize: '1.7rem', fontWeight: 900, color: 'var(--clr-text)', lineHeight: 1, letterSpacing: '-0.03em' }}>
+        {displayed.toLocaleString()}
+      </div>
+      <div style={{ fontSize: '0.72rem', fontWeight: 700, color, textTransform: 'uppercase', letterSpacing: '0.08em' }}>{label}</div>
+      {sub && <div style={{ fontSize: '0.68rem', color: 'var(--clr-muted)' }}>{sub}</div>}
+      {trendLabel && <div style={{ fontSize: '0.68rem', color: 'rgba(100,116,139,0.7)' }}>{trendLabel}</div>}
+    </div>
+  )
+}
+
+/* Revenue formatted */
+function fmtMoney(n: number) {
+  if (n >= 1_000_000) return `$${(n / 1_000_000).toFixed(1)}M`
+  if (n >= 1_000)     return `$${(n / 1_000).toFixed(1)}K`
+  return `$${n.toLocaleString()}`
+}
+
+const ORDER_STATUS_META: Record<string, { color: string; label: string }> = {
+  PENDING:          { color: '#fbbf24', label: 'Pending'     },
+  CONFIRMED:        { color: '#60a5fa', label: 'Confirmed'   },
+  ASSIGNED:         { color: '#a78bfa', label: 'Assigned'    },
+  PICKED_UP:        { color: '#38bdf8', label: 'Picked Up'   },
+  IN_TRANSIT:       { color: '#34d399', label: 'In Transit'  },
+  DELIVERED:        { color: '#4ade80', label: 'Delivered'   },
+  COMPLETED:        { color: '#86efac', label: 'Completed'   },
+  CANCELLED:        { color: '#f87171', label: 'Cancelled'   },
+  FAILED:           { color: '#fca5a5', label: 'Failed'      },
+}
+
 function OverviewSection({ stats, users, onNav }: { stats: Stats | null; users: UserRow[]; onNav: (s: AdminSection) => void }) {
-  const recent = [...users].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()).slice(0, 6)
+  const [orderStats,  setOrderStats]  = useState<OrderStats | null>(null)
+  const [walletStats, setWalletStats] = useState<any>(null)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    setLoading(true)
+    Promise.all([
+      adminOrderApi.getStats().catch(() => null),
+      apiClient.get('/admin/wallet-stats').catch(() => null),
+    ]).then(([oRes, wRes]) => {
+      setOrderStats(oRes?.data?.stats ?? null)
+      setWalletStats(wRes?.data ?? null)
+    }).finally(() => setLoading(false))
+  }, [])
+
+  const recent  = [...users].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()).slice(0, 8)
+  const drivers  = users.filter(u => u.role_id === 3)
+  const shippers = users.filter(u => u.role_id === 2)
+  const verifiedDrivers   = drivers.filter(u => u.is_driver_verified)
+  const unverifiedDrivers = drivers.filter(u => !u.is_driver_verified)
+  const activeUsers  = users.filter(u => u.is_active)
+  const pendingVerif = drivers.filter(u => !u.is_driver_verified)
+
+  /* Order bars */
+  const statusEntries = Object.entries(orderStats?.by_status ?? {})
+    .map(([k, v]) => ({ label: ORDER_STATUS_META[k]?.label ?? k, value: v, color: ORDER_STATUS_META[k]?.color ?? '#94a3b8' }))
+    .sort((a, b) => b.value - a.value)
+  const maxOrders = Math.max(...statusEntries.map(e => e.value), 1)
+
+  /* Pie data — user roles */
+  const rolePie = [
+    { label: 'Drivers',  value: drivers.length,  color: '#00e5ff' },
+    { label: 'Shippers', value: shippers.length, color: '#a78bfa' },
+    { label: 'Staff',    value: users.filter(u => [1,4,5].includes(u.role_id)).length, color: '#fbbf24' },
+  ]
+
+  /* Revenue */
+  const totalRevenue = Number(orderStats?.total_revenue ?? 0)
+  const walletBalance = Number(walletStats?.wallet_summary?.total_balance ?? 0)
+  const totalDeposits = Number(walletStats?.manual_payment_summary?.total_deposits ?? 0)
+  const pendingPayAmt = Number(walletStats?.manual_payment_summary?.pending_amount ?? 0)
+
+  /* Simulated sparkline (registrations over last 7 days) */
+  const last7 = Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(); d.setDate(d.getDate() - (6 - i))
+    const ds = d.toISOString().slice(0, 10)
+    return users.filter(u => u.created_at?.slice(0, 10) === ds).length
+  })
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-      <div>
-        <h2 style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--clr-text)', marginBottom: '1rem', display:'flex', alignItems:'center', gap:'0.45rem' }}><LuLayoutDashboard size={17}/> Overview</h2>
-        {stats ? (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(130px,1fr))', gap: '0.65rem' }}>
-            <StatCard icon={<LuUsers size={16}/>}        label="Total"    value={stats.total_users}    sub="all users" />
-            <StatCard icon={<LuCircleCheck size={16}/>}  label="Active"   value={stats.active_users}   sub="accounts" />
-            <StatCard icon={<LuPackage size={16}/>}      label="Shippers" value={stats.total_shippers} />
-            <StatCard icon={<LuTruck size={16}/>}        label="Drivers"  value={stats.total_drivers}  />
-            <StatCard icon={<LuShield size={16}/>}       label="Admins"   value={stats.total_admins}   />
-            <StatCard icon={<LuStar size={16}/>}         label="Today"    value={stats.new_today}      sub="new today" />
-          </div>
-        ) : <LoadingSpinner />}
-      </div>
-      <div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
-          <h3 style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--clr-text)', display:'flex', alignItems:'center', gap:'0.4rem' }}><LuHistory size={15}/> Recent Registrations</h3>
-          <button className="btn-outline" style={{ fontSize: '0.72rem', padding: '0.3rem 0.7rem' }} onClick={() => onNav('shippers')}>View shippers →</button>
+
+      {/* ── Page header ── */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.5rem' }}>
+        <div>
+          <h1 style={{ fontSize: '1.35rem', fontWeight: 900, color: 'var(--clr-text)', margin: 0, letterSpacing: '-0.02em', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <LuLayoutDashboard size={20} color="var(--clr-accent)"/> Platform Overview
+          </h1>
+          <p style={{ fontSize: '0.78rem', color: 'var(--clr-muted)', margin: '0.2rem 0 0' }}>
+            Real-time snapshot · {new Date().toLocaleDateString('en-US', { weekday:'long', month:'long', day:'numeric' })}
+          </p>
         </div>
-        <div className="glass-inner" style={{ overflow: 'hidden' }}>
-          {recent.length === 0 ? (
-            <p style={{ padding: '1.5rem', textAlign: 'center', color: 'var(--clr-muted)', fontSize: '0.85rem' }}>No users yet</p>
-          ) : recent.map((u, i) => (
-            <div key={u.id} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.7rem 1rem', borderBottom: i < recent.length - 1 ? '1px solid rgba(255,255,255,0.05)' : 'none' }}>
-              <UserAvatar u={u} size={32} />
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <p style={{ fontWeight: 600, fontSize: '0.85rem', color: 'var(--clr-text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{u.first_name} {u.last_name}</p>
-                <p style={{ fontSize: '0.73rem', color: 'var(--clr-muted)' }}>{u.phone_number}</p>
+        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+          <button onClick={() => onNav('orders')}   style={{ display:'flex', alignItems:'center', gap:'0.35rem', padding:'0.45rem 0.9rem', borderRadius:'0.6rem', border:'1px solid rgba(0,229,255,0.2)', background:'rgba(0,229,255,0.06)', color:'var(--clr-accent)',   fontFamily:'inherit', fontSize:'0.75rem', fontWeight:700, cursor:'pointer' }}><LuListOrdered size={13}/> Orders</button>
+          <button onClick={() => onNav('drivers')}  style={{ display:'flex', alignItems:'center', gap:'0.35rem', padding:'0.45rem 0.9rem', borderRadius:'0.6rem', border:'1px solid rgba(167,139,250,0.2)', background:'rgba(167,139,250,0.06)', color:'#a78bfa', fontFamily:'inherit', fontSize:'0.75rem', fontWeight:700, cursor:'pointer' }}><LuTruck size={13}/> Drivers</button>
+          <button onClick={() => onNav('payments')} style={{ display:'flex', alignItems:'center', gap:'0.35rem', padding:'0.45rem 0.9rem', borderRadius:'0.6rem', border:'1px solid rgba(74,222,128,0.2)',  background:'rgba(74,222,128,0.06)',  color:'#4ade80', fontFamily:'inherit', fontSize:'0.75rem', fontWeight:700, cursor:'pointer' }}><LuFileText size={13}/> Payments</button>
+        </div>
+      </div>
+
+      {/* ── KPI Hero Row ── */}
+      {stats ? (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(150px,1fr))', gap: '0.75rem' }}>
+          <KpiCard icon={<LuUsers size={15}/>}       label="Total Users"  value={stats.total_users}    color="#00e5ff"  trend={last7} trendLabel={`${stats.new_today} joined today`} onClick={() => onNav('shippers')}/>
+          <KpiCard icon={<LuTruck size={15}/>}       label="Drivers"      value={stats.total_drivers}  color="#a78bfa"  sub={`${verifiedDrivers.length} verified`} onClick={() => onNav('drivers')}/>
+          <KpiCard icon={<LuPackage size={15}/>}     label="Shippers"     value={stats.total_shippers} color="#38bdf8"  onClick={() => onNav('shippers')}/>
+          <KpiCard icon={<LuListOrdered size={15}/>} label="Orders"       value={orderStats?.total_orders ?? 0} color="#4ade80" onClick={() => onNav('orders')}/>
+          <KpiCard icon={<LuCircleCheck size={15}/>} label="Active"       value={activeUsers.length}   color="#fbbf24"  sub={`of ${stats.total_users} accounts`}/>
+          <KpiCard icon={<LuStar size={15}/>}        label="New Today"    value={stats.new_today}      color="#fb923c"  />
+        </div>
+      ) : <LoadingSpinner />}
+
+      {/* ── Revenue + Finance Row ── */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(180px,1fr))', gap: '0.75rem' }}>
+        {[
+          { label: 'Total Revenue',     value: fmtMoney(totalRevenue),    sub: 'from delivered orders',    color: '#4ade80',  icon: <LuChartBar size={15}/> },
+          { label: 'Wallet Balance',    value: fmtMoney(walletBalance),   sub: 'across all wallets',        color: '#00e5ff',  icon: <LuHistory size={15}/> },
+          { label: 'Total Deposits',    value: fmtMoney(totalDeposits),   sub: 'manual payments approved',  color: '#a78bfa',  icon: <LuFileText size={15}/> },
+          { label: 'Pending Payments',  value: fmtMoney(pendingPayAmt),   sub: 'awaiting review',           color: '#fbbf24',  icon: <LuTriangleAlert size={15}/> },
+        ].map(c => (
+          <div key={c.label} className="glass" style={{ padding: '0.9rem 1.1rem', borderRadius: '1rem', border: `1px solid ${c.color}1a`, background: `linear-gradient(135deg,${c.color}07,rgba(8,11,20,0.5))`, display: 'flex', flexDirection: 'column', gap: '0.25rem', position: 'relative', overflow: 'hidden' }}>
+            <div style={{ position: 'absolute', top: -16, right: -16, width: 64, height: 64, borderRadius: '50%', background: `radial-gradient(circle,${c.color}18,transparent 70%)`, pointerEvents: 'none' }}/>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: c.color }}>
+              {c.icon}
+              <span style={{ fontSize: '0.65rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em' }}>{c.label}</span>
+            </div>
+            <div style={{ fontSize: '1.35rem', fontWeight: 900, color: 'var(--clr-text)', letterSpacing: '-0.02em' }}>{loading ? '—' : c.value}</div>
+            <div style={{ fontSize: '0.67rem', color: 'var(--clr-muted)' }}>{c.sub}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* ── Charts row ── */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(260px,1fr))', gap: '1rem' }}>
+
+        {/* Order status bar chart */}
+        <div className="glass" style={{ padding: '1.1rem 1.25rem', borderRadius: '1rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
+            <div>
+              <div style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--clr-text)', display: 'flex', alignItems: 'center', gap: '0.4rem' }}><LuListOrdered size={14} color="var(--clr-accent)"/> Orders by Status</div>
+              <div style={{ fontSize: '0.67rem', color: 'var(--clr-muted)', marginTop: '0.1rem' }}>Total: {orderStats?.total_orders ?? 0}</div>
+            </div>
+            <button onClick={() => onNav('orders')} style={{ fontSize: '0.68rem', padding: '0.25rem 0.6rem', borderRadius: 6, border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.04)', color: 'var(--clr-muted)', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600 }}>View →</button>
+          </div>
+          {loading ? <LoadingSpinner /> : statusEntries.length > 0
+            ? <BarChart bars={statusEntries} maxVal={maxOrders}/>
+            : <p style={{ fontSize: '0.8rem', color: 'var(--clr-muted)', textAlign: 'center', padding: '1rem 0' }}>No orders yet</p>
+          }
+        </div>
+
+        {/* User role pie */}
+        <div className="glass" style={{ padding: '1.1rem 1.25rem', borderRadius: '1rem' }}>
+          <div style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--clr-text)', display: 'flex', alignItems: 'center', gap: '0.4rem', marginBottom: '1rem' }}>
+            <LuUsers size={14} color="#a78bfa"/> User Distribution
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem', flexWrap: 'wrap' }}>
+            <PieChart slices={rolePie} size={110}/>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.55rem' }}>
+              {rolePie.map(s => (
+                <div key={s.label} style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+                  <div style={{ width: 10, height: 10, borderRadius: '50%', background: s.color, flexShrink: 0, boxShadow: `0 0 6px ${s.color}88` }}/>
+                  <span style={{ fontSize: '0.75rem', color: 'var(--clr-muted)', fontWeight: 600 }}>{s.label}</span>
+                  <span style={{ fontSize: '0.78rem', fontWeight: 800, color: s.color, marginLeft: 'auto' }}>{s.value}</span>
+                </div>
+              ))}
+              <div style={{ marginTop: '0.25rem', paddingTop: '0.45rem', borderTop: '1px solid rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+                <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#4ade80', flexShrink: 0, boxShadow: '0 0 6px #4ade8088' }}/>
+                <span style={{ fontSize: '0.75rem', color: 'var(--clr-muted)', fontWeight: 600 }}>Active</span>
+                <span style={{ fontSize: '0.78rem', fontWeight: 800, color: '#4ade80', marginLeft: 'auto' }}>{activeUsers.length}</span>
               </div>
-              <RoleBadge roleId={u.role_id} roleName={u.role_name} />
+            </div>
+          </div>
+        </div>
+
+        {/* Driver verification status */}
+        <div className="glass" style={{ padding: '1.1rem 1.25rem', borderRadius: '1rem' }}>
+          <div style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--clr-text)', display: 'flex', alignItems: 'center', gap: '0.4rem', marginBottom: '1rem' }}>
+            <LuBadgeCheck size={14} color="#4ade80"/> Driver Verification
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
+            {[
+              { label: 'Verified',    value: verifiedDrivers.length,   total: drivers.length, color: '#4ade80' },
+              { label: 'Pending',     value: unverifiedDrivers.length, total: drivers.length, color: '#fbbf24' },
+              { label: 'Active Now',  value: activeUsers.filter(u => u.role_id === 3).length, total: drivers.length, color: '#00e5ff' },
+            ].map(row => (
+              <div key={row.label}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.3rem' }}>
+                  <span style={{ fontSize: '0.72rem', color: 'var(--clr-muted)', fontWeight: 600 }}>{row.label}</span>
+                  <span style={{ fontSize: '0.72rem', fontWeight: 800, color: row.color }}>{row.value} <span style={{ color: 'var(--clr-muted)', fontWeight: 500 }}>/ {row.total}</span></span>
+                </div>
+                <div style={{ height: 6, borderRadius: 99, background: 'rgba(255,255,255,0.04)', overflow: 'hidden' }}>
+                  <div style={{ height: '100%', width: row.total ? `${(row.value / row.total) * 100}%` : '0%', borderRadius: 99, background: row.color, boxShadow: `0 0 6px ${row.color}66`, animation: 'progress-fill 1.2s cubic-bezier(0.4,0,0.2,1) both' }}/>
+                </div>
+              </div>
+            ))}
+            {pendingVerif.length > 0 && (
+              <button onClick={() => onNav('verify-drivers')} style={{ marginTop: '0.35rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem', padding: '0.5rem', borderRadius: '0.6rem', border: '1px solid rgba(251,191,36,0.3)', background: 'rgba(251,191,36,0.06)', color: '#fbbf24', fontFamily: 'inherit', fontSize: '0.75rem', fontWeight: 700, cursor: 'pointer' }}>
+                <LuTriangleAlert size={13}/> {pendingVerif.length} driver{pendingVerif.length > 1 ? 's' : ''} awaiting verification →
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* ── 7-Day registrations sparkline row ── */}
+      <div className="glass" style={{ padding: '1.1rem 1.25rem', borderRadius: '1rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.5rem' }}>
+          <div style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--clr-text)', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+            <LuStar size={14} color="#fb923c"/> Registrations — Last 7 Days
+          </div>
+          <span style={{ fontSize: '0.68rem', color: 'var(--clr-muted)' }}>total: {last7.reduce((a, b) => a + b, 0)} new users</span>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'flex-end', gap: '0.3rem', height: 56 }}>
+          {last7.map((v, i) => {
+            const maxV = Math.max(...last7, 1)
+            const h = Math.max(4, (v / maxV) * 48)
+            const label = new Date(Date.now() - (6 - i) * 86400000).toLocaleDateString('en-US', { weekday: 'short' })
+            return (
+              <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.2rem' }}>
+                <div style={{ fontSize: '0.62rem', fontWeight: 700, color: v > 0 ? '#fb923c' : 'var(--clr-muted)' }}>{v || ''}</div>
+                <div style={{ width: '100%', height: h, borderRadius: '4px 4px 2px 2px', background: v > 0 ? 'linear-gradient(180deg,#fb923c,#f97316)' : 'rgba(255,255,255,0.05)', boxShadow: v > 0 ? '0 0 8px #fb923c44' : 'none', animation: 'progress-fill 0.8s ease both', animationDelay: `${i * 80}ms`, transformOrigin: 'bottom' }}/>
+                <div style={{ fontSize: '0.6rem', color: 'var(--clr-muted)' }}>{label}</div>
+              </div>
+            )
+          })}
+        </div>
+      </div>
+
+      {/* ── Bottom grid: Recent registrations + Quick actions ── */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(280px,1fr))', gap: '1rem' }}>
+
+        {/* Recent users */}
+        <div className="glass" style={{ borderRadius: '1rem', overflow: 'hidden' }}>
+          <div style={{ padding: '0.9rem 1.1rem', borderBottom: '1px solid rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--clr-text)', display: 'flex', alignItems: 'center', gap: '0.4rem' }}><LuHistory size={14} color="var(--clr-accent)"/> Recent Registrations</div>
+            <button onClick={() => onNav('shippers')} style={{ fontSize: '0.68rem', padding: '0.25rem 0.55rem', borderRadius: 6, border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.04)', color: 'var(--clr-muted)', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600 }}>View all →</button>
+          </div>
+          {recent.length === 0 ? (
+            <p style={{ padding: '1.5rem', textAlign: 'center', color: 'var(--clr-muted)', fontSize: '0.82rem' }}>No users yet</p>
+          ) : recent.map((u, i) => (
+            <div key={u.id} style={{ display: 'flex', alignItems: 'center', gap: '0.7rem', padding: '0.65rem 1rem', borderBottom: i < recent.length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none', transition: 'background .15s' }}
+              onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.025)')}
+              onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
+              <UserAvatar u={u} size={30}/>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontWeight: 600, fontSize: '0.82rem', color: 'var(--clr-text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{u.first_name} {u.last_name}</div>
+                <div style={{ fontSize: '0.68rem', color: 'var(--clr-muted)' }}>{u.phone_number}</div>
+              </div>
+              <RoleBadge roleId={u.role_id} roleName={u.role_name}/>
             </div>
           ))}
+        </div>
+
+        {/* Quick stats + shortcuts */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+
+          {/* Pending actions card */}
+          <div className="glass" style={{ padding: '1rem 1.1rem', borderRadius: '1rem', border: '1px solid rgba(251,191,36,0.15)', background: 'linear-gradient(135deg,rgba(251,191,36,0.05),rgba(8,11,20,0.5))' }}>
+            <div style={{ fontSize: '0.72rem', fontWeight: 800, color: '#fbbf24', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}><LuTriangleAlert size={13}/> Action Required</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.55rem' }}>
+              {[
+                { label: 'Drivers awaiting verification', value: pendingVerif.length, nav: 'verify-drivers' as AdminSection, color: '#fbbf24' },
+                { label: 'Payments pending review',       value: '—',                  nav: 'payments'       as AdminSection, color: '#fb923c' },
+                { label: 'Unverified phone numbers',      value: users.filter(u => !u.is_phone_verified).length, nav: 'shippers' as AdminSection, color: '#f87171' },
+              ].map(row => (
+                <div key={row.label} onClick={() => onNav(row.nav)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.5rem 0.75rem', borderRadius: '0.6rem', background: 'rgba(255,255,255,0.03)', border: `1px solid ${row.color}1a`, cursor: 'pointer', transition: 'background .15s' }}
+                  onMouseEnter={e => (e.currentTarget.style.background = `${row.color}0a`)}
+                  onMouseLeave={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.03)')}>
+                  <span style={{ fontSize: '0.74rem', color: 'var(--clr-muted)', fontWeight: 500 }}>{row.label}</span>
+                  <span style={{ fontSize: '0.8rem', fontWeight: 800, color: row.color }}>{row.value}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Quick nav tiles */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.55rem' }}>
+            {([
+              { id: 'orders'        as AdminSection, icon: <LuListOrdered size={18}/>, label: 'Orders',       color: '#4ade80' },
+              { id: 'live-drivers'  as AdminSection, icon: <LuMapPin size={18}/>,      label: 'Live Map',     color: '#00e5ff' },
+              { id: 'payments'      as AdminSection, icon: <LuFileText size={18}/>,    label: 'Payments',     color: '#a78bfa' },
+              { id: 'reports'       as AdminSection, icon: <LuChartBar size={18}/>,    label: 'Reports',      color: '#fb923c' },
+            ] as const).map(tile => (
+              <button key={tile.id} onClick={() => onNav(tile.id as AdminSection)} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '0.4rem', padding: '0.85rem 0.5rem', borderRadius: '0.85rem', border: `1px solid ${tile.color}20`, background: `${tile.color}07`, color: tile.color, fontFamily: 'inherit', fontSize: '0.73rem', fontWeight: 700, cursor: 'pointer', transition: 'all .18s' }}
+                onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = `${tile.color}14`; (e.currentTarget as HTMLElement).style.transform = 'translateY(-2px)' }}
+                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = `${tile.color}07`; (e.currentTarget as HTMLElement).style.transform = '' }}>
+                {tile.icon}{tile.label}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
     </div>
   )
 }
+
 
 // ─── Users list section ───────────────────────────────────────────────────────
 

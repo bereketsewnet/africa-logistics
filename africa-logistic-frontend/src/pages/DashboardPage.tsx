@@ -343,9 +343,10 @@ function BemnetChat({ aiEnabled }: { aiEnabled: boolean }) {
           title="Chat with Bemnet AI"
           style={{
             position:'fixed', bottom:'5rem', right:'1.25rem', zIndex:1200,
-            width:58, height:58, borderRadius:'50%', border:'none', cursor:'pointer', padding:0,
-            background:'linear-gradient(135deg,#6366f1,#8b5cf6)',
-            boxShadow:'0 8px 32px rgba(99,102,241,0.45)',
+            width:58, height:58, borderRadius:'50%', border:'2px solid rgba(0,229,255,0.35)', cursor:'pointer', padding:0,
+            background:'rgba(8,11,20,0.85)',
+            boxShadow:'0 8px 32px rgba(0,0,0,0.6), 0 0 0 1px rgba(0,229,255,0.12)',
+            backdropFilter:'blur(16px)',
             display:'flex', alignItems:'center', justifyContent:'center',
             animation: mounted ? 'fab-pop 0.5s cubic-bezier(0.34,1.56,0.64,1) both, fab-pulse 2.5s 1.5s ease-in-out infinite' : 'none',
             transition:'transform .18s',
