@@ -80,7 +80,7 @@ interface KpiProps {
 function KpiCard({ label, value, sub, change, icon, accent = 'var(--clr-accent)' }: KpiProps) {
   const up = change ? parseFloat(change) > 0 : null
   return (
-    <div style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.09)', borderRadius: 14, padding: '1.1rem 1.2rem', display: 'flex', flexDirection: 'column', gap: '0.5rem', position: 'relative', overflow: 'hidden' }}>
+    <div className="rpt-kpi-card" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.09)', borderRadius: 14, padding: '1.1rem 1.2rem', display: 'flex', flexDirection: 'column', gap: '0.5rem', position: 'relative', overflow: 'hidden' }}>
       <div style={{ position: 'absolute', top: 0, right: 0, width: 80, height: 80, background: `radial-gradient(circle at top right, ${accent}18, transparent 70%)`, pointerEvents: 'none' }} />
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
         <span style={{ fontSize: '0.72rem', fontWeight: 600, color: 'var(--clr-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{label}</span>
@@ -104,9 +104,9 @@ function KpiCard({ label, value, sub, change, icon, accent = 'var(--clr-accent)'
 
 function ChartCard({ title, children, height = 280 }: { title: string; children: React.ReactNode; height?: number }) {
   return (
-    <div style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.09)', borderRadius: 14, padding: '1.2rem' }}>
-      <p style={{ margin: '0 0 1rem', fontWeight: 700, fontSize: '0.83rem', color: 'var(--clr-text)' }}>{title}</p>
-      <div style={{ height, minWidth: 0, overflow: 'hidden' }}>{children}</div>
+    <div className="rpt-chart-card" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.09)', borderRadius: 14, padding: '1.2rem' }}>
+      <p className="rpt-chart-title" style={{ margin: '0 0 1rem', fontWeight: 700, fontSize: '0.83rem', color: 'var(--clr-text)' }}>{title}</p>
+      <div className="rpt-chart-body" style={{ height, minWidth: 0, overflow: 'hidden' }}>{children}</div>
     </div>
   )
 }
@@ -205,16 +205,16 @@ function OrderReportPage() {
     : []
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', width: '100%' }}>
+    <div className="rpt-page" style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', width: '100%' }}>
       {/* ─ Controls bar ─ */}
-      <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '0.65rem', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 12, padding: '0.7rem 1rem' }}>
+      <div className="rpt-controls" style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '0.65rem', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 12, padding: '0.7rem 1rem' }}>
         <LuCalendar size={14} style={{ color: 'var(--clr-muted)', flexShrink: 0 }}/>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flex: '0 0 auto' }}>
+        <div className="rpt-controls-field" style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flex: '0 0 auto' }}>
           <label style={{ fontSize: '0.72rem', color: 'var(--clr-muted)', fontWeight: 600 }}>From</label>
           <input type="date" value={from} max={to} onChange={e => setFrom(e.target.value)}
             style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 8, padding: '0.28rem 0.55rem', color: 'var(--clr-text)', fontSize: '0.78rem', fontFamily: 'inherit', colorScheme: 'dark' }}/>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flex: '0 0 auto' }}>
+        <div className="rpt-controls-field" style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flex: '0 0 auto' }}>
           <label style={{ fontSize: '0.72rem', color: 'var(--clr-muted)', fontWeight: 600 }}>To</label>
           <input type="date" value={to} min={from} onChange={e => setTo(e.target.value)}
             style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 8, padding: '0.28rem 0.55rem', color: 'var(--clr-text)', fontSize: '0.78rem', fontFamily: 'inherit', colorScheme: 'dark' }}/>
@@ -232,7 +232,7 @@ function OrderReportPage() {
           )
         })}
 
-        <div style={{ flex: 1 }}/>
+        <div className="rpt-controls-spacer" style={{ flex: 1 }}/>
         <button onClick={() => load()} disabled={loading}
           style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', padding: '0.38rem 0.85rem', borderRadius: 9, border: '1px solid rgba(255,255,255,0.12)', background: 'rgba(255,255,255,0.06)', color: 'var(--clr-text)', fontSize: '0.78rem', fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
           <LuRefreshCw size={13} style={{ animation: loading ? 'spin 1s linear infinite' : 'none' }}/> Apply
@@ -257,17 +257,17 @@ function OrderReportPage() {
 
       {/* ─ Printable Report Area ─ */}
       {report && !loading && (
-        <div ref={reportRef} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', width: '100%' }}>
+        <div ref={reportRef} className="rpt-page" style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', width: '100%' }}>
           {/* Report Header */}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'linear-gradient(135deg, rgba(0,229,255,0.08), rgba(167,139,250,0.06))', border: '1px solid rgba(0,229,255,0.15)', borderRadius: 14, padding: '1.2rem 1.5rem' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+          <div className="rpt-hdr rpt-report-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'linear-gradient(135deg, rgba(0,229,255,0.08), rgba(167,139,250,0.06))', border: '1px solid rgba(0,229,255,0.15)', borderRadius: 14, padding: '1.2rem 1.5rem' }}>
+            <div className="rpt-report-brand" style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
               <img src={logoImg} alt="Africa Logistics" style={{ height: 44, width: 'auto', objectFit: 'contain', borderRadius: 8 }}/>
               <div>
                 <p style={{ margin: 0, fontWeight: 800, fontSize: '1rem', color: 'var(--clr-text)' }}>Africa Logistics</p>
                 <p style={{ margin: 0, fontSize: '0.72rem', color: 'var(--clr-muted)' }}>Order Performance Report</p>
               </div>
             </div>
-            <div style={{ textAlign: 'right' }}>
+            <div className="rpt-report-meta" style={{ textAlign: 'right' }}>
               <p style={{ margin: 0, fontSize: '0.72rem', color: 'var(--clr-muted)' }}>Report Period</p>
               <p style={{ margin: 0, fontWeight: 700, fontSize: '0.85rem', color: 'var(--clr-text)' }}>
                 {fmtDateFull(report.date_range.from)} — {fmtDateFull(report.date_range.to)}
@@ -321,7 +321,7 @@ function OrderReportPage() {
           </ChartCard>
 
           {/* ─ Charts Row 2: Normal vs Guest + Status Pie ─ */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.85rem' }}>
+          <div className="rpt-grid-2">
             <ChartCard title="Normal vs Guest Orders — Daily" height={240}>
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={report.daily_trend} margin={{ top: 5, right: 5, left: 0, bottom: 0 }}>
@@ -351,7 +351,7 @@ function OrderReportPage() {
           </div>
 
           {/* ─ Charts Row 3: Revenue Bar + Payment Status ─ */}
-          <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '0.85rem' }}>
+          <div className="rpt-grid-21">
             <ChartCard title="Daily Revenue Breakdown" height={240}>
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={report.daily_trend} margin={{ top: 5, right: 5, left: 0, bottom: 0 }}>
@@ -405,7 +405,7 @@ function OrderReportPage() {
               <LuChartColumnBig size={15} style={{ color: 'var(--clr-accent)' }}/>
               <p style={{ margin: 0, fontWeight: 700, fontSize: '0.83rem', color: 'var(--clr-text)' }}>Status Breakdown</p>
             </div>
-            <div style={{ overflowX: 'auto' }}>
+            <div className="rpt-table-scroll" style={{ overflowX: 'auto' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.78rem' }}>
                 <thead>
                   <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
@@ -447,7 +447,7 @@ function OrderReportPage() {
                 <LuMapPin size={15} style={{ color: 'var(--clr-accent)' }}/>
                 <p style={{ margin: 0, fontWeight: 700, fontSize: '0.83rem', color: 'var(--clr-text)' }}>Top Routes</p>
               </div>
-              <div style={{ overflowX: 'auto' }}>
+              <div className="rpt-table-scroll" style={{ overflowX: 'auto' }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.78rem' }}>
                   <thead>
                     <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
@@ -479,7 +479,7 @@ function OrderReportPage() {
 
           {/* ─ Delivery Time Summary ─ */}
           {report.delivery_time.avg_hours != null && (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.85rem' }}>
+            <div className="rpt-grid-3">
               <KpiCard label="Avg Delivery Time" value={`${report.delivery_time.avg_hours}h`} sub="hours from order to delivery" icon={<LuClock size={18}/>} accent="#fb923c"/>
               <KpiCard label="Fastest Delivery" value={`${report.delivery_time.min_hours}h`} sub="minimum hours" icon={<LuTrendingUp size={18}/>} accent="#4ade80"/>
               <KpiCard label="Slowest Delivery" value={`${report.delivery_time.max_hours}h`} sub="maximum hours" icon={<LuTrendingDown size={18}/>} accent="#f87171"/>
@@ -487,7 +487,7 @@ function OrderReportPage() {
           )}
 
           {/* ─ Report Footer ─ */}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.75rem 1rem', borderTop: '1px solid rgba(255,255,255,0.07)', fontSize: '0.68rem', color: 'var(--clr-muted)' }}>
+          <div className="rpt-footer-row" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.75rem 1rem', borderTop: '1px solid rgba(255,255,255,0.07)', fontSize: '0.68rem', color: 'var(--clr-muted)' }}>
             <span>Africa Logistics — Confidential Business Report</span>
             <span>Generated on {new Date(report.generated_at).toLocaleString('en-ET')}</span>
           </div>
@@ -593,13 +593,13 @@ function FinanceReportPage() {
   const vehicleData = report?.revenue_by_vehicle ?? []
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', width: '100%' }}>
+    <div className="rpt-page" style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', width: '100%' }}>
 
       {/* Controls bar */}
-      <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '0.65rem', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 12, padding: '0.7rem 1rem' }}>
+      <div className="rpt-controls" style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '0.65rem', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 12, padding: '0.7rem 1rem' }}>
         <LuCalendar size={14} style={{ color: 'var(--clr-muted)', flexShrink: 0 }}/>
         {(['From', 'To'] as const).map((lbl, i) => (
-          <div key={lbl} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+          <div key={lbl} className="rpt-controls-field" style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
             <label style={{ fontSize: '0.72rem', color: 'var(--clr-muted)', fontWeight: 600 }}>{lbl}</label>
             <input type="date" value={i === 0 ? from : to} max={i === 0 ? to : undefined} min={i === 1 ? from : undefined}
               onChange={e => i === 0 ? setFrom(e.target.value) : setTo(e.target.value)}
@@ -616,7 +616,7 @@ function FinanceReportPage() {
             </button>
           )
         })}
-        <div style={{ flex: 1 }}/>
+        <div className="rpt-controls-spacer" style={{ flex: 1 }}/>
         <button onClick={() => load()} disabled={loading}
           style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', padding: '0.38rem 0.85rem', borderRadius: 9, border: '1px solid rgba(255,255,255,0.12)', background: 'rgba(255,255,255,0.06)', color: 'var(--clr-text)', fontSize: '0.78rem', fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
           <LuRefreshCw size={13} style={{ animation: loading ? 'spin 1s linear infinite' : 'none' }}/> Apply
@@ -640,18 +640,18 @@ function FinanceReportPage() {
       )}
 
       {report && !loading && (
-        <div ref={reportRef} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', width: '100%' }}>
+        <div ref={reportRef} className="rpt-page" style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', width: '100%' }}>
 
           {/* Report header */}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'linear-gradient(135deg, rgba(251,191,36,0.08), rgba(167,139,250,0.06))', border: '1px solid rgba(251,191,36,0.2)', borderRadius: 14, padding: '1.2rem 1.5rem' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+          <div className="rpt-hdr rpt-report-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'linear-gradient(135deg, rgba(251,191,36,0.08), rgba(167,139,250,0.06))', border: '1px solid rgba(251,191,36,0.2)', borderRadius: 14, padding: '1.2rem 1.5rem' }}>
+            <div className="rpt-report-brand" style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
               <img src={logoImg} alt="Africa Logistics" style={{ height: 44, width: 'auto', objectFit: 'contain', borderRadius: 8 }}/>
               <div>
                 <p style={{ margin: 0, fontWeight: 800, fontSize: '1rem', color: 'var(--clr-text)' }}>Africa Logistics</p>
                 <p style={{ margin: 0, fontSize: '0.72rem', color: 'var(--clr-muted)' }}>Finance & Revenue Report</p>
               </div>
             </div>
-            <div style={{ textAlign: 'right' }}>
+            <div className="rpt-report-meta" style={{ textAlign: 'right' }}>
               <p style={{ margin: 0, fontSize: '0.72rem', color: 'var(--clr-muted)' }}>Report Period</p>
               <p style={{ margin: 0, fontWeight: 700, fontSize: '0.85rem', color: 'var(--clr-text)' }}>
                 {fmtDateFull(report.date_range.from)} — {fmtDateFull(report.date_range.to)}
@@ -709,7 +709,7 @@ function FinanceReportPage() {
           </ChartCard>
 
           {/* ─ Vehicle Revenue + Wallet Breakdown ─ */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.85rem' }}>
+          <div className="rpt-grid-2">
             <ChartCard title="Revenue by Vehicle Type" height={240}>
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={vehicleData} layout="vertical" margin={{ top: 5, right: 50, left: 0, bottom: 0 }}>
@@ -828,7 +828,7 @@ function FinanceReportPage() {
                 <LuWallet size={15} style={{ color: 'var(--clr-accent)' }}/>
                 <p style={{ margin: 0, fontWeight: 700, fontSize: '0.83rem', color: 'var(--clr-text)' }}>Wallet Transaction Breakdown</p>
               </div>
-              <div style={{ overflowX: 'auto' }}>
+              <div className="rpt-table-scroll" style={{ overflowX: 'auto' }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.78rem' }}>
                   <thead>
                     <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
@@ -875,7 +875,7 @@ function FinanceReportPage() {
                 <LuUser size={15} style={{ color: 'var(--clr-accent)' }}/>
                 <p style={{ margin: 0, fontWeight: 700, fontSize: '0.83rem', color: 'var(--clr-text)' }}>Top Revenue Shippers</p>
               </div>
-              <div style={{ overflowX: 'auto' }}>
+              <div className="rpt-table-scroll" style={{ overflowX: 'auto' }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.78rem' }}>
                   <thead>
                     <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
@@ -904,7 +904,7 @@ function FinanceReportPage() {
           )}
 
           {/* Report footer */}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.75rem 1rem', borderTop: '1px solid rgba(255,255,255,0.07)', fontSize: '0.68rem', color: 'var(--clr-muted)' }}>
+          <div className="rpt-footer-row" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.75rem 1rem', borderTop: '1px solid rgba(255,255,255,0.07)', fontSize: '0.68rem', color: 'var(--clr-muted)' }}>
             <span>Africa Logistics — Confidential Finance Report</span>
             <span>Generated on {new Date(report.generated_at).toLocaleString('en-ET')}</span>
           </div>
@@ -1036,13 +1036,13 @@ function DriverReportPage() {
   }))
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', width: '100%' }}>
+    <div className="rpt-page" style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', width: '100%' }}>
 
       {/* Controls bar */}
-      <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '0.65rem', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 12, padding: '0.7rem 1rem' }}>
+      <div className="rpt-controls" style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '0.65rem', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 12, padding: '0.7rem 1rem' }}>
         <LuCalendar size={14} style={{ color: 'var(--clr-muted)', flexShrink: 0 }}/>
         {(['From', 'To'] as const).map((lbl, i) => (
-          <div key={lbl} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+          <div key={lbl} className="rpt-controls-field" style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
             <label style={{ fontSize: '0.72rem', color: 'var(--clr-muted)', fontWeight: 600 }}>{lbl}</label>
             <input type="date" value={i === 0 ? from : to} max={i === 0 ? to : undefined} min={i === 1 ? from : undefined}
               onChange={e => i === 0 ? setFrom(e.target.value) : setTo(e.target.value)}
@@ -1059,7 +1059,7 @@ function DriverReportPage() {
             </button>
           )
         })}
-        <div style={{ flex: 1 }}/>
+        <div className="rpt-controls-spacer" style={{ flex: 1 }}/>
         <button onClick={() => load()} disabled={loading}
           style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', padding: '0.38rem 0.85rem', borderRadius: 9, border: '1px solid rgba(255,255,255,0.12)', background: 'rgba(255,255,255,0.06)', color: 'var(--clr-text)', fontSize: '0.78rem', fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
           <LuRefreshCw size={13} style={{ animation: loading ? 'spin 1s linear infinite' : 'none' }}/> Apply
@@ -1083,18 +1083,18 @@ function DriverReportPage() {
       )}
 
       {report && !loading && (
-        <div ref={reportRef} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', width: '100%' }}>
+        <div ref={reportRef} className="rpt-page" style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', width: '100%' }}>
 
           {/* Report header */}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'linear-gradient(135deg, rgba(129,140,248,0.08), rgba(52,211,153,0.06))', border: '1px solid rgba(129,140,248,0.2)', borderRadius: 14, padding: '1.2rem 1.5rem' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+          <div className="rpt-hdr rpt-report-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'linear-gradient(135deg, rgba(129,140,248,0.08), rgba(52,211,153,0.06))', border: '1px solid rgba(129,140,248,0.2)', borderRadius: 14, padding: '1.2rem 1.5rem' }}>
+            <div className="rpt-report-brand" style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
               <img src={logoImg} alt="Africa Logistics" style={{ height: 44, width: 'auto', objectFit: 'contain', borderRadius: 8 }}/>
               <div>
                 <p style={{ margin: 0, fontWeight: 800, fontSize: '1rem', color: 'var(--clr-text)' }}>Africa Logistics</p>
                 <p style={{ margin: 0, fontSize: '0.72rem', color: 'var(--clr-muted)' }}>Driver Performance & Fleet Report</p>
               </div>
             </div>
-            <div style={{ textAlign: 'right' }}>
+            <div className="rpt-report-meta" style={{ textAlign: 'right' }}>
               <p style={{ margin: 0, fontSize: '0.72rem', color: 'var(--clr-muted)' }}>Report Period</p>
               <p style={{ margin: 0, fontWeight: 700, fontSize: '0.85rem', color: 'var(--clr-text)' }}>
                 {fmtDateFull(report.date_range.from)} — {fmtDateFull(report.date_range.to)}
@@ -1122,7 +1122,7 @@ function DriverReportPage() {
           </div>
 
           {/* ─ Driver Status Pie + Vehicle Fleet Pie ─ */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.85rem' }}>
+          <div className="rpt-grid-2">
             <ChartCard title="Driver Status Distribution" height={240}>
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
@@ -1178,7 +1178,7 @@ function DriverReportPage() {
           )}
 
           {/* ─ Rating Distribution + Trip Buckets ─ */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.85rem' }}>
+          <div className="rpt-grid-2">
 
             {/* Star rating bars */}
             <div style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.09)', borderRadius: 14, padding: '1.1rem 1.25rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
@@ -1241,7 +1241,7 @@ function DriverReportPage() {
                 <LuBadgeCheck size={15} style={{ color: '#4ade80' }}/>
                 <p style={{ margin: 0, fontWeight: 700, fontSize: '0.83rem', color: 'var(--clr-text)' }}>Document Verification Status</p>
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)' }}>
+              <div className="rpt-grid-3-doc">
                 {[
                   { label: 'National ID', approved: docs.nat_id_approved, pending: docs.nat_id_pending },
                   { label: 'License',     approved: docs.license_approved,  pending: docs.license_pending },
@@ -1273,7 +1273,7 @@ function DriverReportPage() {
                 <LuTruck size={15} style={{ color: 'var(--clr-accent)' }}/>
                 <p style={{ margin: 0, fontWeight: 700, fontSize: '0.83rem', color: 'var(--clr-text)' }}>Top 10 Drivers by Earnings</p>
               </div>
-              <div style={{ overflowX: 'auto' }}>
+              <div className="rpt-table-scroll" style={{ overflowX: 'auto' }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.78rem' }}>
                   <thead>
                     <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
@@ -1319,7 +1319,7 @@ function DriverReportPage() {
           )}
 
           {/* Report footer */}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.75rem 1rem', borderTop: '1px solid rgba(255,255,255,0.07)', fontSize: '0.68rem', color: 'var(--clr-muted)' }}>
+          <div className="rpt-footer-row" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.75rem 1rem', borderTop: '1px solid rgba(255,255,255,0.07)', fontSize: '0.68rem', color: 'var(--clr-muted)' }}>
             <span>Africa Logistics — Confidential Driver & Fleet Report</span>
             <span>Generated on {new Date(report.generated_at).toLocaleString('en-ET')}</span>
           </div>
@@ -1421,13 +1421,13 @@ function LogisticsReportPage() {
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', width: '100%' }}>
+    <div className="rpt-page" style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', width: '100%' }}>
 
       {/* Controls bar */}
-      <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '0.65rem', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 12, padding: '0.7rem 1rem' }}>
+      <div className="rpt-controls" style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '0.65rem', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 12, padding: '0.7rem 1rem' }}>
         <LuCalendar size={14} style={{ color: 'var(--clr-muted)', flexShrink: 0 }}/>
         {(['From', 'To'] as const).map((lbl, i) => (
-          <div key={lbl} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+          <div key={lbl} className="rpt-controls-field" style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
             <label style={{ fontSize: '0.72rem', color: 'var(--clr-muted)', fontWeight: 600 }}>{lbl}</label>
             <input type="date" value={i === 0 ? from : to} max={i === 0 ? to : undefined} min={i === 1 ? from : undefined}
               onChange={e => i === 0 ? setFrom(e.target.value) : setTo(e.target.value)}
@@ -1444,7 +1444,7 @@ function LogisticsReportPage() {
             </button>
           )
         })}
-        <div style={{ flex: 1 }}/>
+        <div className="rpt-controls-spacer" style={{ flex: 1 }}/>
         <button onClick={() => load()} disabled={loading}
           style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', padding: '0.38rem 0.85rem', borderRadius: 9, border: '1px solid rgba(255,255,255,0.12)', background: 'rgba(255,255,255,0.06)', color: 'var(--clr-text)', fontSize: '0.78rem', fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
           <LuRefreshCw size={13} style={{ animation: loading ? 'spin 1s linear infinite' : 'none' }}/> Apply
@@ -1468,18 +1468,18 @@ function LogisticsReportPage() {
       )}
 
       {report && !loading && (
-        <div ref={reportRef} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', width: '100%' }}>
+        <div ref={reportRef} className="rpt-page" style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', width: '100%' }}>
 
           {/* Report header */}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'linear-gradient(135deg, rgba(56,189,248,0.08), rgba(74,222,128,0.06))', border: '1px solid rgba(56,189,248,0.2)', borderRadius: 14, padding: '1.2rem 1.5rem' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+          <div className="rpt-hdr rpt-report-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'linear-gradient(135deg, rgba(56,189,248,0.08), rgba(74,222,128,0.06))', border: '1px solid rgba(56,189,248,0.2)', borderRadius: 14, padding: '1.2rem 1.5rem' }}>
+            <div className="rpt-report-brand" style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
               <img src={logoImg} alt="Africa Logistics" style={{ height: 44, width: 'auto', objectFit: 'contain', borderRadius: 8 }}/>
               <div>
                 <p style={{ margin: 0, fontWeight: 800, fontSize: '1rem', color: 'var(--clr-text)' }}>Africa Logistics</p>
                 <p style={{ margin: 0, fontSize: '0.72rem', color: 'var(--clr-muted)' }}>Logistics Operations & Network Report</p>
               </div>
             </div>
-            <div style={{ textAlign: 'right' }}>
+            <div className="rpt-report-meta" style={{ textAlign: 'right' }}>
               <p style={{ margin: 0, fontSize: '0.72rem', color: 'var(--clr-muted)' }}>Report Period</p>
               <p style={{ margin: 0, fontWeight: 700, fontSize: '0.85rem', color: 'var(--clr-text)' }}>
                 {fmtDateFull(report.date_range.from)} — {fmtDateFull(report.date_range.to)}
@@ -1537,7 +1537,7 @@ function LogisticsReportPage() {
           )}
 
           {/* ─ Status Pie + Vehicle Breakdown ─ */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.85rem' }}>
+          <div className="rpt-grid-2">
             <ChartCard title="Orders by Status" height={260}>
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
@@ -1588,7 +1588,7 @@ function LogisticsReportPage() {
           )}
 
           {/* ─ Cargo Types + Stage Times ─ */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.85rem' }}>
+          <div className="rpt-grid-2">
             {/* Cargo type table */}
             <div style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.09)', borderRadius: 14, overflow: 'hidden' }}>
               <div style={{ padding: '0.9rem 1.2rem', borderBottom: '1px solid rgba(255,255,255,0.07)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
@@ -1659,7 +1659,7 @@ function LogisticsReportPage() {
                 <LuRoute size={15} style={{ color: '#34d399' }}/>
                 <p style={{ margin: 0, fontWeight: 700, fontSize: '0.83rem', color: 'var(--clr-text)' }}>Top Routes</p>
               </div>
-              <div style={{ overflowX: 'auto' }}>
+              <div className="rpt-table-scroll" style={{ overflowX: 'auto' }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.78rem' }}>
                   <thead>
                     <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
@@ -1709,7 +1709,7 @@ function LogisticsReportPage() {
                 <LuGlobe size={15} style={{ color: '#a78bfa' }}/>
                 <p style={{ margin: 0, fontWeight: 700, fontSize: '0.83rem', color: 'var(--clr-text)' }}>Cross-Border Documents</p>
               </div>
-              <div style={{ overflowX: 'auto' }}>
+              <div className="rpt-table-scroll" style={{ overflowX: 'auto' }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.78rem' }}>
                   <thead>
                     <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
@@ -1752,7 +1752,7 @@ function LogisticsReportPage() {
                 <LuCoins size={15} style={{ color: '#fbbf24' }}/>
                 <p style={{ margin: 0, fontWeight: 700, fontSize: '0.83rem', color: 'var(--clr-text)' }}>Extra Charges Breakdown</p>
               </div>
-              <div style={{ overflowX: 'auto' }}>
+              <div className="rpt-table-scroll" style={{ overflowX: 'auto' }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.78rem' }}>
                   <thead>
                     <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
@@ -1779,7 +1779,7 @@ function LogisticsReportPage() {
           )}
 
           {/* Report footer */}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.75rem 1rem', borderTop: '1px solid rgba(255,255,255,0.07)', fontSize: '0.68rem', color: 'var(--clr-muted)' }}>
+          <div className="rpt-footer-row" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.75rem 1rem', borderTop: '1px solid rgba(255,255,255,0.07)', fontSize: '0.68rem', color: 'var(--clr-muted)' }}>
             <span>Africa Logistics — Confidential Logistics Operations Report</span>
             <span>Generated on {new Date(report.generated_at).toLocaleString('en-ET')}</span>
           </div>
@@ -1805,7 +1805,57 @@ export default function AdminReportsSection() {
   const [activeTab, setActiveTab] = useState<ReportTab>('orders')
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.1rem', width: '100%' }}>
+    <div className="rpt-page" style={{ display: 'flex', flexDirection: 'column', gap: '1.1rem', width: '100%' }}>
+      <style>{`
+        /* ── Responsive report layout classes ── */
+        .rpt-page      { min-width: 0; }
+        .rpt-kpi-card  { min-width: 0; }
+        .rpt-chart-card, .rpt-chart-body { min-width: 0; }
+        .rpt-controls  { min-width: 0; }
+        .rpt-controls > * { min-width: 0; }
+        .rpt-controls-field { min-width: 0; }
+        .rpt-controls-field input { min-width: 135px; max-width: 100%; }
+        .rpt-table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+        .rpt-table-scroll table { min-width: 560px; }
+        .rpt-grid-2    { display: grid; grid-template-columns: 1fr 1fr; gap: 0.85rem; }
+        .rpt-grid-21   { display: grid; grid-template-columns: 2fr 1fr; gap: 0.85rem; }
+        .rpt-grid-3    { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.85rem; }
+        .rpt-grid-3-doc{ display: grid; grid-template-columns: repeat(3, 1fr); }
+        /* Prevent grid children from overflowing / causing recharts -1 */
+        .rpt-grid-2 > *, .rpt-grid-21 > *, .rpt-grid-3 > * { min-width: 0; }
+        .rpt-hdr       { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; flex-wrap: wrap; }
+        .rpt-report-brand { min-width: 0; }
+        .rpt-report-meta  { min-width: 220px; }
+        .rpt-footer-row{ display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.25rem; }
+        .rpt-nav-shell { width: 100%; overflow-x: auto; }
+        .rpt-nav-pills { display: inline-flex; align-items: center; gap: 0.3rem; min-width: max-content; max-width: 100%; }
+        /* ── Tablet (≤ 980px) ── */
+        @media (max-width: 980px) {
+          .rpt-grid-2     { grid-template-columns: 1fr; }
+          .rpt-grid-21    { grid-template-columns: 1fr; }
+          .rpt-grid-3     { grid-template-columns: 1fr 1fr; }
+          .rpt-grid-3-doc { grid-template-columns: 1fr 1fr; }
+          .rpt-controls-spacer { display: none; }
+          .rpt-report-header { padding: 1rem 1.1rem !important; }
+        }
+        /* ── Mobile (≤ 580px) ── */
+        @media (max-width: 580px) {
+          .rpt-grid-2     { grid-template-columns: 1fr; }
+          .rpt-grid-21    { grid-template-columns: 1fr; }
+          .rpt-grid-3     { grid-template-columns: 1fr; }
+          .rpt-grid-3-doc { grid-template-columns: 1fr; }
+          .rpt-controls { padding: 0.75rem !important; }
+          .rpt-controls-field { flex: 1 1 100%; }
+          .rpt-controls-field input { width: 100%; min-width: 0; }
+          .rpt-table-scroll table { min-width: 460px; }
+          .rpt-hdr        { flex-direction: column; align-items: flex-start; }
+          .rpt-report-brand { width: 100%; }
+          .rpt-report-meta { min-width: 0; width: 100%; }
+          .rpt-hdr > *:last-child { text-align: left !important; }
+          .rpt-footer-row { flex-direction: column; text-align: center; }
+          .rpt-nav-pills  { width: max-content; }
+        }
+      `}</style>
       {/* Page heading */}
       <div>
         <h2 style={{ margin: '0 0 0.2rem', fontSize: '1rem', fontWeight: 800, color: 'var(--clr-text)', display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
@@ -1815,16 +1865,18 @@ export default function AdminReportsSection() {
       </div>
 
       {/* Floating nav header */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.09)', borderRadius: 50, padding: '0.3rem 0.4rem', width: 'fit-content', boxShadow: '0 4px 20px rgba(0,0,0,0.3)' }}>
-        {REPORT_TABS.map(tab => {
-          const active = activeTab === tab.id
-          return (
-            <button key={tab.id} onClick={() => setActiveTab(tab.id)}
-              style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', padding: '0.42rem 1rem', borderRadius: 50, border: 'none', background: active ? 'var(--clr-accent)' : 'transparent', color: active ? '#000' : 'var(--clr-muted)', fontFamily: 'inherit', fontSize: '0.8rem', fontWeight: 700, cursor: 'pointer', transition: 'all 0.18s', whiteSpace: 'nowrap' }}>
-              {tab.icon} {tab.label}
-            </button>
-          )
-        })}
+      <div className="rpt-nav-shell">
+        <div className="rpt-nav-pills" style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.09)', borderRadius: 50, padding: '0.3rem 0.4rem', width: 'fit-content', boxShadow: '0 4px 20px rgba(0,0,0,0.3)' }}>
+          {REPORT_TABS.map(tab => {
+            const active = activeTab === tab.id
+            return (
+              <button key={tab.id} onClick={() => setActiveTab(tab.id)}
+                style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', padding: '0.42rem 1rem', borderRadius: 50, border: 'none', background: active ? 'var(--clr-accent)' : 'transparent', color: active ? '#000' : 'var(--clr-muted)', fontFamily: 'inherit', fontSize: '0.8rem', fontWeight: 700, cursor: 'pointer', transition: 'all 0.18s', whiteSpace: 'nowrap' }}>
+                {tab.icon} {tab.label}
+              </button>
+            )
+          })}
+        </div>
       </div>
 
       {/* Tab content */}
