@@ -11,7 +11,9 @@ import {
   LuDownload, LuRefreshCw, LuCalendar, LuTrendingUp,
   LuTrendingDown, LuPackage, LuCircleCheck, LuCircleX,
   LuClock, LuUsers, LuMapPin, LuChartColumnBig, LuActivity,
-  LuTriangleAlert, LuBox,
+  LuTriangleAlert, LuWallet, LuBanknote, LuArrowDownLeft,
+  LuArrowUpRight, LuReceipt, LuCoins, LuShieldCheck, LuUser,
+  LuStar, LuThumbsUp, LuBadgeCheck, LuBan, LuCircleDot,
 } from 'react-icons/lu'
 import jsPDF from 'jspdf'
 import html2canvas from 'html2canvas'
@@ -498,6 +500,835 @@ function OrderReportPage() {
 
 // ─── Finance / Drivers / Logistics placeholders ───────────────────────────────
 
+// ─── Finance Report Types ─────────────────────────────────────────────────────
+
+interface FinanceReport {
+  generated_at: string
+  date_range: { from: string; to: string }
+  revenue: {
+    gross_revenue: number; settled_revenue: number; escrowed_revenue: number
+    unpaid_revenue: number; total_orders: number; paid_orders: number
+    avg_order_revenue: number; prev_gross_revenue: number
+  }
+  daily_revenue: { date: string; revenue: number; settled: number; escrowed: number; orders: number }[]
+  revenue_by_vehicle: { vehicle_type: string; orders: number; revenue: number }[]
+  manual_payments: {
+    total: number; pending_count: number; approved_count: number; rejected_count: number
+    approved_amount: number; pending_amount: number; total_deposits: number
+    total_withdrawals: number; total_refunds: number; total_adjustments: number
+    prev_approved_amount: number
+  }
+  manual_payments_daily: { date: string; count: number; approved_amount: number; pending_amount: number }[]
+  wallet_by_type: { transaction_type: string; count: number; total_amount: number }[]
+  wallet_daily: { date: string; credits: number; debits: number; transactions: number }[]
+  top_shippers: { name: string; email: string; phone: string; orders: number; revenue: number }[]
+  invoices: {
+    total_invoices: number; total_billed: number; total_driver_payout: number
+    total_commission: number; total_tips: number; total_extra_charges: number; avg_invoice_amount: number
+  }
+}
+
+const WALLET_TYPE_COLORS: Record<string, string> = {
+  CREDIT: '#4ade80', DEBIT: '#f87171', COMMISSION: '#fbbf24',
+  TIP: '#a78bfa', REFUND: '#38bdf8', BONUS: '#34d399', ADMIN_ADJUSTMENT: '#f97316',
+}
+
+// ─── Finance Report Page ──────────────────────────────────────────────────────
+
+function FinanceReportPage() {
+  const today = new Date()
+  const defaultTo   = today.toISOString().slice(0, 10)
+  const defaultFrom = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
+
+  const [from, setFrom]       = useState(defaultFrom)
+  const [to, setTo]           = useState(defaultTo)
+  const [report, setReport]   = useState<FinanceReport | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [error, setError]     = useState('')
+  const [downloading, setDownloading] = useState(false)
+  const reportRef = useRef<HTMLDivElement>(null)
+
+  const load = useCallback(async (f = from, t = to) => {
+    setLoading(true); setError('')
+    try {
+      const { data } = await apiClient.get('/admin/reports/finance', { params: { from: f, to: t } })
+      setReport(data.report)
+    } catch { setError('Failed to load finance report. Please try again.') }
+    finally   { setLoading(false) }
+  }, [from, to])
+
+  useEffect(() => { load() }, []) // eslint-disable-line
+
+  const handleDownload = async () => {
+    if (!reportRef.current) return
+    setDownloading(true)
+    try {
+      const canvas = await html2canvas(reportRef.current, { scale: 2, useCORS: true, backgroundColor: '#0f1220', logging: false })
+      const imgData = canvas.toDataURL('image/png')
+      const pdf = new jsPDF('p', 'mm', 'a4')
+      const pw = pdf.internal.pageSize.getWidth()
+      const ph = pdf.internal.pageSize.getHeight()
+      const ih = (canvas.height * pw) / canvas.width
+      let yPos = 0; let rem = ih
+      while (rem > 0) {
+        pdf.addImage(imgData, 'PNG', 0, -yPos, pw, ih)
+        rem -= ph; yPos += ph
+        if (rem > 0) pdf.addPage()
+      }
+      pdf.save(`Finance_Report_${from}_to_${to}.pdf`)
+    } catch { /**/ } finally { setDownloading(false) }
+  }
+
+  const r = report?.revenue
+  const mp = report?.manual_payments
+  const inv = report?.invoices
+  const changeRev = r ? pct(r.gross_revenue, r.prev_gross_revenue) : null
+  const changePay = mp ? pct(mp.approved_amount, mp.prev_approved_amount) : null
+
+  const walletPieData = report?.wallet_by_type.map(w => ({
+    name: w.transaction_type, value: w.total_amount, fill: WALLET_TYPE_COLORS[w.transaction_type] ?? '#888'
+  })) ?? []
+
+  const vehicleData = report?.revenue_by_vehicle ?? []
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', width: '100%' }}>
+
+      {/* Controls bar */}
+      <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '0.65rem', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 12, padding: '0.7rem 1rem' }}>
+        <LuCalendar size={14} style={{ color: 'var(--clr-muted)', flexShrink: 0 }}/>
+        {(['From', 'To'] as const).map((lbl, i) => (
+          <div key={lbl} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+            <label style={{ fontSize: '0.72rem', color: 'var(--clr-muted)', fontWeight: 600 }}>{lbl}</label>
+            <input type="date" value={i === 0 ? from : to} max={i === 0 ? to : undefined} min={i === 1 ? from : undefined}
+              onChange={e => i === 0 ? setFrom(e.target.value) : setTo(e.target.value)}
+              style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 8, padding: '0.28rem 0.55rem', color: 'var(--clr-text)', fontSize: '0.78rem', fontFamily: 'inherit', colorScheme: 'dark' }}/>
+          </div>
+        ))}
+        {[{ label: '7D', days: 7 }, { label: '30D', days: 30 }, { label: '90D', days: 90 }, { label: '1Y', days: 365 }].map(p => {
+          const f = new Date(today.getTime() - p.days * 86400000).toISOString().slice(0, 10)
+          const active = from === f && to === defaultTo
+          return (
+            <button key={p.label} onClick={() => { setFrom(f); setTo(defaultTo); load(f, defaultTo) }}
+              style={{ padding: '0.28rem 0.65rem', borderRadius: 8, border: '1px solid rgba(255,255,255,0.12)', background: active ? 'rgba(0,229,255,0.12)' : 'rgba(255,255,255,0.04)', color: active ? 'var(--clr-accent)' : 'var(--clr-muted)', fontSize: '0.72rem', fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
+              {p.label}
+            </button>
+          )
+        })}
+        <div style={{ flex: 1 }}/>
+        <button onClick={() => load()} disabled={loading}
+          style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', padding: '0.38rem 0.85rem', borderRadius: 9, border: '1px solid rgba(255,255,255,0.12)', background: 'rgba(255,255,255,0.06)', color: 'var(--clr-text)', fontSize: '0.78rem', fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
+          <LuRefreshCw size={13} style={{ animation: loading ? 'spin 1s linear infinite' : 'none' }}/> Apply
+        </button>
+        <button onClick={handleDownload} disabled={downloading || !report}
+          style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', padding: '0.38rem 0.9rem', borderRadius: 9, border: 'none', background: 'var(--clr-accent)', color: '#000', fontSize: '0.78rem', fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', opacity: (downloading || !report) ? 0.5 : 1 }}>
+          <LuDownload size={13}/> {downloading ? 'Generating…' : 'Download PDF'}
+        </button>
+      </div>
+
+      {error && (
+        <div style={{ background: 'rgba(248,113,113,0.1)', border: '1px solid rgba(248,113,113,0.3)', borderRadius: 10, padding: '0.7rem 1rem', fontSize: '0.8rem', color: '#f87171', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <LuTriangleAlert size={14}/> {error}
+        </div>
+      )}
+
+      {loading && (
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '4rem', gap: '0.75rem', color: 'var(--clr-muted)', fontSize: '0.85rem' }}>
+          <LuRefreshCw size={18} style={{ animation: 'spin 1s linear infinite', color: 'var(--clr-accent)' }}/> Loading finance report…
+        </div>
+      )}
+
+      {report && !loading && (
+        <div ref={reportRef} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', width: '100%' }}>
+
+          {/* Report header */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'linear-gradient(135deg, rgba(251,191,36,0.08), rgba(167,139,250,0.06))', border: '1px solid rgba(251,191,36,0.2)', borderRadius: 14, padding: '1.2rem 1.5rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+              <img src={logoImg} alt="Africa Logistics" style={{ height: 44, width: 'auto', objectFit: 'contain', borderRadius: 8 }}/>
+              <div>
+                <p style={{ margin: 0, fontWeight: 800, fontSize: '1rem', color: 'var(--clr-text)' }}>Africa Logistics</p>
+                <p style={{ margin: 0, fontSize: '0.72rem', color: 'var(--clr-muted)' }}>Finance & Revenue Report</p>
+              </div>
+            </div>
+            <div style={{ textAlign: 'right' }}>
+              <p style={{ margin: 0, fontSize: '0.72rem', color: 'var(--clr-muted)' }}>Report Period</p>
+              <p style={{ margin: 0, fontWeight: 700, fontSize: '0.85rem', color: 'var(--clr-text)' }}>
+                {fmtDateFull(report.date_range.from)} — {fmtDateFull(report.date_range.to)}
+              </p>
+              <p style={{ margin: '0.2rem 0 0', fontSize: '0.7rem', color: 'var(--clr-muted)' }}>
+                Generated: {new Date(report.generated_at).toLocaleString('en-ET')}
+              </p>
+            </div>
+          </div>
+
+          {/* ─ Revenue KPIs ─ */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(165px, 1fr))', gap: '0.85rem' }}>
+            <KpiCard label="Gross Revenue"     value={fmtCurrency(r!.gross_revenue)}     change={changeRev} sub="vs previous period"   icon={<LuChartColumnBig size={18}/>} accent="#fbbf24"/>
+            <KpiCard label="Settled Revenue"   value={fmtCurrency(r!.settled_revenue)}   sub="fully paid orders"    icon={<LuCircleCheck size={18}/>}  accent="#4ade80"/>
+            <KpiCard label="In Escrow"         value={fmtCurrency(r!.escrowed_revenue)}  sub="awaiting release"     icon={<LuShieldCheck size={18}/>}  accent="#38bdf8"/>
+            <KpiCard label="Unpaid"            value={fmtCurrency(r!.unpaid_revenue)}    sub="pending payment"      icon={<LuCircleX size={18}/>}      accent="#f87171"/>
+            <KpiCard label="Avg Order Value"   value={fmtCurrency(r!.avg_order_revenue)} sub="per order"            icon={<LuTrendingUp size={18}/>}   accent="#34d399"/>
+            <KpiCard label="Payment Reviews"   value={fmt(mp!.total)}                    sub={`${mp!.pending_count} pending`} icon={<LuReceipt size={18}/>}  accent="#fbbf24"/>
+            <KpiCard label="Approved Payments" value={fmtCurrency(mp!.approved_amount)}  change={changePay} sub="vs previous period"  icon={<LuCircleCheck size={18}/>}  accent="#4ade80"/>
+            <KpiCard label="Total Deposits"    value={fmtCurrency(mp!.total_deposits)}   sub="approved deposits"    icon={<LuArrowDownLeft size={18}/>} accent="#60a5fa"/>
+            <KpiCard label="Total Withdrawals" value={fmtCurrency(mp!.total_withdrawals)} sub="approved withdrawals" icon={<LuArrowUpRight size={18}/>}  accent="#f97316"/>
+            <KpiCard label="Commission Earned" value={fmtCurrency(inv!.total_commission)} sub="from invoices"        icon={<LuCoins size={18}/>}        accent="#a78bfa"/>
+            <KpiCard label="Driver Payouts"    value={fmtCurrency(inv!.total_driver_payout)} sub="from invoices"    icon={<LuTruck size={18}/>}        accent="#818cf8"/>
+            <KpiCard label="Tips Earned"       value={fmtCurrency(inv!.total_tips)}      sub="from completed orders" icon={<LuBanknote size={18}/>}     accent="#34d399"/>
+          </div>
+
+          {/* ─ Revenue Trend Charts ─ */}
+          <ChartCard title="Daily Revenue Trend — Settled vs Escrowed" height={280}>
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={report.daily_revenue} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
+                <defs>
+                  <linearGradient id="gradRevFin"  x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%"  stopColor="#fbbf24" stopOpacity={0.35}/>
+                    <stop offset="95%" stopColor="#fbbf24" stopOpacity={0}/>
+                  </linearGradient>
+                  <linearGradient id="gradSettled" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%"  stopColor="#4ade80" stopOpacity={0.30}/>
+                    <stop offset="95%" stopColor="#4ade80" stopOpacity={0}/>
+                  </linearGradient>
+                  <linearGradient id="gradEscrow"  x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%"  stopColor="#38bdf8" stopOpacity={0.25}/>
+                    <stop offset="95%" stopColor="#38bdf8" stopOpacity={0}/>
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)"/>
+                <XAxis dataKey="date" tickFormatter={fmtDate} tick={{ fill: '#9ca3af', fontSize: 10 }} tickLine={false} axisLine={false}/>
+                <YAxis tick={{ fill: '#9ca3af', fontSize: 10 }} tickLine={false} axisLine={false} tickFormatter={v => `${(v/1000).toFixed(0)}k`}/>
+                <Tooltip content={<CustomTooltip/>}/>
+                <Legend wrapperStyle={{ fontSize: '0.72rem' }}/>
+                <Area type="monotone" dataKey="revenue"  name="Gross (ETB)"    stroke="#fbbf24" fill="url(#gradRevFin)"  strokeWidth={2} dot={false}/>
+                <Area type="monotone" dataKey="settled"  name="Settled (ETB)"  stroke="#4ade80" fill="url(#gradSettled)" strokeWidth={2} dot={false}/>
+                <Area type="monotone" dataKey="escrowed" name="Escrowed (ETB)" stroke="#38bdf8" fill="url(#gradEscrow)"  strokeWidth={2} dot={false}/>
+              </AreaChart>
+            </ResponsiveContainer>
+          </ChartCard>
+
+          {/* ─ Vehicle Revenue + Wallet Breakdown ─ */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.85rem' }}>
+            <ChartCard title="Revenue by Vehicle Type" height={240}>
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={vehicleData} layout="vertical" margin={{ top: 5, right: 50, left: 0, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" horizontal={false}/>
+                  <XAxis type="number" tick={{ fill: '#9ca3af', fontSize: 9 }} tickLine={false} axisLine={false} tickFormatter={v => `${(v/1000).toFixed(0)}k`}/>
+                  <YAxis type="category" dataKey="vehicle_type" tick={{ fill: '#9ca3af', fontSize: 10 }} tickLine={false} axisLine={false} width={80}/>
+                  <Tooltip content={<CustomTooltip/>}/>
+                  <Bar dataKey="revenue" name="Revenue (ETB)" radius={[0, 4, 4, 0]} maxBarSize={18}>
+                    {vehicleData.map((_, i) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]}/>)}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </ChartCard>
+
+            <ChartCard title="Wallet Transactions by Type" height={240}>
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie data={walletPieData} cx="38%" cy="50%" innerRadius={55} outerRadius={88} paddingAngle={2} dataKey="value">
+                    {walletPieData.map((entry, i) => <Cell key={i} fill={entry.fill}/>)}
+                  </Pie>
+                  <Tooltip formatter={(v: any, n: any) => [fmtCurrency(Number(v)), n]}
+                    contentStyle={{ background: '#1a1f2e', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 10, fontSize: '0.74rem' }}/>
+                  <Legend iconSize={9} wrapperStyle={{ fontSize: '0.7rem', paddingLeft: '0.5rem' }}/>
+                </PieChart>
+              </ResponsiveContainer>
+            </ChartCard>
+          </div>
+
+          {/* ─ Wallet Daily Flow ─ */}
+          {report.wallet_daily.length > 0 && (
+            <ChartCard title="Daily Wallet Flow — Credits vs Debits" height={260}>
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={report.wallet_daily} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)"/>
+                  <XAxis dataKey="date" tickFormatter={fmtDate} tick={{ fill: '#9ca3af', fontSize: 10 }} tickLine={false} axisLine={false}/>
+                  <YAxis tick={{ fill: '#9ca3af', fontSize: 10 }} tickLine={false} axisLine={false} tickFormatter={v => `${(v/1000).toFixed(0)}k`}/>
+                  <Tooltip content={<CustomTooltip/>}/>
+                  <Legend wrapperStyle={{ fontSize: '0.72rem' }}/>
+                  <Bar dataKey="credits" name="Credits (ETB)" fill="#4ade80" radius={[3,3,0,0]} maxBarSize={22} fillOpacity={0.85}/>
+                  <Bar dataKey="debits"  name="Debits (ETB)"  fill="#f87171" radius={[3,3,0,0]} maxBarSize={22} fillOpacity={0.85}/>
+                </BarChart>
+              </ResponsiveContainer>
+            </ChartCard>
+          )}
+
+          {/* ─ Manual Payments Daily ─ */}
+          {report.manual_payments_daily.length > 0 && (
+            <ChartCard title="Payment Review Submissions — Daily" height={220}>
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={report.manual_payments_daily} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="gradApproved" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%"  stopColor="#4ade80" stopOpacity={0.3}/>
+                      <stop offset="95%" stopColor="#4ade80" stopOpacity={0}/>
+                    </linearGradient>
+                    <linearGradient id="gradPending" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%"  stopColor="#fbbf24" stopOpacity={0.25}/>
+                      <stop offset="95%" stopColor="#fbbf24" stopOpacity={0}/>
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)"/>
+                  <XAxis dataKey="date" tickFormatter={fmtDate} tick={{ fill: '#9ca3af', fontSize: 10 }} tickLine={false} axisLine={false}/>
+                  <YAxis tick={{ fill: '#9ca3af', fontSize: 10 }} tickLine={false} axisLine={false} tickFormatter={v => `${(v/1000).toFixed(0)}k`}/>
+                  <Tooltip content={<CustomTooltip/>}/>
+                  <Legend wrapperStyle={{ fontSize: '0.72rem' }}/>
+                  <Area type="monotone" dataKey="approved_amount" name="Approved (ETB)" stroke="#4ade80" fill="url(#gradApproved)" strokeWidth={2} dot={false}/>
+                  <Area type="monotone" dataKey="pending_amount"  name="Pending (ETB)"  stroke="#fbbf24" fill="url(#gradPending)"  strokeWidth={2} dot={false}/>
+                </AreaChart>
+              </ResponsiveContainer>
+            </ChartCard>
+          )}
+
+          {/* ─ Invoice Breakdown ─ */}
+          {inv && inv.total_invoices > 0 && (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(165px, 1fr))', gap: '0.85rem' }}>
+              <KpiCard label="Invoices Generated" value={fmt(inv.total_invoices)}           sub="for period"          icon={<LuFileText size={18}/>}   accent="#60a5fa"/>
+              <KpiCard label="Total Billed"        value={fmtCurrency(inv.total_billed)}     sub="all invoices"        icon={<LuReceipt size={18}/>}    accent="#fbbf24"/>
+              <KpiCard label="Driver Payouts"       value={fmtCurrency(inv.total_driver_payout)} sub="net to drivers"  icon={<LuTruck size={18}/>}      accent="#a78bfa"/>
+              <KpiCard label="Commission"           value={fmtCurrency(inv.total_commission)} sub="platform fee"       icon={<LuCoins size={18}/>}      accent="#34d399"/>
+              <KpiCard label="Tips"                 value={fmtCurrency(inv.total_tips)}       sub="from customers"     icon={<LuBanknote size={18}/>}   accent="#4ade80"/>
+              <KpiCard label="Extra Charges"        value={fmtCurrency(inv.total_extra_charges)} sub="fees & surcharges" icon={<LuWallet size={18}/>}  accent="#f97316"/>
+            </div>
+          )}
+
+          {/* ─ Manual Payment Summary Table ─ */}
+          <div style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.09)', borderRadius: 14, overflow: 'hidden' }}>
+            <div style={{ padding: '1rem 1.2rem', borderBottom: '1px solid rgba(255,255,255,0.07)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <LuReceipt size={15} style={{ color: '#fbbf24' }}/>
+              <p style={{ margin: 0, fontWeight: 700, fontSize: '0.83rem', color: 'var(--clr-text)' }}>Payment Reviews Breakdown</p>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 0 }}>
+              {[
+                { label: 'Total Submissions',   value: fmt(mp!.total),                    color: 'var(--clr-text)' },
+                { label: 'Pending',             value: fmt(mp!.pending_count),             color: '#fbbf24' },
+                { label: 'Approved',            value: fmt(mp!.approved_count),            color: '#4ade80' },
+                { label: 'Rejected',            value: fmt(mp!.rejected_count),            color: '#f87171' },
+                { label: 'Pending Amount',      value: fmtCurrency(mp!.pending_amount),    color: '#fbbf24' },
+                { label: 'Approved Amount',     value: fmtCurrency(mp!.approved_amount),   color: '#4ade80' },
+                { label: 'Deposits',            value: fmtCurrency(mp!.total_deposits),    color: '#60a5fa' },
+                { label: 'Withdrawals',         value: fmtCurrency(mp!.total_withdrawals), color: '#f97316' },
+                { label: 'Refunds',             value: fmtCurrency(mp!.total_refunds),     color: '#38bdf8' },
+                { label: 'Adjustments',         value: fmtCurrency(mp!.total_adjustments), color: '#a78bfa' },
+              ].map((item) => (
+                <div key={item.label} style={{ padding: '0.85rem 1.2rem', borderBottom: '1px solid rgba(255,255,255,0.05)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.5rem' }}>
+                  <span style={{ fontSize: '0.75rem', color: 'var(--clr-muted)', fontWeight: 600 }}>{item.label}</span>
+                  <span style={{ fontSize: '0.85rem', fontWeight: 800, color: item.color }}>{item.value}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* ─ Wallet Transaction Type Table ─ */}
+          {report.wallet_by_type.length > 0 && (
+            <div style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.09)', borderRadius: 14, overflow: 'hidden' }}>
+              <div style={{ padding: '1rem 1.2rem', borderBottom: '1px solid rgba(255,255,255,0.07)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <LuWallet size={15} style={{ color: 'var(--clr-accent)' }}/>
+                <p style={{ margin: 0, fontWeight: 700, fontSize: '0.83rem', color: 'var(--clr-text)' }}>Wallet Transaction Breakdown</p>
+              </div>
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.78rem' }}>
+                  <thead>
+                    <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
+                      {['Type', 'Count', 'Total Amount', 'Share Bar'].map(h => (
+                        <th key={h} style={{ padding: '0.65rem 1.1rem', textAlign: 'left', color: 'var(--clr-muted)', fontWeight: 600, fontSize: '0.7rem', letterSpacing: '0.05em', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(() => {
+                      const totalAmt = report.wallet_by_type.reduce((s, w) => s + w.total_amount, 0)
+                      return report.wallet_by_type.map((w, i) => {
+                        const pctVal = totalAmt ? ((w.total_amount / totalAmt) * 100).toFixed(1) : '0'
+                        const col = WALLET_TYPE_COLORS[w.transaction_type] ?? '#888'
+                        return (
+                          <tr key={w.transaction_type} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)', background: i % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.015)' }}>
+                            <td style={{ padding: '0.6rem 1.1rem', fontWeight: 600 }}>
+                              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}>
+                                <span style={{ width: 8, height: 8, borderRadius: '50%', background: col, flexShrink: 0 }}/>
+                                {w.transaction_type}
+                              </span>
+                            </td>
+                            <td style={{ padding: '0.6rem 1.1rem', color: 'var(--clr-text)', fontWeight: 700 }}>{fmt(w.count)}</td>
+                            <td style={{ padding: '0.6rem 1.1rem', color: '#fbbf24', fontWeight: 600 }}>{fmtCurrency(w.total_amount)}</td>
+                            <td style={{ padding: '0.6rem 1.1rem', minWidth: 120 }}>
+                              <div style={{ height: 6, borderRadius: 3, background: 'rgba(255,255,255,0.07)', overflow: 'hidden' }}>
+                                <div style={{ height: '100%', width: `${pctVal}%`, background: col, borderRadius: 3 }}/>
+                              </div>
+                            </td>
+                          </tr>
+                        )
+                      })
+                    })()}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* ─ Top Revenue Shippers ─ */}
+          {report.top_shippers.length > 0 && (
+            <div style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.09)', borderRadius: 14, overflow: 'hidden' }}>
+              <div style={{ padding: '1rem 1.2rem', borderBottom: '1px solid rgba(255,255,255,0.07)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <LuUser size={15} style={{ color: 'var(--clr-accent)' }}/>
+                <p style={{ margin: 0, fontWeight: 700, fontSize: '0.83rem', color: 'var(--clr-text)' }}>Top Revenue Shippers</p>
+              </div>
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.78rem' }}>
+                  <thead>
+                    <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
+                      {['#', 'Name', 'Contact', 'Orders', 'Revenue'].map(h => (
+                        <th key={h} style={{ padding: '0.65rem 1.1rem', textAlign: 'left', color: 'var(--clr-muted)', fontWeight: 600, fontSize: '0.7rem', letterSpacing: '0.05em', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {report.top_shippers.map((s, i) => (
+                      <tr key={i} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)', background: i % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.015)' }}>
+                        <td style={{ padding: '0.6rem 1.1rem', color: 'var(--clr-muted)', fontWeight: 700 }}>#{i + 1}</td>
+                        <td style={{ padding: '0.6rem 1.1rem', fontWeight: 700, color: 'var(--clr-text)' }}>{s.name}</td>
+                        <td style={{ padding: '0.6rem 1.1rem', color: 'var(--clr-muted)', fontSize: '0.73rem' }}>
+                          <div>{s.phone}</div>
+                          <div style={{ opacity: 0.7 }}>{s.email}</div>
+                        </td>
+                        <td style={{ padding: '0.6rem 1.1rem', fontWeight: 700, color: 'var(--clr-accent)' }}>{fmt(s.orders)}</td>
+                        <td style={{ padding: '0.6rem 1.1rem', fontWeight: 700, color: '#fbbf24' }}>{fmtCurrency(s.revenue)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* Report footer */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.75rem 1rem', borderTop: '1px solid rgba(255,255,255,0.07)', fontSize: '0.68rem', color: 'var(--clr-muted)' }}>
+            <span>Africa Logistics — Confidential Finance Report</span>
+            <span>Generated on {new Date(report.generated_at).toLocaleString('en-ET')}</span>
+          </div>
+        </div>
+      )}
+      <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
+    </div>
+  )
+}
+
+// ─── Driver Report Types ──────────────────────────────────────────────────────
+
+interface DriverReport {
+  generated_at: string
+  date_range: { from: string; to: string }
+  overview: {
+    total_drivers: number; verified_drivers: number; available_drivers: number
+    on_job_drivers: number; offline_drivers: number; suspended_drivers: number
+    avg_profile_rating: number
+  }
+  performance: {
+    total_trips: number; on_time_trips: number; late_trips: number
+    cancelled_trips: number; avg_rating: number; total_earned: number
+    total_bonus: number; avg_on_time_pct: number
+  }
+  documents: {
+    nat_id_approved: number; nat_id_pending: number
+    license_approved: number; license_pending: number
+    libre_approved: number; libre_pending: number
+  }
+  rating_distribution: { stars: number; count: number }[]
+  daily_trips: { date: string; completed_trips: number; active_drivers: number }[]
+  daily_ratings: { date: string; count: number; avg_stars: number }[]
+  top_drivers: {
+    name: string; phone: string; email: string; driver_status: string
+    total_trips: number; total_earned: number; average_rating: number
+    on_time_percentage: number; cancelled_trips: number; bonus_earned: number
+  }[]
+  vehicle_types: { vehicle_type: string; count: number }[]
+  trips_buckets: { bucket: string; drivers: number }[]
+}
+
+const STATUS_BADGE: Record<string, { bg: string; color: string }> = {
+  AVAILABLE: { bg: 'rgba(74,222,128,0.15)',  color: '#4ade80' },
+  ON_JOB:    { bg: 'rgba(251,191,36,0.15)',  color: '#fbbf24' },
+  OFFLINE:   { bg: 'rgba(156,163,175,0.15)', color: '#9ca3af' },
+  SUSPENDED: { bg: 'rgba(248,113,113,0.15)', color: '#f87171' },
+}
+
+function StarBar({ stars, count, total }: { stars: number; count: number; total: number }) {
+  const pct = total ? (count / total) * 100 : 0
+  const colors = ['', '#f87171', '#fb923c', '#fbbf24', '#a3e635', '#4ade80']
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.75rem' }}>
+      <span style={{ width: 16, color: '#fbbf24', fontWeight: 700, flexShrink: 0 }}>{stars}★</span>
+      <div style={{ flex: 1, height: 7, borderRadius: 4, background: 'rgba(255,255,255,0.08)', overflow: 'hidden' }}>
+        <div style={{ width: `${pct}%`, height: '100%', background: colors[stars] ?? '#888', borderRadius: 4, transition: 'width 0.4s ease' }}/>
+      </div>
+      <span style={{ width: 32, textAlign: 'right', color: 'var(--clr-muted)', fontWeight: 600 }}>{count}</span>
+    </div>
+  )
+}
+
+// ─── Driver Report Page ───────────────────────────────────────────────────────
+
+function DriverReportPage() {
+  const today = new Date()
+  const defaultTo   = today.toISOString().slice(0, 10)
+  const defaultFrom = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
+
+  const [from, setFrom]       = useState(defaultFrom)
+  const [to, setTo]           = useState(defaultTo)
+  const [report, setReport]   = useState<DriverReport | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [error, setError]     = useState('')
+  const [downloading, setDownloading] = useState(false)
+  const reportRef = useRef<HTMLDivElement>(null)
+
+  const load = useCallback(async (f = from, t = to) => {
+    setLoading(true); setError('')
+    try {
+      const { data } = await apiClient.get('/admin/reports/drivers', { params: { from: f, to: t } })
+      setReport(data.report)
+    } catch { setError('Failed to load driver report. Please try again.') }
+    finally   { setLoading(false) }
+  }, [from, to])
+
+  useEffect(() => { load() }, []) // eslint-disable-line
+
+  const handleDownload = async () => {
+    if (!reportRef.current) return
+    setDownloading(true)
+    try {
+      const canvas = await html2canvas(reportRef.current, { scale: 2, useCORS: true, backgroundColor: '#0f1220', logging: false })
+      const imgData = canvas.toDataURL('image/png')
+      const pdf = new jsPDF('p', 'mm', 'a4')
+      const pw = pdf.internal.pageSize.getWidth()
+      const ph = pdf.internal.pageSize.getHeight()
+      const ih = (canvas.height * pw) / canvas.width
+      let yPos = 0; let rem = ih
+      while (rem > 0) {
+        pdf.addImage(imgData, 'PNG', 0, -yPos, pw, ih)
+        rem -= ph; yPos += ph
+        if (rem > 0) pdf.addPage()
+      }
+      pdf.save(`Driver_Report_${from}_to_${to}.pdf`)
+    } catch { /**/ } finally { setDownloading(false) }
+  }
+
+  const ov = report?.overview
+  const pf = report?.performance
+  const docs = report?.documents
+
+  const ratingTotal = report?.rating_distribution.reduce((s, r) => s + r.count, 0) ?? 0
+  const fullRatingDist = [5, 4, 3, 2, 1].map(s => ({
+    stars: s,
+    count: report?.rating_distribution.find(r => r.stars === s)?.count ?? 0,
+  }))
+
+  const statusPieData = ov ? [
+    { name: 'Available', value: ov.available_drivers, fill: '#4ade80' },
+    { name: 'On Job',    value: ov.on_job_drivers,    fill: '#fbbf24' },
+    { name: 'Offline',   value: ov.offline_drivers,   fill: '#6b7280' },
+    { name: 'Suspended', value: ov.suspended_drivers, fill: '#f87171' },
+  ].filter(d => d.value > 0) : []
+
+  const vehiclePieData = (report?.vehicle_types ?? []).map((v, i) => ({
+    name: v.vehicle_type, value: v.count, fill: CHART_COLORS[i % CHART_COLORS.length],
+  }))
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', width: '100%' }}>
+
+      {/* Controls bar */}
+      <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '0.65rem', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 12, padding: '0.7rem 1rem' }}>
+        <LuCalendar size={14} style={{ color: 'var(--clr-muted)', flexShrink: 0 }}/>
+        {(['From', 'To'] as const).map((lbl, i) => (
+          <div key={lbl} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+            <label style={{ fontSize: '0.72rem', color: 'var(--clr-muted)', fontWeight: 600 }}>{lbl}</label>
+            <input type="date" value={i === 0 ? from : to} max={i === 0 ? to : undefined} min={i === 1 ? from : undefined}
+              onChange={e => i === 0 ? setFrom(e.target.value) : setTo(e.target.value)}
+              style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 8, padding: '0.28rem 0.55rem', color: 'var(--clr-text)', fontSize: '0.78rem', fontFamily: 'inherit', colorScheme: 'dark' }}/>
+          </div>
+        ))}
+        {[{ label: '7D', days: 7 }, { label: '30D', days: 30 }, { label: '90D', days: 90 }, { label: '1Y', days: 365 }].map(p => {
+          const f = new Date(today.getTime() - p.days * 86400000).toISOString().slice(0, 10)
+          const active = from === f && to === defaultTo
+          return (
+            <button key={p.label} onClick={() => { setFrom(f); setTo(defaultTo); load(f, defaultTo) }}
+              style={{ padding: '0.28rem 0.65rem', borderRadius: 8, border: '1px solid rgba(255,255,255,0.12)', background: active ? 'rgba(0,229,255,0.12)' : 'rgba(255,255,255,0.04)', color: active ? 'var(--clr-accent)' : 'var(--clr-muted)', fontSize: '0.72rem', fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
+              {p.label}
+            </button>
+          )
+        })}
+        <div style={{ flex: 1 }}/>
+        <button onClick={() => load()} disabled={loading}
+          style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', padding: '0.38rem 0.85rem', borderRadius: 9, border: '1px solid rgba(255,255,255,0.12)', background: 'rgba(255,255,255,0.06)', color: 'var(--clr-text)', fontSize: '0.78rem', fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
+          <LuRefreshCw size={13} style={{ animation: loading ? 'spin 1s linear infinite' : 'none' }}/> Apply
+        </button>
+        <button onClick={handleDownload} disabled={downloading || !report}
+          style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', padding: '0.38rem 0.9rem', borderRadius: 9, border: 'none', background: 'var(--clr-accent)', color: '#000', fontSize: '0.78rem', fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', opacity: (downloading || !report) ? 0.5 : 1 }}>
+          <LuDownload size={13}/> {downloading ? 'Generating…' : 'Download PDF'}
+        </button>
+      </div>
+
+      {error && (
+        <div style={{ background: 'rgba(248,113,113,0.1)', border: '1px solid rgba(248,113,113,0.3)', borderRadius: 10, padding: '0.7rem 1rem', fontSize: '0.8rem', color: '#f87171', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <LuTriangleAlert size={14}/> {error}
+        </div>
+      )}
+
+      {loading && (
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '4rem', gap: '0.75rem', color: 'var(--clr-muted)', fontSize: '0.85rem' }}>
+          <LuRefreshCw size={18} style={{ animation: 'spin 1s linear infinite', color: 'var(--clr-accent)' }}/> Loading driver report…
+        </div>
+      )}
+
+      {report && !loading && (
+        <div ref={reportRef} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', width: '100%' }}>
+
+          {/* Report header */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'linear-gradient(135deg, rgba(129,140,248,0.08), rgba(52,211,153,0.06))', border: '1px solid rgba(129,140,248,0.2)', borderRadius: 14, padding: '1.2rem 1.5rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+              <img src={logoImg} alt="Africa Logistics" style={{ height: 44, width: 'auto', objectFit: 'contain', borderRadius: 8 }}/>
+              <div>
+                <p style={{ margin: 0, fontWeight: 800, fontSize: '1rem', color: 'var(--clr-text)' }}>Africa Logistics</p>
+                <p style={{ margin: 0, fontSize: '0.72rem', color: 'var(--clr-muted)' }}>Driver Performance & Fleet Report</p>
+              </div>
+            </div>
+            <div style={{ textAlign: 'right' }}>
+              <p style={{ margin: 0, fontSize: '0.72rem', color: 'var(--clr-muted)' }}>Report Period</p>
+              <p style={{ margin: 0, fontWeight: 700, fontSize: '0.85rem', color: 'var(--clr-text)' }}>
+                {fmtDateFull(report.date_range.from)} — {fmtDateFull(report.date_range.to)}
+              </p>
+              <p style={{ margin: '0.2rem 0 0', fontSize: '0.7rem', color: 'var(--clr-muted)' }}>
+                Generated: {new Date(report.generated_at).toLocaleString('en-ET')}
+              </p>
+            </div>
+          </div>
+
+          {/* ─ Fleet Overview KPIs ─ */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(165px, 1fr))', gap: '0.85rem' }}>
+            <KpiCard label="Total Drivers"     value={fmt(ov!.total_drivers)}      sub="registered"                  icon={<LuUsers size={18}/>}      accent="#818cf8"/>
+            <KpiCard label="Verified Drivers"  value={fmt(ov!.verified_drivers)}   sub={`${ov!.total_drivers ? ((ov!.verified_drivers/ov!.total_drivers)*100).toFixed(0) : 0}% of fleet`} icon={<LuBadgeCheck size={18}/>} accent="#4ade80"/>
+            <KpiCard label="Available"         value={fmt(ov!.available_drivers)}  sub="ready for jobs"              icon={<LuCircleDot size={18}/>}  accent="#4ade80"/>
+            <KpiCard label="On Job"            value={fmt(ov!.on_job_drivers)}     sub="currently active"            icon={<LuTruck size={18}/>}      accent="#fbbf24"/>
+            <KpiCard label="Offline"           value={fmt(ov!.offline_drivers)}    sub="not available"               icon={<LuClock size={18}/>}      accent="#6b7280"/>
+            <KpiCard label="Suspended"         value={fmt(ov!.suspended_drivers)}  sub="access restricted"           icon={<LuBan size={18}/>}        accent="#f87171"/>
+            <KpiCard label="Avg Fleet Rating"  value={`${(ov!.avg_profile_rating || 0).toFixed(2)} ★`} sub="across all drivers"   icon={<LuStar size={18}/>}       accent="#fbbf24"/>
+            <KpiCard label="Total Trips"       value={fmt(pf!.total_trips)}        sub="all time"                    icon={<LuPackage size={18}/>}    accent="#38bdf8"/>
+            <KpiCard label="On-Time Rate"      value={`${(pf!.avg_on_time_pct || 0).toFixed(1)}%`} sub="fleet average"        icon={<LuThumbsUp size={18}/>}   accent="#34d399"/>
+            <KpiCard label="Total Earnings"    value={fmtCurrency(pf!.total_earned)} sub="all driver payouts"        icon={<LuCoins size={18}/>}      accent="#a78bfa"/>
+            <KpiCard label="Total Bonuses"     value={fmtCurrency(pf!.total_bonus)}  sub="performance bonuses"       icon={<LuTrendingUp size={18}/>} accent="#34d399"/>
+            <KpiCard label="Avg Rating"        value={`${(pf!.avg_rating || 0).toFixed(2)} ★`} sub="from driver_ratings"    icon={<LuStar size={18}/>}       accent="#fbbf24"/>
+          </div>
+
+          {/* ─ Driver Status Pie + Vehicle Fleet Pie ─ */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.85rem' }}>
+            <ChartCard title="Driver Status Distribution" height={240}>
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie data={statusPieData} cx="38%" cy="50%" innerRadius={55} outerRadius={88} paddingAngle={2} dataKey="value">
+                    {statusPieData.map((d, i) => <Cell key={i} fill={d.fill}/>)}
+                  </Pie>
+                  <Tooltip formatter={(v: any, n: any) => [fmt(Number(v)), n]}
+                    contentStyle={{ background: '#1a1f2e', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 10, fontSize: '0.74rem' }}/>
+                  <Legend iconSize={9} wrapperStyle={{ fontSize: '0.7rem', paddingLeft: '0.5rem' }}/>
+                </PieChart>
+              </ResponsiveContainer>
+            </ChartCard>
+
+            <ChartCard title="Vehicle Types in Fleet" height={240}>
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie data={vehiclePieData} cx="38%" cy="50%" innerRadius={55} outerRadius={88} paddingAngle={2} dataKey="value">
+                    {vehiclePieData.map((d, i) => <Cell key={i} fill={d.fill}/>)}
+                  </Pie>
+                  <Tooltip formatter={(v: any, n: any) => [fmt(Number(v)), n]}
+                    contentStyle={{ background: '#1a1f2e', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 10, fontSize: '0.74rem' }}/>
+                  <Legend iconSize={9} wrapperStyle={{ fontSize: '0.7rem', paddingLeft: '0.5rem' }}/>
+                </PieChart>
+              </ResponsiveContainer>
+            </ChartCard>
+          </div>
+
+          {/* ─ Daily Completed Trips ─ */}
+          {report.daily_trips.length > 0 && (
+            <ChartCard title="Daily Completed Trips & Active Drivers" height={260}>
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={report.daily_trips} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="gradTrips" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%"  stopColor="#818cf8" stopOpacity={0.35}/>
+                      <stop offset="95%" stopColor="#818cf8" stopOpacity={0}/>
+                    </linearGradient>
+                    <linearGradient id="gradActDrv" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%"  stopColor="#34d399" stopOpacity={0.25}/>
+                      <stop offset="95%" stopColor="#34d399" stopOpacity={0}/>
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)"/>
+                  <XAxis dataKey="date" tickFormatter={fmtDate} tick={{ fill: '#9ca3af', fontSize: 10 }} tickLine={false} axisLine={false}/>
+                  <YAxis tick={{ fill: '#9ca3af', fontSize: 10 }} tickLine={false} axisLine={false}/>
+                  <Tooltip content={<CustomTooltip/>}/>
+                  <Legend wrapperStyle={{ fontSize: '0.72rem' }}/>
+                  <Area type="monotone" dataKey="completed_trips"  name="Completed Trips"  stroke="#818cf8" fill="url(#gradTrips)"  strokeWidth={2} dot={false}/>
+                  <Area type="monotone" dataKey="active_drivers"   name="Active Drivers"   stroke="#34d399" fill="url(#gradActDrv)" strokeWidth={2} dot={false}/>
+                </AreaChart>
+              </ResponsiveContainer>
+            </ChartCard>
+          )}
+
+          {/* ─ Rating Distribution + Trip Buckets ─ */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.85rem' }}>
+
+            {/* Star rating bars */}
+            <div style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.09)', borderRadius: 14, padding: '1.1rem 1.25rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.4rem' }}>
+                <LuStar size={15} style={{ color: '#fbbf24' }}/>
+                <p style={{ margin: 0, fontWeight: 700, fontSize: '0.83rem', color: 'var(--clr-text)' }}>
+                  Rating Distribution
+                  <span style={{ fontSize: '0.7rem', color: 'var(--clr-muted)', fontWeight: 400, marginLeft: '0.5rem' }}>({ratingTotal} reviews in period)</span>
+                </p>
+              </div>
+              {fullRatingDist.map(r => (
+                <StarBar key={r.stars} stars={r.stars} count={r.count} total={ratingTotal}/>
+              ))}
+              <div style={{ marginTop: '0.5rem', paddingTop: '0.5rem', borderTop: '1px solid rgba(255,255,255,0.06)', display: 'flex', justifyContent: 'space-between', fontSize: '0.72rem', color: 'var(--clr-muted)' }}>
+                <span>Avg in period</span>
+                <span style={{ color: '#fbbf24', fontWeight: 700 }}>
+                  {ratingTotal > 0 ? (report.rating_distribution.reduce((s, r) => s + r.stars * r.count, 0) / ratingTotal).toFixed(2) : '—'} ★
+                </span>
+              </div>
+            </div>
+
+            {/* Trip experience buckets */}
+            <ChartCard title="Drivers by Trip Experience" height={220}>
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={report.trips_buckets} layout="vertical" margin={{ top: 5, right: 40, left: 0, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" horizontal={false}/>
+                  <XAxis type="number" tick={{ fill: '#9ca3af', fontSize: 9 }} tickLine={false} axisLine={false}/>
+                  <YAxis type="category" dataKey="bucket" tick={{ fill: '#9ca3af', fontSize: 10 }} tickLine={false} axisLine={false} width={72}/>
+                  <Tooltip content={<CustomTooltip/>}/>
+                  <Bar dataKey="drivers" name="Drivers" radius={[0, 4, 4, 0]} maxBarSize={18}>
+                    {report.trips_buckets.map((_, i) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]}/>)}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </ChartCard>
+          </div>
+
+          {/* ─ Daily Rating Trend ─ */}
+          {report.daily_ratings.length > 0 && (
+            <ChartCard title="Daily Ratings Submitted (Period)" height={220}>
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={report.daily_ratings} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)"/>
+                  <XAxis dataKey="date" tickFormatter={fmtDate} tick={{ fill: '#9ca3af', fontSize: 10 }} tickLine={false} axisLine={false}/>
+                  <YAxis yAxisId="left"  tick={{ fill: '#9ca3af', fontSize: 10 }} tickLine={false} axisLine={false}/>
+                  <YAxis yAxisId="right" orientation="right" domain={[1, 5]} tick={{ fill: '#9ca3af', fontSize: 10 }} tickLine={false} axisLine={false}/>
+                  <Tooltip content={<CustomTooltip/>}/>
+                  <Legend wrapperStyle={{ fontSize: '0.72rem' }}/>
+                  <Bar yAxisId="left"  dataKey="count"     name="Reviews"   fill="#818cf8" radius={[3,3,0,0]} maxBarSize={20} fillOpacity={0.8}/>
+                  <Bar yAxisId="right" dataKey="avg_stars" name="Avg Stars ★" fill="#fbbf24" radius={[3,3,0,0]} maxBarSize={20} fillOpacity={0.7}/>
+                </BarChart>
+              </ResponsiveContainer>
+            </ChartCard>
+          )}
+
+          {/* ─ Document Verification Summary ─ */}
+          {docs && (
+            <div style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.09)', borderRadius: 14, overflow: 'hidden' }}>
+              <div style={{ padding: '1rem 1.2rem', borderBottom: '1px solid rgba(255,255,255,0.07)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <LuBadgeCheck size={15} style={{ color: '#4ade80' }}/>
+                <p style={{ margin: 0, fontWeight: 700, fontSize: '0.83rem', color: 'var(--clr-text)' }}>Document Verification Status</p>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)' }}>
+                {[
+                  { label: 'National ID', approved: docs.nat_id_approved, pending: docs.nat_id_pending },
+                  { label: 'License',     approved: docs.license_approved,  pending: docs.license_pending },
+                  { label: 'Libre',       approved: docs.libre_approved,    pending: docs.libre_pending },
+                ].map((doc, i) => (
+                  <div key={doc.label} style={{ padding: '1rem 1.2rem', borderRight: i < 2 ? '1px solid rgba(255,255,255,0.07)' : 'none', display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                    <p style={{ margin: 0, fontWeight: 700, fontSize: '0.78rem', color: 'var(--clr-text)' }}>{doc.label}</p>
+                    <div style={{ display: 'flex', gap: '0.75rem', fontSize: '0.73rem' }}>
+                      <span><span style={{ color: '#4ade80', fontWeight: 700 }}>{fmt(doc.approved)}</span> <span style={{ color: 'var(--clr-muted)' }}>approved</span></span>
+                      <span><span style={{ color: '#fbbf24', fontWeight: 700 }}>{fmt(doc.pending)}</span> <span style={{ color: 'var(--clr-muted)' }}>pending</span></span>
+                    </div>
+                    <div style={{ height: 5, borderRadius: 3, background: 'rgba(255,255,255,0.08)', overflow: 'hidden' }}>
+                      {(() => {
+                        const total = doc.approved + doc.pending
+                        const pct = total ? (doc.approved / total) * 100 : 0
+                        return <div style={{ height: '100%', width: `${pct}%`, background: '#4ade80', borderRadius: 3 }}/>
+                      })()}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* ─ Top 10 Drivers Table ─ */}
+          {report.top_drivers.length > 0 && (
+            <div style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.09)', borderRadius: 14, overflow: 'hidden' }}>
+              <div style={{ padding: '1rem 1.2rem', borderBottom: '1px solid rgba(255,255,255,0.07)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <LuTruck size={15} style={{ color: 'var(--clr-accent)' }}/>
+                <p style={{ margin: 0, fontWeight: 700, fontSize: '0.83rem', color: 'var(--clr-text)' }}>Top 10 Drivers by Earnings</p>
+              </div>
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.78rem' }}>
+                  <thead>
+                    <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
+                      {['#', 'Driver', 'Status', 'Trips', 'Earnings', 'Bonus', 'Rating', 'On Time'].map(h => (
+                        <th key={h} style={{ padding: '0.65rem 1rem', textAlign: 'left', color: 'var(--clr-muted)', fontWeight: 600, fontSize: '0.7rem', letterSpacing: '0.05em', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {report.top_drivers.map((d, i) => {
+                      const badge = STATUS_BADGE[d.driver_status] ?? { bg: 'rgba(255,255,255,0.08)', color: 'var(--clr-muted)' }
+                      return (
+                        <tr key={i} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)', background: i % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.015)' }}>
+                          <td style={{ padding: '0.6rem 1rem', color: 'var(--clr-muted)', fontWeight: 700 }}>#{i + 1}</td>
+                          <td style={{ padding: '0.6rem 1rem' }}>
+                            <div style={{ fontWeight: 700, color: 'var(--clr-text)' }}>{d.name}</div>
+                            <div style={{ fontSize: '0.7rem', color: 'var(--clr-muted)' }}>{d.phone}</div>
+                          </td>
+                          <td style={{ padding: '0.6rem 1rem' }}>
+                            <span style={{ padding: '0.2rem 0.55rem', borderRadius: 20, background: badge.bg, color: badge.color, fontSize: '0.68rem', fontWeight: 700 }}>{d.driver_status}</span>
+                          </td>
+                          <td style={{ padding: '0.6rem 1rem', fontWeight: 700, color: CHART_COLORS[0] }}>{fmt(d.total_trips)}</td>
+                          <td style={{ padding: '0.6rem 1rem', fontWeight: 700, color: '#fbbf24' }}>{fmtCurrency(d.total_earned)}</td>
+                          <td style={{ padding: '0.6rem 1rem', fontWeight: 600, color: '#34d399' }}>{fmtCurrency(d.bonus_earned)}</td>
+                          <td style={{ padding: '0.6rem 1rem', fontWeight: 700, color: '#fbbf24' }}>
+                            {d.average_rating > 0 ? `${d.average_rating.toFixed(2)} ★` : '—'}
+                          </td>
+                          <td style={{ padding: '0.6rem 1rem' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                              <div style={{ flex: 1, minWidth: 50, height: 5, borderRadius: 3, background: 'rgba(255,255,255,0.08)', overflow: 'hidden' }}>
+                                <div style={{ width: `${d.on_time_percentage}%`, height: '100%', background: d.on_time_percentage >= 80 ? '#4ade80' : d.on_time_percentage >= 60 ? '#fbbf24' : '#f87171', borderRadius: 3 }}/>
+                              </div>
+                              <span style={{ fontSize: '0.7rem', color: 'var(--clr-muted)', flexShrink: 0 }}>{d.on_time_percentage.toFixed(0)}%</span>
+                            </div>
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* Report footer */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.75rem 1rem', borderTop: '1px solid rgba(255,255,255,0.07)', fontSize: '0.68rem', color: 'var(--clr-muted)' }}>
+            <span>Africa Logistics — Confidential Driver & Fleet Report</span>
+            <span>Generated on {new Date(report.generated_at).toLocaleString('en-ET')}</span>
+          </div>
+        </div>
+      )}
+      <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
+    </div>
+  )
+}
+
 function PlaceholderReportPage({ title, icon }: { title: string; icon: React.ReactNode }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '5rem 2rem', gap: '1rem', textAlign: 'center', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 16 }}>
@@ -549,8 +1380,8 @@ export default function AdminReportsSection() {
 
       {/* Tab content */}
       {activeTab === 'orders'    && <OrderReportPage />}
-      {activeTab === 'finance'   && <PlaceholderReportPage title="Finance"  icon={<LuBox size={48}/>} />}
-      {activeTab === 'drivers'   && <PlaceholderReportPage title="Drivers"  icon={<LuTruck size={48}/>} />}
+      {activeTab === 'finance'   && <FinanceReportPage />}
+      {activeTab === 'drivers'   && <DriverReportPage />}
       {activeTab === 'logistics' && <PlaceholderReportPage title="Logistics" icon={<LuGlobe size={48}/>} />}
     </div>
   )

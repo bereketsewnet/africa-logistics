@@ -3000,6 +3000,421 @@ export async function adminUpdateAiSettingsHandler(
   return reply.send({ success: true, settings: { ...row, api_key: masked, api_key_set: !!row.api_key } })
 }
 
+// ─── Finance Report ───────────────────────────────────────────────────────────
+
+/** GET /api/admin/reports/finance?from=YYYY-MM-DD&to=YYYY-MM-DD */
+export async function adminFinanceReportHandler(
+  request: FastifyRequest<{ Querystring: { from?: string; to?: string } }>,
+  reply:   FastifyReply
+) {
+  const db  = request.server.db
+  const now = new Date()
+  const toDate   = request.query.to   ? new Date(request.query.to)   : now
+  const fromDate = request.query.from ? new Date(request.query.from) : new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
+
+  const fromStr = fromDate.toISOString().slice(0, 10) + ' 00:00:00'
+  const toStr   = toDate.toISOString().slice(0, 10)   + ' 23:59:59'
+
+  // Previous period for comparison
+  const durationMs  = toDate.getTime() - fromDate.getTime()
+  const prevFrom    = new Date(fromDate.getTime() - durationMs)
+  const prevFromStr = prevFrom.toISOString().slice(0, 10)   + ' 00:00:00'
+  const prevToStr   = fromDate.toISOString().slice(0, 10)   + ' 23:59:59'
+
+  // 1. Revenue summary from completed/delivered orders
+  const [[revSummary]] = await db.query<any[]>(`
+    SELECT
+      SUM(COALESCE(final_price, estimated_price, 0))                             AS gross_revenue,
+      SUM(CASE WHEN payment_status = 'SETTLED'  THEN COALESCE(final_price, estimated_price, 0) ELSE 0 END) AS settled_revenue,
+      SUM(CASE WHEN payment_status = 'ESCROWED' THEN COALESCE(final_price, estimated_price, 0) ELSE 0 END) AS escrowed_revenue,
+      SUM(CASE WHEN payment_status = 'UNPAID'   THEN COALESCE(final_price, estimated_price, 0) ELSE 0 END) AS unpaid_revenue,
+      COUNT(*)                                                                   AS total_orders,
+      SUM(CASE WHEN status IN ('DELIVERED','COMPLETED') THEN 1 ELSE 0 END)       AS paid_orders,
+      AVG(COALESCE(final_price, estimated_price, 0))                             AS avg_order_revenue
+    FROM orders
+    WHERE created_at BETWEEN ? AND ?
+  `, [fromStr, toStr])
+
+  // 2. Previous period revenue
+  const [[prevRevSummary]] = await db.query<any[]>(`
+    SELECT SUM(COALESCE(final_price, estimated_price, 0)) AS gross_revenue
+    FROM orders WHERE created_at BETWEEN ? AND ?
+  `, [prevFromStr, prevToStr])
+
+  // 3. Daily revenue trend
+  const [dailyRevenue] = await db.query<any[]>(`
+    SELECT
+      DATE(created_at)                                                       AS date,
+      SUM(COALESCE(final_price, estimated_price, 0))                        AS revenue,
+      SUM(CASE WHEN payment_status = 'SETTLED'  THEN COALESCE(final_price, estimated_price, 0) ELSE 0 END) AS settled,
+      SUM(CASE WHEN payment_status = 'ESCROWED' THEN COALESCE(final_price, estimated_price, 0) ELSE 0 END) AS escrowed,
+      COUNT(*)                                                               AS orders
+    FROM orders
+    WHERE created_at BETWEEN ? AND ?
+    GROUP BY DATE(created_at)
+    ORDER BY date ASC
+  `, [fromStr, toStr])
+
+  // 4. Revenue by vehicle type
+  const [revenueByVehicle] = await db.query<any[]>(`
+    SELECT
+      COALESCE(vehicle_type_required, 'Unknown')                             AS vehicle_type,
+      COUNT(*)                                                               AS orders,
+      SUM(COALESCE(final_price, estimated_price, 0))                        AS revenue
+    FROM orders
+    WHERE created_at BETWEEN ? AND ?
+    GROUP BY vehicle_type_required
+    ORDER BY revenue DESC
+  `, [fromStr, toStr])
+
+  // 5. Manual payment records summary
+  const [[mprSummary]] = await db.query<any[]>(`
+    SELECT
+      COUNT(*)                                                               AS total,
+      SUM(CASE WHEN status = 'PENDING'  THEN 1 ELSE 0 END)                  AS pending_count,
+      SUM(CASE WHEN status = 'APPROVED' THEN 1 ELSE 0 END)                  AS approved_count,
+      SUM(CASE WHEN status = 'REJECTED' THEN 1 ELSE 0 END)                  AS rejected_count,
+      SUM(CASE WHEN status = 'APPROVED' THEN amount ELSE 0 END)             AS approved_amount,
+      SUM(CASE WHEN status = 'PENDING'  THEN amount ELSE 0 END)             AS pending_amount,
+      SUM(CASE WHEN action_type = 'DEPOSIT'    AND status = 'APPROVED' THEN amount ELSE 0 END) AS total_deposits,
+      SUM(CASE WHEN action_type = 'WITHDRAWAL' AND status = 'APPROVED' THEN amount ELSE 0 END) AS total_withdrawals,
+      SUM(CASE WHEN action_type = 'REFUND'     AND status = 'APPROVED' THEN amount ELSE 0 END) AS total_refunds,
+      SUM(CASE WHEN action_type = 'ADJUSTMENT' AND status = 'APPROVED' THEN amount ELSE 0 END) AS total_adjustments
+    FROM manual_payment_records
+    WHERE submitted_at BETWEEN ? AND ?
+  `, [fromStr, toStr])
+
+  // 6. Manual payment daily trend
+  const [mprDaily] = await db.query<any[]>(`
+    SELECT
+      DATE(submitted_at)                                                     AS date,
+      COUNT(*)                                                               AS count,
+      SUM(CASE WHEN status = 'APPROVED' THEN amount ELSE 0 END)             AS approved_amount,
+      SUM(CASE WHEN status = 'PENDING'  THEN amount ELSE 0 END)             AS pending_amount
+    FROM manual_payment_records
+    WHERE submitted_at BETWEEN ? AND ?
+    GROUP BY DATE(submitted_at)
+    ORDER BY date ASC
+  `, [fromStr, toStr])
+
+  // 7. Wallet transaction summary by type
+  const [walletByType] = await db.query<any[]>(`
+    SELECT
+      transaction_type,
+      COUNT(*)                AS count,
+      SUM(amount)             AS total_amount
+    FROM wallet_transactions
+    WHERE created_at BETWEEN ? AND ?
+      AND status = 'COMPLETED'
+    GROUP BY transaction_type
+    ORDER BY total_amount DESC
+  `, [fromStr, toStr])
+
+  // 8. Daily wallet flow (credits vs debits)
+  const [walletDaily] = await db.query<any[]>(`
+    SELECT
+      DATE(created_at)                                                       AS date,
+      SUM(CASE WHEN transaction_type IN ('CREDIT','BONUS','REFUND','ADMIN_ADJUSTMENT') THEN amount ELSE 0 END) AS credits,
+      SUM(CASE WHEN transaction_type IN ('DEBIT','COMMISSION') THEN amount ELSE 0 END) AS debits,
+      COUNT(*)                                                               AS transactions
+    FROM wallet_transactions
+    WHERE created_at BETWEEN ? AND ?
+      AND status = 'COMPLETED'
+    GROUP BY DATE(created_at)
+    ORDER BY date ASC
+  `, [fromStr, toStr])
+
+  // 9. Top revenue-generating shippers
+  const [topShippers] = await db.query<any[]>(`
+    SELECT
+      u.first_name, u.last_name, u.email, u.phone_number,
+      COUNT(o.id)                                              AS orders,
+      SUM(COALESCE(o.final_price, o.estimated_price, 0))      AS revenue
+    FROM orders o
+    JOIN users u ON u.id = o.shipper_id
+    WHERE o.created_at BETWEEN ? AND ?
+      AND o.is_guest_order = 0
+    GROUP BY o.shipper_id, u.first_name, u.last_name, u.email, u.phone_number
+    ORDER BY revenue DESC
+    LIMIT 10
+  `, [fromStr, toStr])
+
+  // 10. Invoice summary (order_invoices)
+  const [[invSummary]] = await db.query<any[]>(`
+    SELECT
+      COUNT(*)                 AS total_invoices,
+      SUM(total_amount)        AS total_billed,
+      SUM(driver_amount)       AS total_driver_payout,
+      SUM(commission)          AS total_commission,
+      SUM(tip_amount)          AS total_tips,
+      SUM(extra_charges)       AS total_extra_charges,
+      AVG(total_amount)        AS avg_invoice_amount
+    FROM order_invoices oi
+    JOIN orders o ON o.id = oi.order_id
+    WHERE o.created_at BETWEEN ? AND ?
+  `, [fromStr, toStr])
+
+  // 11. Previous manual payment for comparison
+  const [[prevMpr]] = await db.query<any[]>(`
+    SELECT SUM(CASE WHEN status = 'APPROVED' THEN amount ELSE 0 END) AS approved_amount
+    FROM manual_payment_records WHERE submitted_at BETWEEN ? AND ?
+  `, [prevFromStr, prevToStr])
+
+  const fromDateStr = fromDate.toISOString().slice(0, 10)
+  const toDateStr   = toDate.toISOString().slice(0, 10)
+
+  return reply.send({
+    success: true,
+    report: {
+      generated_at: new Date().toISOString(),
+      date_range: { from: fromDateStr, to: toDateStr },
+      revenue: {
+        gross_revenue:       Number(revSummary.gross_revenue      ?? 0),
+        settled_revenue:     Number(revSummary.settled_revenue    ?? 0),
+        escrowed_revenue:    Number(revSummary.escrowed_revenue   ?? 0),
+        unpaid_revenue:      Number(revSummary.unpaid_revenue     ?? 0),
+        total_orders:        Number(revSummary.total_orders       ?? 0),
+        paid_orders:         Number(revSummary.paid_orders        ?? 0),
+        avg_order_revenue:   Number(revSummary.avg_order_revenue  ?? 0),
+        prev_gross_revenue:  Number(prevRevSummary.gross_revenue  ?? 0),
+      },
+      daily_revenue: dailyRevenue.map(r => ({
+        date:     r.date instanceof Date ? r.date.toISOString().slice(0, 10) : String(r.date).slice(0, 10),
+        revenue:  Number(r.revenue  ?? 0),
+        settled:  Number(r.settled  ?? 0),
+        escrowed: Number(r.escrowed ?? 0),
+        orders:   Number(r.orders   ?? 0),
+      })),
+      revenue_by_vehicle: revenueByVehicle.map(r => ({
+        vehicle_type: r.vehicle_type,
+        orders:       Number(r.orders  ?? 0),
+        revenue:      Number(r.revenue ?? 0),
+      })),
+      manual_payments: {
+        total:                Number(mprSummary.total              ?? 0),
+        pending_count:        Number(mprSummary.pending_count      ?? 0),
+        approved_count:       Number(mprSummary.approved_count     ?? 0),
+        rejected_count:       Number(mprSummary.rejected_count     ?? 0),
+        approved_amount:      Number(mprSummary.approved_amount    ?? 0),
+        pending_amount:       Number(mprSummary.pending_amount     ?? 0),
+        total_deposits:       Number(mprSummary.total_deposits     ?? 0),
+        total_withdrawals:    Number(mprSummary.total_withdrawals  ?? 0),
+        total_refunds:        Number(mprSummary.total_refunds      ?? 0),
+        total_adjustments:    Number(mprSummary.total_adjustments  ?? 0),
+        prev_approved_amount: Number(prevMpr.approved_amount       ?? 0),
+      },
+      manual_payments_daily: mprDaily.map(r => ({
+        date:            r.date instanceof Date ? r.date.toISOString().slice(0, 10) : String(r.date).slice(0, 10),
+        count:           Number(r.count           ?? 0),
+        approved_amount: Number(r.approved_amount ?? 0),
+        pending_amount:  Number(r.pending_amount  ?? 0),
+      })),
+      wallet_by_type: walletByType.map(r => ({
+        transaction_type: r.transaction_type,
+        count:            Number(r.count        ?? 0),
+        total_amount:     Number(r.total_amount ?? 0),
+      })),
+      wallet_daily: walletDaily.map(r => ({
+        date:         r.date instanceof Date ? r.date.toISOString().slice(0, 10) : String(r.date).slice(0, 10),
+        credits:      Number(r.credits      ?? 0),
+        debits:       Number(r.debits       ?? 0),
+        transactions: Number(r.transactions ?? 0),
+      })),
+      top_shippers: topShippers.map(r => ({
+        name:    `${r.first_name} ${r.last_name}`,
+        email:   r.email        ?? '',
+        phone:   r.phone_number ?? '',
+        orders:  Number(r.orders  ?? 0),
+        revenue: Number(r.revenue ?? 0),
+      })),
+      invoices: {
+        total_invoices:      Number(invSummary.total_invoices      ?? 0),
+        total_billed:        Number(invSummary.total_billed        ?? 0),
+        total_driver_payout: Number(invSummary.total_driver_payout ?? 0),
+        total_commission:    Number(invSummary.total_commission    ?? 0),
+        total_tips:          Number(invSummary.total_tips          ?? 0),
+        total_extra_charges: Number(invSummary.total_extra_charges ?? 0),
+        avg_invoice_amount:  Number(invSummary.avg_invoice_amount  ?? 0),
+      },
+    },
+  })
+}
+
+// ─── Driver Report ──────────────────────────────────────────────────────────────
+
+/** GET /api/admin/reports/drivers?from=YYYY-MM-DD&to=YYYY-MM-DD */
+export async function adminDriverReportHandler(
+  request: FastifyRequest<{ Querystring: { from?: string; to?: string } }>,
+  reply:   FastifyReply
+) {
+  const db  = request.server.db
+  const now = new Date()
+  const toDate   = request.query.to   ? new Date(request.query.to)   : now
+  const fromDate = request.query.from ? new Date(request.query.from) : new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
+
+  const fromStr = fromDate.toISOString().slice(0, 10) + ' 00:00:00'
+  const toStr   = toDate.toISOString().slice(0, 10)   + ' 23:59:59'
+
+  // 1. Overall driver profile stats
+  const [profileRows] = await db.query<any[]>(`
+    SELECT
+      COUNT(*)                                           AS total_drivers,
+      SUM(is_verified)                                   AS verified_drivers,
+      SUM(status = 'AVAILABLE')                          AS available_drivers,
+      SUM(status = 'ON_JOB')                             AS on_job_drivers,
+      SUM(status = 'OFFLINE')                            AS offline_drivers,
+      SUM(status = 'SUSPENDED')                          AS suspended_drivers,
+      ROUND(AVG(CASE WHEN rating > 0 THEN rating END),2) AS avg_profile_rating,
+      SUM(national_id_status = 'APPROVED')               AS nat_id_approved,
+      SUM(national_id_status = 'PENDING')                AS nat_id_pending,
+      SUM(license_status     = 'APPROVED')               AS license_approved,
+      SUM(license_status     = 'PENDING')                AS license_pending,
+      SUM(libre_status       = 'APPROVED')               AS libre_approved,
+      SUM(libre_status       = 'PENDING')                AS libre_pending
+    FROM driver_profiles
+  `)
+  const profile = profileRows[0] ?? {}
+
+  // 2. Aggregate performance metrics
+  const [perfRows] = await db.query<any[]>(`
+    SELECT
+      SUM(total_trips)                   AS total_trips,
+      SUM(on_time_trips)                 AS on_time_trips,
+      SUM(late_trips)                    AS late_trips,
+      SUM(cancelled_trips)               AS cancelled_trips,
+      ROUND(AVG(average_rating), 2)      AS avg_rating,
+      SUM(total_earned)                  AS total_earned,
+      SUM(bonus_earned)                  AS total_bonus,
+      ROUND(AVG(on_time_percentage), 1)  AS avg_on_time_pct
+    FROM driver_performance_metrics
+  `)
+  const perf = perfRows[0] ?? {}
+
+  // 3. Rating distribution (in date range)
+  const [ratingDistRows] = await db.query<any[]>(`
+    SELECT stars, COUNT(*) AS count
+    FROM   driver_ratings
+    WHERE  is_deleted = 0
+      AND  created_at BETWEEN ? AND ?
+    GROUP  BY stars
+    ORDER  BY stars
+  `, [fromStr, toStr])
+
+  // 4. Daily trips completed (from orders, in date range)
+  const [dailyTripsRows] = await db.query<any[]>(`
+    SELECT
+      DATE(created_at)            AS date,
+      COUNT(*)                    AS completed_trips,
+      COUNT(DISTINCT driver_id)   AS active_drivers
+    FROM   orders
+    WHERE  driver_id IS NOT NULL
+      AND  status IN ('DELIVERED','COMPLETED')
+      AND  created_at BETWEEN ? AND ?
+    GROUP  BY DATE(created_at)
+    ORDER  BY date ASC
+  `, [fromStr, toStr])
+
+  // 5. Daily new ratings (in date range)
+  const [dailyRatingsRows] = await db.query<any[]>(`
+    SELECT
+      DATE(created_at) AS date,
+      COUNT(*)         AS count,
+      ROUND(AVG(stars),2) AS avg_stars
+    FROM   driver_ratings
+    WHERE  is_deleted = 0
+      AND  created_at BETWEEN ? AND ?
+    GROUP  BY DATE(created_at)
+    ORDER  BY date ASC
+  `, [fromStr, toStr])
+
+  // 6. Top 10 drivers by earnings
+  const [topDriverRows] = await db.query<any[]>(`
+    SELECT
+      CONCAT(u.first_name, ' ', u.last_name) AS name,
+      u.phone_number                          AS phone,
+      u.email,
+      dp.status                     AS driver_status,
+      dpm.total_trips,
+      dpm.total_earned,
+      dpm.average_rating,
+      dpm.on_time_percentage,
+      dpm.cancelled_trips,
+      dpm.bonus_earned
+    FROM driver_performance_metrics dpm
+    JOIN users u          ON u.id  = dpm.driver_id
+    JOIN driver_profiles dp ON dp.user_id = dpm.driver_id
+    WHERE dpm.total_earned > 0
+    ORDER BY dpm.total_earned DESC
+    LIMIT 10
+  `)
+
+  // 7. Vehicle type distribution (active vehicles)
+  const [vehicleTypeRows] = await db.query<any[]>(`
+    SELECT vehicle_type, COUNT(*) AS count
+    FROM   vehicles
+    WHERE  is_active = 1
+    GROUP  BY vehicle_type
+    ORDER  BY count DESC
+  `)
+
+  // 8. Trips per driver bucket (distribution: 0,1-5,6-20,21-50,50+)
+  const [tripsBucketRows] = await db.query<any[]>(`
+    SELECT
+      CASE
+        WHEN total_trips = 0      THEN '0 trips'
+        WHEN total_trips <= 5     THEN '1–5 trips'
+        WHEN total_trips <= 20    THEN '6–20 trips'
+        WHEN total_trips <= 50    THEN '21–50 trips'
+        ELSE '50+ trips'
+      END AS bucket,
+      COUNT(*) AS drivers
+    FROM driver_performance_metrics
+    GROUP BY bucket
+    ORDER BY MIN(total_trips)
+  `)
+
+  return reply.send({
+    success: true,
+    report: {
+      generated_at: new Date().toISOString(),
+      date_range: { from: fromDate.toISOString().slice(0, 10), to: toDate.toISOString().slice(0, 10) },
+      overview: {
+        total_drivers:      Number(profile.total_drivers     ?? 0),
+        verified_drivers:   Number(profile.verified_drivers  ?? 0),
+        available_drivers:  Number(profile.available_drivers ?? 0),
+        on_job_drivers:     Number(profile.on_job_drivers    ?? 0),
+        offline_drivers:    Number(profile.offline_drivers   ?? 0),
+        suspended_drivers:  Number(profile.suspended_drivers ?? 0),
+        avg_profile_rating: Number(profile.avg_profile_rating ?? 0),
+      },
+      performance: {
+        total_trips:     Number(perf.total_trips    ?? 0),
+        on_time_trips:   Number(perf.on_time_trips  ?? 0),
+        late_trips:      Number(perf.late_trips     ?? 0),
+        cancelled_trips: Number(perf.cancelled_trips ?? 0),
+        avg_rating:      Number(perf.avg_rating     ?? 0),
+        total_earned:    Number(perf.total_earned   ?? 0),
+        total_bonus:     Number(perf.total_bonus    ?? 0),
+        avg_on_time_pct: Number(perf.avg_on_time_pct ?? 0),
+      },
+      documents: {
+        nat_id_approved:   Number(profile.nat_id_approved  ?? 0),
+        nat_id_pending:    Number(profile.nat_id_pending   ?? 0),
+        license_approved:  Number(profile.license_approved ?? 0),
+        license_pending:   Number(profile.license_pending  ?? 0),
+        libre_approved:    Number(profile.libre_approved   ?? 0),
+        libre_pending:     Number(profile.libre_pending    ?? 0),
+      },
+      rating_distribution: (ratingDistRows as any[]).map(r => ({ stars: Number(r.stars), count: Number(r.count) })),
+      daily_trips:     (dailyTripsRows  as any[]).map(r => ({ date: String(r.date), completed_trips: Number(r.completed_trips), active_drivers: Number(r.active_drivers) })),
+      daily_ratings:   (dailyRatingsRows as any[]).map(r => ({ date: String(r.date), count: Number(r.count), avg_stars: Number(r.avg_stars) })),
+      top_drivers:     (topDriverRows   as any[]).map(r => ({ ...r, total_trips: Number(r.total_trips), total_earned: Number(r.total_earned), average_rating: Number(r.average_rating), on_time_percentage: Number(r.on_time_percentage), cancelled_trips: Number(r.cancelled_trips), bonus_earned: Number(r.bonus_earned) })),
+      vehicle_types:   (vehicleTypeRows as any[]).map(r => ({ vehicle_type: String(r.vehicle_type), count: Number(r.count) })),
+      trips_buckets:   (tripsBucketRows as any[]).map(r => ({ bucket: String(r.bucket), drivers: Number(r.drivers) })),
+    },
+  })
+}
+
 // ─── Order Report ─────────────────────────────────────────────────────────────
 
 /** GET /api/admin/reports/orders?from=YYYY-MM-DD&to=YYYY-MM-DD */

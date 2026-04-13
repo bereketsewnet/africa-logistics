@@ -95,6 +95,8 @@ import {
   adminGetAiSettingsHandler,
   adminUpdateAiSettingsHandler,
   adminOrderReportHandler,
+  adminFinanceReportHandler,
+  adminDriverReportHandler,
 } from '../controllers/admin.controller.js'
 
 export default async function adminRoutes(fastify: FastifyInstance) {
@@ -320,6 +322,12 @@ export default async function adminRoutes(fastify: FastifyInstance) {
 
   /** GET /api/admin/reports/orders?from=YYYY-MM-DD&to=YYYY-MM-DD — full order report */
   fastify.get('/reports/orders', adminOrderReportHandler)
+
+  /** GET /api/admin/reports/finance?from=YYYY-MM-DD&to=YYYY-MM-DD — full finance report */
+  fastify.get('/reports/finance', adminFinanceReportHandler)
+
+  /** GET /api/admin/reports/drivers?from=YYYY-MM-DD&to=YYYY-MM-DD — full driver report */
+  fastify.get('/reports/drivers', adminDriverReportHandler)
 
   /**
    * GET /api/admin/orders/guest — list guest-only orders
