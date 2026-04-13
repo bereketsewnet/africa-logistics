@@ -12,6 +12,7 @@ import AdminPaymentReview from '../components/AdminPaymentReview'
 import AdminWalletAdjustment from '../components/AdminWalletAdjustment'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
+import logoImg from '../assets/logo.webp'
 import {
   LuTruck, LuUser, LuShield, LuPackage, LuPhone, LuMail,
   LuIdCard, LuCircleCheck, LuTriangleAlert, LuCamera, LuTrash2,
@@ -24,6 +25,7 @@ import {
   LuLeaf, LuFlame, LuThermometer, LuHeart, LuMonitor, LuArchive, LuGem, LuFish, LuImage,
   LuMapPin, LuMessageSquare, LuSend, LuNavigation, LuBell,
   LuGlobe, LuWrench, LuBike, LuKey, LuLayoutDashboard, LuLink, LuToggleLeft, LuToggleRight,
+  LuChevronDown,
 } from 'react-icons/lu'
 
 // ─── Upload URL helper ───────────────────────────────────────────────────────
@@ -1662,21 +1664,103 @@ function AdminAiSettingsSection() {
 // ─── Reports Section ─────────────────────────────────────────────────────────
 
 function AdminReportsSection() {
+  const [openSections, setOpenSections] = useState<string[]>(['Orders'])
+
+  const toggleSection = (label: string) => {
+    setOpenSections(prev => prev.includes(label) ? prev.filter(s => s !== label) : [...prev, label])
+  }
+
+  const reportGroups: { label: string; icon: React.ReactNode; reports: { title: string; description: string; icon: React.ReactNode }[] }[] = [
+    {
+      label: 'Orders',
+      icon: <LuListOrdered size={16}/>,
+      reports: [
+        { title: 'Order Analytics', description: 'Breakdown of orders by status, date range, and route.', icon: <LuChartBar size={20}/> },
+        { title: 'Guest Order Report', description: 'Summary of guest orders, conversion rates, and trends.', icon: <LuUsers size={20}/> },
+        { title: 'Order Completion Rate', description: 'Track successful vs failed and cancelled order rates.', icon: <LuBadgeCheck size={20}/> },
+      ],
+    },
+    {
+      label: 'Finance',
+      icon: <LuFileText size={16}/>,
+      reports: [
+        { title: 'Revenue Summary', description: 'Total revenue by period, order type, and route.', icon: <LuChartBar size={20}/> },
+        { title: 'Payment Reviews Report', description: 'Pending and approved payment submissions overview.', icon: <LuFileText size={20}/> },
+        { title: 'Wallet Transactions', description: 'Credit and debit wallet activity across all users.', icon: <LuHistory size={20}/> },
+      ],
+    },
+    {
+      label: 'Drivers',
+      icon: <LuTruck size={16}/>,
+      reports: [
+        { title: 'Driver Performance', description: 'On-time rate, delivery completion, and ratings per driver.', icon: <LuTruck size={20}/> },
+        { title: 'Verification Report', description: 'Status of driver document verifications and approvals.', icon: <LuBadgeCheck size={20}/> },
+        { title: 'Driver Earnings', description: 'Earnings breakdown and payout history per driver.', icon: <LuChartBar size={20}/> },
+      ],
+    },
+    {
+      label: 'Users',
+      icon: <LuPackage size={16}/>,
+      reports: [
+        { title: 'Shipper Activity', description: 'Orders placed, spending trends, and account status.', icon: <LuPackage size={20}/> },
+        { title: 'Staff Activity', description: 'Admin actions, login history, and permission usage.', icon: <LuBriefcase size={20}/> },
+        { title: 'User Growth', description: 'New registrations, churn rate, and active user trends.', icon: <LuUsers size={20}/> },
+      ],
+    },
+    {
+      label: 'Logistics',
+      icon: <LuGlobe size={16}/>,
+      reports: [
+        { title: 'Cross-Border Report', description: 'International shipment volume and route performance.', icon: <LuGlobe size={20}/> },
+        { title: 'Vehicle Utilization', description: 'Fleet usage rates and idle time by vehicle type.', icon: <LuCar size={20}/> },
+        { title: 'Route Analysis', description: 'Most common routes, average distances, and delivery times.', icon: <LuMapPin size={20}/> },
+      ],
+    },
+  ]
+
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-      <h2 style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--clr-text)', display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
-        <LuChartBar size={17}/> Reports
-      </h2>
-      <p style={{ fontSize: '0.78rem', color: 'var(--clr-muted)', marginTop: '-0.6rem' }}>
-        Analytics, exports, and business intelligence reports.
-      </p>
-      <div className="glass-inner" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '4rem 2rem', gap: '0.85rem', textAlign: 'center' }}>
-        <LuChartBar size={40} style={{ color: 'var(--clr-muted)', opacity: 0.4 }}/>
-        <p style={{ fontSize: '0.92rem', fontWeight: 700, color: 'var(--clr-text)', margin: 0 }}>Reports Coming Soon</p>
-        <p style={{ fontSize: '0.78rem', color: 'var(--clr-muted)', maxWidth: 360, margin: 0 }}>
-          This section will include revenue summaries, driver performance reports, order analytics, and CSV exports.
-        </p>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', width: '100%' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', marginBottom: '0.25rem' }}>
+        <LuChartBar size={17}/>
+        <h2 style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--clr-text)', margin: 0 }}>Reports</h2>
+        <span style={{ fontSize: '0.7rem', color: 'var(--clr-muted)', marginLeft: '0.25rem' }}>Analytics &amp; Business Intelligence</span>
       </div>
+
+      {reportGroups.map(group => {
+        const isOpen = openSections.includes(group.label)
+        return (
+          <div key={group.label} className="glass-inner" style={{ padding: 0, overflow: 'hidden', borderRadius: 14 }}>
+            {/* Accordion header */}
+            <button
+              onClick={() => toggleSection(group.label)}
+              style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', width: '100%', padding: '0.85rem 1.1rem', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--clr-text)', textAlign: 'left', borderBottom: isOpen ? '1px solid rgba(255,255,255,0.07)' : 'none', transition: 'border 0.18s' }}
+            >
+              <span style={{ color: 'var(--clr-accent)', display: 'flex', alignItems: 'center' }}>{group.icon}</span>
+              <span style={{ flex: 1, fontWeight: 700, fontSize: '0.9rem' }}>{group.label}</span>
+              <span style={{ fontSize: '0.72rem', color: 'var(--clr-muted)', marginRight: '0.5rem' }}>{group.reports.length} reports</span>
+              <span style={{ color: 'var(--clr-muted)', transition: 'transform 0.2s', transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)', display: 'flex', alignItems: 'center' }}>
+                <LuChevronDown size={15}/>
+              </span>
+            </button>
+
+            {/* Accordion body */}
+            {isOpen && (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: '0.85rem', padding: '1rem 1.1rem' }}>
+                {group.reports.map(report => (
+                  <div key={report.title} style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 10, padding: '1rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                    <span style={{ color: 'var(--clr-accent)', opacity: 0.7 }}>{report.icon}</span>
+                    <p style={{ margin: 0, fontWeight: 700, fontSize: '0.83rem', color: 'var(--clr-text)' }}>{report.title}</p>
+                    <p style={{ margin: 0, fontSize: '0.72rem', color: 'var(--clr-muted)', lineHeight: 1.5 }}>{report.description}</p>
+                    <button disabled style={{ marginTop: 'auto', padding: '0.38rem 0.85rem', borderRadius: 8, border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.04)', color: 'var(--clr-muted)', fontSize: '0.72rem', fontWeight: 600, cursor: 'not-allowed', fontFamily: 'inherit' }}>
+                      Coming Soon
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )
+      })}
     </div>
   )
 }
@@ -6539,9 +6623,26 @@ export default function AdminDashboardPage() {
   const [stats, setStats]           = useState<Stats | null>(null)
   const [usersLoading, setUsersLoading] = useState(false)
   const [toastMsg, setToastMsg]     = useState('')
+  const [pendingCounts, setPendingCounts] = useState({ orders: 0, guestOrders: 0, payments: 0 })
 
   const togglePin = () => setPinned(v => { const next = !v; localStorage.setItem('admin-sidebar-pinned', String(next)); return next })
   const showToast = (msg: string) => { setToastMsg(msg); setTimeout(() => setToastMsg(''), 3000) }
+
+  const loadPendingCounts = useCallback(async () => {
+    try {
+      const [oRes, gRes, pRes] = await Promise.all([
+        adminOrderApi.getStats().catch(() => null),
+        adminOrderApi.getGuestOrders({ page: 1, limit: 1 }).catch(() => null),
+        apiClient.get('/admin/payments/pending', { params: { status: 'PENDING' } }).catch(() => null),
+      ])
+      setPendingCounts({
+        orders: (oRes?.data?.stats?.by_status?.PENDING ?? 0) as number,
+        guestOrders: (gRes?.data?.pagination?.total ?? 0) as number,
+        payments: ((pRes?.data?.payments) as unknown[])?.length ?? 0,
+      })
+    } catch { /* silent */ }
+  }, [])
+  useEffect(() => { loadPendingCounts() }, [loadPendingCounts])
 
   const loadUsers = useCallback(async () => {
     setUsersLoading(true)
@@ -6577,15 +6678,15 @@ export default function AdminDashboardPage() {
   const navItems: { id: AdminSection; icon: React.ReactNode; label: string; count?: number }[] = [
     ...(can('overview.view') ? [{ id: 'overview' as AdminSection, icon: <LuLayoutDashboard size={16}/>, label: 'Overview' }] : []),
     ...(user?.role_id === 1 ? [{ id: 'reports' as AdminSection, icon: <LuChartBar size={16}/>, label: 'Reports' }] : []),
-    ...(can('orders.manage') ? [{ id: 'orders' as AdminSection, icon: <LuListOrdered size={16}/>, label: 'Orders' }] : []),
-    ...(can('orders.manage') ? [{ id: 'guest-orders' as AdminSection, icon: <LuUsers size={16}/>, label: 'Guest Orders' }] : []),
+    ...(can('orders.manage') ? [{ id: 'orders' as AdminSection, icon: <LuListOrdered size={16}/>, label: 'Orders', count: pendingCounts.orders }] : []),
+    ...(can('orders.manage') ? [{ id: 'guest-orders' as AdminSection, icon: <LuUsers size={16}/>, label: 'Guest Orders', count: pendingCounts.guestOrders }] : []),
     ...(can('dispatch.manage') ? [{ id: 'live-drivers' as AdminSection, icon: <LuMapPin size={16}/>, label: 'Live Drivers' }] : []),
-    ...(can('payments.approve') ? [{ id: 'payments' as AdminSection, icon: <LuFileText size={16}/>, label: 'Payment Reviews' }] : []),
+    ...(can('payments.approve') ? [{ id: 'payments' as AdminSection, icon: <LuFileText size={16}/>, label: 'Payment Reviews', count: pendingCounts.payments }] : []),
     ...(can('wallet.manage') ? [{ id: 'wallet-adjustment' as AdminSection, icon: <LuHistory size={16}/>, label: 'Wallet Adjust' }] : []),
-    ...(can('drivers.verify') ? [{ id: 'drivers' as AdminSection, icon: <LuTruck size={16}/>, label: 'Drivers', count: drivers.length }] : []),
+    ...(can('drivers.verify') ? [{ id: 'drivers' as AdminSection, icon: <LuTruck size={16}/>, label: 'Drivers' }] : []),
     ...(can('drivers.verify') ? [{ id: 'verify-drivers' as AdminSection, icon: <LuBadgeCheck size={16}/>, label: 'Verify Drivers' }] : []),
-    ...(can('users.manage') ? [{ id: 'shippers' as AdminSection, icon: <LuPackage size={16}/>, label: 'Shippers', count: shippers.length }] : []),
-    ...(can('users.manage') ? [{ id: 'staff' as AdminSection, icon: <LuBriefcase size={16}/>, label: 'Staff Users', count: staffUsers.length }] : []),
+    ...(can('users.manage') ? [{ id: 'shippers' as AdminSection, icon: <LuPackage size={16}/>, label: 'Shippers' }] : []),
+    ...(can('users.manage') ? [{ id: 'staff' as AdminSection, icon: <LuBriefcase size={16}/>, label: 'Staff Users' }] : []),
     ...(user?.role_id === 1 ? [{ id: 'cross-border' as AdminSection, icon: <LuGlobe size={16}/>, label: 'Cross-Border' }] : []),
     ...(can('vehicles.manage') ? [{ id: 'vehicles' as AdminSection, icon: <LuCar size={16}/>, label: 'Vehicles' }] : []),
     ...(user?.role_id === 1 ? [{ id: 'security-events' as AdminSection, icon: <LuShieldCheck size={16}/>, label: 'Security Events' }] : []),
@@ -6657,7 +6758,7 @@ export default function AdminDashboardPage() {
         {/* Brand */}
         <div style={{ padding: '1.25rem 1.1rem 0.9rem', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.55rem' }}>
-            <img src="/logo-with-name.webp" alt="Africa Logistics" style={{ height: 36, width: 'auto', objectFit: 'contain', borderRadius: 6, flexShrink: 0 }} />
+            <img src={logoImg} alt="Africa Logistics" style={{ height: 36, width: 'auto', objectFit: 'contain', borderRadius: 6, flexShrink: 0 }} />
             <div style={{ flex: 1 }} />
             <button onClick={togglePin} title={pinned ? 'Unpin sidebar' : 'Pin sidebar'} style={{ background: 'none', border: 'none', cursor: 'pointer', color: pinned ? 'var(--clr-accent)' : 'var(--clr-muted)', padding: '0.2rem', display:'flex', alignItems:'center', borderRadius: 6, transition: 'color 0.18s' }}>
               {pinned ? <LuPinOff size={15}/> : <LuPin size={15}/>}
@@ -6679,30 +6780,30 @@ export default function AdminDashboardPage() {
             {
               label: 'Orders',
               items: [
-                ...(can('orders.manage') ? [{ id: 'orders' as AdminSection, icon: <LuListOrdered size={15}/>, label: 'Orders' }] : []),
-                ...(can('orders.manage') ? [{ id: 'guest-orders' as AdminSection, icon: <LuUsers size={15}/>, label: 'Guest Orders' }] : []),
+                ...(can('orders.manage') ? [{ id: 'orders' as AdminSection, icon: <LuListOrdered size={15}/>, label: 'Orders', count: pendingCounts.orders }] : []),
+                ...(can('orders.manage') ? [{ id: 'guest-orders' as AdminSection, icon: <LuUsers size={15}/>, label: 'Guest Orders', count: pendingCounts.guestOrders }] : []),
                 ...(can('dispatch.manage') ? [{ id: 'live-drivers' as AdminSection, icon: <LuMapPin size={15}/>, label: 'Live Drivers' }] : []),
               ],
             },
             {
               label: 'Finance',
               items: [
-                ...(can('payments.approve') ? [{ id: 'payments' as AdminSection, icon: <LuFileText size={15}/>, label: 'Payment Reviews' }] : []),
+                ...(can('payments.approve') ? [{ id: 'payments' as AdminSection, icon: <LuFileText size={15}/>, label: 'Payment Reviews', count: pendingCounts.payments }] : []),
                 ...(can('wallet.manage') ? [{ id: 'wallet-adjustment' as AdminSection, icon: <LuHistory size={15}/>, label: 'Wallet Adjust' }] : []),
               ],
             },
             {
               label: 'Drivers',
               items: [
-                ...(can('drivers.verify') ? [{ id: 'drivers' as AdminSection, icon: <LuTruck size={15}/>, label: 'Drivers', count: drivers.length }] : []),
+                ...(can('drivers.verify') ? [{ id: 'drivers' as AdminSection, icon: <LuTruck size={15}/>, label: 'Drivers' }] : []),
                 ...(can('drivers.verify') ? [{ id: 'verify-drivers' as AdminSection, icon: <LuBadgeCheck size={15}/>, label: 'Verify Drivers' }] : []),
               ],
             },
             {
               label: 'Users',
               items: [
-                ...(can('users.manage') ? [{ id: 'shippers' as AdminSection, icon: <LuPackage size={15}/>, label: 'Shippers', count: shippers.length }] : []),
-                ...(can('users.manage') ? [{ id: 'staff' as AdminSection, icon: <LuBriefcase size={15}/>, label: 'Staff Users', count: staffUsers.length }] : []),
+                ...(can('users.manage') ? [{ id: 'shippers' as AdminSection, icon: <LuPackage size={15}/>, label: 'Shippers' }] : []),
+                ...(can('users.manage') ? [{ id: 'staff' as AdminSection, icon: <LuBriefcase size={15}/>, label: 'Staff Users' }] : []),
               ],
             },
             {
@@ -6737,7 +6838,7 @@ export default function AdminDashboardPage() {
                     <span style={{ width: 17, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>{item.icon}</span>
                     <span style={{ flex: 1 }}>{item.label}</span>
                     {item.count !== undefined && item.count > 0 && (
-                      <span style={{ background: section === item.id ? 'rgba(0,229,255,0.2)' : 'rgba(255,255,255,0.08)', color: section === item.id ? 'var(--clr-accent)' : 'var(--clr-muted)', borderRadius: 99, padding: '0.05rem 0.42rem', fontSize: '0.67rem', fontWeight: 700 }}>{item.count}</span>
+                      <span style={{ background: 'rgba(251,191,36,0.15)', color: '#fbbf24', borderRadius: 99, padding: '0.05rem 0.42rem', fontSize: '0.67rem', fontWeight: 700 }}>{item.count}</span>
                     )}
                   </button>
                 ))}
