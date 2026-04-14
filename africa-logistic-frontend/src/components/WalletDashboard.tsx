@@ -94,7 +94,7 @@ const STYLE_TAG = `
     border-radius: 20px;
     background: linear-gradient(145deg, rgba(124,58,237,0.18) 0%, rgba(14,165,233,0.12) 50%, rgba(0,229,255,0.08) 100%);
     border: 1px solid rgba(0,229,255,0.18);
-    padding: 2rem;
+    padding: 1.25rem 1.5rem;
     animation: wlt-glow 4s ease-in-out infinite;
   }
   .wlt-card-hero::before {
@@ -231,6 +231,15 @@ const STYLE_TAG = `
     transition: all 0.18s;
   }
   .wlt-drop-zone:hover { border-color: rgba(0,229,255,0.4); color: #00e5ff; background: rgba(0,229,255,0.04); }
+  .wlt-bottom-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+    align-items: start;
+  }
+  @media (max-width: 700px) {
+    .wlt-bottom-grid { grid-template-columns: 1fr; }
+  }
 `
 
 /* ── Skeleton ────────────────────────────────────────────────────────────── */
@@ -582,7 +591,7 @@ export default function WalletDashboard() {
       {/* Inject keyframes once */}
       <style>{STYLE_TAG}</style>
 
-      <div style={{ display:'flex', flexDirection:'column', gap:'1.5rem' }}>
+      <div style={{ width:'100%', display:'flex', flexDirection:'column', gap:'1.25rem' }}>
 
         {/* ═══ HERO BALANCE CARD ══════════════════════════════════════════ */}
         <div className="wlt-card-hero">
@@ -672,8 +681,9 @@ export default function WalletDashboard() {
           </div>
         )}
 
+        <div className="wlt-bottom-grid">
         {/* ═══ WITHDRAWAL HISTORY ═════════════════════════════════════════ */}
-        <div className="glass" style={{ padding:'1.5rem' }}>
+        <div className="glass" style={{ padding:'1.25rem' }}>
           <div className="wlt-section-title">
             <LuClock size={14} style={{ color:'var(--clr-accent)' }}/>
             Withdrawal Requests
@@ -702,7 +712,7 @@ export default function WalletDashboard() {
         </div>
 
         {/* ═══ RECENT TRANSACTIONS ════════════════════════════════════════ */}
-        <div className="glass" style={{ padding:'1.5rem' }}>
+        <div className="glass" style={{ padding:'1.25rem' }}>
           <div className="wlt-section-title">
             <LuTrendingUp size={14} style={{ color:'var(--clr-accent)' }}/>
             Recent Transactions
@@ -742,6 +752,7 @@ export default function WalletDashboard() {
             </div>
           )}
         </div>
+        </div>{/* end wlt-bottom-grid */}
 
       </div>
     </>
