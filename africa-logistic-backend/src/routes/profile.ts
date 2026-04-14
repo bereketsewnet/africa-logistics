@@ -25,6 +25,10 @@ import {
   downloadInvoiceHandler,
   submitManualPaymentHandler,
 } from '../controllers/profile.controller.js'
+import {
+  submitWithdrawalHandler,
+  getMyWithdrawalsHandler,
+} from '../controllers/withdrawal.controller.js'
 
 export default async function profileRoutes(fastify: FastifyInstance) {
   // Apply JWT authentication to every route in this plugin
@@ -140,4 +144,20 @@ export default async function profileRoutes(fastify: FastifyInstance) {
    * Body: { amount, payment_method, proof_image? (base64) }
    */
   fastify.post('/wallet/manual-payment', submitManualPaymentHandler)
+
+  // ─── Withdrawal Endpoints ────────────────────────────────────────────────────
+
+  /**
+   * POST /api/profile/wallet/withdrawal
+   * Submit a withdrawal request (user-initiated)
+   * Body: { amount, bank_details: { bank_name, account_number, account_name, method? }, notes?, proof_image_base64? }
+   */
+  fastify.post('/wallet/withdrawal', submitWithdrawalHandler)
+
+  /**
+   * GET /api/profile/wallet/withdrawals
+   * Get the authenticated user's withdrawal request history
+   * Query: limit=20, offset=0
+   */
+  fastify.get('/wallet/withdrawals', getMyWithdrawalsHandler)
 }

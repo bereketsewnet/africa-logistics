@@ -670,7 +670,38 @@ export default fp(async function dbPlugin(fastify: FastifyInstance) {
       INSERT IGNORE INTO system_config (config_key, config_value) VALUES
         ('maintenance_mode',    '0'),
         ('maintenance_message', 'The platform is currently under maintenance. We will be back shortly.'),
-        ('app_version',         '1.0.0')
+        ('app_version',         '1.0.0'),
+        ('withdrawal_commission_rate', '15')
+    `)
+
+    // ─── Withdrawal Requests ──────────────────────────────────────────────────
+    await conn.query(`
+      CREATE TABLE IF NOT EXISTS withdrawal_requests (
+        id                        CHAR(36)      NOT NULL PRIMARY KEY,
+        user_id                   CHAR(36)      NOT NULL,
+        role_id                   INT           NOT NULL,
+        amount_requested          DECIMAL(14,2) NOT NULL,
+        amount_approved           DECIMAL(14,2) NULL,
+        bank_details              JSON          NOT NULL,
+        notes                     TEXT          NULL,
+        proof_image_url           VARCHAR(500)  NULL,
+        status                    ENUM('PENDING','APPROVED','REJECTED') DEFAULT 'PENDING',
+        admin_note                TEXT          NULL,
+        admin_image_url           VARCHAR(500)  NULL,
+        commission_rate           DECIMAL(5,2)  NULL,
+        commission_amount         DECIMAL(14,2) NULL,
+        transaction_id            CHAR(36)      NULL,
+        commission_transaction_id CHAR(36)      NULL,
+        reviewed_by               CHAR(36)      NULL,
+        reviewed_at               TIMESTAMP     NULL,
+        created_at                TIMESTAMP     DEFAULT CURRENT_TIMESTAMP,
+        INDEX idx_wr_user   (user_id),
+        INDEX idx_wr_status (status),
+        INDEX idx_wr_created (created_at),
+        CONSTRAINT wr_fk_user        FOREIGN KEY (user_id)    REFERENCES users(id) ON DELETE CASCADE,
+        CONSTRAINT wr_fk_reviewed_by FOREIGN KEY (reviewed_by) REFERENCES users(id) ON DELETE SET NULL,
+        CONSTRAINT wr_fk_transaction FOREIGN KEY (transaction_id) REFERENCES wallet_transactions(id) ON DELETE SET NULL
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     `)
 
     // 9.4 — RBAC permission model (role → permission matrix)

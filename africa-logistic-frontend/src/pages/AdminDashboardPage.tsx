@@ -6576,7 +6576,7 @@ export default function AdminDashboardPage() {
   const [stats, setStats]           = useState<Stats | null>(null)
   const [usersLoading, setUsersLoading] = useState(false)
   const [toastMsg, setToastMsg]     = useState('')
-  const [pendingCounts, setPendingCounts] = useState({ orders: 0, guestOrders: 0, payments: 0 })
+  const [pendingCounts, setPendingCounts] = useState({ orders: 0, guestOrders: 0, payments: 0, withdrawals: 0 })
 
   const togglePin = () => setPinned(v => { const next = !v; localStorage.setItem('admin-sidebar-pinned', String(next)); return next })
   const showToast = (msg: string) => { setToastMsg(msg); setTimeout(() => setToastMsg(''), 3000) }
@@ -6586,15 +6586,17 @@ export default function AdminDashboardPage() {
       const isSuperAdmin = user?.role_id === 1
       const has = (perm: string) => isSuperAdmin || myPermissions.includes(perm)
 
-      const [oRes, gRes, pRes] = await Promise.all([
+      const [oRes, gRes, pRes, wRes] = await Promise.all([
         has('orders.manage') ? adminOrderApi.getStats().catch(() => null) : Promise.resolve(null),
         has('orders.manage') ? adminOrderApi.getGuestOrders({ page: 1, limit: 1, status: 'PENDING' }).catch(() => null) : Promise.resolve(null),
         has('payments.approve') ? apiClient.get('/admin/payments/pending', { params: { status: 'PENDING' } }).catch(() => null) : Promise.resolve(null),
+        has('payments.approve') ? adminOrderApi.listWithdrawalRequests({ status: 'PENDING', limit: 999 }).catch(() => null) : Promise.resolve(null),
       ])
       setPendingCounts({
         orders: (oRes?.data?.stats?.by_status?.PENDING ?? 0) as number,
         guestOrders: (gRes?.data?.pagination?.total ?? 0) as number,
         payments: ((pRes?.data?.payments) as unknown[])?.length ?? 0,
+        withdrawals: (wRes?.data?.requests as unknown[])?.length ?? 0,
       })
     } catch { /* silent */ }
   }, [myPermissions, user?.role_id])
@@ -6673,7 +6675,7 @@ export default function AdminDashboardPage() {
     ...(can('orders.manage') ? [{ id: 'orders' as AdminSection, icon: <LuListOrdered size={16}/>, label: 'Orders', count: pendingCounts.orders }] : []),
     ...(can('orders.manage') ? [{ id: 'guest-orders' as AdminSection, icon: <LuUsers size={16}/>, label: 'Guest Orders', count: pendingCounts.guestOrders }] : []),
     ...(can('dispatch.manage') ? [{ id: 'live-drivers' as AdminSection, icon: <LuMapPin size={16}/>, label: 'Live Drivers' }] : []),
-    ...(can('payments.approve') ? [{ id: 'payments' as AdminSection, icon: <LuFileText size={16}/>, label: 'Payment Reviews', count: pendingCounts.payments }] : []),
+    ...(can('payments.approve') ? [{ id: 'payments' as AdminSection, icon: <LuFileText size={16}/>, label: 'Payment Reviews', count: pendingCounts.payments + pendingCounts.withdrawals }] : []),
     ...(can('wallet.manage') ? [{ id: 'wallet-adjustment' as AdminSection, icon: <LuHistory size={16}/>, label: 'Wallet Adjust' }] : []),
     ...(can('drivers.verify') ? [{ id: 'drivers' as AdminSection, icon: <LuTruck size={16}/>, label: 'Drivers' }] : []),
     ...(can('drivers.verify') ? [{ id: 'verify-drivers' as AdminSection, icon: <LuBadgeCheck size={16}/>, label: 'Verify Drivers' }] : []),
@@ -6780,7 +6782,7 @@ export default function AdminDashboardPage() {
             {
               label: 'Finance',
               items: [
-                ...(can('payments.approve') ? [{ id: 'payments' as AdminSection, icon: <LuFileText size={15}/>, label: 'Payment Reviews', count: pendingCounts.payments }] : []),
+                ...(can('payments.approve') ? [{ id: 'payments' as AdminSection, icon: <LuFileText size={15}/>, label: 'Payment Reviews', count: pendingCounts.payments + pendingCounts.withdrawals }] : []),
                 ...(can('wallet.manage') ? [{ id: 'wallet-adjustment' as AdminSection, icon: <LuHistory size={15}/>, label: 'Wallet Adjust' }] : []),
               ],
             },

@@ -384,6 +384,35 @@ export const adminOrderApi = {
 
   updateAiSettings: (data: { ai_enabled?: boolean; customer_id?: string; api_key?: string }) =>
     apiClient.put('/admin/settings/ai', data),
+
+  // ── Withdrawal Requests ───────────────────────────────────────────────────
+  listWithdrawalRequests: (params?: { status?: string; limit?: number; offset?: number }) =>
+    apiClient.get('/admin/withdrawal-requests', { params }),
+
+  approveWithdrawal: (requestId: string, data: { approved_amount: number; admin_note?: string; admin_image_base64?: string; commission_rate?: number }) =>
+    apiClient.post(`/admin/withdrawal-requests/${requestId}/approve`, data),
+
+  rejectWithdrawal: (requestId: string, data: { reason: string }) =>
+    apiClient.post(`/admin/withdrawal-requests/${requestId}/reject`, data),
+}
+
+// ─── Wallet / Withdrawal API (authenticated user) ─────────────────────────────
+export const walletApi = {
+  getWallet: () =>
+    apiClient.get('/profile/wallet'),
+
+  getTransactions: (params?: { limit?: number; offset?: number }) =>
+    apiClient.get('/profile/wallet/transactions', { params }),
+
+  submitWithdrawal: (data: {
+    amount: number
+    bank_details: { bank_name: string; account_number: string; account_name: string; method?: string }
+    notes?: string
+    proof_image_base64?: string
+  }) => apiClient.post('/profile/wallet/withdrawal', data),
+
+  getMyWithdrawals: (params?: { limit?: number; offset?: number }) =>
+    apiClient.get('/profile/wallet/withdrawals', { params }),
 }
 
 // ─── Public Config API (no auth required) ────────────────────────────────────

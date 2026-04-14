@@ -99,6 +99,11 @@ import {
   adminDriverReportHandler,
   adminLogisticsReportHandler,
 } from '../controllers/admin.controller.js'
+import {
+  adminListWithdrawalsHandler,
+  adminApproveWithdrawalHandler,
+  adminRejectWithdrawalHandler,
+} from '../controllers/withdrawal.controller.js'
 
 export default async function adminRoutes(fastify: FastifyInstance) {
   // All admin routes require a valid JWT
@@ -148,6 +153,7 @@ export default async function adminRoutes(fastify: FastifyInstance) {
     if (url.includes('/pricing-rules')) return 'pricing.manage'
     if (url.includes('/cargo-types')) return 'cargo.manage'
     if (url.includes('/payments/')) return 'payments.approve'
+    if (url.includes('/withdrawal-requests')) return 'payments.approve'
     if (url.includes('/wallet-stats')) return 'wallet.manage'
     if (url.includes('/wallet') || url.includes('/wallets')) return 'wallet.manage'
     if (url.includes('/drivers/performance-metrics') || url.includes('/bonuses/')) return 'bonuses.manage'
@@ -443,6 +449,17 @@ export default async function adminRoutes(fastify: FastifyInstance) {
 
   /** GET /api/admin/wallet-stats — overall wallet and financial statistics */
   fastify.get('/wallet-stats', getWalletStatsHandler)
+
+  // ── Withdrawal Requests ────────────────────────────────────────────────────
+
+  /** GET /api/admin/withdrawal-requests — list withdrawal requests */
+  fastify.get('/withdrawal-requests', adminListWithdrawalsHandler)
+
+  /** POST /api/admin/withdrawal-requests/:requestId/approve */
+  fastify.post('/withdrawal-requests/:requestId/approve', adminApproveWithdrawalHandler)
+
+  /** POST /api/admin/withdrawal-requests/:requestId/reject */
+  fastify.post('/withdrawal-requests/:requestId/reject', adminRejectWithdrawalHandler)
 
   // ── Performance Bonuses ────────────────────────────────────────────────────
 
