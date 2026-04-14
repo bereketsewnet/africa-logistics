@@ -803,7 +803,7 @@ function AdminMaintenanceSection() {
 
 // ─── Admin Role Management Section (9.4) ────────────────────────────────────
 
-function AdminRoleManagementSection() {
+function AdminRoleManagementSection({ onPermissionsSaved }: { onPermissionsSaved?: () => void }) {
   const { user } = useAuth()
   const isSuperAdmin = user?.role_id === 1
   const [roles, setRoles] = useState<Array<{ id: number; role_name: string; description: string | null }>>([])
@@ -859,6 +859,7 @@ function AdminRoleManagementSection() {
       await adminOrderApi.updateRolePermissions(roleId, selected)
       showToast('Permissions saved')
       await load()
+      onPermissionsSaved?.()
     } catch {
       showToast('Failed to save permissions')
     } finally {
@@ -6620,11 +6621,24 @@ export default function AdminDashboardPage() {
     }
   }, [loadUsers, myPermissions, user?.role_id])
 
-  useEffect(() => {
+  const reloadPermissions = useCallback(() => {
     adminOrderApi.getMyPermissions()
       .then(({ data }) => setMyPermissions(data.permissions ?? []))
-      .catch(() => setMyPermissions([]))
+      .catch(() => {})
   }, [])
+
+  useEffect(() => {
+    reloadPermissions()
+    // Re-fetch permissions whenever the tab regains focus
+    const onVisible = () => { if (document.visibilityState === 'visible') reloadPermissions() }
+    document.addEventListener('visibilitychange', onVisible)
+    // Also poll every 20 seconds so nav updates without any user action needed
+    const interval = setInterval(reloadPermissions, 20_000)
+    return () => {
+      document.removeEventListener('visibilitychange', onVisible)
+      clearInterval(interval)
+    }
+  }, [reloadPermissions])
 
   const handleToggleActive = async (u: UserRow) => {
     try {
@@ -6636,28 +6650,39 @@ export default function AdminDashboardPage() {
 
   const drivers    = users.filter(u => u.role_id === 3)
   const shippers   = users.filter(u => u.role_id === 2)
-  const staffUsers = users.filter(u => [1, 4, 5].includes(u.role_id))
-  const isCashier = user?.role_id === 4
+  // Include all non-shipper, non-driver roles (including custom roles with id > 5)
+  const staffUsers = users.filter(u => ![2, 3].includes(u.role_id))
 
   const can = (perm: string) => user?.role_id === 1 || myPermissions.includes(perm)
   const canOpenReports = user?.role_id === 1 || can('orders.manage') || can('dispatch.manage') || can('payments.approve') || can('wallet.manage')
-  const reportTabsForRole: Array<'orders' | 'finance' | 'drivers' | 'logistics'> | undefined = isCashier ? ['finance'] : undefined
+  // Finance-only view: user has finance permissions but NOT order management
+  const financeOnly = !can('orders.manage') && (can('payments.approve') || can('wallet.manage'))
+  // Report tabs visible based on actual permissions (not hardcoded role)
+  const reportTabsForRole: Array<'orders' | 'finance' | 'drivers' | 'logistics'> | undefined = (() => {
+    if (user?.role_id === 1) return undefined
+    const tabs: Array<'orders' | 'finance' | 'drivers' | 'logistics'> = []
+    if (can('orders.manage')) tabs.push('orders')
+    if (can('payments.approve') || can('wallet.manage')) tabs.push('finance')
+    if (can('drivers.verify') || can('dispatch.manage')) tabs.push('drivers')
+    if (can('dispatch.manage')) tabs.push('logistics')
+    return tabs.length ? tabs : undefined
+  })()
   const navItems: { id: AdminSection; icon: React.ReactNode; label: string; count?: number }[] = [
     ...(can('overview.view') ? [{ id: 'overview' as AdminSection, icon: <LuLayoutDashboard size={16}/>, label: 'Overview' }] : []),
     ...(canOpenReports ? [{ id: 'reports' as AdminSection, icon: <LuChartBar size={16}/>, label: 'Reports' }] : []),
-    ...(isCashier ? [] : (can('orders.manage') ? [{ id: 'orders' as AdminSection, icon: <LuListOrdered size={16}/>, label: 'Orders', count: pendingCounts.orders }] : [])),
-    ...(isCashier ? [] : (can('orders.manage') ? [{ id: 'guest-orders' as AdminSection, icon: <LuUsers size={16}/>, label: 'Guest Orders', count: pendingCounts.guestOrders }] : [])),
-    ...(isCashier ? [] : (can('dispatch.manage') ? [{ id: 'live-drivers' as AdminSection, icon: <LuMapPin size={16}/>, label: 'Live Drivers' }] : [])),
-    ...(isCashier ? [] : (can('payments.approve') ? [{ id: 'payments' as AdminSection, icon: <LuFileText size={16}/>, label: 'Payment Reviews', count: pendingCounts.payments }] : [])),
-    ...(isCashier ? [] : (can('wallet.manage') ? [{ id: 'wallet-adjustment' as AdminSection, icon: <LuHistory size={16}/>, label: 'Wallet Adjust' }] : [])),
-    ...(isCashier ? [] : (can('drivers.verify') ? [{ id: 'drivers' as AdminSection, icon: <LuTruck size={16}/>, label: 'Drivers' }] : [])),
-    ...(isCashier ? [] : (can('drivers.verify') ? [{ id: 'verify-drivers' as AdminSection, icon: <LuBadgeCheck size={16}/>, label: 'Verify Drivers' }] : [])),
-    ...(isCashier ? [] : (can('users.manage') ? [{ id: 'shippers' as AdminSection, icon: <LuPackage size={16}/>, label: 'Shippers' }] : [])),
-    ...(isCashier ? [] : (can('users.manage') ? [{ id: 'staff' as AdminSection, icon: <LuBriefcase size={16}/>, label: 'Staff Users' }] : [])),
-    ...(isCashier ? [] : (user?.role_id === 1 ? [{ id: 'cross-border' as AdminSection, icon: <LuGlobe size={16}/>, label: 'Cross-Border' }] : [])),
-    ...(isCashier ? [] : (can('vehicles.manage') ? [{ id: 'vehicles' as AdminSection, icon: <LuCar size={16}/>, label: 'Vehicles' }] : [])),
-    ...(isCashier ? [] : (user?.role_id === 1 ? [{ id: 'security-events' as AdminSection, icon: <LuShieldCheck size={16}/>, label: 'Security Events' }] : [])),
-    ...(isCashier ? [] : (can('settings.manage') || can('notifications.manage') || can('roles.manage') || can('pricing.manage') || can('cargo.manage') ? [{ id: 'settings' as AdminSection, icon: <LuSettings size={16}/>, label: 'Settings' }] : [])),
+    ...(can('orders.manage') ? [{ id: 'orders' as AdminSection, icon: <LuListOrdered size={16}/>, label: 'Orders', count: pendingCounts.orders }] : []),
+    ...(can('orders.manage') ? [{ id: 'guest-orders' as AdminSection, icon: <LuUsers size={16}/>, label: 'Guest Orders', count: pendingCounts.guestOrders }] : []),
+    ...(can('dispatch.manage') ? [{ id: 'live-drivers' as AdminSection, icon: <LuMapPin size={16}/>, label: 'Live Drivers' }] : []),
+    ...(can('payments.approve') ? [{ id: 'payments' as AdminSection, icon: <LuFileText size={16}/>, label: 'Payment Reviews', count: pendingCounts.payments }] : []),
+    ...(can('wallet.manage') ? [{ id: 'wallet-adjustment' as AdminSection, icon: <LuHistory size={16}/>, label: 'Wallet Adjust' }] : []),
+    ...(can('drivers.verify') ? [{ id: 'drivers' as AdminSection, icon: <LuTruck size={16}/>, label: 'Drivers' }] : []),
+    ...(can('drivers.verify') ? [{ id: 'verify-drivers' as AdminSection, icon: <LuBadgeCheck size={16}/>, label: 'Verify Drivers' }] : []),
+    ...(can('users.manage') ? [{ id: 'shippers' as AdminSection, icon: <LuPackage size={16}/>, label: 'Shippers' }] : []),
+    ...(can('users.manage') ? [{ id: 'staff' as AdminSection, icon: <LuBriefcase size={16}/>, label: 'Staff Users' }] : []),
+    ...(user?.role_id === 1 ? [{ id: 'cross-border' as AdminSection, icon: <LuGlobe size={16}/>, label: 'Cross-Border' }] : []),
+    ...(can('vehicles.manage') ? [{ id: 'vehicles' as AdminSection, icon: <LuCar size={16}/>, label: 'Vehicles' }] : []),
+    ...(user?.role_id === 1 ? [{ id: 'security-events' as AdminSection, icon: <LuShieldCheck size={16}/>, label: 'Security Events' }] : []),
+    ...(can('settings.manage') || can('notifications.manage') || can('roles.manage') || can('pricing.manage') || can('cargo.manage') ? [{ id: 'settings' as AdminSection, icon: <LuSettings size={16}/>, label: 'Settings' }] : []),
     { id: 'profile' as AdminSection, icon: <LuUser size={16}/>, label: 'My Profile' },
   ]
 
@@ -6747,56 +6772,44 @@ export default function AdminDashboardPage() {
             {
               label: 'Orders',
               items: [
-                ...(isCashier ? [] : [
                 ...(can('orders.manage') ? [{ id: 'orders' as AdminSection, icon: <LuListOrdered size={15}/>, label: 'Orders', count: pendingCounts.orders }] : []),
                 ...(can('orders.manage') ? [{ id: 'guest-orders' as AdminSection, icon: <LuUsers size={15}/>, label: 'Guest Orders', count: pendingCounts.guestOrders }] : []),
                 ...(can('dispatch.manage') ? [{ id: 'live-drivers' as AdminSection, icon: <LuMapPin size={15}/>, label: 'Live Drivers' }] : []),
-                ]),
               ],
             },
             {
               label: 'Finance',
               items: [
-                ...(isCashier ? [] : [
                 ...(can('payments.approve') ? [{ id: 'payments' as AdminSection, icon: <LuFileText size={15}/>, label: 'Payment Reviews', count: pendingCounts.payments }] : []),
                 ...(can('wallet.manage') ? [{ id: 'wallet-adjustment' as AdminSection, icon: <LuHistory size={15}/>, label: 'Wallet Adjust' }] : []),
-                ]),
               ],
             },
             {
               label: 'Drivers',
               items: [
-                ...(isCashier ? [] : [
                 ...(can('drivers.verify') ? [{ id: 'drivers' as AdminSection, icon: <LuTruck size={15}/>, label: 'Drivers' }] : []),
                 ...(can('drivers.verify') ? [{ id: 'verify-drivers' as AdminSection, icon: <LuBadgeCheck size={15}/>, label: 'Verify Drivers' }] : []),
-                ]),
               ],
             },
             {
               label: 'Users',
               items: [
-                ...(isCashier ? [] : [
                 ...(can('users.manage') ? [{ id: 'shippers' as AdminSection, icon: <LuPackage size={15}/>, label: 'Shippers' }] : []),
                 ...(can('users.manage') ? [{ id: 'staff' as AdminSection, icon: <LuBriefcase size={15}/>, label: 'Staff Users' }] : []),
-                ]),
               ],
             },
             {
               label: 'Logistics',
               items: [
-                ...(isCashier ? [] : [
                 ...(user?.role_id === 1 ? [{ id: 'cross-border' as AdminSection, icon: <LuGlobe size={15}/>, label: 'Cross-Border' }] : []),
                 ...(can('vehicles.manage') ? [{ id: 'vehicles' as AdminSection, icon: <LuCar size={15}/>, label: 'Vehicles' }] : []),
-                ]),
               ],
             },
             {
               label: 'System',
               items: [
-                ...(isCashier ? [] : [
                 ...(user?.role_id === 1 ? [{ id: 'security-events' as AdminSection, icon: <LuShieldCheck size={15}/>, label: 'Security Events' }] : []),
                 ...(can('settings.manage') || can('notifications.manage') || can('roles.manage') || can('pricing.manage') || can('cargo.manage') ? [{ id: 'settings' as AdminSection, icon: <LuSettings size={15}/>, label: 'Settings' }] : []),
-                ]),
                 { id: 'profile' as AdminSection, icon: <LuUser size={15}/>, label: 'My Profile' },
               ],
             },
@@ -6860,7 +6873,7 @@ export default function AdminDashboardPage() {
 
         {/* Section content */}
         <main style={{ flex: 1, padding: '1.25rem 1.1rem 2rem', maxWidth: 840, width: '100%', margin: '0 auto', boxSizing: 'border-box' }}>
-          {section === 'overview'       && <OverviewSection stats={stats} users={users} onNav={setSection} financeOnly={isCashier} />}
+          {section === 'overview'       && <OverviewSection stats={stats} users={users} onNav={setSection} financeOnly={financeOnly} />}
           {section === 'drivers'        && <AdminDriversSection allUsers={drivers} loading={usersLoading} onToggleActive={handleToggleActive} onRefresh={loadUsers} onViewOrders={handleViewDriverOrders} />}
           {section === 'shippers'       && <CustomerSection title="Shippers" allUsers={shippers}   loading={usersLoading} onToggleActive={handleToggleActive} onRefresh={loadUsers} />}
           {section === 'staff'          && <StaffManagementSection            allUsers={staffUsers} loading={usersLoading} onToggleActive={handleToggleActive} onRefresh={loadUsers} />}
@@ -6875,7 +6888,7 @@ export default function AdminDashboardPage() {
           {section === 'vehicle-types'  && <AdminVehicleTypesSection />}
           {section === 'countries'      && <AdminCountriesSection />}
           {section === 'maintenance-mode' && <AdminMaintenanceSection />}
-          {section === 'role-management' && <AdminRoleManagementSection />}
+          {section === 'role-management' && <AdminRoleManagementSection onPermissionsSaved={reloadPermissions} />}
           {section === 'security-events' && <AdminSecurityEventsSection />}
           {section === 'cross-border'    && <AdminCrossBorderSection />}
           {section === 'reports'         && <AdminReportsSection allowedTabs={reportTabsForRole} />}

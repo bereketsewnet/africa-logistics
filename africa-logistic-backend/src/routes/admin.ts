@@ -134,7 +134,7 @@ export default async function adminRoutes(fastify: FastifyInstance) {
     }
   }
 
-  const resolvePermissionKey = (url: string): string | null => {
+  const resolvePermissionKey = (url: string, method: string): string | null => {
     // Always allow this lightweight endpoint to build UI permissions.
     if (url.includes('/me/permissions')) return null
   // Security events is super-admin only — handler enforces it; no staff permission needed.
@@ -148,17 +148,28 @@ export default async function adminRoutes(fastify: FastifyInstance) {
     if (url.includes('/pricing-rules')) return 'pricing.manage'
     if (url.includes('/cargo-types')) return 'cargo.manage'
     if (url.includes('/payments/')) return 'payments.approve'
-    if (url.includes('/wallet') || url.includes('/wallets') || url.includes('/wallet-stats')) return 'wallet.manage'
+    if (url.includes('/wallet-stats')) return 'wallet.manage'
+    if (url.includes('/wallet') || url.includes('/wallets')) return 'wallet.manage'
     if (url.includes('/drivers/performance-metrics') || url.includes('/bonuses/')) return 'bonuses.manage'
-    if (url.includes('/drivers/live') || url.includes('/suggest-drivers') || url.includes('/orders/') && url.includes('/assign')) return 'dispatch.manage'
+    if (url.includes('/drivers/live') || url.includes('/suggest-drivers') || (url.includes('/orders/') && url.includes('/assign'))) return 'dispatch.manage'
     if (url.includes('/vehicles')) return 'vehicles.manage'
-    if (url.includes('/drivers/') && (url.includes('/review-document') || url.includes('/verify') || url.includes('/reject') || url.includes('/status'))) return 'drivers.verify'
+    // Covers GET /drivers, GET /drivers/:id, /drivers/:id/review-document, /drivers/:id/verify, etc. and DELETE /ratings/:id
+    if (url.includes('/drivers') || url.includes('/ratings')) return 'drivers.verify'
     if (url.includes('/users') || url.includes('/staff')) return 'users.manage'
     if (url.includes('/reports/finance')) return 'payments.approve'
     if (url.includes('/reports/orders')) return 'orders.manage'
     if (url.includes('/reports/drivers') || url.includes('/reports/logistics')) return 'dispatch.manage'
     if (url.includes('/orders')) return 'orders.manage'
     return 'overview.view'
+  }
+
+  // Map of permission keys that should also be allowed if the user
+  // has one of the listed "dependent" permissions (read-only access).
+  // e.g. anyone who can manage orders also needs to read cargo types & driver lists.
+  const PERMISSION_ALIASES: Record<string, string[]> = {
+    'cargo.manage':   ['orders.manage', 'dispatch.manage'],
+    'drivers.verify': ['orders.manage', 'dispatch.manage'],
+    'wallet.manage':  ['payments.approve'],
   }
 
   // RBAC middleware for staff users (dispatcher/cashier). Super admin bypasses.
@@ -180,14 +191,17 @@ export default async function adminRoutes(fastify: FastifyInstance) {
       return reply.status(403).send({ success: false, message: 'Admin access denied for your role.' })
     }
 
-    const permissionKey = resolvePermissionKey(request.url)
+    const permissionKey = resolvePermissionKey(request.url, request.method)
     if (!permissionKey) return
 
+    // Build the list of permission keys to check: the primary key + any aliases
+    const keysToCheck = [permissionKey, ...(PERMISSION_ALIASES[permissionKey] ?? [])]
+    const placeholders = keysToCheck.map(() => '?').join(',')
     const [rows] = await fastify.db.query<any[]>(
-      `SELECT is_allowed FROM role_permissions WHERE role_id = ? AND permission_key = ? LIMIT 1`,
-      [user.role_id, permissionKey]
+      `SELECT is_allowed FROM role_permissions WHERE role_id = ? AND permission_key IN (${placeholders}) AND is_allowed = 1 LIMIT 1`,
+      [user.role_id, ...keysToCheck]
     )
-    const allowed = rows[0] ? Number(rows[0].is_allowed) === 1 : false
+    const allowed = rows.length > 0
 
     if (!allowed) {
       await logSecurityEvent({
