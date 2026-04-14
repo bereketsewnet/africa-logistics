@@ -4,6 +4,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import apiClient from '../lib/apiClient'
 import PhoneField from '../components/PhoneField'
 import { normalisePhone } from '../lib/normalisePhone'
+import logoImg from '../assets/logo.webp'
 import {
   LuEye, LuEyeOff, LuTriangleAlert, LuSmartphone,
   LuShieldCheck, LuMail, LuPhone,
@@ -303,7 +304,7 @@ export default function ForgotPasswordPage() {
           {/* Logo */}
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', marginBottom: '1.5rem' }}>
             <img
-              src="/logo-with-name.webp"
+              src={logoImg}
               alt="Africa Logistics"
               style={{ height: 64, width: 'auto', objectFit: 'contain', marginBottom: '0.5rem', borderRadius: 10, display: 'block' }}
             />

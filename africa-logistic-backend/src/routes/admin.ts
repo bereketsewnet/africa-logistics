@@ -154,8 +154,10 @@ export default async function adminRoutes(fastify: FastifyInstance) {
     if (url.includes('/vehicles')) return 'vehicles.manage'
     if (url.includes('/drivers/') && (url.includes('/review-document') || url.includes('/verify') || url.includes('/reject') || url.includes('/status'))) return 'drivers.verify'
     if (url.includes('/users') || url.includes('/staff')) return 'users.manage'
+    if (url.includes('/reports/finance')) return 'payments.approve'
+    if (url.includes('/reports/orders')) return 'orders.manage'
+    if (url.includes('/reports/drivers') || url.includes('/reports/logistics')) return 'dispatch.manage'
     if (url.includes('/orders')) return 'orders.manage'
-    if (url.includes('/reports/')) return 'orders.manage'
     return 'overview.view'
   }
 

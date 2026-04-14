@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext'
 import apiClient from '../lib/apiClient'
 import PhoneField from '../components/PhoneField'
 import { normalisePhone } from '../lib/normalisePhone'
+import logoImg from '../assets/logo.webp'
 import {
   LuTruck, LuEye, LuEyeOff, LuTriangleAlert, LuPackage, LuSmartphone,
   LuArrowRight, LuCheck,
@@ -192,7 +193,7 @@ export default function RegisterPage() {
           {/* Logo */}
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', marginBottom: '1.5rem' }}>
             <img
-              src="/logo-with-name.webp"
+              src={logoImg}
               alt="Africa Logistics"
               style={{ height: 64, width: 'auto', objectFit: 'contain', marginBottom: '0.5rem', borderRadius: 10, display: 'block' }}
             />

@@ -1801,8 +1801,16 @@ const REPORT_TABS = [
 
 type ReportTab = typeof REPORT_TABS[number]['id']
 
-export default function AdminReportsSection() {
-  const [activeTab, setActiveTab] = useState<ReportTab>('orders')
+export default function AdminReportsSection({ allowedTabs }: { allowedTabs?: ReportTab[] }) {
+  const visibleTabs = REPORT_TABS.filter(tab => !allowedTabs || allowedTabs.includes(tab.id))
+  const defaultTab = (visibleTabs[0]?.id ?? 'finance') as ReportTab
+  const [activeTab, setActiveTab] = useState<ReportTab>(defaultTab)
+
+  useEffect(() => {
+    if (!visibleTabs.some(tab => tab.id === activeTab)) {
+      setActiveTab(defaultTab)
+    }
+  }, [activeTab, defaultTab, visibleTabs])
 
   return (
     <div className="rpt-page" style={{ display: 'flex', flexDirection: 'column', gap: '1.1rem', width: '100%' }}>
@@ -1867,7 +1875,7 @@ export default function AdminReportsSection() {
       {/* Floating nav header */}
       <div className="rpt-nav-shell">
         <div className="rpt-nav-pills" style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.09)', borderRadius: 50, padding: '0.3rem 0.4rem', width: 'fit-content', boxShadow: '0 4px 20px rgba(0,0,0,0.3)' }}>
-          {REPORT_TABS.map(tab => {
+          {visibleTabs.map(tab => {
             const active = activeTab === tab.id
             return (
               <button key={tab.id} onClick={() => setActiveTab(tab.id)}

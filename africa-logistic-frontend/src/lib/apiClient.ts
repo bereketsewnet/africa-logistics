@@ -293,7 +293,7 @@ export const adminOrderApi = {
   getLiveDrivers: () =>
     apiClient.get('/admin/drivers/live'),
 
-  getGuestOrders: (params?: { page?: number; limit?: number; search?: string }) =>
+  getGuestOrders: (params?: { page?: number; limit?: number; search?: string; status?: string }) =>
     apiClient.get('/admin/orders/guest', { params }),
 
   getOrderMessages: (id: string, channel?: string) =>

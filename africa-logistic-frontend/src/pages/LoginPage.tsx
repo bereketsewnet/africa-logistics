@@ -5,8 +5,9 @@ import { useAuth } from '../context/AuthContext'
 import apiClient from '../lib/apiClient'
 import PhoneField from '../components/PhoneField'
 import { normalisePhone } from '../lib/normalisePhone'
+import logoImg from '../assets/logo.webp'
 import {
-  LuEye, LuEyeOff, LuTriangleAlert, LuFlaskConical,
+  LuEye, LuEyeOff, LuTriangleAlert,
   LuLogIn, LuPhone, LuMail,
 } from 'react-icons/lu'
 import { SiTelegram } from 'react-icons/si'
@@ -24,6 +25,22 @@ export default function LoginPage() {
   const [showPw,    setShowPw]    = useState(false)
   const [error,     setError]     = useState('')
   const [loading,   setLoading]   = useState(false)
+
+  const demoAccounts = [
+    { label: 'Admin', phone: '+251911000001', password: 'Admin1234' },
+    { label: 'Shipper', phone: '+251900000001', password: 'Admin1234' },
+    { label: 'Driver', phone: '+251965500639', password: 'Admin1234' },
+    { label: 'Cashier', phone: '+251911104182', password: 'Admin1234' },
+    { label: 'Dispatcher', phone: '+251928664558', password: 'Admin1234' },
+  ]
+
+  const fillDemo = (phoneValue: string, passwordValue: string) => {
+    setLoginMode('phone')
+    setEmail('')
+    setPhone(phoneValue)
+    setPassword(passwordValue)
+    setError('')
+  }
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
@@ -56,14 +73,14 @@ export default function LoginPage() {
     <div className="aurora-bg">
       <div className="aurora-orb aurora-orb-1" />
       <div className="page-shell centered">
-        <div className="glass page-enter" style={{ width: '100%', maxWidth: 440, padding: '2.5rem 2rem' }}>
+        <div className="glass page-enter" style={{ width: '100%', maxWidth: 440, padding: '1.6rem 1.45rem', maxHeight: '92vh', overflowY: 'auto' }}>
 
           {/* Logo */}
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', marginBottom: '2rem' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', marginBottom: '1.1rem' }}>
             <img
-              src="/logo-with-name.webp"
+              src={logoImg}
               alt="Africa Logistics"
-              style={{ height: 72, width: 'auto', objectFit: 'contain', marginBottom: '0.5rem', borderRadius: 12, display: 'block' }}
+              style={{ height: 58, width: 'auto', objectFit: 'contain', marginBottom: '0.35rem', borderRadius: 10, display: 'block' }}
             />
             <p style={{ color: 'var(--clr-muted)', marginTop: '0.25rem', fontSize: '0.9rem' }}>
               Sign in to your account
@@ -73,7 +90,7 @@ export default function LoginPage() {
           {/* Mode switcher */}
           <div style={{
             display: 'flex', gap: '0.5rem', background: 'rgba(255,255,255,0.04)',
-            borderRadius: 12, padding: '0.3rem', marginBottom: '1.25rem',
+            borderRadius: 12, padding: '0.25rem', marginBottom: '0.9rem',
             border: '1px solid rgba(255,255,255,0.07)',
           }}>
             {(['phone', 'email'] as LoginMode[]).map(m => (
@@ -81,7 +98,7 @@ export default function LoginPage() {
                 key={m} type="button"
                 onClick={() => { setLoginMode(m); setError('') }}
                 style={{
-                  flex: 1, padding: '0.55rem 0.75rem', borderRadius: 9,
+                  flex: 1, padding: '0.48rem 0.7rem', borderRadius: 9,
                   border: 'none', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 600,
                   display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem',
                   transition: 'all 0.2s',
@@ -98,12 +115,12 @@ export default function LoginPage() {
 
           {/* Error */}
           {error && (
-            <div className="alert alert-error" style={{ marginBottom: '1.25rem' }}>
+            <div className="alert alert-error" style={{ marginBottom: '0.9rem' }}>
               <LuTriangleAlert size={15} /> {error}
             </div>
           )}
 
-          <form onSubmit={handleSubmit} autoComplete="off" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          <form onSubmit={handleSubmit} autoComplete="off" style={{ display: 'flex', flexDirection: 'column', gap: '0.78rem' }}>
             {/* Dummy inputs stop password managers from hijacking real fields */}
             <input type="text"     style={{ display: 'none' }} aria-hidden="true" readOnly />
             <input type="password" style={{ display: 'none' }} aria-hidden="true" readOnly />
@@ -155,14 +172,14 @@ export default function LoginPage() {
             </div>
 
             {/* Forgot link */}
-            <div style={{ textAlign: 'right', marginTop: '-0.25rem' }}>
+            <div style={{ textAlign: 'right', marginTop: '-0.12rem' }}>
               <Link to="/forgot-password" className="link-accent" style={{ fontSize: '0.825rem' }}>
                 Forgot password?
               </Link>
             </div>
 
             {/* Submit */}
-            <button type="submit" className="btn-primary" disabled={loading} style={{ marginTop: '0.5rem' }}>
+            <button type="submit" className="btn-primary" disabled={loading} style={{ marginTop: '0.25rem' }}>
               {loading ? (
                 <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
                   <span className="spinner" /> Signing in…
@@ -177,41 +194,54 @@ export default function LoginPage() {
           </form>
 
           {/* Divider */}
-          <div className="divider" style={{ margin: '1.5rem 0' }}>or continue with</div>
+          <div className="divider" style={{ margin: '0.95rem 0' }}>or continue with</div>
 
           {/* Telegram */}
           <button
             type="button"
             className="btn-telegram"
             onClick={() => alert('Telegram login coming soon')}
+            style={{ padding: '0.66rem 0.95rem' }}
           >
             <SiTelegram size={20} />
             Continue with Telegram
           </button>
 
+          <div style={{ marginTop: '0.85rem' }}>
+            <p style={{ fontSize: '0.72rem', color: 'var(--clr-muted)', margin: '0 0 0.45rem', fontWeight: 600 }}>
+              Demo quick autofill
+            </p>
+            <div style={{ display: 'flex', gap: '0.45rem', overflowX: 'auto', paddingBottom: '0.15rem' }}>
+              {demoAccounts.map(account => (
+                <button
+                  key={account.label}
+                  type="button"
+                  onClick={() => fillDemo(account.phone, account.password)}
+                  style={{
+                    whiteSpace: 'nowrap',
+                    padding: '0.42rem 0.78rem',
+                    borderRadius: 999,
+                    border: '1px solid rgba(124,58,237,0.32)',
+                    background: 'rgba(124,58,237,0.12)',
+                    color: '#c4b5fd',
+                    fontSize: '0.73rem',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    fontFamily: 'inherit',
+                    flexShrink: 0,
+                  }}
+                >
+                  {account.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
           {/* Register link */}
-          <p style={{ textAlign: 'center', color: 'var(--clr-muted)', fontSize: '0.875rem', marginTop: '1.5rem' }}>
+          <p style={{ textAlign: 'center', color: 'var(--clr-muted)', fontSize: '0.84rem', marginTop: '0.85rem' }}>
             Don't have an account?{' '}
             <Link to="/register" className="link-accent">Create one</Link>
           </p>
-
-          {/* Demo credentials — click to autofill */}
-          <button
-            type="button"
-            onClick={() => { setLoginMode('phone'); setPhone('+251911000001'); setPassword('Admin1234') }}
-            style={{
-              marginTop:'1.25rem', padding:'0.75rem 1rem', borderRadius:10,
-              background:'rgba(124,58,237,0.10)', border:'1px solid rgba(124,58,237,0.25)',
-              fontSize:'0.78rem', color:'var(--clr-muted)', width:'100%', textAlign:'left',
-              cursor:'pointer', fontFamily:'inherit', transition:'all 0.2s',
-            }}
-            onMouseEnter={e => (e.currentTarget.style.background = 'rgba(124,58,237,0.20)')}
-            onMouseLeave={e => (e.currentTarget.style.background = 'rgba(124,58,237,0.10)')}
-          >
-            <p style={{ fontWeight:700, color:'#a78bfa', marginBottom:'0.3rem', display:'flex', alignItems:'center', gap:'0.4rem' }}><LuFlaskConical size={14}/> Demo account <span style={{ fontWeight:400, fontSize:'0.72rem' }}>(click to fill)</span></p>
-            <p>Phone: <span style={{ color:'var(--clr-text)', fontWeight:600 }}>+251 911 000 001</span></p>
-            <p>Password: <span style={{ color:'var(--clr-text)', fontWeight:600 }}>Admin1234</span></p>
-          </button>
 
         </div>
       </div>

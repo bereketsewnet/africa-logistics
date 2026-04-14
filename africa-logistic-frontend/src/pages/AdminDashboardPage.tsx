@@ -1663,8 +1663,8 @@ function AdminAiSettingsSection() {
 
 // ─── Reports Section ─────────────────────────────────────────────────────────
 
-function AdminReportsSection() {
-  return <AdminReportsSectionComponent />
+function AdminReportsSection({ allowedTabs }: { allowedTabs?: Array<'orders' | 'finance' | 'drivers' | 'logistics'> }) {
+  return <AdminReportsSectionComponent allowedTabs={allowedTabs} />
 }
 
 // ─── Security Events Section ─────────────────────────────────────────────────
@@ -1986,21 +1986,34 @@ const ORDER_STATUS_META: Record<string, { color: string; label: string }> = {
   FAILED:           { color: '#fca5a5', label: 'Failed'      },
 }
 
-function OverviewSection({ stats, users, onNav }: { stats: Stats | null; users: UserRow[]; onNav: (s: AdminSection) => void }) {
+function OverviewSection({
+  stats,
+  users,
+  onNav,
+  financeOnly = false,
+}: {
+  stats: Stats | null
+  users: UserRow[]
+  onNav: (s: AdminSection) => void
+  financeOnly?: boolean
+}) {
   const [orderStats,  setOrderStats]  = useState<OrderStats | null>(null)
   const [walletStats, setWalletStats] = useState<any>(null)
+  const [pendingPaymentCount, setPendingPaymentCount] = useState(0)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     setLoading(true)
     Promise.all([
-      adminOrderApi.getStats().catch(() => null),
+      financeOnly ? Promise.resolve(null) : adminOrderApi.getStats().catch(() => null),
       apiClient.get('/admin/wallet-stats').catch(() => null),
-    ]).then(([oRes, wRes]) => {
+      apiClient.get('/admin/payments/pending', { params: { status: 'PENDING' } }).catch(() => null),
+    ]).then(([oRes, wRes, pRes]) => {
       setOrderStats(oRes?.data?.stats ?? null)
       setWalletStats(wRes?.data ?? null)
+      setPendingPaymentCount(((pRes as any)?.data?.payments ?? []).length)
     }).finally(() => setLoading(false))
-  }, [])
+  }, [financeOnly])
 
   const recent  = [...users].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()).slice(0, 8)
   const drivers  = users.filter(u => u.role_id === 3)
@@ -2028,6 +2041,43 @@ function OverviewSection({ stats, users, onNav }: { stats: Stats | null; users: 
   const walletBalance = Number(walletStats?.wallet_summary?.total_balance ?? 0)
   const totalDeposits = Number(walletStats?.manual_payment_summary?.total_deposits ?? 0)
   const pendingPayAmt = Number(walletStats?.manual_payment_summary?.pending_amount ?? 0)
+
+  if (financeOnly) {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.5rem' }}>
+          <div>
+            <h1 style={{ fontSize: '1.2rem', fontWeight: 900, color: 'var(--clr-text)', margin: 0, letterSpacing: '-0.02em', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <LuLayoutDashboard size={19} color="var(--clr-accent)"/> Finance Overview
+            </h1>
+            <p style={{ fontSize: '0.76rem', color: 'var(--clr-muted)', margin: '0.2rem 0 0' }}>Cashier view with money-related metrics only</p>
+          </div>
+          <div style={{ display: 'flex', gap: '0.45rem', flexWrap: 'wrap' }}>
+            <button onClick={() => onNav('reports')} style={{ display:'flex', alignItems:'center', gap:'0.35rem', padding:'0.42rem 0.85rem', borderRadius:'0.6rem', border:'1px solid rgba(0,229,255,0.2)', background:'rgba(0,229,255,0.06)', color:'var(--clr-accent)', fontFamily:'inherit', fontSize:'0.75rem', fontWeight:700, cursor:'pointer' }}><LuChartBar size={13}/> Finance Report</button>
+            <button onClick={() => onNav('payments')} style={{ display:'flex', alignItems:'center', gap:'0.35rem', padding:'0.42rem 0.85rem', borderRadius:'0.6rem', border:'1px solid rgba(167,139,250,0.2)', background:'rgba(167,139,250,0.06)', color:'#a78bfa', fontFamily:'inherit', fontSize:'0.75rem', fontWeight:700, cursor:'pointer' }}><LuFileText size={13}/> Payment Reviews</button>
+          </div>
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(180px,1fr))', gap: '0.75rem' }}>
+          {[
+            { label: 'Wallet Balance',   value: fmtMoney(walletBalance),      sub: 'all wallets combined',      color: '#00e5ff', icon: <LuHistory size={15}/> },
+            { label: 'Total Deposits',   value: fmtMoney(totalDeposits),      sub: 'approved manual payments', color: '#a78bfa', icon: <LuFileText size={15}/> },
+            { label: 'Pending Amount',   value: fmtMoney(pendingPayAmt),      sub: 'awaiting approval',        color: '#fbbf24', icon: <LuTriangleAlert size={15}/> },
+            { label: 'Pending Requests', value: pendingPaymentCount.toString(), sub: 'payment reviews queue',   color: '#4ade80', icon: <LuCircleCheck size={15}/> },
+          ].map(c => (
+            <div key={c.label} className="glass" style={{ padding: '0.9rem 1.05rem', borderRadius: '1rem', border: `1px solid ${c.color}1a`, background: `linear-gradient(135deg,${c.color}07,rgba(8,11,20,0.5))`, display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: c.color }}>
+                {c.icon}
+                <span style={{ fontSize: '0.65rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em' }}>{c.label}</span>
+              </div>
+              <div style={{ fontSize: '1.3rem', fontWeight: 900, color: 'var(--clr-text)', letterSpacing: '-0.02em' }}>{loading ? '—' : c.value}</div>
+              <div style={{ fontSize: '0.67rem', color: 'var(--clr-muted)' }}>{c.sub}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+    )
+  }
 
   /* Simulated sparkline (registrations over last 7 days) */
   const last7 = Array.from({ length: 7 }, (_, i) => {
@@ -6532,10 +6582,13 @@ export default function AdminDashboardPage() {
 
   const loadPendingCounts = useCallback(async () => {
     try {
+      const isSuperAdmin = user?.role_id === 1
+      const has = (perm: string) => isSuperAdmin || myPermissions.includes(perm)
+
       const [oRes, gRes, pRes] = await Promise.all([
-        adminOrderApi.getStats().catch(() => null),
-        adminOrderApi.getGuestOrders({ page: 1, limit: 1 }).catch(() => null),
-        apiClient.get('/admin/payments/pending', { params: { status: 'PENDING' } }).catch(() => null),
+        has('orders.manage') ? adminOrderApi.getStats().catch(() => null) : Promise.resolve(null),
+        has('orders.manage') ? adminOrderApi.getGuestOrders({ page: 1, limit: 1, status: 'PENDING' }).catch(() => null) : Promise.resolve(null),
+        has('payments.approve') ? apiClient.get('/admin/payments/pending', { params: { status: 'PENDING' } }).catch(() => null) : Promise.resolve(null),
       ])
       setPendingCounts({
         orders: (oRes?.data?.stats?.by_status?.PENDING ?? 0) as number,
@@ -6543,7 +6596,7 @@ export default function AdminDashboardPage() {
         payments: ((pRes?.data?.payments) as unknown[])?.length ?? 0,
       })
     } catch { /* silent */ }
-  }, [])
+  }, [myPermissions, user?.role_id])
   useEffect(() => { loadPendingCounts() }, [loadPendingCounts])
 
   const loadUsers = useCallback(async () => {
@@ -6556,7 +6609,16 @@ export default function AdminDashboardPage() {
     finally { setUsersLoading(false) }
   }, [])
 
-  useEffect(() => { loadUsers() }, [loadUsers])
+  useEffect(() => {
+    const isSuperAdmin = user?.role_id === 1
+    const canManageUsers = isSuperAdmin || myPermissions.includes('users.manage')
+    if (canManageUsers) {
+      loadUsers()
+    } else {
+      setUsers([])
+      setStats(null)
+    }
+  }, [loadUsers, myPermissions, user?.role_id])
 
   useEffect(() => {
     adminOrderApi.getMyPermissions()
@@ -6575,24 +6637,27 @@ export default function AdminDashboardPage() {
   const drivers    = users.filter(u => u.role_id === 3)
   const shippers   = users.filter(u => u.role_id === 2)
   const staffUsers = users.filter(u => [1, 4, 5].includes(u.role_id))
+  const isCashier = user?.role_id === 4
 
   const can = (perm: string) => user?.role_id === 1 || myPermissions.includes(perm)
+  const canOpenReports = user?.role_id === 1 || can('orders.manage') || can('dispatch.manage') || can('payments.approve') || can('wallet.manage')
+  const reportTabsForRole: Array<'orders' | 'finance' | 'drivers' | 'logistics'> | undefined = isCashier ? ['finance'] : undefined
   const navItems: { id: AdminSection; icon: React.ReactNode; label: string; count?: number }[] = [
     ...(can('overview.view') ? [{ id: 'overview' as AdminSection, icon: <LuLayoutDashboard size={16}/>, label: 'Overview' }] : []),
-    ...(user?.role_id === 1 ? [{ id: 'reports' as AdminSection, icon: <LuChartBar size={16}/>, label: 'Reports' }] : []),
-    ...(can('orders.manage') ? [{ id: 'orders' as AdminSection, icon: <LuListOrdered size={16}/>, label: 'Orders', count: pendingCounts.orders }] : []),
-    ...(can('orders.manage') ? [{ id: 'guest-orders' as AdminSection, icon: <LuUsers size={16}/>, label: 'Guest Orders', count: pendingCounts.guestOrders }] : []),
-    ...(can('dispatch.manage') ? [{ id: 'live-drivers' as AdminSection, icon: <LuMapPin size={16}/>, label: 'Live Drivers' }] : []),
-    ...(can('payments.approve') ? [{ id: 'payments' as AdminSection, icon: <LuFileText size={16}/>, label: 'Payment Reviews', count: pendingCounts.payments }] : []),
-    ...(can('wallet.manage') ? [{ id: 'wallet-adjustment' as AdminSection, icon: <LuHistory size={16}/>, label: 'Wallet Adjust' }] : []),
-    ...(can('drivers.verify') ? [{ id: 'drivers' as AdminSection, icon: <LuTruck size={16}/>, label: 'Drivers' }] : []),
-    ...(can('drivers.verify') ? [{ id: 'verify-drivers' as AdminSection, icon: <LuBadgeCheck size={16}/>, label: 'Verify Drivers' }] : []),
-    ...(can('users.manage') ? [{ id: 'shippers' as AdminSection, icon: <LuPackage size={16}/>, label: 'Shippers' }] : []),
-    ...(can('users.manage') ? [{ id: 'staff' as AdminSection, icon: <LuBriefcase size={16}/>, label: 'Staff Users' }] : []),
-    ...(user?.role_id === 1 ? [{ id: 'cross-border' as AdminSection, icon: <LuGlobe size={16}/>, label: 'Cross-Border' }] : []),
-    ...(can('vehicles.manage') ? [{ id: 'vehicles' as AdminSection, icon: <LuCar size={16}/>, label: 'Vehicles' }] : []),
-    ...(user?.role_id === 1 ? [{ id: 'security-events' as AdminSection, icon: <LuShieldCheck size={16}/>, label: 'Security Events' }] : []),
-    ...(can('settings.manage') || can('notifications.manage') || can('roles.manage') || can('pricing.manage') || can('cargo.manage') ? [{ id: 'settings' as AdminSection, icon: <LuSettings size={16}/>, label: 'Settings' }] : []),
+    ...(canOpenReports ? [{ id: 'reports' as AdminSection, icon: <LuChartBar size={16}/>, label: 'Reports' }] : []),
+    ...(isCashier ? [] : (can('orders.manage') ? [{ id: 'orders' as AdminSection, icon: <LuListOrdered size={16}/>, label: 'Orders', count: pendingCounts.orders }] : [])),
+    ...(isCashier ? [] : (can('orders.manage') ? [{ id: 'guest-orders' as AdminSection, icon: <LuUsers size={16}/>, label: 'Guest Orders', count: pendingCounts.guestOrders }] : [])),
+    ...(isCashier ? [] : (can('dispatch.manage') ? [{ id: 'live-drivers' as AdminSection, icon: <LuMapPin size={16}/>, label: 'Live Drivers' }] : [])),
+    ...(isCashier ? [] : (can('payments.approve') ? [{ id: 'payments' as AdminSection, icon: <LuFileText size={16}/>, label: 'Payment Reviews', count: pendingCounts.payments }] : [])),
+    ...(isCashier ? [] : (can('wallet.manage') ? [{ id: 'wallet-adjustment' as AdminSection, icon: <LuHistory size={16}/>, label: 'Wallet Adjust' }] : [])),
+    ...(isCashier ? [] : (can('drivers.verify') ? [{ id: 'drivers' as AdminSection, icon: <LuTruck size={16}/>, label: 'Drivers' }] : [])),
+    ...(isCashier ? [] : (can('drivers.verify') ? [{ id: 'verify-drivers' as AdminSection, icon: <LuBadgeCheck size={16}/>, label: 'Verify Drivers' }] : [])),
+    ...(isCashier ? [] : (can('users.manage') ? [{ id: 'shippers' as AdminSection, icon: <LuPackage size={16}/>, label: 'Shippers' }] : [])),
+    ...(isCashier ? [] : (can('users.manage') ? [{ id: 'staff' as AdminSection, icon: <LuBriefcase size={16}/>, label: 'Staff Users' }] : [])),
+    ...(isCashier ? [] : (user?.role_id === 1 ? [{ id: 'cross-border' as AdminSection, icon: <LuGlobe size={16}/>, label: 'Cross-Border' }] : [])),
+    ...(isCashier ? [] : (can('vehicles.manage') ? [{ id: 'vehicles' as AdminSection, icon: <LuCar size={16}/>, label: 'Vehicles' }] : [])),
+    ...(isCashier ? [] : (user?.role_id === 1 ? [{ id: 'security-events' as AdminSection, icon: <LuShieldCheck size={16}/>, label: 'Security Events' }] : [])),
+    ...(isCashier ? [] : (can('settings.manage') || can('notifications.manage') || can('roles.manage') || can('pricing.manage') || can('cargo.manage') ? [{ id: 'settings' as AdminSection, icon: <LuSettings size={16}/>, label: 'Settings' }] : [])),
     { id: 'profile' as AdminSection, icon: <LuUser size={16}/>, label: 'My Profile' },
   ]
 
@@ -6676,50 +6741,62 @@ export default function AdminDashboardPage() {
               label: 'Main',
               items: [
                 ...(can('overview.view') ? [{ id: 'overview' as AdminSection, icon: <LuLayoutDashboard size={15}/>, label: 'Overview' }] : []),
-                ...(user?.role_id === 1 ? [{ id: 'reports' as AdminSection, icon: <LuChartBar size={15}/>, label: 'Reports' }] : []),
+                ...(canOpenReports ? [{ id: 'reports' as AdminSection, icon: <LuChartBar size={15}/>, label: 'Reports' }] : []),
               ],
             },
             {
               label: 'Orders',
               items: [
+                ...(isCashier ? [] : [
                 ...(can('orders.manage') ? [{ id: 'orders' as AdminSection, icon: <LuListOrdered size={15}/>, label: 'Orders', count: pendingCounts.orders }] : []),
                 ...(can('orders.manage') ? [{ id: 'guest-orders' as AdminSection, icon: <LuUsers size={15}/>, label: 'Guest Orders', count: pendingCounts.guestOrders }] : []),
                 ...(can('dispatch.manage') ? [{ id: 'live-drivers' as AdminSection, icon: <LuMapPin size={15}/>, label: 'Live Drivers' }] : []),
+                ]),
               ],
             },
             {
               label: 'Finance',
               items: [
+                ...(isCashier ? [] : [
                 ...(can('payments.approve') ? [{ id: 'payments' as AdminSection, icon: <LuFileText size={15}/>, label: 'Payment Reviews', count: pendingCounts.payments }] : []),
                 ...(can('wallet.manage') ? [{ id: 'wallet-adjustment' as AdminSection, icon: <LuHistory size={15}/>, label: 'Wallet Adjust' }] : []),
+                ]),
               ],
             },
             {
               label: 'Drivers',
               items: [
+                ...(isCashier ? [] : [
                 ...(can('drivers.verify') ? [{ id: 'drivers' as AdminSection, icon: <LuTruck size={15}/>, label: 'Drivers' }] : []),
                 ...(can('drivers.verify') ? [{ id: 'verify-drivers' as AdminSection, icon: <LuBadgeCheck size={15}/>, label: 'Verify Drivers' }] : []),
+                ]),
               ],
             },
             {
               label: 'Users',
               items: [
+                ...(isCashier ? [] : [
                 ...(can('users.manage') ? [{ id: 'shippers' as AdminSection, icon: <LuPackage size={15}/>, label: 'Shippers' }] : []),
                 ...(can('users.manage') ? [{ id: 'staff' as AdminSection, icon: <LuBriefcase size={15}/>, label: 'Staff Users' }] : []),
+                ]),
               ],
             },
             {
               label: 'Logistics',
               items: [
+                ...(isCashier ? [] : [
                 ...(user?.role_id === 1 ? [{ id: 'cross-border' as AdminSection, icon: <LuGlobe size={15}/>, label: 'Cross-Border' }] : []),
                 ...(can('vehicles.manage') ? [{ id: 'vehicles' as AdminSection, icon: <LuCar size={15}/>, label: 'Vehicles' }] : []),
+                ]),
               ],
             },
             {
               label: 'System',
               items: [
+                ...(isCashier ? [] : [
                 ...(user?.role_id === 1 ? [{ id: 'security-events' as AdminSection, icon: <LuShieldCheck size={15}/>, label: 'Security Events' }] : []),
                 ...(can('settings.manage') || can('notifications.manage') || can('roles.manage') || can('pricing.manage') || can('cargo.manage') ? [{ id: 'settings' as AdminSection, icon: <LuSettings size={15}/>, label: 'Settings' }] : []),
+                ]),
                 { id: 'profile' as AdminSection, icon: <LuUser size={15}/>, label: 'My Profile' },
               ],
             },
@@ -6783,7 +6860,7 @@ export default function AdminDashboardPage() {
 
         {/* Section content */}
         <main style={{ flex: 1, padding: '1.25rem 1.1rem 2rem', maxWidth: 840, width: '100%', margin: '0 auto', boxSizing: 'border-box' }}>
-          {section === 'overview'       && <OverviewSection stats={stats} users={users} onNav={setSection} />}
+          {section === 'overview'       && <OverviewSection stats={stats} users={users} onNav={setSection} financeOnly={isCashier} />}
           {section === 'drivers'        && <AdminDriversSection allUsers={drivers} loading={usersLoading} onToggleActive={handleToggleActive} onRefresh={loadUsers} onViewOrders={handleViewDriverOrders} />}
           {section === 'shippers'       && <CustomerSection title="Shippers" allUsers={shippers}   loading={usersLoading} onToggleActive={handleToggleActive} onRefresh={loadUsers} />}
           {section === 'staff'          && <StaffManagementSection            allUsers={staffUsers} loading={usersLoading} onToggleActive={handleToggleActive} onRefresh={loadUsers} />}
@@ -6801,7 +6878,7 @@ export default function AdminDashboardPage() {
           {section === 'role-management' && <AdminRoleManagementSection />}
           {section === 'security-events' && <AdminSecurityEventsSection />}
           {section === 'cross-border'    && <AdminCrossBorderSection />}
-          {section === 'reports'         && <AdminReportsSection />}
+          {section === 'reports'         && <AdminReportsSection allowedTabs={reportTabsForRole} />}
           {section === 'contact-info'     && <AdminContactInfoSection />}
           {section === 'ai-settings'      && <AdminAiSettingsSection />}
           {section === 'profile'        && <ProfileSection />}

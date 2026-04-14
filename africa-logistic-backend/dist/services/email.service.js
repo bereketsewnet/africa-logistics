@@ -1,4 +1,12 @@
 import nodemailer from 'nodemailer';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const EMAIL_LOGO_CID = 'africa-logistics-logo';
+const EMAIL_LOGO_PATH = path.resolve(__dirname, '../assets/logo.webp');
+const EMAIL_LOGO_AVAILABLE = fs.existsSync(EMAIL_LOGO_PATH);
 function getTransporter() {
     const host = process.env.SMTP_HOST;
     const port = process.env.SMTP_PORT ? Number(process.env.SMTP_PORT) : undefined;
@@ -34,6 +42,9 @@ export async function sendEmail(opts) {
         subject: opts.subject,
         html: opts.html,
         text: opts.text,
+        attachments: EMAIL_LOGO_AVAILABLE && opts.html
+            ? [{ filename: 'logo.webp', path: EMAIL_LOGO_PATH, cid: EMAIL_LOGO_CID }]
+            : undefined,
     });
 }
 // ─── Gmail-safe email builder ─────────────────────────────────────────────────
@@ -61,6 +72,9 @@ function buildStyledEmail({ title, preheader, bodyHtml, ctaUrl, ctaLabel, footer
         </td>
       </tr>
     </table>` : '';
+    const headerLogoHtml = EMAIL_LOGO_AVAILABLE
+        ? `<img src="cid:${EMAIL_LOGO_CID}" alt="Africa Logistics" style="height:54px;width:auto;object-fit:contain;display:block;margin:0 auto 8px;" />`
+        : `<p style="margin:0;font-size:22px;font-weight:700;color:#1a1a2e;font-family:Arial,sans-serif;letter-spacing:-0.3px;">Africa Logistics</p>`;
     return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -90,9 +104,7 @@ function buildStyledEmail({ title, preheader, bodyHtml, ctaUrl, ctaLabel, footer
           <!-- Header / Logo area -->
           <tr>
             <td align="center" style="padding:32px 40px 20px;background-color:#ffffff;">
-              <p style="margin:0;font-size:22px;font-weight:700;color:#1a1a2e;font-family:Arial,sans-serif;letter-spacing:-0.3px;">
-                &#x1F69A; Africa Logistics
-              </p>
+              ${headerLogoHtml}
               <p style="margin:6px 0 0;font-size:12px;color:#888888;font-family:Arial,sans-serif;text-transform:uppercase;letter-spacing:1px;">
                 Logistics Platform
               </p>

@@ -1434,16 +1434,21 @@ export async function adminSendOrderMessageHandler(
 
 /** GET /api/admin/orders/guest — list guest orders only */
 export async function adminListGuestOrdersHandler(
-  request: FastifyRequest<{ Querystring: { page?: string; limit?: string; search?: string } }>,
+  request: FastifyRequest<{ Querystring: { page?: string; limit?: string; search?: string; status?: string } }>,
   reply:   FastifyReply
 ) {
   const page  = parseInt(request.query.page  ?? '1',  10)
   const limit = parseInt(request.query.limit ?? '25', 10)
   const offset = (page - 1) * limit
   const search = request.query.search?.trim()
+  const status = request.query.status?.trim().toUpperCase()
 
   const conditions = ['o.is_guest_order = 1']
   const params: any[] = []
+  if (status) {
+    conditions.push('o.status = ?')
+    params.push(status)
+  }
   if (search) {
     conditions.push('(o.reference_code LIKE ? OR o.guest_name LIKE ? OR o.guest_phone LIKE ?)')
     params.push(`%${search}%`, `%${search}%`, `%${search}%`)

@@ -4,6 +4,7 @@
 
 import { Navigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import logoImg from '../assets/logo.webp'
 
 interface ProtectedRouteProps {
   children: React.ReactNode
@@ -28,7 +29,7 @@ function SplashLoader() {
 
         {/* Title */}
         <div style={{ textAlign:'center', marginBottom:'2rem', animation:'splash-title-in 0.7s 0.1s cubic-bezier(0.4,0,0.2,1) both' }}>
-          <img src="/logo-with-name.webp" alt="Africa Logistics" style={{ height:40, objectFit:'contain', marginBottom:'0.75rem' }} onError={e => { (e.target as HTMLImageElement).style.display='none' }}/>
+          <img src={logoImg} alt="Africa Logistics" style={{ height:40, objectFit:'contain', marginBottom:'0.75rem' }} onError={e => { (e.target as HTMLImageElement).style.display='none' }}/>
           <p style={{ fontSize:'0.78rem', letterSpacing:'0.18em', textTransform:'uppercase', color:'rgba(0,229,255,0.6)', fontWeight:600, margin:0 }}>Logistics Platform</p>
         </div>
 
