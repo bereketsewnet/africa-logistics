@@ -33,6 +33,7 @@ html, body, #root {
   color: var(--clr-text);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  overflow-x: hidden;
 }
 
 /* ── Aurora Background ── */
@@ -874,6 +875,7 @@ html, body, #root {
   padding-left: 84px;
   padding-bottom: 2rem;
   transition: padding-left 0.25s cubic-bezier(0.4,0,0.2,1);
+  overflow-x: hidden;
 }
 .dash-main.dock-wide { padding-left: 208px; }
 
@@ -916,7 +918,11 @@ html, body, #root {
 
 .dash-signout-mobile { display: none; }
 
-
+/* ── Telegram login — desktop only (hidden on phone) ── */
+.telegram-desktop-only { display: none; }
+@media (min-width: 768px) {
+  .telegram-desktop-only { display: block; }
+}
 
 
 

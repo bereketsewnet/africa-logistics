@@ -1392,7 +1392,7 @@ export default function DashboardPage() {
         )}
 
         {activePage === 'payments' && (
-          <div style={{ padding: '1.25rem 1.1rem 2rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+          <div style={{ padding: '1.25rem 1.1rem 2rem', display: 'flex', flexDirection: 'column', gap: '1.25rem', overflowX: 'hidden', boxSizing: 'border-box', maxWidth: '100%' }}>
             <div className="glass" style={{ padding: '0.75rem 1rem', display: 'flex', gap: '0.5rem', overflow: 'auto' }}>
               <button
                 onClick={() => setPaymentTab('wallet')}

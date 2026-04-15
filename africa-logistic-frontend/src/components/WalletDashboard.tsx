@@ -237,8 +237,43 @@ const STYLE_TAG = `
     gap: 1rem;
     align-items: start;
   }
+  .wlt-bottom-grid > * {
+    min-width: 0;
+    overflow: hidden;
+  }
+  .wlt-stats-grid {
+    position: relative;
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 0.6rem;
+  }
+  .wlt-bank-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.65rem;
+  }
   @media (max-width: 700px) {
     .wlt-bottom-grid { grid-template-columns: 1fr; }
+  }
+  @media (max-width: 600px) {
+    .wlt-tx-row { flex-wrap: wrap; gap: 0.4rem 0.5rem; padding: 0.7rem 0.75rem; }
+    .wlt-tx-amount { width: 100%; text-align: right; padding-top: 0.2rem;
+      border-top: 1px solid rgba(255,255,255,0.05); font-size: 0.88rem !important; }
+  }
+  @media (max-width: 480px) {
+    .wlt-card-hero { padding: 1rem 0.85rem; }
+    .wlt-balance-num { font-size: clamp(1.5rem, 7vw, 2.2rem); max-width: 100%; word-break: break-all; }
+    .wlt-stat-chip { padding: 0.4rem 0.45rem; }
+    .wlt-stat-chip p:first-child { font-size: 0.6rem !important; }
+    .wlt-stat-chip p:last-child { font-size: 0.78rem !important; }
+    .wlt-stats-grid { gap: 0.35rem; }
+    .wlt-hero-top { flex-wrap: wrap; gap: 0.5rem; }
+    .wlt-hero-icon-row { flex-wrap: wrap; gap: 0.75rem; min-width: 0; }
+    .wlt-balance-wrap { min-width: 0; overflow: hidden; }
+    .wlt-bank-grid { grid-template-columns: 1fr; }
+    .wlt-tx-row { padding: 0.65rem 0.65rem; }
+    .wlt-bottom-grid { gap: 0.75rem; }
+    .wlt-section-title { font-size: 0.72rem; }
   }
 `
 
@@ -357,7 +392,7 @@ function WithdrawalForm({ balance, onSuccess }: { balance: number; onSuccess: ()
       </div>
 
       {/* Bank details */}
-      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'0.65rem' }}>
+      <div className="wlt-bank-grid">
         <div className="input-wrap">
           <input id="wd-bank" type="text" placeholder=" " value={bankName}
             onChange={e => setBankName(e.target.value)} required />
@@ -600,8 +635,8 @@ export default function WalletDashboard() {
           <div className="wlt-orb" style={{ width:160, height:160, bottom:-40, left:-30, background:'radial-gradient(circle, #00e5ff 0%, transparent 70%)' }}/>
 
           {/* Top row */}
-          <div style={{ position:'relative', display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:'1.5rem' }}>
-            <div style={{ display:'flex', alignItems:'center', gap:'1rem' }}>
+          <div className="wlt-hero-top" style={{ position:'relative', display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:'1.5rem', flexWrap:'wrap', gap:'0.75rem' }}>
+            <div className="wlt-hero-icon-row" style={{ display:'flex', alignItems:'center', gap:'1rem' }}>
               {/* Wallet icon with pulse ring */}
               <div style={{ position:'relative' }}>
                 <div style={{ position:'absolute', inset:-6, borderRadius:'50%', border:'2px solid rgba(0,229,255,0.3)', animation:'wlt-pulse-ring 2s ease-out infinite' }}/>
@@ -609,7 +644,7 @@ export default function WalletDashboard() {
                   <LuWallet size={26}/>
                 </div>
               </div>
-              <div>
+              <div className="wlt-balance-wrap" style={{ minWidth:0, overflow:'hidden' }}>
                 <p style={{ fontSize:'0.78rem', textTransform:'uppercase', letterSpacing:'0.1em', color:'var(--clr-muted)', marginBottom:'0.3rem', fontWeight:700 }}>
                   Available Balance
                 </p>
@@ -633,7 +668,7 @@ export default function WalletDashboard() {
           </div>
 
           {/* Stats row */}
-          <div style={{ position:'relative', display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:'0.6rem' }}>
+          <div className="wlt-stats-grid">
             <div className="wlt-stat-chip" style={{ animationDelay:'0.05s' }}>
               <p style={{ fontSize:'0.68rem', color:'var(--clr-muted)', marginBottom:'0.3rem', fontWeight:700, textTransform:'uppercase', letterSpacing:'0.06em' }}>Earned</p>
               <p style={{ fontSize:'0.92rem', fontWeight:800, color:'#4ade80' }}>+{fmt(wallet.total_earned)}</p>
@@ -743,7 +778,7 @@ export default function WalletDashboard() {
                         </p>
                       </div>
                     </div>
-                    <div style={{ fontWeight:800, fontSize:'0.95rem', color: isPlus ? '#4ade80' : '#f87171', whiteSpace:'nowrap', flexShrink:0 }}>
+                    <div className="wlt-tx-amount" style={{ fontWeight:800, fontSize:'0.95rem', color: isPlus ? '#4ade80' : '#f87171', whiteSpace:'nowrap', flexShrink:0 }}>
                       {meta.sign}{fmt(tx.amount)}
                     </div>
                   </div>

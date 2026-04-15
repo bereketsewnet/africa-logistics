@@ -193,19 +193,25 @@ export default function LoginPage() {
 
           </form>
 
-          {/* Divider */}
-          <div className="divider" style={{ margin: '0.95rem 0' }}>or continue with</div>
-
-          {/* Telegram */}
-          <button
-            type="button"
-            className="btn-telegram"
-            onClick={() => alert('Telegram login coming soon')}
-            style={{ padding: '0.66rem 0.95rem' }}
-          >
-            <SiTelegram size={20} />
-            Continue with Telegram
-          </button>
+          {/* Telegram — desktop only */}
+          <div className="telegram-desktop-only">
+            <div className="divider" style={{ margin: '0.95rem 0' }}>or continue with</div>
+            <a
+              href="https://t.me/afri_logistics_bot/start"
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{ textDecoration: 'none', display: 'block' }}
+            >
+              <button
+                type="button"
+                className="btn-telegram"
+                style={{ padding: '0.66rem 0.95rem', width: '100%' }}
+              >
+                <SiTelegram size={20} />
+                Continue with Telegram
+              </button>
+            </a>
+          </div>
 
           <div style={{ marginTop: '0.85rem' }}>
             <p style={{ fontSize: '0.72rem', color: 'var(--clr-muted)', margin: '0 0 0.45rem', fontWeight: 600 }}>
