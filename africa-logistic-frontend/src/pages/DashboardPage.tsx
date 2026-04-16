@@ -92,7 +92,7 @@ function SectionRow({
   )
 }
 
-type Tab = 'profile' | 'security' | 'contact' | 'preferences' | 'documents' | 'rating'
+type Tab = 'profile' | 'security' | 'contact' | 'preferences' | 'documents'
 type DockPage = 'account' | 'orders' | 'payments' | 'transactions' | 'help' | 'vehicle' | 'shipments' | 'report'
 
 
@@ -856,7 +856,6 @@ export default function DashboardPage() {
     { id: 'contact',     icon: <LuContact size={14}/>,  label: 'Contact'     },
     { id: 'preferences', icon: <LuBell size={14}/>,     label: 'Prefs'       },
     ...(user?.role_id === 3 ? [{ id: 'documents' as Tab, icon: <LuFileText size={14}/>, label: 'Docs' }] : []),
-    ...(user?.role_id === 3 ? [{ id: 'rating' as Tab, icon: <LuStar size={14}/>, label: 'Rating' }] : []),
   ]
 
   // ── Dock items ─────────────────────────────────────────────────────────────
@@ -989,6 +988,31 @@ export default function DashboardPage() {
                   </button>
                 </div>
               </div>
+
+              {/* Driver Rating — always visible */}
+              {user?.role_id === 3 && (
+                <div className="glass" style={{ padding:'1rem 1.25rem', display:'flex', flexDirection:'column', gap:'0.65rem' }}>
+                  <h2 style={{ fontSize:'0.9rem', fontWeight:700, color:'var(--clr-text)', display:'flex', alignItems:'center', gap:'0.45rem', margin:0 }}><LuStar size={15} color="#fbbf24"/> My Rating</h2>
+                  {driverProfile ? (
+                    driverProfile.rating != null ? (
+                      <>
+                        <div style={{ display:'flex', alignItems:'center', gap:'0.5rem', flexWrap:'wrap' }}>
+                          {[1,2,3,4,5].map(n => <LuStar key={n} size={20} fill={n <= Math.round(driverProfile.rating) ? '#fbbf24' : 'none'} stroke={n <= Math.round(driverProfile.rating) ? '#fbbf24' : 'rgba(255,255,255,0.2)'}/>)}
+                          <span style={{ fontSize:'1.2rem', fontWeight:800, color:'#fbbf24', marginLeft:'0.25rem' }}>{Number(driverProfile.rating).toFixed(1)}</span>
+                          <span style={{ fontSize:'0.78rem', color:'var(--clr-muted)' }}>/ 5.0</span>
+                        </div>
+                        {driverProfile.total_trips > 0 && (
+                          <p style={{ fontSize:'0.75rem', color:'var(--clr-muted)', margin:0 }}>Based on {driverProfile.total_trips} completed trip{driverProfile.total_trips !== 1 ? 's' : ''}</p>
+                        )}
+                      </>
+                    ) : (
+                      <p style={{ fontSize:'0.82rem', color:'var(--clr-muted)', margin:0 }}>No rating yet — complete deliveries to earn your score.</p>
+                    )
+                  ) : (
+                    <p style={{ color:'var(--clr-muted)', fontSize:'0.82rem', margin:0 }}>Loading…</p>
+                  )}
+                </div>
+              )}
 
               {/* Account sub-tabs */}
               <div style={{ display:'flex', gap:'0.4rem', background:'rgba(255,255,255,0.04)', borderRadius:14, padding:'0.32rem' }}>
@@ -1353,36 +1377,6 @@ export default function DashboardPage() {
             </div>
           )}
 
-          {/* Driver Rating tab */}
-          {activeTab === 'rating' && user?.role_id === 3 && (
-            <div className="glass step-enter" style={{ padding: '1.75rem', display:'flex', flexDirection:'column', gap:'1.25rem' }}>
-              <h2 style={{ fontSize:'0.95rem', fontWeight:700, color:'var(--clr-text)', display:'flex', alignItems:'center', gap:'0.45rem' }}><LuStar size={16} color="#fbbf24"/> My Rating</h2>
-
-              {driverProfile ? (
-                driverProfile.rating != null ? (
-                  <div style={{ display:'flex', flexDirection:'column', gap:'1rem' }}>
-                    <div className="glass-inner" style={{ padding:'1.25rem', display:'flex', flexDirection:'column', gap:'0.65rem' }}>
-                      <div style={{ display:'flex', alignItems:'center', gap:'0.5rem', flexWrap:'wrap' }}>
-                        {[1,2,3,4,5].map(n => <LuStar key={n} size={22} fill={n <= Math.round(driverProfile.rating) ? '#fbbf24' : 'none'} stroke={n <= Math.round(driverProfile.rating) ? '#fbbf24' : 'rgba(255,255,255,0.2)'}/>)}
-                        <span style={{ fontSize:'1.3rem', fontWeight:800, color:'#fbbf24', marginLeft:'0.25rem' }}>{Number(driverProfile.rating).toFixed(1)}</span>
-                        <span style={{ fontSize:'0.8rem', color:'var(--clr-muted)' }}>/ 5.0 combined score</span>
-                      </div>
-                      {driverProfile.total_trips > 0 && (
-                        <p style={{ fontSize:'0.78rem', color:'var(--clr-muted)', margin:0 }}>Based on {driverProfile.total_trips} completed trip{driverProfile.total_trips !== 1 ? 's' : ''}</p>
-                      )}
-                      <p style={{ fontSize:'0.73rem', color:'var(--clr-muted)', margin:0 }}>60% shipper reviews · 40% delivery success rate</p>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="glass-inner" style={{ padding:'1.25rem' }}>
-                    <p style={{ fontSize:'0.85rem', color:'var(--clr-muted)', margin:0, lineHeight:1.6 }}>No rating yet — complete deliveries to earn your score.</p>
-                  </div>
-                )
-              ) : (
-                <div style={{ color:'var(--clr-muted)', fontSize:'0.85rem', padding:'1rem 0' }}>Loading…</div>
-              )}
-            </div>
-          )}
 
           <p style={{ textAlign: 'center', fontSize: '0.73rem', color: 'var(--clr-muted)', paddingBottom: '1rem' }}>
             Africa Logistics Platform · v1.0

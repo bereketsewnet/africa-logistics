@@ -26,7 +26,6 @@ interface Job {
   hs_code: string | null
   shipper_tin: string | null
 }
-interface Message { id: string; sender_first_name: string; sender_last_name: string; sender_role_id: number; message: string; created_at: string }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 const STATUS_COLOR: Record<string, string> = {
@@ -122,9 +121,11 @@ function OtpModal({ title, onConfirm, onClose }: { title: string; onConfirm: (ot
 // ─── Job Detail Modal ─────────────────────────────────────────────────────────
 function JobDetailModal({ job, onClose, onRefresh }: { job: Job; onClose: () => void; onRefresh: () => void }) {
   const [tab, setTab] = useState<'info' | 'chat' | 'docs'>('info')
-  const [messages, setMessages] = useState<Message[]>([])
+  const [messages, setMessages] = useState<{ id: string; sender_first_name: string; sender_last_name: string; sender_role_id: number; message: string; created_at: string }[]>([])
   const [msgText, setMsgText] = useState('')
   const [sending, setSending] = useState(false)
+  const [unreadChat, setUnreadChat] = useState(false)
+  const msgBottom = useRef<HTMLDivElement>(null)
   const [actionLoading, setActionLoading] = useState(false)
   const [actionErr, setActionErr] = useState('')
   const [otpModal, setOtpModal] = useState<'pickup' | 'delivery' | null>(null)
@@ -140,11 +141,9 @@ function JobDetailModal({ job, onClose, onRefresh }: { job: Job; onClose: () => 
   // Cross-border document list (existing uploads)
   const [cbDocs, setCbDocs] = useState<any[]>([])
   const [docsLoading, setDocsLoading] = useState(false)
-  const msgBottom = useRef<HTMLDivElement>(null)
 
   // ─── WS for real-time NEW_MESSAGE events ───────────────────────────────────
   const tabRef = useRef<'info' | 'chat' | 'docs'>('info')
-  const [unreadChat, setUnreadChat] = useState(false)
   useEffect(() => { tabRef.current = tab }, [tab])
 
   useEffect(() => {
@@ -158,11 +157,14 @@ function JobDetailModal({ job, onClose, onRefresh }: { job: Job; onClose: () => 
       try {
         const msg = JSON.parse(e.data)
         if (msg.type === 'NEW_MESSAGE' && msg.message) {
-          if (tabRef.current === 'chat') {
-            setMessages(prev => prev.find(m => m.id === msg.message.id) ? prev : [...prev, msg.message])
-            setTimeout(() => msgBottom.current?.scrollIntoView({ behavior: 'smooth' }), 80)
-          } else {
-            setUnreadChat(true)
+          const msgCh = msg.message.channel ?? 'main'
+          if (msgCh === 'driver') {
+            if (tabRef.current === 'chat') {
+              setMessages(prev => prev.find(m => m.id === msg.message.id) ? prev : [...prev, msg.message])
+              setTimeout(() => msgBottom.current?.scrollIntoView({ behavior: 'smooth' }), 80)
+            } else {
+              setUnreadChat(true)
+            }
           }
         }
       } catch { /* ignore */ }
@@ -170,12 +172,6 @@ function JobDetailModal({ job, onClose, onRefresh }: { job: Job; onClose: () => 
     return () => ws.close()
   }, [localJob.id]) // eslint-disable-line
   // ────────────────────────────────────────────────────────────────────
-
-  const loadMessages = useCallback(async () => {
-    const { data } = await driverApi.getMessages(localJob.id)
-    setMessages(data.messages ?? [])
-    setTimeout(() => msgBottom.current?.scrollIntoView({ behavior:'smooth' }), 100)
-  }, [localJob.id])
 
   useEffect(() => { if (tab === 'chat') { setUnreadChat(false); loadMessages() } }, [tab]) // eslint-disable-line
 
@@ -193,6 +189,12 @@ function JobDetailModal({ job, onClose, onRefresh }: { job: Job; onClose: () => 
     }
   }, [tab, localJob.id])
 
+  const loadMessages = useCallback(async () => {
+    const { data } = await driverApi.getMessages(localJob.id, 'driver')
+    setMessages(data.messages ?? [])
+    setTimeout(() => msgBottom.current?.scrollIntoView({ behavior: 'smooth' }), 100)
+  }, [localJob.id])
+
   const refreshJob = async () => {
     const { data } = await driverApi.getJob(localJob.id)
     setLocalJob(data.job)
@@ -202,10 +204,11 @@ function JobDetailModal({ job, onClose, onRefresh }: { job: Job; onClose: () => 
   const handleSend = async () => {
     if (!msgText.trim()) return
     setSending(true)
-    try { await driverApi.sendMessage(localJob.id, msgText.trim()); setMsgText(''); await loadMessages() }
+    try { await driverApi.sendMessage(localJob.id, msgText.trim(), 'driver'); setMsgText(''); await loadMessages() }
     catch { /* silent */ }
     finally { setSending(false) }
   }
+
 
   const handleAccept = async () => {
     setActionErr(''); setActionLoading(true)
@@ -290,7 +293,7 @@ function JobDetailModal({ job, onClose, onRefresh }: { job: Job; onClose: () => 
               {(isCrossBorder ? ['info','chat','docs'] as const : ['info','chat'] as const).map(t => (
                 <button key={t} onClick={() => setTab(t as any)} style={{ flex:1, padding:'0.4rem', border:'none', borderRadius:8, background: tab === t ? 'rgba(0,229,255,0.12)' : 'transparent', color: tab === t ? 'var(--clr-accent)' : 'var(--clr-muted)', fontFamily:'inherit', fontSize:'0.78rem', fontWeight:700, cursor:'pointer', transition:'all 0.15s', outline: tab === t ? '1px solid rgba(0,229,255,0.2)' : 'none', position:'relative' }}>
                   {t === 'info' ? 'Job Details' : t === 'docs' ? <><LuFileText size={12} style={{ marginRight:3 }}/> Docs</> : (
-                    <>{unreadChat && tab !== 'chat' && <span style={{ position:'absolute', top:2, right:2, width:7, height:7, borderRadius:'50%', background:'#f87171', boxShadow:'0 0 4px #f87171' }}/>}Chat</>
+                    <>{unreadChat && tab !== 'chat' && <span style={{ position:'absolute', top:2, right:2, width:7, height:7, borderRadius:'50%', background:'#f87171', boxShadow:'0 0 4px #f87171' }}/>}Admin Chat</>
                   )}
                 </button>
               ))}
@@ -493,35 +496,35 @@ function JobDetailModal({ job, onClose, onRefresh }: { job: Job; onClose: () => 
               </div>
             )}
 
-            {/* ── Chat tab ── */}
+            {/* ── Admin Chat tab ── */}
             {tab === 'chat' && (
               <div style={{ display:'flex', flexDirection:'column', height:'100%' }}>
+                <p style={{ fontSize:'0.72rem', color:'var(--clr-muted)', marginBottom:'0.5rem', flexShrink:0 }}>This chat is with Admin / Support only.</p>
                 <div style={{ flex:1, display:'flex', flexDirection:'column', gap:'0.6rem', minHeight:200, maxHeight:340, overflowY:'auto', padding:'0.25rem 0' }}>
                   {messages.length === 0 ? (
-                    <div style={{ textAlign:'center', color:'var(--clr-muted)', padding:'2rem', fontSize:'0.85rem' }}>No messages yet.</div>
+                    <div style={{ textAlign:'center', color:'var(--clr-muted)', padding:'2rem', fontSize:'0.85rem' }}>No messages yet. Send a message to Admin.</div>
                   ) : messages.map(m => {
                     const isMe = m.sender_role_id === 3
+                    const roleLabel = m.sender_role_id === 1 ? 'Admin' : m.sender_role_id === 4 ? 'Staff' : 'You'
                     return (
                       <div key={m.id} style={{ display:'flex', flexDirection:'column', alignItems: isMe ? 'flex-end' : 'flex-start' }}>
                         <div style={{ maxWidth:'80%', background: isMe ? 'rgba(0,229,255,0.12)' : 'rgba(255,255,255,0.05)', border: isMe ? '1px solid rgba(0,229,255,0.2)' : '1px solid rgba(255,255,255,0.08)', borderRadius:12, padding:'0.55rem 0.85rem' }}>
                           <p style={{ fontSize:'0.8rem', color:'var(--clr-text)', lineHeight:1.5, wordBreak:'break-word' }}>{m.message}</p>
                         </div>
-                        <p style={{ fontSize:'0.65rem', color:'var(--clr-muted)', marginTop:'0.15rem', paddingInline:'0.25rem' }}>{m.sender_first_name} · {fmtDate(m.created_at)}</p>
+                        <p style={{ fontSize:'0.65rem', color:'var(--clr-muted)', marginTop:'0.15rem', paddingInline:'0.25rem' }}>{m.sender_first_name} · {roleLabel} · {fmtDate(m.created_at)}</p>
                       </div>
                     )
                   })}
                   <div ref={msgBottom}/>
                 </div>
-                {status !== 'DELIVERED' && status !== 'CANCELLED' && (
-                  <div style={{ display:'flex', gap:'0.5rem', marginTop:'0.75rem', flexShrink:0 }}>
-                    <input value={msgText} onChange={e => setMsgText(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend() } }}
-                      placeholder="Send a message…" style={{ flex:1, padding:'0.6rem 0.85rem', borderRadius:10, border:'1px solid rgba(255,255,255,0.1)', background:'rgba(255,255,255,0.04)', color:'var(--clr-text)', fontFamily:'inherit', fontSize:'0.85rem', outline:'none' }}/>
-                    <button onClick={handleSend} disabled={sending || !msgText.trim()}
-                      style={{ padding:'0.6rem 0.85rem', borderRadius:10, border:'none', background:'var(--clr-accent)', color:'#080b14', cursor:'pointer', display:'flex', alignItems:'center', opacity: sending || !msgText.trim() ? 0.5 : 1 }}>
-                      {sending ? <Spinner/> : <LuSend size={16}/>}
-                    </button>
-                  </div>
-                )}
+                <div style={{ display:'flex', gap:'0.5rem', marginTop:'0.75rem', flexShrink:0 }}>
+                  <input value={msgText} onChange={e => setMsgText(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend() } }}
+                    placeholder="Message Admin…" style={{ flex:1, padding:'0.6rem 0.85rem', borderRadius:10, border:'1px solid rgba(255,255,255,0.1)', background:'rgba(255,255,255,0.04)', color:'var(--clr-text)', fontFamily:'inherit', fontSize:'0.85rem', outline:'none' }}/>
+                  <button onClick={handleSend} disabled={sending || !msgText.trim()}
+                    style={{ padding:'0.6rem 0.85rem', borderRadius:10, border:'none', background:'var(--clr-accent)', color:'#080b14', cursor:'pointer', display:'flex', alignItems:'center', opacity: sending || !msgText.trim() ? 0.5 : 1 }}>
+                    {sending ? <Spinner/> : <LuSend size={16}/>}
+                  </button>
+                </div>
               </div>
             )}
           </div>

@@ -988,7 +988,7 @@ function OtpRevealBox({ pickupOtp, deliveryOtp }: { pickupOtp?: string | null; d
 function OrderDetailModal({ order, onClose, onCancelled }: { order: Order; onClose: () => void; onCancelled: () => void }) {
   const isCrossBorder = !!order.is_cross_border
   const [tab, setTab] = useState<'info' | 'history' | 'chat' | 'track' | 'docs'>('info')
-  const [chatChannel, setChatChannel] = useState<'main' | 'shipper'>('main')
+  const [chatChannel, _setChatChannel] = useState<'main' | 'shipper'>('shipper')
   const [history, setHistory] = useState<StatusHistory[]>([])
   const [messages, setMessages] = useState<Message[]>([])
   const [cbDocs, setCbDocs] = useState<CrossBorderDoc[]>([])
@@ -1034,8 +1034,9 @@ function OrderDetailModal({ order, onClose, onCancelled }: { order: Order; onClo
       try {
         const msg = JSON.parse(e.data)
         if (msg.type === 'NEW_MESSAGE' && msg.message) {
-          // Map channel: if channel matches what we're viewing, append live
           const msgChannel = msg.message.channel ?? 'main'
+          // Shippers only participate in the 'shipper' channel — ignore 'driver' channel messages
+          if (msgChannel !== 'shipper') return
           if (tabRef.current === 'chat' && msgChannel === chatChannelRef.current) {
             setMessages(prev => prev.find(m => m.id === msg.message.id) ? prev : [...prev, msg.message])
             setTimeout(() => msgBottom.current?.scrollIntoView({ behavior: 'smooth' }), 80)
@@ -1429,16 +1430,12 @@ function OrderDetailModal({ order, onClose, onCancelled }: { order: Order; onClo
           {/* ── Chat tab ── */}
           {tab === 'chat' && (
             <div style={{ display:'flex', flexDirection:'column', height:'100%' }}>
-              {/* Channel toggle */}
+              {/* Channel toggle — Driver Chat hidden; only Admin Chat shown */}
               <div style={{ display:'flex', gap:'0.4rem', marginBottom:'0.6rem', flexShrink:0 }}>
-                {([{ v: 'main', label: '🚚 Driver Chat' }, { v: 'shipper', label: '🛡️ Admin Chat' }] as const).map(({ v, label }) => (
-                  <button key={v} onClick={() => setChatChannel(v)}
-                    style={{ flex:1, padding:'0.35rem 0.5rem', borderRadius:8, border:'none', cursor:'pointer', fontFamily:'inherit', fontSize:'0.75rem', fontWeight:700, transition:'all 0.15s',
-                      background: chatChannel === v ? 'var(--clr-accent)' : 'rgba(255,255,255,0.06)',
-                      color: chatChannel === v ? '#000' : 'var(--clr-muted)' }}>
-                    {label}
-                  </button>
-                ))}
+                <button style={{ flex:1, padding:'0.35rem 0.5rem', borderRadius:8, border:'none', cursor:'default', fontFamily:'inherit', fontSize:'0.75rem', fontWeight:700,
+                  background: 'var(--clr-accent)', color: '#000' }}>
+                  🛡️ Admin Chat
+                </button>
               </div>
               <div style={{ flex:1, display:'flex', flexDirection:'column', gap:'0.6rem', minHeight:200, maxHeight:340, overflowY:'auto', padding:'0.25rem 0' }}>
                 {messages.length === 0 ? (
