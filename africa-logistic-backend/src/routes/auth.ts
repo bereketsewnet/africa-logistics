@@ -63,7 +63,7 @@ export default async function authRoutes(fastify: FastifyInstance) {
           phone_number:  { type: 'string', minLength: 7, maxLength: 20 },
           otp:           { type: 'string', minLength: 6, maxLength: 6, pattern: '^[0-9]{6}$' },
           new_password:  { type: 'string', minLength: 6 },
-          role_id:       { type: 'number', enum: [2, 3] },     // 2=Shipper, 3=Driver
+          role_id:       { type: 'number', enum: [2, 3, 6] },     // 2=Shipper, 3=Driver, 6=CarOwner
           first_name:    { type: 'string', minLength: 1, maxLength: 100 },
           last_name:     { type: 'string', maxLength: 100 },
         },

@@ -115,6 +115,7 @@ import orderRoutes from './routes/orders.js'
 import driverRoutes from './routes/driver.js'
 import wsRoutes from './routes/ws.js'
 import configRoutes from './routes/config.js'
+import carOwnerRoutes from './routes/carowner.js'
 import { eswWebhookHandler } from './controllers/admin.controller.js'
 
 app.register(healthRoutes)
@@ -125,6 +126,7 @@ app.register(orderRoutes,   { prefix: '/api/orders' })
 app.register(driverRoutes,  { prefix: '/api/driver' })
 app.register(wsRoutes,      { prefix: '/api' })
 app.register(configRoutes,  { prefix: '/api/config' })
+app.register(carOwnerRoutes)
 
 // eSW webhook — public (secured by shared secret header)
 app.post('/api/esw/webhook', eswWebhookHandler)

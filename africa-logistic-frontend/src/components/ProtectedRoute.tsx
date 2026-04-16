@@ -152,7 +152,7 @@ export default function ProtectedRoute({ children, allowedRoles }: ProtectedRout
   if (!user) return <Navigate to="/login" replace />
 
   if (allowedRoles && !allowedRoles.includes(user.role_id)) {
-    const target = [1, 4, 5].includes(user.role_id) ? '/admin' : '/dashboard'
+    const target = [1, 4, 5].includes(user.role_id) ? '/admin' : user.role_id === 6 ? '/car-dashboard' : '/dashboard'
     return <Navigate to={target} replace />
   }
 

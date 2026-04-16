@@ -4,6 +4,7 @@ import LoginPage            from './pages/LoginPage'
 import RegisterPage         from './pages/RegisterPage'
 import DashboardPage        from './pages/DashboardPage'
 import AdminDashboardPage   from './pages/AdminDashboardPage'
+import CarOwnerDashboard    from './pages/CarOwnerDashboard'
 import ForgotPasswordPage   from './pages/ForgotPasswordPage'
 import VerifyEmailPage      from './pages/VerifyEmailPage'
 import ProtectedRoute       from './components/ProtectedRoute'
@@ -63,6 +64,14 @@ export default function App() {
           element={
             <ProtectedRoute allowedRoles={[1, 4, 5]}>
               <AdminDashboardPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/car-dashboard"
+          element={
+            <ProtectedRoute allowedRoles={[6]}>
+              <CarOwnerDashboard />
             </ProtectedRoute>
           }
         />

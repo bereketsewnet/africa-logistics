@@ -121,9 +121,9 @@ export async function verifyOtpHandler(
       .send({ success: false, message: 'Too many failed OTP attempts. Please try again later.' })
   }
 
-  // Validate role_id — only 2 (Shipper) or 3 (Driver) allowed for self-registration
-  if (![2, 3].includes(role_id)) {
-    return reply.status(400).send({ success: false, message: 'Invalid role_id. Use 2 (Shipper) or 3 (Driver).' })
+  // Validate role_id — only 2 (Shipper), 3 (Driver), 6 (CarOwner) allowed for self-registration
+  if (![2, 3, 6].includes(role_id)) {
+    return reply.status(400).send({ success: false, message: 'Invalid role_id. Use 2 (Shipper), 3 (Driver), or 6 (CarOwner).' })
   }
 
   // Verify the OTP submitted by the user
@@ -159,7 +159,7 @@ export async function verifyOtpHandler(
   notifyAdminsOfEvent(
     request.server.db,
     'New Account Registration',
-    `${first_name} ${last_name}`.trim() + ` registered as ${role_id === 3 ? 'Driver' : 'Shipper'}.`,
+    `${first_name} ${last_name}`.trim() + ` registered as ${role_id === 3 ? 'Driver' : role_id === 6 ? 'Car Owner' : 'Shipper'}.`,
     '/admin'
   ).catch(() => {})
 

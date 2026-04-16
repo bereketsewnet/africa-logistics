@@ -32,6 +32,7 @@ export default function LoginPage() {
     { label: 'Driver', phone: '+251965500639', password: 'Admin1234' },
     { label: 'Cashier', phone: '+251911104182', password: 'Admin1234' },
     { label: 'Dispatcher', phone: '+251928664558', password: 'Admin1234' },
+    { label: 'Car Owner', phone: '+251912000001', password: 'Admin1234' },
   ]
 
   const fillDemo = (phoneValue: string, passwordValue: string) => {
@@ -61,7 +62,7 @@ export default function LoginPage() {
       }
       await login(data.token)
       const roleId = data.user?.role_id
-      navigate([1, 4, 5].includes(roleId) ? '/admin' : '/dashboard')
+      navigate([1, 4, 5].includes(roleId) ? '/admin' : roleId === 6 ? '/car-dashboard' : '/dashboard')
     } catch (err: any) {
       setError(err.response?.data?.message || 'Login failed. Please try again.')
     } finally {

@@ -809,6 +809,41 @@ export default fp(async function dbPlugin(fastify: FastifyInstance) {
     `)
     await conn.query(`INSERT IGNORE INTO ai_assistance_settings (id) VALUES (1)`)
 
+    // ─── Car Owner Role (6) ──────────────────────────────────────────────────
+    await conn.query(`
+      INSERT IGNORE INTO roles (id, role_name, description) VALUES
+        (6, 'CarOwner', 'Car owner who registers vehicles for driver assignment')
+    `).catch(() => {})
+
+    // ─── Car Owner Vehicles ──────────────────────────────────────────────────
+    await conn.query(`
+      CREATE TABLE IF NOT EXISTS car_owner_vehicles (
+        id                  CHAR(36)     NOT NULL PRIMARY KEY,
+        owner_id            CHAR(36)     NOT NULL,
+        plate_number        VARCHAR(30)  NOT NULL UNIQUE,
+        vehicle_type        VARCHAR(60)  NOT NULL,
+        model               VARCHAR(100) NULL,
+        color               VARCHAR(60)  NULL,
+        year                SMALLINT     NULL,
+        max_capacity_kg     DECIMAL(10,2) NULL,
+        description         VARCHAR(500) NULL,
+        vehicle_photo_url   VARCHAR(255) NULL,
+        libre_url           VARCHAR(255) NULL,
+        assigned_driver_id  CHAR(36)     NULL,
+        status              ENUM('PENDING','APPROVED','REJECTED') NOT NULL DEFAULT 'PENDING',
+        admin_note          TEXT         NULL,
+        reviewed_by         CHAR(36)     NULL,
+        reviewed_at         TIMESTAMP    NULL,
+        created_at          TIMESTAMP    DEFAULT CURRENT_TIMESTAMP,
+        updated_at          TIMESTAMP    DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        INDEX idx_cov_owner  (owner_id),
+        INDEX idx_cov_driver (assigned_driver_id),
+        CONSTRAINT cov_fk_owner  FOREIGN KEY (owner_id)           REFERENCES users(id) ON DELETE CASCADE,
+        CONSTRAINT cov_fk_driver FOREIGN KEY (assigned_driver_id) REFERENCES users(id) ON DELETE SET NULL,
+        CONSTRAINT cov_fk_admin  FOREIGN KEY (reviewed_by)        REFERENCES users(id) ON DELETE SET NULL
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    `)
+
     conn.release() // Return the connection back to the pool
   } catch (err) {
     fastify.log.error('❌ MySQL connection failed. Is XAMPP running?')

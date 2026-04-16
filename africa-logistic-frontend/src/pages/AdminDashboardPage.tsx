@@ -4,7 +4,7 @@ import {
 } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { useNavigate } from 'react-router-dom'
-import apiClient, { authApi, adminOrderApi, configApi } from '../lib/apiClient'
+import apiClient, { authApi, adminOrderApi, configApi, adminCarOwnerApi } from '../lib/apiClient'
 import PhoneField from '../components/PhoneField'
 import { normalisePhone } from '../lib/normalisePhone'
 import { MapContainer, TileLayer, Marker, Popup, Polyline, useMapEvents } from 'react-leaflet'
@@ -179,7 +179,7 @@ interface Stats {
   total_users: number; total_admins: number; total_shippers: number
   total_drivers: number; active_users: number; new_today: number
 }
-type AdminSection = 'overview' | 'drivers' | 'shippers' | 'staff' | 'verify-drivers' | 'vehicles' | 'orders' | 'live-drivers' | 'guest-orders' | 'cargo-types' | 'pricing-rules' | 'profile' | 'payments' | 'wallet-adjustment' | 'notif-settings' | 'settings' | 'vehicle-types' | 'countries' | 'maintenance-mode' | 'role-management' | 'security-events' | 'cross-border' | 'reports' | 'contact-info' | 'ai-settings'
+type AdminSection = 'overview' | 'drivers' | 'shippers' | 'staff' | 'verify-drivers' | 'vehicles' | 'orders' | 'live-drivers' | 'guest-orders' | 'cargo-types' | 'pricing-rules' | 'profile' | 'payments' | 'wallet-adjustment' | 'notif-settings' | 'settings' | 'vehicle-types' | 'countries' | 'maintenance-mode' | 'role-management' | 'security-events' | 'cross-border' | 'reports' | 'contact-info' | 'ai-settings' | 'car-owners'
 type ProfileTab = 'profile' | 'security' | 'contact'
 
 interface DriverRow {
@@ -6558,6 +6558,240 @@ function AdminPricingRulesSection() {
   )
 }
 
+// ─── Admin Car Owners Section ─────────────────────────────────────────────────
+
+interface CarOwnerVehicleAdmin {
+  id: number
+  plate_number: string
+  vehicle_type: string
+  model: string | null
+  color: string | null
+  year: number | null
+  max_capacity_kg: number | null
+  status: 'PENDING' | 'APPROVED' | 'REJECTED'
+  admin_note: string | null
+  owner_name: string
+  owner_phone: string
+  assigned_driver_name: string | null
+  assigned_driver_phone: string | null
+  assigned_driver_id: number | null
+  created_at: string
+}
+
+interface DriverForAssign {
+  id: number
+  first_name: string
+  last_name: string | null
+  phone_number: string
+  has_assigned_car: boolean
+  assigned_plate: string | null
+}
+
+function AdminCarOwnersSection() {
+  const [vehicles, setVehicles] = useState<CarOwnerVehicleAdmin[]>([])
+  const [drivers, setDrivers] = useState<DriverForAssign[]>([])
+  const [loading, setLoading] = useState(true)
+  const [err, setErr] = useState('')
+  const [toast, setToast] = useState('')
+
+  // review modal
+  const [reviewTarget, setReviewTarget] = useState<CarOwnerVehicleAdmin | null>(null)
+  const [reviewAction, setReviewAction] = useState<'APPROVED' | 'REJECTED'>('APPROVED')
+  const [reviewNote, setReviewNote] = useState('')
+  const [reviewSaving, setReviewSaving] = useState(false)
+  const [reviewErr, setReviewErr] = useState('')
+
+  // assign driver modal
+  const [assignTarget, setAssignTarget] = useState<CarOwnerVehicleAdmin | null>(null)
+  const [assignDriverId, setAssignDriverId] = useState<string>('')
+  const [assignSaving, setAssignSaving] = useState(false)
+  const [assignErr, setAssignErr] = useState('')
+
+  function showToast(msg: string) { setToast(msg); setTimeout(() => setToast(''), 3000) }
+
+  async function load() {
+    setLoading(true); setErr('')
+    try {
+      const [vr, dr] = await Promise.all([adminCarOwnerApi.listVehicles(), adminCarOwnerApi.listDriversForAssign()])
+      setVehicles(vr.data.vehicles || [])
+      setDrivers(dr.data.drivers || [])
+    } catch { setErr('Failed to load car owner vehicles.') }
+    finally { setLoading(false) }
+  }
+
+  useEffect(() => { load() }, [])
+
+  async function handleReview() {
+    if (!reviewTarget) return
+    setReviewSaving(true); setReviewErr('')
+    try {
+      await adminCarOwnerApi.reviewVehicle(String(reviewTarget.id), { action: reviewAction, admin_note: reviewNote.trim() || undefined })
+      showToast(`Vehicle ${reviewAction === 'APPROVED' ? 'approved' : 'rejected'}.`)
+      setReviewTarget(null); setReviewNote('')
+      await load()
+    } catch (e: any) { setReviewErr(e.response?.data?.message || 'Failed to update.') }
+    finally { setReviewSaving(false) }
+  }
+
+  async function handleAssign() {
+    if (!assignTarget) return
+    setAssignSaving(true); setAssignErr('')
+    try {
+      await adminCarOwnerApi.assignDriver(String(assignTarget.id), assignDriverId || null)
+      showToast(assignDriverId ? 'Driver assigned.' : 'Driver removed.')
+      setAssignTarget(null); setAssignDriverId('')
+      await load()
+    } catch (e: any) { setAssignErr(e.response?.data?.message || 'Failed to assign.') }
+    finally { setAssignSaving(false) }
+  }
+
+  const statusColors: Record<string, { bg: string; color: string }> = {
+    PENDING:  { bg: 'rgba(251,191,36,0.15)',  color: '#fbbf24' },
+    APPROVED: { bg: 'rgba(52,211,153,0.15)',  color: '#34d399' },
+    REJECTED: { bg: 'rgba(248,113,113,0.15)', color: '#f87171' },
+  }
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+      {toast && (
+        <div style={{ position: 'fixed', top: '1.25rem', right: '1.25rem', zIndex: 9999, background: 'rgba(52,211,153,0.15)', border: '1px solid rgba(52,211,153,0.3)', color: '#34d399', padding: '0.65rem 1rem', borderRadius: 10, fontSize: '0.85rem', fontWeight: 600 }}>
+          {toast}
+        </div>
+      )}
+
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
+        <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--clr-muted)' }}>{vehicles.length} vehicle{vehicles.length !== 1 ? 's' : ''} registered</p>
+        <button onClick={load} style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, padding: '0.4rem 0.75rem', color: 'var(--clr-muted)', cursor: 'pointer', fontSize: '0.8rem', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+          <LuRefreshCw size={13}/> Refresh
+        </button>
+      </div>
+
+      {loading && <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--clr-muted)' }}><span className="spinner" style={{ marginRight: '0.5rem' }} />Loading…</div>}
+      {err && <div style={{ color: '#f87171', fontSize: '0.85rem', padding: '0.75rem', background: 'rgba(248,113,113,0.1)', borderRadius: 8 }}>{err}</div>}
+
+      {!loading && !err && vehicles.length === 0 && (
+        <div style={{ padding: '3rem', textAlign: 'center', color: 'var(--clr-muted)', fontSize: '0.9rem' }}>No car owner vehicles registered yet.</div>
+      )}
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+        {vehicles.map(v => {
+          const sc = statusColors[v.status] || statusColors.PENDING
+          return (
+            <div key={v.id} className="glass-inner" style={{ padding: '0.9rem 1rem' }}>
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem', flexWrap: 'wrap' }}>
+                <div style={{ flex: 1, minWidth: 180 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '0.3rem' }}>
+                    <span style={{ fontWeight: 700, fontSize: '0.95rem', color: 'var(--clr-text)' }}>{v.plate_number}</span>
+                    <span style={{ fontSize: '0.75rem', color: 'var(--clr-muted)', background: 'rgba(255,255,255,0.06)', padding: '0.1rem 0.5rem', borderRadius: 6 }}>{v.vehicle_type}</span>
+                    <span style={{ padding: '0.2rem 0.6rem', borderRadius: 999, background: sc.bg, color: sc.color, fontSize: '0.73rem', fontWeight: 700 }}>{v.status}</span>
+                  </div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem 1rem', marginBottom: '0.3rem' }}>
+                    {v.model && <span style={{ fontSize: '0.78rem', color: 'var(--clr-muted)' }}>Model: <strong style={{ color: 'var(--clr-text)' }}>{v.model}</strong></span>}
+                    {v.color && <span style={{ fontSize: '0.78rem', color: 'var(--clr-muted)' }}>Color: <strong style={{ color: 'var(--clr-text)' }}>{v.color}</strong></span>}
+                    {v.year && <span style={{ fontSize: '0.78rem', color: 'var(--clr-muted)' }}>Year: <strong style={{ color: 'var(--clr-text)' }}>{v.year}</strong></span>}
+                  </div>
+                  <div style={{ fontSize: '0.8rem', color: 'var(--clr-muted)' }}>
+                    Owner: <strong style={{ color: 'var(--clr-text)' }}>{v.owner_name}</strong> · {v.owner_phone}
+                  </div>
+                  {v.assigned_driver_name && (
+                    <div style={{ fontSize: '0.78rem', color: '#34d399', marginTop: '0.25rem' }}>
+                      Driver: <strong>{v.assigned_driver_name}</strong> · {v.assigned_driver_phone}
+                    </div>
+                  )}
+                  {!v.assigned_driver_name && v.status === 'APPROVED' && (
+                    <div style={{ fontSize: '0.75rem', color: 'var(--clr-muted)', marginTop: '0.25rem' }}>No driver assigned</div>
+                  )}
+                  {v.admin_note && (
+                    <div style={{ fontSize: '0.75rem', color: 'var(--clr-muted)', marginTop: '0.25rem', fontStyle: 'italic' }}>Note: {v.admin_note}</div>
+                  )}
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', alignItems: 'flex-end' }}>
+                  {v.status === 'PENDING' && (
+                    <button onClick={() => { setReviewTarget(v); setReviewAction('APPROVED'); setReviewNote(''); setReviewErr('') }}
+                      className="btn-primary" style={{ padding: '0.4rem 0.85rem', fontSize: '0.78rem' }}>
+                      Review
+                    </button>
+                  )}
+                  {v.status === 'APPROVED' && (
+                    <button onClick={() => { setAssignTarget(v); setAssignDriverId(v.assigned_driver_id ? String(v.assigned_driver_id) : ''); setAssignErr('') }}
+                      style={{ background: 'rgba(0,229,255,0.1)', border: '1px solid rgba(0,229,255,0.25)', borderRadius: 8, padding: '0.4rem 0.85rem', color: 'var(--clr-accent)', cursor: 'pointer', fontFamily: 'inherit', fontSize: '0.78rem', fontWeight: 600 }}>
+                      {v.assigned_driver_id ? 'Change Driver' : 'Assign Driver'}
+                    </button>
+                  )}
+                  {v.status === 'APPROVED' && v.assigned_driver_id && (
+                    <button onClick={async () => {
+                      if (!confirm('Remove driver from this vehicle?')) return
+                      try { await adminCarOwnerApi.assignDriver(String(v.id), null); showToast('Driver removed.'); load() } catch {}
+                    }}
+                      style={{ background: 'rgba(248,113,113,0.1)', border: '1px solid rgba(248,113,113,0.25)', borderRadius: 8, padding: '0.4rem 0.85rem', color: '#f87171', cursor: 'pointer', fontFamily: 'inherit', fontSize: '0.78rem', fontWeight: 600 }}>
+                      Remove Driver
+                    </button>
+                  )}
+                  {v.status === 'REJECTED' && (
+                    <button onClick={() => { setReviewTarget(v); setReviewAction('APPROVED'); setReviewNote(''); setReviewErr('') }}
+                      style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, padding: '0.4rem 0.85rem', color: 'var(--clr-muted)', cursor: 'pointer', fontFamily: 'inherit', fontSize: '0.78rem', fontWeight: 600 }}>
+                      Re-review
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          )
+        })}
+      </div>
+
+      {/* Review Modal */}
+      {reviewTarget && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', zIndex: 9999, display: 'grid', placeItems: 'center', padding: '1rem' }}>
+          <div className="glass" style={{ width: 'min(420px,100%)', padding: '1.5rem' }}>
+            <p style={{ fontWeight: 700, fontSize: '1rem', color: 'var(--clr-text)', margin: '0 0 0.75rem' }}>Review Vehicle — {reviewTarget.plate_number}</p>
+            <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.85rem' }}>
+              {(['APPROVED', 'REJECTED'] as const).map(a => (
+                <button key={a} onClick={() => setReviewAction(a)}
+                  style={{ flex: 1, padding: '0.55rem', borderRadius: 9, border: `1.5px solid ${reviewAction === a ? (a === 'APPROVED' ? '#34d399' : '#f87171') : 'rgba(255,255,255,0.1)'}`, background: reviewAction === a ? (a === 'APPROVED' ? 'rgba(52,211,153,0.1)' : 'rgba(248,113,113,0.1)') : 'rgba(255,255,255,0.04)', color: reviewAction === a ? (a === 'APPROVED' ? '#34d399' : '#f87171') : 'var(--clr-muted)', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600, fontSize: '0.85rem' }}>
+                  {a === 'APPROVED' ? '✓ Approve' : '✗ Reject'}
+                </button>
+              ))}
+            </div>
+            <div className="input-wrap" style={{ marginBottom: '0.85rem' }}>
+              <input type="text" id="rnote" placeholder=" " value={reviewNote} onChange={e => setReviewNote(e.target.value)} />
+              <label htmlFor="rnote">Admin Note (optional)</label>
+            </div>
+            {reviewErr && <div style={{ color: '#f87171', fontSize: '0.8rem', marginBottom: '0.75rem' }}>{reviewErr}</div>}
+            <div style={{ display: 'flex', gap: '0.75rem' }}>
+              <button onClick={() => setReviewTarget(null)} style={{ flex: 1, padding: '0.65rem', borderRadius: 9, border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.04)', color: 'var(--clr-muted)', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600 }}>Cancel</button>
+              <button onClick={handleReview} disabled={reviewSaving} className="btn-primary" style={{ flex: 2, padding: '0.65rem' }}>{reviewSaving ? 'Saving…' : 'Confirm'}</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Assign Driver Modal */}
+      {assignTarget && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', zIndex: 9999, display: 'grid', placeItems: 'center', padding: '1rem' }}>
+          <div className="glass" style={{ width: 'min(420px,100%)', padding: '1.5rem' }}>
+            <p style={{ fontWeight: 700, fontSize: '1rem', color: 'var(--clr-text)', margin: '0 0 0.75rem' }}>Assign Driver — {assignTarget.plate_number}</p>
+            <select value={assignDriverId} onChange={e => setAssignDriverId(e.target.value)}
+              style={{ width: '100%', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 10, padding: '0.75rem 0.9rem', color: 'var(--clr-text)', fontSize: '0.875rem', fontFamily: 'inherit', marginBottom: '0.85rem', outline: 'none', cursor: 'pointer' }}>
+              <option value="">— No Driver (unassign) —</option>
+              {drivers.map(d => (
+                <option key={d.id} value={String(d.id)}>
+                  {d.first_name} {d.last_name || ''} · {d.phone_number}{d.has_assigned_car ? ` (has car: ${d.assigned_plate})` : ''}
+                </option>
+              ))}
+            </select>
+            {assignErr && <div style={{ color: '#f87171', fontSize: '0.8rem', marginBottom: '0.75rem' }}>{assignErr}</div>}
+            <div style={{ display: 'flex', gap: '0.75rem' }}>
+              <button onClick={() => setAssignTarget(null)} style={{ flex: 1, padding: '0.65rem', borderRadius: 9, border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.04)', color: 'var(--clr-muted)', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600 }}>Cancel</button>
+              <button onClick={handleAssign} disabled={assignSaving} className="btn-primary" style={{ flex: 2, padding: '0.65rem' }}>{assignSaving ? 'Saving…' : 'Save'}</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ─── Main Admin Dashboard ─────────────────────────────────────────────────────
 
 export default function AdminDashboardPage() {
@@ -6680,6 +6914,7 @@ export default function AdminDashboardPage() {
     ...(can('users.manage') ? [{ id: 'staff' as AdminSection, icon: <LuBriefcase size={16}/>, label: 'Staff Users' }] : []),
     ...(user?.role_id === 1 ? [{ id: 'cross-border' as AdminSection, icon: <LuGlobe size={16}/>, label: 'Cross-Border' }] : []),
     ...(can('vehicles.manage') ? [{ id: 'vehicles' as AdminSection, icon: <LuCar size={16}/>, label: 'Vehicles' }] : []),
+    ...(can('vehicles.manage') ? [{ id: 'car-owners' as AdminSection, icon: <LuCar size={16}/>, label: 'Car Owners' }] : []),
     ...(user?.role_id === 1 ? [{ id: 'security-events' as AdminSection, icon: <LuShieldCheck size={16}/>, label: 'Security Events' }] : []),
     ...(can('settings.manage') || can('notifications.manage') || can('roles.manage') || can('pricing.manage') || can('cargo.manage') ? [{ id: 'settings' as AdminSection, icon: <LuSettings size={16}/>, label: 'Settings' }] : []),
     { id: 'profile' as AdminSection, icon: <LuUser size={16}/>, label: 'My Profile' },
@@ -6715,6 +6950,7 @@ export default function AdminDashboardPage() {
     'reports':         { icon: <LuChartBar size={16}/>,    label: 'Reports' },
     'contact-info':    { icon: <LuPhone size={16}/>,       label: 'Contact Info' },
     'ai-settings':     { icon: <LuLink size={16}/>,        label: 'AI Assistance' },
+    'car-owners':      { icon: <LuCar size={16}/>,         label: 'Car Owners' },
     'settings':        { icon: <LuSettings size={16}/>,    label: 'Settings' },
   } as Record<string, { icon: React.ReactNode; label: string }>)[section]
 
@@ -6802,6 +7038,7 @@ export default function AdminDashboardPage() {
               items: [
                 ...(user?.role_id === 1 ? [{ id: 'cross-border' as AdminSection, icon: <LuGlobe size={15}/>, label: 'Cross-Border' }] : []),
                 ...(can('vehicles.manage') ? [{ id: 'vehicles' as AdminSection, icon: <LuCar size={15}/>, label: 'Vehicles' }] : []),
+                ...(can('vehicles.manage') ? [{ id: 'car-owners' as AdminSection, icon: <LuCar size={15}/>, label: 'Car Owners' }] : []),
               ],
             },
             {
@@ -6890,6 +7127,7 @@ export default function AdminDashboardPage() {
           {section === 'role-management' && <AdminRoleManagementSection onPermissionsSaved={reloadPermissions} />}
           {section === 'security-events' && <AdminSecurityEventsSection />}
           {section === 'cross-border'    && <AdminCrossBorderSection />}
+          {section === 'car-owners'      && <AdminCarOwnersSection />}
           {section === 'reports'         && <AdminReportsSection allowedTabs={reportTabsForRole} />}
           {section === 'contact-info'     && <AdminContactInfoSection />}
           {section === 'ai-settings'      && <AdminAiSettingsSection />}

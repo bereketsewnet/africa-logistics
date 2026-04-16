@@ -428,3 +428,29 @@ export const configApi = {
   getAiStatus: () =>
     apiClient.get('/config/ai-status'),
 }
+
+// ─── Car Owner API ────────────────────────────────────────────────────────────
+export const carOwnerApi = {
+  listVehicles: () =>
+    apiClient.get('/car-owner/vehicles'),
+  getVehicle: (id: string) =>
+    apiClient.get(`/car-owner/vehicles/${id}`),
+  registerVehicle: (data: {
+    plate_number: string; vehicle_type: string; model?: string;
+    color?: string; year?: number; max_capacity_kg?: number; description?: string
+  }) => apiClient.post('/car-owner/vehicles', data),
+  deleteVehicle: (id: string) =>
+    apiClient.delete(`/car-owner/vehicles/${id}`),
+}
+
+// ─── Admin Car Owner API ──────────────────────────────────────────────────────
+export const adminCarOwnerApi = {
+  listVehicles: () =>
+    apiClient.get('/admin/car-owner-vehicles'),
+  reviewVehicle: (id: string, data: { action: 'APPROVED' | 'REJECTED'; admin_note?: string }) =>
+    apiClient.patch(`/admin/car-owner-vehicles/${id}/review`, data),
+  assignDriver: (id: string, driver_id: string | null) =>
+    apiClient.patch(`/admin/car-owner-vehicles/${id}/assign-driver`, { driver_id }),
+  listDriversForAssign: () =>
+    apiClient.get('/admin/drivers-for-car-assign'),
+}

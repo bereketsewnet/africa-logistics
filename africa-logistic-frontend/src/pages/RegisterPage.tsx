@@ -8,7 +8,7 @@ import { normalisePhone } from '../lib/normalisePhone'
 import logoImg from '../assets/logo.webp'
 import {
   LuTruck, LuEye, LuEyeOff, LuTriangleAlert, LuPackage, LuSmartphone,
-  LuArrowRight, LuCheck,
+  LuArrowRight, LuCheck, LuCar,
 } from 'react-icons/lu'
 import { SiTelegram } from 'react-icons/si'
 
@@ -124,7 +124,7 @@ export default function RegisterPage() {
   // Step 3
   const [firstName, setFirstName] = useState('')
   const [lastName,  setLastName]  = useState('')
-  const [roleId,    setRoleId]    = useState<2 | 3>(2)
+  const [roleId,    setRoleId]    = useState<2 | 3 | 6>(2)
   const [password,  setPassword]  = useState('')
   const [showPw,    setShowPw]    = useState(false)
 
@@ -292,8 +292,8 @@ export default function RegisterPage() {
                 <p style={{ color: 'var(--clr-muted)', fontSize: '0.78rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.6rem' }}>
                   I am a…
                 </p>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
-                  {([{ id: 2, icon: <LuPackage size={16}/>, label: 'Shipper' }, { id: 3, icon: <LuTruck size={16}/>, label: 'Driver' }] as const).map(r => (
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.75rem' }}>
+                  {([{ id: 2, icon: <LuPackage size={16}/>, label: 'Shipper' }, { id: 3, icon: <LuTruck size={16}/>, label: 'Driver' }, { id: 6, icon: <LuCar size={16}/>, label: 'Car Owner' }] as const).map(r => (
                     <button key={r.id} type="button"
                       style={{
                         padding: '0.75rem',
@@ -308,7 +308,7 @@ export default function RegisterPage() {
                         transition: 'all 0.2s',
                         boxShadow: roleId === r.id ? '0 0 12px rgba(0,229,255,0.15)' : 'none',
                       }}
-                      onClick={() => setRoleId(r.id as 2 | 3)}>
+                      onClick={() => setRoleId(r.id as 2 | 3 | 6)}>
                       <span style={{display:'flex',alignItems:'center',gap:'0.4rem'}}>{r.icon} {r.label}</span>
                     </button>
                   ))}

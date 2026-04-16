@@ -964,6 +964,11 @@ export default function DashboardPage() {
                           </span>
                         )
                       })()}
+                      {user?.role_id === 3 && !vehicleLoading && myVehicles.length === 0 && (
+                        <span style={{ display:'inline-flex', alignItems:'center', gap:'0.3rem', padding:'0.2rem 0.6rem', borderRadius:99, border:'1px solid rgba(251,191,36,0.35)', background:'rgba(251,191,36,0.12)', fontSize:'0.72rem', fontWeight:700, color:'#fbbf24' }}>
+                          <LuCar size={11}/> Needs Car
+                        </span>
+                      )}
                     </div>
                     <p style={{ color:'var(--clr-muted)', fontSize:'0.83rem', marginTop:'0.15rem' }}>{user?.phone_number}</p>
                     {user?.email && (
