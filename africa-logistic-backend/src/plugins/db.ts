@@ -844,6 +844,38 @@ export default fp(async function dbPlugin(fastify: FastifyInstance) {
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     `)
 
+    // ─── Order Driver Payments ───────────────────────────────────────────────
+    await conn.query(`
+      CREATE TABLE IF NOT EXISTS order_driver_payments (
+        id                  CHAR(36)      NOT NULL PRIMARY KEY,
+        order_id            CHAR(36)      NOT NULL,
+        driver_id           CHAR(36)      NOT NULL,
+        admin_id            CHAR(36)      NOT NULL,
+        payment_type        ENUM('WALLET','BANK_TRANSFER') NOT NULL,
+        gross_amount        DECIMAL(14,2) NOT NULL,
+        commission_type     ENUM('PERCENT','FIXED','NONE') NOT NULL DEFAULT 'NONE',
+        commission_value    DECIMAL(14,2) NOT NULL DEFAULT 0,
+        commission_amount   DECIMAL(14,2) NOT NULL DEFAULT 0,
+        net_amount          DECIMAL(14,2) NOT NULL,
+        receipt_url         VARCHAR(512)  NULL,
+        note                TEXT          NULL,
+        driver_tx_id        CHAR(36)      NULL,
+        admin_debit_tx_id   CHAR(36)      NULL,
+        created_at          TIMESTAMP     DEFAULT CURRENT_TIMESTAMP,
+        INDEX idx_odp_order  (order_id),
+        INDEX idx_odp_driver (driver_id),
+        CONSTRAINT odp_fk_order  FOREIGN KEY (order_id)  REFERENCES orders(id) ON DELETE CASCADE,
+        CONSTRAINT odp_fk_driver FOREIGN KEY (driver_id) REFERENCES users(id)  ON DELETE CASCADE,
+        CONSTRAINT odp_fk_admin  FOREIGN KEY (admin_id)  REFERENCES users(id)  ON DELETE CASCADE
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    `)
+
+    // Add driver_payout_status column to orders if missing
+    const [dpsRows] = await conn.query(`SELECT 1 FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='orders' AND COLUMN_NAME='driver_payout_status'`) as any
+    if ((dpsRows as any[]).length === 0) {
+      await conn.query(`ALTER TABLE orders ADD COLUMN driver_payout_status ENUM('PENDING','WALLET_PAID','BANK_TRANSFERRED') NOT NULL DEFAULT 'PENDING'`)
+    }
+
     conn.release() // Return the connection back to the pool
   } catch (err) {
     fastify.log.error('❌ MySQL connection failed. Is XAMPP running?')

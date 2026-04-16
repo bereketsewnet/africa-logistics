@@ -174,7 +174,8 @@ export async function validateOrderPayment(db: Pool, shipperId: string, orderTot
 
 /**
  * Process FINAL payment settlement when order marked COMPLETED (OTP verified on delivery)
- * This DEDUCTS from shipper wallet and CREDITS to driver wallet
+ * DEDUCTS from shipper wallet and CREDITS to ADMIN wallet (platform holds funds).
+ * Admin then manually pays driver via wallet credit or bank transfer.
  */
 export async function settleOrderPayment(
   db: Pool,
@@ -190,6 +191,12 @@ export async function settleOrderPayment(
   driverTransactionId: string
   success: boolean
 }> {
+  // Find super admin (role_id = 1) to credit
+  const [adminRows] = await db.query<any[]>(
+    `SELECT id FROM users WHERE role_id = 1 AND is_active = 1 ORDER BY created_at ASC LIMIT 1`
+  )
+  const adminUserId: string = adminRows[0]?.id ?? shipperUserId // fallback to shipper if no admin (shouldn't happen)
+
   // Deduct from shipper
   const shipperTxId = await addWalletTransaction(
     db,
@@ -199,26 +206,23 @@ export async function settleOrderPayment(
     `Order payment - ${referenceCode}`,
     orderId,
     referenceCode,
-    driverUserId,
-    { type: 'order_settlement', role: 'shipper' }
+    adminUserId,
+    { type: 'order_settlement', role: 'shipper', driver_id: driverUserId }
   )
 
-  // Credit to driver
-  const driverTxId = await addWalletTransaction(
+  // Credit to admin wallet (platform holds money until admin pays driver)
+  const adminTxId = await addWalletTransaction(
     db,
-    driverUserId,
+    adminUserId,
     'CREDIT',
-    driverAmount,
-    `Earnings from delivery - ${referenceCode}`,
+    shipperAmount,
+    `Order received from shipper - ${referenceCode}`,
     orderId,
     referenceCode,
     shipperUserId,
-    { type: 'order_settlement', role: 'driver' }
+    { type: 'order_settlement', role: 'admin', shipper_id: shipperUserId, driver_id: driverUserId, commission: commissionAmount }
   )
 
-  // Record commission (goes to platform wallet)
-  // In real system, create a "platform" user or account for this
-  // For now, mark it as metadata
   await db.query(
     `UPDATE orders SET payment_status = 'SETTLED', final_price = ? WHERE id = ?`,
     [shipperAmount, orderId]
@@ -226,9 +230,145 @@ export async function settleOrderPayment(
 
   return {
     shipperTransactionId: shipperTxId,
-    driverTransactionId: driverTxId,
+    driverTransactionId: adminTxId, // reusing field name — now points to admin credit tx
     success: true,
   }
+}
+
+/**
+ * Admin pays driver from admin wallet (with optional commission cut).
+ * Net = grossAmount - commission. Net credited to driver, deducted from admin.
+ */
+export async function adminPayDriverWallet(
+  db: Pool,
+  orderId: string,
+  driverId: string,
+  adminId: string,
+  grossAmount: number,
+  commissionType: 'PERCENT' | 'FIXED' | 'NONE',
+  commissionValue: number,
+  referenceCode: string,
+  note?: string
+): Promise<{ paymentId: string; netAmount: number; commissionAmount: number }> {
+  const { randomUUID } = await import('crypto')
+
+  let commissionAmount = 0
+  if (commissionType === 'PERCENT') {
+    commissionAmount = grossAmount * (commissionValue / 100)
+  } else if (commissionType === 'FIXED') {
+    commissionAmount = commissionValue
+  }
+  commissionAmount = Math.max(0, Math.min(commissionAmount, grossAmount))
+  const netAmount = grossAmount - commissionAmount
+
+  if (netAmount <= 0) throw new Error('Net amount after commission must be greater than 0')
+
+  // Debit admin wallet by net amount (commission stays in admin wallet)
+  const adminTxId = await addWalletTransaction(
+    db,
+    adminId,
+    'DEBIT',
+    netAmount,
+    `Driver payment (net) - ${referenceCode}${note ? ` | ${note}` : ''}`,
+    orderId,
+    referenceCode,
+    driverId,
+    { type: 'driver_payout', commission_type: commissionType, commission_value: commissionValue, commission_amount: commissionAmount, gross: grossAmount }
+  )
+
+  // Record commission retained (informational CREDIT of 0 net effect — just a record)
+  if (commissionAmount > 0) {
+    await addWalletTransaction(
+      db,
+      adminId,
+      'COMMISSION',
+      commissionAmount,
+      `Commission retained - ${referenceCode}`,
+      orderId,
+      referenceCode,
+      driverId,
+      { type: 'commission_retained', driver_id: driverId }
+    ).catch(() => {}) // non-blocking, informational only
+  }
+
+  // Credit driver wallet
+  const driverTxId = await addWalletTransaction(
+    db,
+    driverId,
+    'CREDIT',
+    netAmount,
+    `Payment from admin - ${referenceCode}${note ? ` | ${note}` : ''}`,
+    orderId,
+    referenceCode,
+    adminId,
+    { type: 'driver_payout', gross: grossAmount, commission_amount: commissionAmount, commission_type: commissionType }
+  )
+
+  // Record in order_driver_payments
+  const paymentId = randomUUID()
+  await db.query(
+    `INSERT INTO order_driver_payments
+       (id, order_id, driver_id, admin_id, payment_type, gross_amount, commission_type, commission_value, commission_amount, net_amount, note, driver_tx_id, admin_debit_tx_id)
+     VALUES (?, ?, ?, ?, 'WALLET', ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [paymentId, orderId, driverId, adminId, grossAmount, commissionType, commissionValue, commissionAmount, netAmount, note || null, driverTxId, adminTxId]
+  )
+
+  // Mark order driver_payout_status
+  await db.query(
+    `UPDATE orders SET driver_payout_status = 'WALLET_PAID' WHERE id = ?`,
+    [orderId]
+  )
+
+  return { paymentId, netAmount, commissionAmount }
+}
+
+/**
+ * Admin records bank transfer to driver. Deducts from admin wallet immediately.
+ * Receipt URL is optional proof.
+ */
+export async function adminBankTransferDriver(
+  db: Pool,
+  orderId: string,
+  driverId: string,
+  adminId: string,
+  amount: number,
+  referenceCode: string,
+  receiptUrl?: string,
+  note?: string
+): Promise<{ paymentId: string }> {
+  const { randomUUID } = await import('crypto')
+
+  if (amount <= 0) throw new Error('Amount must be greater than 0')
+
+  // Debit admin wallet
+  const adminTxId = await addWalletTransaction(
+    db,
+    adminId,
+    'DEBIT',
+    amount,
+    `Bank transfer to driver - ${referenceCode}${note ? ` | ${note}` : ''}`,
+    orderId,
+    referenceCode,
+    driverId,
+    { type: 'bank_transfer_out', driver_id: driverId, receipt_url: receiptUrl }
+  )
+
+  // Record in order_driver_payments
+  const paymentId = randomUUID()
+  await db.query(
+    `INSERT INTO order_driver_payments
+       (id, order_id, driver_id, admin_id, payment_type, gross_amount, commission_type, commission_value, commission_amount, net_amount, receipt_url, note, admin_debit_tx_id)
+     VALUES (?, ?, ?, ?, 'BANK_TRANSFER', ?, 'NONE', 0, 0, ?, ?, ?, ?)`,
+    [paymentId, orderId, driverId, adminId, amount, amount, receiptUrl || null, note || null, adminTxId]
+  )
+
+  // Mark order driver_payout_status
+  await db.query(
+    `UPDATE orders SET driver_payout_status = 'BANK_TRANSFERRED' WHERE id = ?`,
+    [orderId]
+  )
+
+  return { paymentId }
 }
 
 /**

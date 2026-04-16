@@ -369,6 +369,15 @@ export const adminOrderApi = {
   submitToEsw: (orderId: string) =>
     apiClient.post(`/admin/orders/${orderId}/esw/submit`, {}),
 
+  payDriverWallet: (orderId: string, data: { gross_amount: number; commission_type: 'PERCENT' | 'FIXED' | 'NONE'; commission_value: number; note?: string }) =>
+    apiClient.post(`/admin/orders/${orderId}/pay-driver`, data),
+
+  bankTransferDriver: (orderId: string, data: { amount: number; receipt_base64?: string; note?: string }) =>
+    apiClient.post(`/admin/orders/${orderId}/bank-transfer`, data),
+
+  getOrderDriverPayments: (orderId: string) =>
+    apiClient.get(`/admin/orders/${orderId}/driver-payments`),
+
   // ── Company Contact & AI Settings ────────────────────────────────────────
   getContactInfo: () =>
     apiClient.get('/admin/settings/contact'),
@@ -413,6 +422,9 @@ export const walletApi = {
 
   getMyWithdrawals: (params?: { limit?: number; offset?: number }) =>
     apiClient.get('/profile/wallet/withdrawals', { params }),
+
+  getDriverOrderPayments: () =>
+    apiClient.get('/profile/driver/order-payments'),
 }
 
 // ─── Public Config API (no auth required) ────────────────────────────────────

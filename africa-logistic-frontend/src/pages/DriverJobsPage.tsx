@@ -315,7 +315,6 @@ function JobDetailModal({ job, onClose, onRefresh }: { job: Job; onClose: () => 
                     ['Weight', localJob.estimated_weight_kg != null ? `${localJob.estimated_weight_kg} kg` : '—'],
                     ['Pickup', localJob.pickup_address],
                     ['Delivery', localJob.delivery_address],
-                    ['Fare', `${(localJob.final_price ?? localJob.estimated_price).toLocaleString()} ${localJob.currency ?? 'ETB'}`],
                     ...(localJob.description ? [['Note', localJob.description]] : []),
                   ].map(([l, v]) => (
                     <div key={l} style={{ display:'flex', gap:'0.5rem' }}>
@@ -870,7 +869,6 @@ export default function DriverJobsPage() {
                     )}
                   </div>
                   <div style={{ textAlign:'right', flexShrink:0 }} onClick={() => setSelectedJob(job)}>
-                    <span style={{ fontWeight:800, fontSize:'0.88rem', color:'var(--clr-accent)' }}>{(job.final_price ?? job.estimated_price).toLocaleString()} ETB</span>
                     <div style={{ fontSize:'0.68rem', color:'var(--clr-muted)', marginTop:'0.2rem' }}>
                       {fmtDate(job.created_at).split(',')[0]}
                     </div>

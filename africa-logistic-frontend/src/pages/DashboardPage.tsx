@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, type FormEvent, type ChangeEvent } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { useNavigate } from 'react-router-dom'
-import apiClient, { authApi, configApi } from '../lib/apiClient'
+import apiClient, { authApi, configApi, walletApi } from '../lib/apiClient'
 import aiLogoSrc from '../assets/logo-ai-assistant.webp'
 import ShipperOrdersPage from './ShipperOrdersPage'
 import DriverJobsPage from './DriverJobsPage'
@@ -20,7 +20,7 @@ import {
   LuLock, LuContact, LuBell, LuSun, LuMoon, LuMonitor, LuFileText,
   LuUpload, LuRefreshCw, LuStar, LuWallet, LuMessageSquare,
   LuLifeBuoy, LuClock, LuCar, LuX, LuChevronLeft, LuChevronRight,
-  LuHistory, LuPlus, LuMapPin, LuChartColumnBig,
+  LuHistory, LuPlus, LuMapPin, LuChartColumnBig, LuLandmark, LuReceipt,
 } from 'react-icons/lu'
 
 // ─── Sub-components ──────────────────────────────────────────────────────────
@@ -585,7 +585,9 @@ export default function DashboardPage() {
 
   type TabDef = { id: Tab; icon: React.ReactNode; label: string }
   const [activePage, setActivePage] = useState<DockPage>('account')
-  const [paymentTab, setPaymentTab] = useState<'wallet' | 'transactions' | 'invoices' | 'add-funds'>('wallet')
+  const [paymentTab, setPaymentTab] = useState<'wallet' | 'transactions' | 'invoices' | 'add-funds' | 'payouts'>('wallet')
+  const [driverPayouts, setDriverPayouts] = useState<any[]>([])
+  const [driverPayoutsLoading, setDriverPayoutsLoading] = useState(false)
 
   // ── Dock expand/collapse state ─────────────────────────────────────────────
   const DOCK_KEY = 'dash_dock_v3'
@@ -1445,12 +1447,96 @@ export default function DashboardPage() {
               >
                 <LuPlus size={16} /> Add Funds
               </button>
+              {user?.role_id === 3 && (
+                <button
+                  onClick={() => {
+                    setPaymentTab('payouts')
+                    if (driverPayouts.length === 0) {
+                      setDriverPayoutsLoading(true)
+                      walletApi.getDriverOrderPayments()
+                        .then(r => setDriverPayouts(r.data.payments ?? []))
+                        .catch(() => setDriverPayouts([]))
+                        .finally(() => setDriverPayoutsLoading(false))
+                    }
+                  }}
+                  style={{
+                    padding: '0.6rem 1rem', borderRadius: '8px', border: 'none',
+                    background: paymentTab === 'payouts' ? 'rgba(0,229,255,0.15)' : 'transparent',
+                    color: paymentTab === 'payouts' ? 'var(--clr-accent)' : 'var(--clr-muted)',
+                    fontWeight: 600, cursor: 'pointer', fontSize: '0.9rem',
+                    fontFamily: 'inherit', transition: 'all 0.2s',
+                    display: 'flex', alignItems: 'center', gap: '0.4rem', whiteSpace: 'nowrap'
+                  }}
+                >
+                  <LuLandmark size={16} /> Payouts
+                </button>
+              )}
             </div>
 
             {paymentTab === 'wallet' && <WalletDashboard />}
             {paymentTab === 'transactions' && <TransactionHistory />}
             {paymentTab === 'invoices' && <InvoicesPage />}
             {paymentTab === 'add-funds' && <ManualPaymentPage onSuccess={() => setPaymentTab('wallet')} />}
+            {paymentTab === 'payouts' && (
+              <div className="glass" style={{ padding:'1.25rem', display:'flex', flexDirection:'column', gap:'1rem' }}>
+                <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+                  <h3 style={{ fontSize:'0.95rem', fontWeight:800, color:'var(--clr-text)', display:'flex', alignItems:'center', gap:'0.4rem' }}>
+                    <LuLandmark size={16} style={{ color:'var(--clr-accent)' }}/> Admin Payouts
+                  </h3>
+                  <button onClick={() => {
+                    setDriverPayoutsLoading(true)
+                    walletApi.getDriverOrderPayments()
+                      .then(r => setDriverPayouts(r.data.payments ?? []))
+                      .catch(() => setDriverPayouts([]))
+                      .finally(() => setDriverPayoutsLoading(false))
+                  }} disabled={driverPayoutsLoading}
+                    style={{ display:'flex', alignItems:'center', gap:'0.3rem', padding:'0.35rem 0.7rem', borderRadius:8, border:'1px solid rgba(255,255,255,0.1)', background:'rgba(255,255,255,0.04)', color:'var(--clr-muted)', fontFamily:'inherit', fontSize:'0.75rem', fontWeight:600, cursor:'pointer' }}>
+                    <LuRefreshCw size={12} style={ driverPayoutsLoading ? { animation:'spin 1s linear infinite' } : {}}/> Refresh
+                  </button>
+                </div>
+                {driverPayoutsLoading ? (
+                  <p style={{ color:'var(--clr-muted)', fontSize:'0.82rem', textAlign:'center', padding:'1rem 0' }}>Loading…</p>
+                ) : driverPayouts.length === 0 ? (
+                  <p style={{ color:'var(--clr-muted)', fontSize:'0.82rem', textAlign:'center', padding:'1rem 0' }}>No payout records yet.</p>
+                ) : (
+                  <div style={{ display:'flex', flexDirection:'column', gap:'0.55rem' }}>
+                    {driverPayouts.map((p: any) => (
+                      <div key={p.id} style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', padding:'0.75rem 0.9rem', background:'rgba(255,255,255,0.03)', borderRadius:10, border:'1px solid rgba(255,255,255,0.07)' }}>
+                        <div style={{ display:'flex', flexDirection:'column', gap:'0.25rem' }}>
+                          <div style={{ display:'flex', alignItems:'center', gap:'0.4rem' }}>
+                            {p.payment_type === 'WALLET'
+                              ? <LuWallet size={13} style={{ color:'#4ade80' }}/>
+                              : <LuLandmark size={13} style={{ color:'#60a5fa' }}/>}
+                            <span style={{ fontWeight:700, fontSize:'0.83rem', color: p.payment_type === 'WALLET' ? '#4ade80' : '#60a5fa' }}>
+                              {p.payment_type === 'WALLET' ? 'Wallet Credit' : 'Bank Transfer'}
+                            </span>
+                          </div>
+                          {p.reference_code && (
+                            <span style={{ fontSize:'0.72rem', color:'var(--clr-muted)' }}>Order: {p.reference_code}</span>
+                          )}
+                          {p.commission_type !== 'NONE' && Number(p.commission_amount) > 0 && (
+                            <span style={{ fontSize:'0.72rem', color:'#fbbf24' }}>
+                              Commission: {Number(p.commission_amount).toLocaleString(undefined, { maximumFractionDigits:2 })} ETB deducted
+                            </span>
+                          )}
+                          {p.note && <span style={{ fontSize:'0.72rem', color:'var(--clr-muted)' }}>{p.note}</span>}
+                          {p.receipt_url && (
+                            <a href={((import.meta.env.VITE_API_BASE_URL as string ?? '').replace(/\/api$/, '')) + (p.receipt_url.startsWith('/') ? p.receipt_url : '/' + p.receipt_url)} target="_blank" rel="noreferrer"
+                              style={{ fontSize:'0.72rem', color:'#60a5fa', display:'flex', alignItems:'center', gap:'0.25rem' }}>
+                              <LuReceipt size={11}/> View Receipt
+                            </a>
+                          )}
+                        </div>
+                        <div style={{ textAlign:'right', flexShrink:0 }}>
+                          <div style={{ fontWeight:800, fontSize:'0.9rem', color:'#4ade80' }}>+{Number(p.net_amount).toLocaleString(undefined, { maximumFractionDigits:2 })} ETB</div>
+                          <div style={{ fontSize:'0.68rem', color:'var(--clr-muted)', marginTop:'0.15rem' }}>{new Date(p.created_at).toLocaleDateString()}</div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         )}
         {activePage === 'transactions' && <TransactionHistory />}

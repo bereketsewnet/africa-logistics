@@ -26,6 +26,7 @@ import {
   LuLeaf, LuFlame, LuThermometer, LuHeart, LuMonitor, LuArchive, LuGem, LuFish, LuImage,
   LuMapPin, LuMessageSquare, LuSend, LuNavigation, LuBell,
   LuGlobe, LuWrench, LuBike, LuKey, LuLayoutDashboard, LuLink, LuToggleLeft, LuToggleRight,
+  LuWallet, LuLandmark, LuReceipt,
 } from 'react-icons/lu'
 
 // ─── Upload URL helper ───────────────────────────────────────────────────────
@@ -4212,9 +4213,11 @@ interface AdminOrder {
   estimated_price: number; final_price: number | null; currency: string
   shipper_first_name: string; shipper_last_name: string
   driver_first_name: string | null; driver_last_name: string | null
+  driver_id?: string | null
   created_at: string
   is_cross_border?: number | boolean
   is_guest_order?: number | boolean
+  driver_payout_status?: 'PENDING' | 'WALLET_PAID' | 'BANK_TRANSFERRED'
 }
 interface OrderStats {
   by_status: Record<string, number>
@@ -4293,6 +4296,23 @@ function AdminOrdersSection({ initialDriverFilter, initialStatusFilter }: { init
   const [detailChatMsg, setDetailChatMsg] = useState('')
   const [detailChatSending, setDetailChatSending] = useState(false)
   const detailChatEndRef = useRef<HTMLDivElement>(null)
+
+  // Driver payout states
+  const [orderDriverPayments, setOrderDriverPayments] = useState<any[]>([])
+  const [payDriverOpen, setPayDriverOpen] = useState(false)
+  const [pdGross, setPdGross] = useState('')
+  const [pdCommType, setPdCommType] = useState<'PERCENT' | 'FIXED' | 'NONE'>('NONE')
+  const [pdCommValue, setPdCommValue] = useState('')
+  const [pdNote, setPdNote] = useState('')
+  const [pdSaving, setPdSaving] = useState(false)
+  const [pdErr, setPdErr] = useState('')
+  const [bankTransferOpen, setBankTransferOpen] = useState(false)
+  const [btAmount, setBtAmount] = useState('')
+  const [btNote, setBtNote] = useState('')
+  const [btReceiptB64, setBtReceiptB64] = useState('')
+  const [btReceiptPreview, setBtReceiptPreview] = useState('')
+  const [btSaving, setBtSaving] = useState(false)
+  const [btErr, setBtErr] = useState('')
 
   // Create Order on behalf state
   const [createOrderModal, setCreateOrderModal] = useState(false)
@@ -4392,12 +4412,20 @@ function AdminOrdersSection({ initialDriverFilter, initialStatusFilter }: { init
     }
   }, [selDriver]) // eslint-disable-line
 
+  const loadOrderPayments = async (orderId: string) => {
+    try {
+      const r = await adminOrderApi.getOrderDriverPayments(orderId)
+      setOrderDriverPayments(r.data.payments ?? [])
+    } catch { setOrderDriverPayments([]) }
+  }
+
   const openOrderDetail = async (id: string) => {
     setLoadingDetail(true)
     setDetailOrder(null)
     setDetailChatChannel('shipper')
     setDetailMessages([])
     setPriceAdjustMode(false); setPriceAdjustVal(''); setPriceAdjustNotes('')
+    setOrderDriverPayments([])
     try {
       const { data } = await adminOrderApi.getOrder(id)
       const order = data.order ?? data
@@ -4405,6 +4433,9 @@ function AdminOrdersSection({ initialDriverFilter, initialStatusFilter }: { init
       setStatusOverride(order.status ?? '')
       setInternalNotes(order.internal_notes ?? '')
       setDetailOverrideFromOrder(order)
+      setPdGross(String(order.final_price ?? order.estimated_price ?? ''))
+      setBtAmount(String(order.final_price ?? order.estimated_price ?? ''))
+      loadOrderPayments(id)
     } catch { showToast('Failed to load order details') }
     finally { setLoadingDetail(false) }
   }
@@ -5077,6 +5108,68 @@ function AdminOrdersSection({ initialDriverFilter, initialStatusFilter }: { init
                       <button onClick={() => { handleCancel(detailOrder); setDetailOrder(null) }} style={{ display:'flex', alignItems:'center', gap:'0.3rem', padding:'0.45rem 0.9rem', borderRadius:8, border:'1px solid rgba(248,113,113,0.3)', background:'rgba(248,113,113,0.06)', color:'#f87171', fontFamily:'inherit', fontSize:'0.8rem', fontWeight:700, cursor:'pointer' }}><LuBan size={13}/> Cancel Order</button>
                     )}
                   </div>
+
+                  {/* Driver Payout Section */}
+                  {['DELIVERED','COMPLETED'].includes(detailOrder.status) && detailOrder.driver_id && (
+                    <div className="glass-inner" style={{ padding:'0.85rem', display:'flex', flexDirection:'column', gap:'0.6rem' }}>
+                      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', flexWrap:'wrap', gap:'0.4rem' }}>
+                        <div style={{ display:'flex', alignItems:'center', gap:'0.4rem' }}>
+                          <LuWallet size={13} style={{ color:'var(--clr-accent)' }}/>
+                          <span style={{ fontSize:'0.8rem', fontWeight:700, color:'var(--clr-text)' }}>Driver Payout</span>
+                          {detailOrder.driver_payout_status === 'WALLET_PAID' && (
+                            <span style={{ fontSize:'0.65rem', fontWeight:700, color:'#4ade80', background:'rgba(74,222,128,0.1)', border:'1px solid rgba(74,222,128,0.3)', borderRadius:99, padding:'0.1rem 0.45rem' }}>Wallet Paid</span>
+                          )}
+                          {detailOrder.driver_payout_status === 'BANK_TRANSFERRED' && (
+                            <span style={{ fontSize:'0.65rem', fontWeight:700, color:'#60a5fa', background:'rgba(96,165,250,0.1)', border:'1px solid rgba(96,165,250,0.3)', borderRadius:99, padding:'0.1rem 0.45rem' }}>Bank Transferred</span>
+                          )}
+                          {(!detailOrder.driver_payout_status || detailOrder.driver_payout_status === 'PENDING') && (
+                            <span style={{ fontSize:'0.65rem', fontWeight:700, color:'#fbbf24', background:'rgba(251,191,36,0.1)', border:'1px solid rgba(251,191,36,0.3)', borderRadius:99, padding:'0.1rem 0.45rem' }}>Pending Payout</span>
+                          )}
+                        </div>
+                        <div style={{ display:'flex', gap:'0.4rem' }}>
+                          {detailOrder.driver_payout_status !== 'WALLET_PAID' && (
+                            <button onClick={() => { setPdGross(String(detailOrder.final_price ?? detailOrder.estimated_price ?? '')); setPdCommType('NONE'); setPdCommValue(''); setPdNote(''); setPdErr(''); setPayDriverOpen(true) }}
+                              style={{ display:'flex', alignItems:'center', gap:'0.3rem', padding:'0.4rem 0.75rem', borderRadius:8, border:'1px solid rgba(74,222,128,0.3)', background:'rgba(74,222,128,0.07)', color:'#4ade80', fontFamily:'inherit', fontSize:'0.75rem', fontWeight:700, cursor:'pointer' }}>
+                              <LuWallet size={12}/> Pay to Wallet
+                            </button>
+                          )}
+                          <button onClick={() => { setBtAmount(String(detailOrder.final_price ?? detailOrder.estimated_price ?? '')); setBtNote(''); setBtReceiptB64(''); setBtReceiptPreview(''); setBtErr(''); setBankTransferOpen(true) }}
+                            style={{ display:'flex', alignItems:'center', gap:'0.3rem', padding:'0.4rem 0.75rem', borderRadius:8, border:'1px solid rgba(96,165,250,0.3)', background:'rgba(96,165,250,0.07)', color:'#60a5fa', fontFamily:'inherit', fontSize:'0.75rem', fontWeight:700, cursor:'pointer' }}>
+                            <LuLandmark size={12}/> Bank Transfer
+                          </button>
+                        </div>
+                      </div>
+                      {/* Payment history */}
+                      {orderDriverPayments.length > 0 && (
+                        <div style={{ display:'flex', flexDirection:'column', gap:'0.35rem', maxHeight:180, overflowY:'auto' }}>
+                          {orderDriverPayments.map((p: any) => (
+                            <div key={p.id} style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', padding:'0.45rem 0.65rem', background:'rgba(255,255,255,0.03)', borderRadius:7, border:'1px solid rgba(255,255,255,0.07)', fontSize:'0.75rem' }}>
+                              <div style={{ display:'flex', flexDirection:'column', gap:'0.15rem' }}>
+                                <div style={{ display:'flex', alignItems:'center', gap:'0.35rem' }}>
+                                  {p.payment_type === 'WALLET' ? <LuWallet size={11} style={{ color:'#4ade80' }}/> : <LuLandmark size={11} style={{ color:'#60a5fa' }}/>}
+                                  <span style={{ color: p.payment_type === 'WALLET' ? '#4ade80' : '#60a5fa', fontWeight:700 }}>{p.payment_type === 'WALLET' ? 'Wallet' : 'Bank Transfer'}</span>
+                                  {p.commission_type !== 'NONE' && p.commission_amount > 0 && (
+                                    <span style={{ color:'var(--clr-muted)', fontSize:'0.68rem' }}>· {p.commission_type === 'PERCENT' ? `${p.commission_value}% comm` : `${Number(p.commission_value).toLocaleString()} fixed`}</span>
+                                  )}
+                                </div>
+                                {p.note && <span style={{ color:'var(--clr-muted)', fontSize:'0.68rem' }}>{p.note}</span>}
+                                {p.receipt_url && (
+                                  <a href={getUploadUrl(p.receipt_url) ?? '#'} target="_blank" rel="noreferrer" style={{ color:'#60a5fa', fontSize:'0.68rem', display:'flex', alignItems:'center', gap:'0.2rem' }}>
+                                    <LuReceipt size={10}/> Receipt
+                                  </a>
+                                )}
+                              </div>
+                              <div style={{ textAlign:'right', flexShrink:0 }}>
+                                <div style={{ fontWeight:700, color:'var(--clr-text)' }}>{Number(p.net_amount).toLocaleString()} {detailOrder.currency || 'ETB'}</div>
+                                <div style={{ color:'var(--clr-muted)', fontSize:'0.65rem' }}>{new Date(p.created_at).toLocaleDateString()}</div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
                   {/* Order Chat */}
                   <div className="glass-inner" style={{ display:'flex', flexDirection:'column', overflow:'hidden' }}>
                     {/* Channel tabs */}
@@ -5127,6 +5220,159 @@ function AdminOrdersSection({ initialDriverFilter, initialStatusFilter }: { init
                 </div>
               </>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Pay Driver to Wallet modal */}
+      {payDriverOpen && detailOrder && (
+        <div className="modal-backdrop" onClick={e => { if (e.target === e.currentTarget) setPayDriverOpen(false) }}>
+          <div className="glass modal-box" style={{ padding:'1.75rem', maxWidth:480, maxHeight:'90vh', overflowY:'auto' }}>
+            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'1.1rem' }}>
+              <h2 style={{ fontSize:'1rem', fontWeight:800, color:'var(--clr-text)', display:'flex', alignItems:'center', gap:'0.45rem' }}>
+                <LuWallet size={16} style={{ color:'#4ade80' }}/> Pay Driver to Wallet
+              </h2>
+              <button onClick={() => setPayDriverOpen(false)} style={{ background:'none', border:'none', cursor:'pointer', color:'var(--clr-muted)' }}><LuX size={18}/></button>
+            </div>
+            <div style={{ fontSize:'0.78rem', color:'var(--clr-muted)', marginBottom:'1rem' }}>
+              Driver: <strong style={{ color:'var(--clr-text)' }}>{detailOrder.driver_first_name} {detailOrder.driver_last_name}</strong> · Order: <strong style={{ color:'var(--clr-text)' }}>{detailOrder.reference_code}</strong>
+            </div>
+            {pdErr && <div className="alert alert-error" style={{ marginBottom:'0.75rem', fontSize:'0.8rem' }}><LuTriangleAlert size={13}/> {pdErr}</div>}
+            <div style={{ display:'flex', flexDirection:'column', gap:'0.85rem' }}>
+              <div>
+                <label style={{ fontSize:'0.73rem', fontWeight:600, color:'var(--clr-muted)', marginBottom:'0.3rem', display:'block' }}>Gross Amount ({detailOrder.currency || 'ETB'}) *</label>
+                <input type="number" min="0" step="0.01" value={pdGross} onChange={e => setPdGross(e.target.value)}
+                  style={{ width:'100%', padding:'0.6rem 0.8rem', borderRadius:9, border:'1px solid rgba(255,255,255,0.12)', background:'rgba(255,255,255,0.05)', color:'var(--clr-text)', fontFamily:'inherit', fontSize:'0.85rem', boxSizing:'border-box' }}/>
+              </div>
+              <div>
+                <label style={{ fontSize:'0.73rem', fontWeight:600, color:'var(--clr-muted)', marginBottom:'0.3rem', display:'block' }}>Commission Type</label>
+                <div style={{ display:'flex', gap:'0.4rem' }}>
+                  {(['NONE','PERCENT','FIXED'] as const).map(t => (
+                    <button key={t} onClick={() => { setPdCommType(t); if (t === 'NONE') setPdCommValue('') }}
+                      style={{ flex:1, padding:'0.45rem', borderRadius:8, border:'1px solid', cursor:'pointer', fontFamily:'inherit', fontSize:'0.75rem', fontWeight:700,
+                        borderColor: pdCommType === t ? 'var(--clr-accent)' : 'rgba(255,255,255,0.12)',
+                        background: pdCommType === t ? 'rgba(0,229,255,0.1)' : 'rgba(255,255,255,0.04)',
+                        color: pdCommType === t ? 'var(--clr-accent)' : 'var(--clr-muted)' }}>
+                      {t === 'NONE' ? 'No Cut' : t === 'PERCENT' ? '% Percent' : 'Fixed'}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              {pdCommType !== 'NONE' && (
+                <div>
+                  <label style={{ fontSize:'0.73rem', fontWeight:600, color:'var(--clr-muted)', marginBottom:'0.3rem', display:'block' }}>
+                    {pdCommType === 'PERCENT' ? 'Commission %' : `Commission Amount (${detailOrder.currency || 'ETB'})`}
+                  </label>
+                  <input type="number" min="0" step="0.01" value={pdCommValue} onChange={e => setPdCommValue(e.target.value)}
+                    style={{ width:'100%', padding:'0.6rem 0.8rem', borderRadius:9, border:'1px solid rgba(255,255,255,0.12)', background:'rgba(255,255,255,0.05)', color:'var(--clr-text)', fontFamily:'inherit', fontSize:'0.85rem', boxSizing:'border-box' }}/>
+                  {pdGross && pdCommValue && (
+                    <div style={{ marginTop:'0.3rem', fontSize:'0.72rem', color:'var(--clr-muted)' }}>
+                      {(() => {
+                        const gross = parseFloat(pdGross) || 0
+                        const cv = parseFloat(pdCommValue) || 0
+                        const comm = pdCommType === 'PERCENT' ? gross * cv / 100 : cv
+                        const net = gross - comm
+                        return <>Commission: <strong style={{ color:'#fbbf24' }}>{comm.toLocaleString(undefined, { maximumFractionDigits: 2 })} {detailOrder.currency || 'ETB'}</strong> · Net to driver: <strong style={{ color:'#4ade80' }}>{net.toLocaleString(undefined, { maximumFractionDigits: 2 })} {detailOrder.currency || 'ETB'}</strong></>
+                      })()}
+                    </div>
+                  )}
+                </div>
+              )}
+              {pdCommType === 'NONE' && pdGross && (
+                <div style={{ fontSize:'0.72rem', color:'var(--clr-muted)' }}>
+                  Net to driver: <strong style={{ color:'#4ade80' }}>{(parseFloat(pdGross) || 0).toLocaleString(undefined, { maximumFractionDigits: 2 })} {detailOrder.currency || 'ETB'}</strong>
+                </div>
+              )}
+              <div>
+                <label style={{ fontSize:'0.73rem', fontWeight:600, color:'var(--clr-muted)', marginBottom:'0.3rem', display:'block' }}>Note (optional)</label>
+                <input value={pdNote} onChange={e => setPdNote(e.target.value)} placeholder="Optional note for driver…"
+                  style={{ width:'100%', padding:'0.6rem 0.8rem', borderRadius:9, border:'1px solid rgba(255,255,255,0.12)', background:'rgba(255,255,255,0.05)', color:'var(--clr-text)', fontFamily:'inherit', fontSize:'0.85rem', boxSizing:'border-box' }}/>
+              </div>
+              <button disabled={pdSaving || !pdGross} onClick={async () => {
+                const gross = parseFloat(pdGross)
+                if (isNaN(gross) || gross <= 0) { setPdErr('Enter a valid gross amount'); return }
+                const cv = pdCommType !== 'NONE' ? parseFloat(pdCommValue) : 0
+                if (pdCommType !== 'NONE' && (isNaN(cv) || cv < 0)) { setPdErr('Enter a valid commission value'); return }
+                setPdSaving(true); setPdErr('')
+                try {
+                  await adminOrderApi.payDriverWallet(detailOrder.id, { gross_amount: gross, commission_type: pdCommType, commission_value: cv, note: pdNote || undefined })
+                  setPayDriverOpen(false)
+                  showToast('Driver wallet credited successfully')
+                  const { data } = await adminOrderApi.getOrder(detailOrder.id)
+                  setDetailOrder(data.order ?? data)
+                  loadOrderPayments(detailOrder.id)
+                } catch (e: any) { setPdErr(e.response?.data?.message ?? 'Payment failed') }
+                finally { setPdSaving(false) }
+              }} style={{ padding:'0.65rem', borderRadius:10, border:'none', background:'linear-gradient(135deg,#4ade80,#22c55e)', color:'#000', fontFamily:'inherit', fontSize:'0.85rem', fontWeight:800, cursor: (pdSaving || !pdGross) ? 'not-allowed' : 'pointer', opacity: (pdSaving || !pdGross) ? 0.6 : 1 }}>
+                {pdSaving ? 'Processing…' : 'Pay to Driver Wallet'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Bank Transfer modal */}
+      {bankTransferOpen && detailOrder && (
+        <div className="modal-backdrop" onClick={e => { if (e.target === e.currentTarget) setBankTransferOpen(false) }}>
+          <div className="glass modal-box" style={{ padding:'1.75rem', maxWidth:480, maxHeight:'90vh', overflowY:'auto' }}>
+            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'1.1rem' }}>
+              <h2 style={{ fontSize:'1rem', fontWeight:800, color:'var(--clr-text)', display:'flex', alignItems:'center', gap:'0.45rem' }}>
+                <LuLandmark size={16} style={{ color:'#60a5fa' }}/> Bank Transfer to Driver
+              </h2>
+              <button onClick={() => setBankTransferOpen(false)} style={{ background:'none', border:'none', cursor:'pointer', color:'var(--clr-muted)' }}><LuX size={18}/></button>
+            </div>
+            <div style={{ fontSize:'0.78rem', color:'var(--clr-muted)', marginBottom:'1rem' }}>
+              Driver: <strong style={{ color:'var(--clr-text)' }}>{detailOrder.driver_first_name} {detailOrder.driver_last_name}</strong> · Order: <strong style={{ color:'var(--clr-text)' }}>{detailOrder.reference_code}</strong>
+            </div>
+            {btErr && <div className="alert alert-error" style={{ marginBottom:'0.75rem', fontSize:'0.8rem' }}><LuTriangleAlert size={13}/> {btErr}</div>}
+            <div style={{ display:'flex', flexDirection:'column', gap:'0.85rem' }}>
+              <div>
+                <label style={{ fontSize:'0.73rem', fontWeight:600, color:'var(--clr-muted)', marginBottom:'0.3rem', display:'block' }}>Amount ({detailOrder.currency || 'ETB'}) *</label>
+                <input type="number" min="0" step="0.01" value={btAmount} onChange={e => setBtAmount(e.target.value)}
+                  style={{ width:'100%', padding:'0.6rem 0.8rem', borderRadius:9, border:'1px solid rgba(255,255,255,0.12)', background:'rgba(255,255,255,0.05)', color:'var(--clr-text)', fontFamily:'inherit', fontSize:'0.85rem', boxSizing:'border-box' }}/>
+              </div>
+              <div>
+                <label style={{ fontSize:'0.73rem', fontWeight:600, color:'var(--clr-muted)', marginBottom:'0.3rem', display:'block' }}>Receipt / Proof of Transfer (optional)</label>
+                <input type="file" accept="image/*,application/pdf" onChange={e => {
+                  const f = e.target.files?.[0]
+                  if (!f) return
+                  const reader = new FileReader()
+                  reader.onload = ev => {
+                    const result = ev.target?.result as string
+                    setBtReceiptB64(result)
+                    setBtReceiptPreview(f.type.startsWith('image/') ? result : '')
+                  }
+                  reader.readAsDataURL(f)
+                }} style={{ width:'100%', padding:'0.5rem 0', fontSize:'0.8rem', color:'var(--clr-muted)', fontFamily:'inherit' }}/>
+                {btReceiptPreview && (
+                  <img src={btReceiptPreview} alt="Receipt preview" style={{ marginTop:'0.5rem', maxWidth:'100%', maxHeight:180, borderRadius:8, objectFit:'contain', border:'1px solid rgba(255,255,255,0.1)' }}/>
+                )}
+                {btReceiptB64 && !btReceiptPreview && (
+                  <div style={{ marginTop:'0.4rem', fontSize:'0.72rem', color:'#60a5fa', display:'flex', alignItems:'center', gap:'0.3rem' }}><LuReceipt size={12}/> File attached</div>
+                )}
+              </div>
+              <div>
+                <label style={{ fontSize:'0.73rem', fontWeight:600, color:'var(--clr-muted)', marginBottom:'0.3rem', display:'block' }}>Note (optional)</label>
+                <input value={btNote} onChange={e => setBtNote(e.target.value)} placeholder="Bank name, reference, etc…"
+                  style={{ width:'100%', padding:'0.6rem 0.8rem', borderRadius:9, border:'1px solid rgba(255,255,255,0.12)', background:'rgba(255,255,255,0.05)', color:'var(--clr-text)', fontFamily:'inherit', fontSize:'0.85rem', boxSizing:'border-box' }}/>
+              </div>
+              <button disabled={btSaving || !btAmount} onClick={async () => {
+                const amount = parseFloat(btAmount)
+                if (isNaN(amount) || amount <= 0) { setBtErr('Enter a valid amount'); return }
+                setBtSaving(true); setBtErr('')
+                try {
+                  await adminOrderApi.bankTransferDriver(detailOrder.id, { amount, receipt_base64: btReceiptB64 || undefined, note: btNote || undefined })
+                  setBankTransferOpen(false)
+                  showToast('Bank transfer recorded successfully')
+                  const { data } = await adminOrderApi.getOrder(detailOrder.id)
+                  setDetailOrder(data.order ?? data)
+                  loadOrderPayments(detailOrder.id)
+                } catch (e: any) { setBtErr(e.response?.data?.message ?? 'Transfer record failed') }
+                finally { setBtSaving(false) }
+              }} style={{ padding:'0.65rem', borderRadius:10, border:'none', background:'linear-gradient(135deg,#60a5fa,#3b82f6)', color:'#fff', fontFamily:'inherit', fontSize:'0.85rem', fontWeight:800, cursor: (btSaving || !btAmount) ? 'not-allowed' : 'pointer', opacity: (btSaving || !btAmount) ? 0.6 : 1 }}>
+                {btSaving ? 'Recording…' : 'Record Bank Transfer'}
+              </button>
+            </div>
           </div>
         </div>
       )}

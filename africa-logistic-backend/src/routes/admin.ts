@@ -98,6 +98,9 @@ import {
   adminFinanceReportHandler,
   adminDriverReportHandler,
   adminLogisticsReportHandler,
+  adminPayDriverWalletHandler,
+  adminBankTransferDriverHandler,
+  adminGetOrderDriverPaymentsHandler,
 } from '../controllers/admin.controller.js'
 import {
   adminListWithdrawalsHandler,
@@ -390,6 +393,15 @@ export default async function adminRoutes(fastify: FastifyInstance) {
 
   /** POST /api/admin/orders/:id/cancel — cancel an order */
   fastify.post('/orders/:id/cancel', adminCancelOrderHandler)
+
+  /** POST /api/admin/orders/:id/pay-driver — credit driver wallet with commission */
+  fastify.post('/orders/:id/pay-driver', adminPayDriverWalletHandler)
+
+  /** POST /api/admin/orders/:id/bank-transfer — record bank transfer to driver */
+  fastify.post('/orders/:id/bank-transfer', adminBankTransferDriverHandler)
+
+  /** GET /api/admin/orders/:id/driver-payments — get payment records for order */
+  fastify.get('/orders/:id/driver-payments', adminGetOrderDriverPaymentsHandler)
 
   // ─── Cargo Types ─────────────────────────────────────────────────────────────
 

@@ -3818,3 +3818,159 @@ export async function adminOrderReportHandler(
     },
   })
 }
+
+// ─── Admin Order Finance: Pay Driver to Wallet ────────────────────────────────
+
+export async function adminPayDriverWalletHandler(
+  request: FastifyRequest<{
+    Params: { id: string }
+    Body: {
+      gross_amount: number
+      commission_type: 'PERCENT' | 'FIXED' | 'NONE'
+      commission_value: number
+      note?: string
+    }
+  }>,
+  reply: FastifyReply
+) {
+  const admin = (request as any).user
+  if (![1, 4, 5].includes(admin?.role_id)) return reply.status(403).send({ success: false, message: 'Forbidden' })
+
+  const { id: orderId } = request.params
+  const { gross_amount, commission_type = 'NONE', commission_value = 0, note } = request.body
+
+  if (!gross_amount || gross_amount <= 0) return reply.status(400).send({ success: false, message: 'gross_amount must be > 0' })
+  if (!['PERCENT', 'FIXED', 'NONE'].includes(commission_type)) return reply.status(400).send({ success: false, message: 'Invalid commission_type' })
+
+  const [orderRows] = await request.server.db.query<any[]>(
+    `SELECT id, driver_id, reference_code, status, driver_payout_status FROM orders WHERE id = ?`,
+    [orderId]
+  )
+  const order = orderRows[0]
+  if (!order) return reply.status(404).send({ success: false, message: 'Order not found' })
+  if (!order.driver_id) return reply.status(400).send({ success: false, message: 'Order has no assigned driver' })
+  if (!['DELIVERED', 'COMPLETED'].includes(order.status)) return reply.status(400).send({ success: false, message: 'Order must be DELIVERED or COMPLETED' })
+
+  try {
+    const { adminPayDriverWallet } = await import('../services/payment.service.js')
+    const result = await adminPayDriverWallet(
+      request.server.db,
+      orderId,
+      order.driver_id,
+      admin.id,
+      gross_amount,
+      commission_type,
+      commission_value,
+      order.reference_code,
+      note
+    )
+
+    // Send email notification to driver
+    try {
+      const { sendEmail } = await import('../services/email.service.js')
+      const [driverRows] = await request.server.db.query<any[]>(
+        `SELECT email, first_name, last_name FROM users WHERE id = ?`,
+        [order.driver_id]
+      )
+      const driver = driverRows[0]
+      if (driver?.email) {
+        await sendEmail({
+          to: driver.email,
+          subject: `Payment Credited – Order ${order.reference_code}`,
+          text: `Hi ${driver.first_name},\n\nA payment of ${result.netAmount.toFixed(2)} ETB has been credited to your wallet for order ${order.reference_code}.\n\nGross amount: ${gross_amount.toFixed(2)} ETB\nCommission deducted: ${result.commissionAmount.toFixed(2)} ETB\nNet credited: ${result.netAmount.toFixed(2)} ETB\n${note ? `Note: ${note}\n` : ''}\nThank you.`
+        }).catch(() => {})
+      }
+    } catch {}
+
+    return reply.send({
+      success: true,
+      payment_id: result.paymentId,
+      net_amount: result.netAmount,
+      commission_amount: result.commissionAmount,
+      message: `${result.netAmount.toFixed(2)} ETB credited to driver wallet.`
+    })
+  } catch (err: any) {
+    return reply.status(500).send({ success: false, message: err.message || 'Payment failed' })
+  }
+}
+
+// ─── Admin Order Finance: Bank Transfer to Driver ─────────────────────────────
+
+export async function adminBankTransferDriverHandler(
+  request: FastifyRequest<{
+    Params: { id: string }
+    Body: {
+      amount: number
+      receipt_base64?: string
+      note?: string
+    }
+  }>,
+  reply: FastifyReply
+) {
+  const admin = (request as any).user
+  if (![1, 4, 5].includes(admin?.role_id)) return reply.status(403).send({ success: false, message: 'Forbidden' })
+
+  const { id: orderId } = request.params
+  const { amount, receipt_base64, note } = request.body
+
+  if (!amount || amount <= 0) return reply.status(400).send({ success: false, message: 'amount must be > 0' })
+
+  const [orderRows] = await request.server.db.query<any[]>(
+    `SELECT id, driver_id, reference_code, status FROM orders WHERE id = ?`,
+    [orderId]
+  )
+  const order = orderRows[0]
+  if (!order) return reply.status(404).send({ success: false, message: 'Order not found' })
+  if (!order.driver_id) return reply.status(400).send({ success: false, message: 'Order has no assigned driver' })
+  if (!['DELIVERED', 'COMPLETED'].includes(order.status)) return reply.status(400).send({ success: false, message: 'Order must be DELIVERED or COMPLETED' })
+
+  let receiptUrl: string | undefined
+  if (receipt_base64) {
+    receiptUrl = saveFile(receipt_base64, 'receipts', `bank_${orderId}_${Date.now()}`)
+  }
+
+  try {
+    const { adminBankTransferDriver } = await import('../services/payment.service.js')
+    const result = await adminBankTransferDriver(
+      request.server.db,
+      orderId,
+      order.driver_id,
+      admin.id,
+      amount,
+      order.reference_code,
+      receiptUrl,
+      note
+    )
+
+    return reply.send({
+      success: true,
+      payment_id: result.paymentId,
+      receipt_url: receiptUrl || null,
+      message: `Bank transfer of ${amount.toFixed(2)} ETB recorded.`
+    })
+  } catch (err: any) {
+    return reply.status(500).send({ success: false, message: err.message || 'Bank transfer failed' })
+  }
+}
+
+// ─── Admin Order Finance: Get Driver Payments for an Order ────────────────────
+
+export async function adminGetOrderDriverPaymentsHandler(
+  request: FastifyRequest<{ Params: { id: string } }>,
+  reply: FastifyReply
+) {
+  const admin = (request as any).user
+  if (![1, 4, 5].includes(admin?.role_id)) return reply.status(403).send({ success: false, message: 'Forbidden' })
+
+  const [rows] = await request.server.db.query<any[]>(
+    `SELECT odp.*,
+            CONCAT(u.first_name, ' ', IFNULL(u.last_name,'')) AS admin_name
+     FROM order_driver_payments odp
+     LEFT JOIN users u ON u.id = odp.admin_id
+     WHERE odp.order_id = ?
+     ORDER BY odp.created_at DESC`,
+    [request.params.id]
+  )
+
+  return reply.send({ success: true, payments: rows })
+}

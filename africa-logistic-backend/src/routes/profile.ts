@@ -160,4 +160,26 @@ export default async function profileRoutes(fastify: FastifyInstance) {
    * Query: limit=20, offset=0
    */
   fastify.get('/wallet/withdrawals', getMyWithdrawalsHandler)
+
+  /**
+   * GET /api/profile/driver/order-payments
+   * Driver sees all admin payments made to them (wallet + bank transfer)
+   */
+  fastify.get('/driver/order-payments', async (request, reply) => {
+    const user = (request as any).user
+    if (user?.role_id !== 3) return reply.status(403).send({ success: false, message: 'Drivers only' })
+    const [rows] = await (request as any).server.db.query<any[]>(
+      `SELECT odp.*,
+              o.reference_code, o.pickup_address, o.delivery_address,
+              CONCAT(a.first_name, ' ', IFNULL(a.last_name,'')) AS admin_name
+       FROM order_driver_payments odp
+       JOIN orders o ON o.id = odp.order_id
+       LEFT JOIN users a ON a.id = odp.admin_id
+       WHERE odp.driver_id = ?
+       ORDER BY odp.created_at DESC
+       LIMIT 100`,
+      [user.id]
+    )
+    return reply.send({ success: true, payments: rows })
+  })
 }
