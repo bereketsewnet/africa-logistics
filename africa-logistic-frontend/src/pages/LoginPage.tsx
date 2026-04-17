@@ -2,6 +2,7 @@ import { useState } from 'react'
 import type { FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import { useLanguage } from '../context/LanguageContext'
 import apiClient from '../lib/apiClient'
 import PhoneField from '../components/PhoneField'
 import { normalisePhone } from '../lib/normalisePhone'
@@ -18,6 +19,7 @@ type LoginMode = 'phone' | 'email'
 export default function LoginPage() {
   const { login }   = useAuth()
   const navigate    = useNavigate()
+  const { t: tr }   = useLanguage()
 
   const [loginMode, setLoginMode] = useState<LoginMode>('phone')
   const [phone,     setPhone]     = useState('')
@@ -65,7 +67,7 @@ export default function LoginPage() {
       const roleId = data.user?.role_id
       navigate([1, 4, 5].includes(roleId) ? '/admin' : roleId === 6 ? '/car-dashboard' : '/dashboard')
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Login failed. Please try again.')
+      setError(err.response?.data?.message || tr('login_failed'))
     } finally {
       setLoading(false)
     }
@@ -90,7 +92,7 @@ export default function LoginPage() {
               style={{ height: 58, width: 'auto', objectFit: 'contain', marginBottom: '0.35rem', borderRadius: 10, display: 'block' }}
             />
             <p style={{ color: 'var(--clr-muted)', marginTop: '0.25rem', fontSize: '0.9rem' }}>
-              Sign in to your account
+              {tr('login_sign_in_account')}
             </p>
           </div>
 
@@ -115,7 +117,7 @@ export default function LoginPage() {
                 }}
               >
                 {m === 'phone' ? <LuPhone size={14}/> : <LuMail size={14}/>}
-                {m === 'phone' ? 'Phone' : 'Email'}
+                {m === 'phone' ? tr('login_phone') : tr('login_email')}
               </button>
             ))}
           </div>
@@ -135,7 +137,7 @@ export default function LoginPage() {
             {/* Phone or Email field */}
             {loginMode === 'phone' ? (
               <div>
-                <span className="phone-label">Phone number</span>
+                <span className="phone-label">{tr('login_phone_label')}</span>
                 <PhoneField id="login-phone" value={phone} onChange={setPhone} />
               </div>
             ) : (
@@ -149,7 +151,7 @@ export default function LoginPage() {
                   required
                   autoComplete="email"
                 />
-                <label htmlFor="login-email">Email address</label>
+                <label htmlFor="login-email">{tr('login_email_label')}</label>
               </div>
             )}
 
@@ -167,7 +169,7 @@ export default function LoginPage() {
                 data-form-type="other"
                 style={{ paddingRight: '2.8rem' }}
               />
-              <label htmlFor="login-pw">Password</label>
+              <label htmlFor="login-pw">{tr('login_password')}</label>
               <button
                 type="button"
                 className="input-suffix"
@@ -181,7 +183,7 @@ export default function LoginPage() {
             {/* Forgot link */}
             <div style={{ textAlign: 'right', marginTop: '-0.12rem' }}>
               <Link to="/forgot-password" className="link-accent" style={{ fontSize: '0.825rem' }}>
-                Forgot password?
+                {tr('login_forgot')}
               </Link>
             </div>
 
@@ -189,11 +191,11 @@ export default function LoginPage() {
             <button type="submit" className="btn-primary" disabled={loading} style={{ marginTop: '0.25rem' }}>
               {loading ? (
                 <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
-                  <span className="spinner" /> Signing in…
+                  <span className="spinner" /> {tr('login_signing_in')}
                 </span>
               ) : (
                 <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
-                  <LuLogIn size={16} /> Sign In
+                  <LuLogIn size={16} /> {tr('login_sign_in_btn')}
                 </span>
               )}
             </button>
@@ -202,7 +204,7 @@ export default function LoginPage() {
 
           {/* Telegram — desktop only */}
           <div className="telegram-desktop-only">
-            <div className="divider" style={{ margin: '0.95rem 0' }}>or continue with</div>
+            <div className="divider" style={{ margin: '0.95rem 0' }}>{tr('login_or_continue')}</div>
             <a
               href="https://t.me/afri_logistics_bot/start"
               target="_blank"
@@ -215,14 +217,14 @@ export default function LoginPage() {
                 style={{ padding: '0.66rem 0.95rem', width: '100%' }}
               >
                 <SiTelegram size={20} />
-                Continue with Telegram
+                {tr('login_telegram')}
               </button>
             </a>
           </div>
 
           <div style={{ marginTop: '0.85rem' }}>
             <p style={{ fontSize: '0.72rem', color: 'var(--clr-muted)', margin: '0 0 0.45rem', fontWeight: 600 }}>
-              Demo quick autofill
+              {tr('login_demo_title')}
             </p>
             <div style={{ display: 'flex', gap: '0.45rem', overflowX: 'auto', paddingBottom: '0.15rem' }}>
               {demoAccounts.map(account => (
@@ -252,8 +254,8 @@ export default function LoginPage() {
 
           {/* Register link */}
           <p style={{ textAlign: 'center', color: 'var(--clr-muted)', fontSize: '0.84rem', marginTop: '0.85rem' }}>
-            Don't have an account?{' '}
-            <Link to="/register" className="link-accent">Create one</Link>
+            {tr('login_no_account')}{' '}
+            <Link to="/register" className="link-accent">{tr('login_create')}</Link>
           </p>
 
         </div>

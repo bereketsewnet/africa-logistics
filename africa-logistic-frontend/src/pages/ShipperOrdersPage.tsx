@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
+import { useLanguage } from '../context/LanguageContext'
 import { MapContainer, TileLayer, Marker, Popup, useMapEvents } from 'react-leaflet'
 import L from 'leaflet'
 import { orderApi, configApi } from '../lib/apiClient'
@@ -96,13 +97,16 @@ const DOC_TYPE_OPTIONS = [
   { value: 'OTHER', label: 'Other' },
 ]
 
-function statusBadge(status: string) {
+function StatusBadge({ status }: { status: string }) {
+  const { t: tr } = useLanguage()
   const c = STATUS_COLOR[status] ?? '#94a3b8'
+  const raw = tr(`ostatus_${status}`)
+  const label = raw.startsWith('ostatus_') ? (STATUS_LABEL[status] ?? status) : raw
   return (
     <span style={{ fontSize:'0.7rem', fontWeight:700, color:c,
       background:`${c}1a`, border:`1px solid ${c}44`,
       borderRadius:99, padding:'0.18rem 0.6rem', whiteSpace:'nowrap' }}>
-      {STATUS_LABEL[status] ?? status}
+      {label}
     </span>
   )
 }
@@ -242,6 +246,7 @@ interface MapPickerProps {
   onChange: (field: 'pickup_lat'|'pickup_lng'|'pickup_address'|'pickup_country_code'|'delivery_lat'|'delivery_lng'|'delivery_address'|'delivery_country_code', val: string) => void
 }
 function MapPicker({ pickupLat, pickupLng, pickupAddress, deliveryLat, deliveryLng, deliveryAddress, selectedCountryCode, onChange }: MapPickerProps) {
+  const { t: tr } = useLanguage()
   const [mode, setMode] = useState<'pickup' | 'delivery'>('pickup')
   const [geocoding, setGeocoding] = useState(false)
   const [gpsLoading, setGpsLoading] = useState(false)
@@ -288,13 +293,13 @@ function MapPicker({ pickupLat, pickupLng, pickupAddress, deliveryLat, deliveryL
     <div style={{ display:'flex', flexDirection:'column', gap:'0.5rem' }}>
       {/* Search inputs */}
       <LocationSearch
-        label="Pickup" dotColor="#4ade80" value={pickupAddress}
+        label={tr('loc_pickup')} dotColor="#4ade80" value={pickupAddress}
         countryCode={selectedCountryCode}
         onSelect={(lat, lng, addr, cCode) => { onChange('pickup_lat', lat); onChange('pickup_lng', lng); onChange('pickup_address', addr); onChange('pickup_country_code', cCode ?? ''); setMode('delivery') }}
         onClear={() => { onChange('pickup_lat',''); onChange('pickup_lng',''); onChange('pickup_address',''); onChange('pickup_country_code','') }}
       />
       <LocationSearch
-        label="Delivery" dotColor="#f87171" value={deliveryAddress}
+        label={tr('loc_delivery')} dotColor="#f87171" value={deliveryAddress}
         countryCode={selectedCountryCode}
         onSelect={(lat, lng, addr, cCode) => { onChange('delivery_lat', lat); onChange('delivery_lng', lng); onChange('delivery_address', addr); onChange('delivery_country_code', cCode ?? '') }}
         onClear={() => { onChange('delivery_lat',''); onChange('delivery_lng',''); onChange('delivery_address',''); onChange('delivery_country_code','') }}
@@ -304,11 +309,11 @@ function MapPicker({ pickupLat, pickupLng, pickupAddress, deliveryLat, deliveryL
       <div style={{ display:'flex', gap:'0.4rem', background:'rgba(255,255,255,0.04)', borderRadius:10, padding:'0.25rem' }}>
         <button type="button" onClick={() => setMode('pickup')} style={{ flex:1, padding:'0.38rem', border:'none', borderRadius:8, background: mode==='pickup' ? 'rgba(74,222,128,0.15)' : 'transparent', color: mode==='pickup' ? '#4ade80' : 'var(--clr-muted)', fontFamily:'inherit', fontSize:'0.74rem', fontWeight:700, cursor:'pointer', transition:'all 0.15s', outline: mode==='pickup' ? '1px solid rgba(74,222,128,0.3)' : 'none', display:'flex', alignItems:'center', justifyContent:'center', gap:'0.3rem' }}>
           <span style={{ width:8, height:8, borderRadius:'50%', background:mode==='pickup'?'#4ade80':'rgba(255,255,255,0.3)', flexShrink:0 }}/>
-          Pin Pickup {hasPickup && <LuCircleCheck size={10}/>}
+          {tr('map_pin_pickup')} {hasPickup && <LuCircleCheck size={10}/>}
         </button>
         <button type="button" onClick={() => setMode('delivery')} style={{ flex:1, padding:'0.38rem', border:'none', borderRadius:8, background: mode==='delivery' ? 'rgba(248,113,113,0.15)' : 'transparent', color: mode==='delivery' ? '#f87171' : 'var(--clr-muted)', fontFamily:'inherit', fontSize:'0.74rem', fontWeight:700, cursor:'pointer', transition:'all 0.15s', outline: mode==='delivery' ? '1px solid rgba(248,113,113,0.3)' : 'none', display:'flex', alignItems:'center', justifyContent:'center', gap:'0.3rem' }}>
           <span style={{ width:8, height:8, borderRadius:'50%', background:mode==='delivery'?'#f87171':'rgba(255,255,255,0.3)', flexShrink:0 }}/>
-          Pin Delivery {hasDelivery && <LuCircleCheck size={10}/>}
+          {tr('map_pin_delivery')} {hasDelivery && <LuCircleCheck size={10}/>}
         </button>
         <button type="button" onClick={useMyLocation} disabled={gpsLoading} title="Use my current location"
           style={{ padding:'0.38rem 0.6rem', border:'none', borderRadius:8, background:'rgba(99,102,241,0.15)', color: gpsLoading ? 'var(--clr-muted)' : '#818cf8', fontFamily:'inherit', fontSize:'0.74rem', fontWeight:700, cursor: gpsLoading ? 'wait' : 'pointer', transition:'all 0.15s', outline:'1px solid rgba(99,102,241,0.25)', display:'flex', alignItems:'center', gap:'0.3rem', flexShrink:0 }}>
@@ -320,12 +325,12 @@ function MapPicker({ pickupLat, pickupLng, pickupAddress, deliveryLat, deliveryL
       {/* Same-location warning */}
       {hasPickup && hasDelivery && pLat.toFixed(4) === dLat.toFixed(4) && pLng.toFixed(4) === dLng.toFixed(4) && (
         <div style={{ display:'flex', alignItems:'center', gap:'0.4rem', padding:'0.5rem 0.75rem', borderRadius:9, background:'rgba(248,113,113,0.08)', border:'1px solid rgba(248,113,113,0.25)', fontSize:'0.73rem', color:'#f87171' }}>
-          <LuTriangleAlert size={12}/> Pickup and delivery are the same location — please set different points.
+          <LuTriangleAlert size={12}/> {tr('map_same_loc')}
         </div>
       )}
 
       <p style={{ fontSize:'0.7rem', color: geocoding ? 'var(--clr-accent)' : 'var(--clr-muted)', textAlign:'center', margin:0 }}>
-        {geocoding ? 'Getting address…' : `Or tap map to pin ${mode} location`}
+        {geocoding ? tr('map_getting_addr') : `${tr('map_tap_pin')} ${mode} ${tr('map_location')}`}
       </p>
 
       {/* Leaflet map */}
@@ -338,12 +343,12 @@ function MapPicker({ pickupLat, pickupLng, pickupAddress, deliveryLat, deliveryL
           <MapClickHandler onPick={handlePick} />
           {hasPickup && (
             <Marker position={[pLat, pLng]} icon={pickupIcon}>
-              <Popup>Pickup: {pickupAddress || `${pLat.toFixed(5)}, ${pLng.toFixed(5)}`}</Popup>
+              <Popup>{tr('loc_pickup')}: {pickupAddress || `${pLat.toFixed(5)}, ${pLng.toFixed(5)}`}</Popup>
             </Marker>
           )}
           {hasDelivery && (
             <Marker position={[dLat, dLng]} icon={deliveryIcon}>
-              <Popup>Delivery: {deliveryAddress || `${dLat.toFixed(5)}, ${dLng.toFixed(5)}`}</Popup>
+              <Popup>{tr('loc_delivery')}: {deliveryAddress || `${dLat.toFixed(5)}, ${dLng.toFixed(5)}`}</Popup>
             </Marker>
           )}
         </MapContainer>
@@ -356,6 +361,7 @@ function MapPicker({ pickupLat, pickupLng, pickupAddress, deliveryLat, deliveryL
 interface WizardProps { cargoTypes: CargoType[]; onDone: () => void; onClose: () => void }
 
 function PlaceOrderWizard({ cargoTypes, onDone, onClose }: WizardProps) {
+  const { t: tr } = useLanguage()
   const [vehicleTypes, setVehicleTypes] = useState<Array<{ id: number; name: string }>>([])
   const [countries, setCountries] = useState<CountryOption[]>([])
   const [step, setStep] = useState<1 | 2>(1)
@@ -417,26 +423,26 @@ function PlaceOrderWizard({ cargoTypes, onDone, onClose }: WizardProps) {
   const handleGetQuote = async () => {
     setErr('')
     if (!form.country_code) {
-      setErr('Select operating country first.')
+      setErr(tr('wiz_err_country'))
       return
     }
     if (form.pickup_country_code && form.pickup_country_code !== form.country_code) {
-      setErr('Pickup point is outside the selected country.')
+      setErr(tr('wiz_err_pickup_out'))
       return
     }
     if (!isCrossBorder && form.delivery_country_code && form.delivery_country_code !== form.country_code) {
-      setErr('Delivery point is outside the selected country.')
+      setErr(tr('wiz_err_deliv_out'))
       return
     }
     if (isCrossBorder && !cbDeliveryCountryId) {
-      setErr('Select a delivery country for cross-border shipment.')
+      setErr(tr('wiz_err_dest'))
       return
     }
     // Same-location guard
     const pLat = parseFloat(form.pickup_lat), pLng = parseFloat(form.pickup_lng)
     const dLat = parseFloat(form.delivery_lat), dLng = parseFloat(form.delivery_lng)
     if (!isNaN(pLat) && !isNaN(dLat) && Math.abs(pLat - dLat) < 0.0005 && Math.abs(pLng - dLng) < 0.0005) {
-      setErr('Pickup and delivery locations cannot be the same. Please set different points.')
+      setErr(tr('wiz_err_same_loc'))
       return
     }
     setLoading(true)
@@ -453,7 +459,7 @@ function PlaceOrderWizard({ cargoTypes, onDone, onClose }: WizardProps) {
       })
       setQuote(data.quote)
       setStep(2)
-    } catch (e: any) { setErr(e.response?.data?.message ?? 'Failed to get quote.') }
+    } catch (e: any) { setErr(e.response?.data?.message ?? tr('wiz_err_quote')) }
     finally { setLoading(false) }
   }
 
@@ -461,12 +467,12 @@ function PlaceOrderWizard({ cargoTypes, onDone, onClose }: WizardProps) {
     setErr(''); setLoading(true)
     if (!form.country_code || (form.pickup_country_code && form.pickup_country_code !== form.country_code) || (!isCrossBorder && form.delivery_country_code && form.delivery_country_code !== form.country_code)) {
       setLoading(false)
-      setErr('Selected locations must both be inside the selected country.')
+      setErr(tr('wiz_err_both_inside'))
       return
     }
     if (isCrossBorder && !cbDeliveryCountryId) {
       setLoading(false)
-      setErr('Select a delivery country for cross-border shipment.')
+      setErr(tr('wiz_err_dest'))
       return
     }
     const pickupCountryObj = countries.find(c => String(c.iso_code).toLowerCase() === form.country_code)
@@ -492,7 +498,7 @@ function PlaceOrderWizard({ cargoTypes, onDone, onClose }: WizardProps) {
         shipper_tin:          isCrossBorder && cbShipperTin ? cbShipperTin : undefined,
       })
       setPlacedOrder({ reference_code: data.order.reference_code, pickup_otp: data.otps.pickup_otp, delivery_otp: data.otps.delivery_otp })
-    } catch (e: any) { setErr(e.response?.data?.message ?? 'Failed to place order.') }
+    } catch (e: any) { setErr(e.response?.data?.message ?? tr('wiz_err_place')) }
     finally { setLoading(false) }
   }
 
@@ -503,27 +509,27 @@ function PlaceOrderWizard({ cargoTypes, onDone, onClose }: WizardProps) {
         <LuCircleCheck size={30} color="#4ade80"/>
       </div>
       <div>
-        <h3 style={{ fontSize:'1.05rem', fontWeight:800, color:'var(--clr-text)', marginBottom:'0.25rem' }}>Order Placed!</h3>
-        <p style={{ fontSize:'0.8rem', color:'var(--clr-muted)' }}>Reference: <strong style={{ color:'var(--clr-accent)' }}>{placedOrder.reference_code}</strong></p>
+        <h3 style={{ fontSize:'1.05rem', fontWeight:800, color:'var(--clr-text)', marginBottom:'0.25rem' }}>{tr('wiz_order_placed')}</h3>
+        <p style={{ fontSize:'0.8rem', color:'var(--clr-muted)' }}>{tr('wiz_reference')} <strong style={{ color:'var(--clr-accent)' }}>{placedOrder.reference_code}</strong></p>
       </div>
       <div style={{ width:'100%', borderRadius:12, border:'1px solid rgba(255,255,255,0.08)', background:'rgba(255,255,255,0.03)', padding:'1rem 1.25rem', display:'flex', flexDirection:'column', gap:'0.85rem' }}>
         <p style={{ fontSize:'0.78rem', color:'var(--clr-muted)', marginBottom:'0.25rem' }}>
-          Share these OTPs with the driver at each stage. Keep them safe.
+          {tr('wiz_otp_instr')}
         </p>
         <div className="glass-inner" style={{ padding:'0.85rem 1rem' }}>
-          <p style={{ fontSize:'0.7rem', color:'var(--clr-muted)', marginBottom:'0.35rem', textTransform:'uppercase', letterSpacing:'0.06em', fontWeight:700 }}>Pickup OTP</p>
+          <p style={{ fontSize:'0.7rem', color:'var(--clr-muted)', marginBottom:'0.35rem', textTransform:'uppercase', letterSpacing:'0.06em', fontWeight:700 }}>{tr('wiz_pickup_otp')}</p>
           <p style={{ fontSize:'2rem', fontWeight:900, letterSpacing:'0.25em', color:'#4ade80', fontVariantNumeric:'tabular-nums' }}>{placedOrder.pickup_otp}</p>
         </div>
         <div className="glass-inner" style={{ padding:'0.85rem 1rem' }}>
-          <p style={{ fontSize:'0.7rem', color:'var(--clr-muted)', marginBottom:'0.35rem', textTransform:'uppercase', letterSpacing:'0.06em', fontWeight:700 }}>Delivery OTP</p>
+          <p style={{ fontSize:'0.7rem', color:'var(--clr-muted)', marginBottom:'0.35rem', textTransform:'uppercase', letterSpacing:'0.06em', fontWeight:700 }}>{tr('wiz_delivery_otp')}</p>
           <p style={{ fontSize:'2rem', fontWeight:900, letterSpacing:'0.25em', color:'var(--clr-accent)', fontVariantNumeric:'tabular-nums' }}>{placedOrder.delivery_otp}</p>
         </div>
         <p style={{ fontSize:'0.73rem', color:'#fbbf24', display:'flex', alignItems:'center', gap:'0.35rem', justifyContent:'center' }}>
-          <LuTriangleAlert size={12}/> Screenshot these — they won't be shown again.
+          <LuTriangleAlert size={12}/> {tr('wiz_screenshot')}
         </p>
       </div>
       <button className="btn-primary" style={{ width:'100%', marginTop:'0.5rem' }} onClick={() => { onDone(); onClose() }}>
-        View My Orders
+        {tr('wiz_view_orders')}
       </button>
     </div>
   )
@@ -541,7 +547,7 @@ function PlaceOrderWizard({ cargoTypes, onDone, onClose }: WizardProps) {
           </div>
         ))}
         <span style={{ fontSize:'0.78rem', color:'var(--clr-muted)', marginLeft:'0.25rem' }}>
-          {step === 1 ? 'Enter Order Details' : 'Confirm & Place'}
+          {step === 1 ? tr('wiz_step_details') : tr('wiz_step_confirm')}
         </span>
       </div>
 
@@ -558,10 +564,10 @@ function PlaceOrderWizard({ cargoTypes, onDone, onClose }: WizardProps) {
               delivery_address: '', delivery_lat: '', delivery_lng: '', delivery_country_code: '',
             }))}
               style={{ background:'transparent', border:'none', color:'var(--clr-text)', fontFamily:'inherit', fontSize:'0.9rem', width:'100%', outline:'none', paddingTop:'1.1rem' }}>
-              <option value="" style={{ background:'#0f172a' }}>— Select country —</option>
+              <option value="" style={{ background:'#0f172a' }}>{tr('wiz_select_country')}</option>
               {countries.map(c => <option key={c.id} value={String(c.iso_code).toLowerCase()} style={{ background:'#0f172a' }}>{c.name}</option>)}
             </select>
-            <label htmlFor="country" style={{ top:'0.35rem', fontSize:'0.7rem', color:'var(--clr-accent)' }}>Operating Country</label>
+            <label htmlFor="country" style={{ top:'0.35rem', fontSize:'0.7rem', color:'var(--clr-accent)' }}>{tr('wiz_operating_ctry')}</label>
           </div>
 
           {/* Cargo type */}
@@ -570,23 +576,23 @@ function PlaceOrderWizard({ cargoTypes, onDone, onClose }: WizardProps) {
               style={{ background:'transparent', border:'none', color:'var(--clr-text)', fontFamily:'inherit', fontSize:'0.9rem', width:'100%', outline:'none', paddingTop:'1.1rem' }}>
               {cargoTypes.map(ct => <option key={ct.id} value={ct.id} style={{ background:'#0f172a' }}>{ct.name}</option>)}
             </select>
-            <label htmlFor="ct" style={{ top:'0.35rem', fontSize:'0.7rem', color:'var(--clr-accent)' }}>Cargo Type</label>
+            <label htmlFor="ct" style={{ top:'0.35rem', fontSize:'0.7rem', color:'var(--clr-accent)' }}>{tr('wiz_cargo_type')}</label>
           </div>
 
           {/* Vehicle type */}
           <div className="input-wrap">
             <select id="vt" value={form.vehicle_type} onChange={f('vehicle_type')}
               style={{ background:'transparent', border:'none', color:'var(--clr-text)', fontFamily:'inherit', fontSize:'0.9rem', width:'100%', outline:'none', paddingTop:'1.1rem' }}>
-              <option value="" style={{ background:'#0f172a' }}>— Select vehicle type —</option>
+              <option value="" style={{ background:'#0f172a' }}>{tr('wiz_select_vehicle')}</option>
               {vehicleTypes.map(t => <option key={t.id} value={t.name} style={{ background:'#0f172a' }}>{t.name}</option>)}
             </select>
-            <label htmlFor="vt" style={{ top:'0.35rem', fontSize:'0.7rem', color:'var(--clr-accent)' }}>Vehicle Type</label>
+            <label htmlFor="vt" style={{ top:'0.35rem', fontSize:'0.7rem', color:'var(--clr-accent)' }}>{tr('wiz_vehicle_type')}</label>
           </div>
 
           {/* Weight */}
           <div className="input-wrap">
             <input id="wt" type="number" placeholder=" " min="0.1" step="0.1" value={form.weight_kg} onChange={f('weight_kg')} required/>
-            <label htmlFor="wt">Weight (kg) *</label>
+            <label htmlFor="wt">{tr('wiz_weight_kg')}</label>
           </div>
 
           {/* ── Interactive map picker ── */}
@@ -599,16 +605,16 @@ function PlaceOrderWizard({ cargoTypes, onDone, onClose }: WizardProps) {
 
           <div className="input-wrap">
             <input id="desc" type="text" placeholder=" " value={form.description} onChange={f('description')}/>
-            <label htmlFor="desc">Description (optional)</label>
+            <label htmlFor="desc">{tr('wiz_description')}</label>
           </div>
           <div className="input-wrap">
             <input id="val" type="number" placeholder=" " min="0" step="0.01" value={form.estimated_value} onChange={f('estimated_value')}/>
-            <label htmlFor="val">Estimated Value ETB (optional)</label>
+            <label htmlFor="val">{tr('wiz_est_value')}</label>
           </div>
 
           {/* Image upload (optional, max 2) */}
           <div>
-            <p style={{ fontSize:'0.73rem', fontWeight:600, color:'var(--clr-muted)', marginBottom:'0.4rem' }}>Order Images (optional, max 2)</p>
+            <p style={{ fontSize:'0.73rem', fontWeight:600, color:'var(--clr-muted)', marginBottom:'0.4rem' }}>{tr('wiz_images_title')}</p>
             <div style={{ display:'flex', gap:'0.65rem', flexWrap:'wrap' }}>
               {/* Image 1 */}
               <label style={{ cursor:'pointer', position:'relative' }}>
@@ -617,7 +623,7 @@ function PlaceOrderWizard({ cargoTypes, onDone, onClose }: WizardProps) {
                     <img src={img1Preview} alt="img1" style={{ width:'100%', height:'100%', objectFit:'cover' }}/>
                   ) : (
                     <span style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:'0.2rem', color:'var(--clr-muted)', fontSize:'0.65rem' }}>
-                      <LuCamera size={18}/> Add photo
+                      <LuCamera size={18}/> {tr('wiz_add_photo')}
                     </span>
                   )}
                 </div>
@@ -636,7 +642,7 @@ function PlaceOrderWizard({ cargoTypes, onDone, onClose }: WizardProps) {
                       <img src={img2Preview} alt="img2" style={{ width:'100%', height:'100%', objectFit:'cover' }}/>
                     ) : (
                       <span style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:'0.2rem', color:'var(--clr-muted)', fontSize:'0.65rem' }}>
-                        <LuCamera size={18}/> Add 2nd
+                        <LuCamera size={18}/> {tr('wiz_add_2nd')}
                       </span>
                     )}
                   </div>
@@ -650,7 +656,7 @@ function PlaceOrderWizard({ cargoTypes, onDone, onClose }: WizardProps) {
               )}
               {img1Preview && (
                 <button type="button" onClick={() => { setImg1(''); setImg1Preview(''); setImg2(''); setImg2Preview('') }} style={{ alignSelf:'flex-start', background:'none', border:'none', color:'#f87171', cursor:'pointer', fontSize:'0.7rem', padding:'0.25rem', display:'flex', alignItems:'center', gap:'0.2rem' }}>
-                  <LuTrash2 size={13}/> Clear
+                  <LuTrash2 size={13}/> {tr('wiz_clear')}
                 </button>
               )}
             </div>
@@ -661,15 +667,15 @@ function PlaceOrderWizard({ cargoTypes, onDone, onClose }: WizardProps) {
             <label style={{ cursor:'pointer', display:'flex', alignItems:'center', gap:'0.65rem', fontWeight:600, fontSize:'0.83rem' }}>
               <input type="checkbox" checked={isCrossBorder} onChange={e => { setIsCrossBorder(e.target.checked); setCbDeliveryCountryId(0) }}
                 style={{ accentColor:'var(--clr-accent)', width:15, height:15 }}/>
-              🌍 Cross-border shipment (different countries)
+              {tr('wiz_cross_border')}
             </label>
             {isCrossBorder && (
               <div style={{ marginTop:'0.75rem', display:'flex', flexDirection:'column', gap:'0.6rem' }}>
                 <div>
-                  <label style={{ fontSize:'0.73rem', fontWeight:600, color:'var(--clr-muted)', marginBottom:'0.25rem', display:'block' }}>Delivery Country *</label>
+                  <label style={{ fontSize:'0.73rem', fontWeight:600, color:'var(--clr-muted)', marginBottom:'0.25rem', display:'block' }}>{tr('wiz_dest_country')}</label>
                   <select value={cbDeliveryCountryId || ''} onChange={e => setCbDeliveryCountryId(Number(e.target.value))}
                     style={{ width:'100%', padding:'0.6rem 0.8rem', borderRadius:9, border:'1px solid rgba(255,255,255,0.12)', background:'rgba(30,30,30,0.95)', color:'var(--clr-text)', fontFamily:'inherit', fontSize:'0.85rem' }}>
-                    <option value=''>-- Select destination country --</option>
+                    <option value=''>{tr('wiz_select_dest')}</option>
                     {countries.filter(c => String(c.iso_code).toLowerCase() !== form.country_code).map(c => (
                       <option key={c.id} value={c.id}>{c.name}</option>
                     ))}
@@ -677,17 +683,17 @@ function PlaceOrderWizard({ cargoTypes, onDone, onClose }: WizardProps) {
                 </div>
                 <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'0.6rem' }}>
                   <div>
-                    <label style={{ fontSize:'0.73rem', fontWeight:600, color:'var(--clr-muted)', marginBottom:'0.25rem', display:'block' }}>HS Code (customs)</label>
+                    <label style={{ fontSize:'0.73rem', fontWeight:600, color:'var(--clr-muted)', marginBottom:'0.25rem', display:'block' }}>{tr('wiz_hs_code')}</label>
                     <input value={cbHsCode} onChange={e => setCbHsCode(e.target.value)} placeholder="e.g. 8471.30"
                       style={{ width:'100%', padding:'0.6rem 0.8rem', borderRadius:9, border:'1px solid rgba(255,255,255,0.12)', background:'rgba(255,255,255,0.05)', color:'var(--clr-text)', fontFamily:'inherit', fontSize:'0.85rem', boxSizing:'border-box' }}/>
                   </div>
                   <div>
-                    <label style={{ fontSize:'0.73rem', fontWeight:600, color:'var(--clr-muted)', marginBottom:'0.25rem', display:'block' }}>Your TIN</label>
-                    <input value={cbShipperTin} onChange={e => setCbShipperTin(e.target.value)} placeholder="Tax ID number"
+                    <label style={{ fontSize:'0.73rem', fontWeight:600, color:'var(--clr-muted)', marginBottom:'0.25rem', display:'block' }}>{tr('wiz_your_tin')}</label>
+                    <input value={cbShipperTin} onChange={e => setCbShipperTin(e.target.value)} placeholder={tr('wiz_tin_ph')}
                       style={{ width:'100%', padding:'0.6rem 0.8rem', borderRadius:9, border:'1px solid rgba(255,255,255,0.12)', background:'rgba(255,255,255,0.05)', color:'var(--clr-text)', fontFamily:'inherit', fontSize:'0.85rem', boxSizing:'border-box' }}/>
                   </div>
                 </div>
-                <p style={{ fontSize:'0.72rem', color:'var(--clr-muted)', margin:0 }}>ℹ️ Delivery country list shows only countries enabled by the operator. Your shipment will go through border &amp; customs checks.</p>
+                <p style={{ fontSize:'0.72rem', color:'var(--clr-muted)', margin:0 }}>{tr('wiz_cb_info')}</p>
               </div>
             )}
           </div>
@@ -695,21 +701,21 @@ function PlaceOrderWizard({ cargoTypes, onDone, onClose }: WizardProps) {
           {/* Missing-field hints */}
           {(!form.weight_kg || !form.pickup_lat || !form.delivery_lat) && (
             <div style={{ display:'flex', flexDirection:'column', gap:'0.2rem', padding:'0.55rem 0.75rem', borderRadius:9, background:'rgba(251,191,36,0.06)', border:'1px solid rgba(251,191,36,0.18)' }}>
-              {!form.weight_kg && <span style={{ fontSize:'0.73rem', color:'#fbbf24', display:'flex', alignItems:'center', gap:'0.35rem' }}><LuTriangleAlert size={11}/> Enter cargo weight</span>}
-              {!form.pickup_lat && <span style={{ fontSize:'0.73rem', color:'#fbbf24', display:'flex', alignItems:'center', gap:'0.35rem' }}><LuTriangleAlert size={11}/> Set pickup location (search or tap map)</span>}
-              {!form.delivery_lat && <span style={{ fontSize:'0.73rem', color:'#fbbf24', display:'flex', alignItems:'center', gap:'0.35rem' }}><LuTriangleAlert size={11}/> Set delivery location (search or tap map)</span>}
+              {!form.weight_kg && <span style={{ fontSize:'0.73rem', color:'#fbbf24', display:'flex', alignItems:'center', gap:'0.35rem' }}><LuTriangleAlert size={11}/> {tr('wiz_hint_weight')}</span>}
+              {!form.pickup_lat && <span style={{ fontSize:'0.73rem', color:'#fbbf24', display:'flex', alignItems:'center', gap:'0.35rem' }}><LuTriangleAlert size={11}/> {tr('wiz_hint_pickup')}</span>}
+              {!form.delivery_lat && <span style={{ fontSize:'0.73rem', color:'#fbbf24', display:'flex', alignItems:'center', gap:'0.35rem' }}><LuTriangleAlert size={11}/> {tr('wiz_hint_delivery')}</span>}
             </div>
           )}
 
           <div style={{ display:'flex', gap:'0.6rem', marginTop:'0.25rem' }}>
             <button type="button" onClick={onClose}
               style={{ flex:1, padding:'0.65rem', borderRadius:10, border:'1px solid rgba(255,255,255,0.15)', background:'rgba(255,255,255,0.04)', color:'var(--clr-muted)', fontFamily:'inherit', fontSize:'0.875rem', fontWeight:700, cursor:'pointer' }}>
-              Cancel
+              {tr('wiz_cancel')}
             </button>
             <button type="button" onClick={handleGetQuote}
               disabled={loading || !form.weight_kg || !form.pickup_lat || !form.pickup_lng || !form.delivery_lat || !form.delivery_lng}
               style={{ flex:2, padding:'0.65rem', borderRadius:10, border:'none', background: (!form.weight_kg || !form.pickup_lat || !form.delivery_lat || loading) ? 'rgba(255,255,255,0.08)' : 'var(--clr-accent)', color: (!form.weight_kg || !form.pickup_lat || !form.delivery_lat || loading) ? 'var(--clr-muted)' : '#080b14', fontFamily:'inherit', fontSize:'0.875rem', fontWeight:700, cursor: (!form.weight_kg || !form.pickup_lat || !form.delivery_lat) ? 'not-allowed' : 'pointer', transition:'all 0.2s', display:'flex', alignItems:'center', justifyContent:'center', gap:'0.4rem' }}>
-              {loading ? <><span className="spinner" style={{ width:16, height:16, borderWidth:2 }}/> Getting Quote…</> : <>Get Quote <LuArrowRight size={15}/></>}
+              {loading ? <><span className="spinner" style={{ width:16, height:16, borderWidth:2 }}/> {tr('wiz_getting_quote')}</> : <>{tr('wiz_get_quote')} <LuArrowRight size={15}/></>}
             </button>
           </div>
         </div>
@@ -721,15 +727,15 @@ function PlaceOrderWizard({ cargoTypes, onDone, onClose }: WizardProps) {
           {/* Quote card with detailed breakdown */}
           <div className="glass-inner" style={{ padding:'1.1rem 1.25rem' }}>
             <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'0.75rem' }}>
-              <span style={{ fontSize:'0.8rem', color:'var(--clr-muted)', fontWeight:600 }}>Price Quote</span>
+              <span style={{ fontSize:'0.8rem', color:'var(--clr-muted)', fontWeight:600 }}>{tr('wiz_price_quote')}</span>
               <span style={{ fontSize:'1.35rem', fontWeight:900, color:'var(--clr-accent)' }}>{Number(quote.estimated_price).toLocaleString()} ETB</span>
             </div>
             <div style={{ display:'flex', flexDirection:'column', gap:'0.35rem', fontSize:'0.78rem', color:'var(--clr-muted)' }}>
-              <div style={{ display:'flex', justifyContent:'space-between' }}><span>Distance</span><span style={{ color:'var(--clr-text)' }}>{Number(quote.distance_km).toFixed(2)} km</span></div>
-              <div style={{ display:'flex', justifyContent:'space-between' }}><span>Base Fare</span><span style={{ color:'var(--clr-text)' }}>{Number(quote.base_fare).toLocaleString()} ETB</span></div>
-              <div style={{ display:'flex', justifyContent:'space-between' }}><span>Distance Charge ({Number(quote.per_km_rate)} ETB/km)</span><span style={{ color:'var(--clr-text)' }}>{Number(quote.distance_cost).toLocaleString()} ETB</span></div>
+              <div style={{ display:'flex', justifyContent:'space-between' }}><span>{tr('wiz_distance')}</span><span style={{ color:'var(--clr-text)' }}>{Number(quote.distance_km).toFixed(2)} km</span></div>
+              <div style={{ display:'flex', justifyContent:'space-between' }}><span>{tr('wiz_base_fare')}</span><span style={{ color:'var(--clr-text)' }}>{Number(quote.base_fare).toLocaleString()} ETB</span></div>
+              <div style={{ display:'flex', justifyContent:'space-between' }}><span>{tr('wiz_dist_charge')} ({Number(quote.per_km_rate)} ETB/km)</span><span style={{ color:'var(--clr-text)' }}>{Number(quote.distance_cost).toLocaleString()} ETB</span></div>
               {(quote.weight_cost ?? 0) > 0 && (
-                <div style={{ display:'flex', justifyContent:'space-between' }}><span>Weight Charge ({Number(quote.per_kg_rate)} ETB/kg)</span><span style={{ color:'var(--clr-text)' }}>{Number(quote.weight_cost).toLocaleString()} ETB</span></div>
+                <div style={{ display:'flex', justifyContent:'space-between' }}><span>{tr('wiz_weight_charge')} ({Number(quote.per_kg_rate)} ETB/kg)</span><span style={{ color:'var(--clr-text)' }}>{Number(quote.weight_cost).toLocaleString()} ETB</span></div>
               )}
               {(quote.fees_breakdown ?? []).map((fee, i) => (
                 <div key={i} style={{ display:'flex', justifyContent:'space-between' }}>
@@ -738,22 +744,22 @@ function PlaceOrderWizard({ cargoTypes, onDone, onClose }: WizardProps) {
                 </div>
               ))}
               {(quote.fees_breakdown ?? []).length === 0 && Number(quote.city_surcharge) > 0 && (
-                <div style={{ display:'flex', justifyContent:'space-between' }}><span>Fees</span><span style={{ color:'var(--clr-text)' }}>{Number(quote.city_surcharge).toLocaleString()} ETB</span></div>
+                <div style={{ display:'flex', justifyContent:'space-between' }}><span>{tr('wiz_fees')}</span><span style={{ color:'var(--clr-text)' }}>{Number(quote.city_surcharge).toLocaleString()} ETB</span></div>
               )}
               <div style={{ height:1, background:'rgba(255,255,255,0.08)', margin:'0.2rem 0' }}/>
-              <div style={{ display:'flex', justifyContent:'space-between', fontWeight:700, color:'var(--clr-accent)' }}><span>Total</span><span>{Number(quote.estimated_price).toLocaleString()} ETB</span></div>
+              <div style={{ display:'flex', justifyContent:'space-between', fontWeight:700, color:'var(--clr-accent)' }}><span>{tr('wiz_total')}</span><span>{Number(quote.estimated_price).toLocaleString()} ETB</span></div>
             </div>
           </div>
 
           {/* Summary */}
           <div style={{ display:'flex', flexDirection:'column', gap:'0.4rem', fontSize:'0.8rem' }}>
             {[
-              ['Cargo', cargoTypes.find(c => c.id === Number(form.cargo_type_id))?.name ?? ''],
-              ['Vehicle', form.vehicle_type],
-              ['Weight', `${form.weight_kg} kg`],
-              ['Pickup', form.pickup_address],
-              ['Delivery', form.delivery_address],
-              ...(form.description ? [['Note', form.description]] : []),
+              [tr('wiz_sum_cargo'), cargoTypes.find(c => c.id === Number(form.cargo_type_id))?.name ?? ''],
+              [tr('wiz_sum_vehicle'), form.vehicle_type],
+              [tr('wiz_sum_weight'), `${form.weight_kg} kg`],
+              [tr('wiz_sum_pickup'), form.pickup_address],
+              [tr('wiz_sum_delivery'), form.delivery_address],
+              ...(form.description ? [[tr('wiz_sum_note'), form.description]] : []),
             ].map(([l, v]) => (
               <div key={l} style={{ display:'flex', gap:'0.5rem' }}>
                 <span style={{ color:'var(--clr-muted)', width:60, flexShrink:0 }}>{l}</span>
@@ -764,10 +770,10 @@ function PlaceOrderWizard({ cargoTypes, onDone, onClose }: WizardProps) {
 
           <div style={{ display:'flex', gap:'0.6rem', marginTop:'0.25rem' }}>
             <button className="btn-outline" style={{ flex:1, display:'flex', alignItems:'center', gap:'0.4rem', justifyContent:'center' }} onClick={() => { setStep(1); setQuote(null); setErr('') }}>
-              <LuChevronLeft size={14}/> Edit
+              <LuChevronLeft size={14}/> {tr('wiz_edit')}
             </button>
             <button className="btn-primary" style={{ flex:2 }} onClick={handlePlace} disabled={loading}>
-              {loading ? <span style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:'0.5rem' }}><Spinner/> Placing…</span> : 'Confirm & Place Order'}
+              {loading ? <span style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:'0.5rem' }}><Spinner/> {tr('wiz_placing')}</span> : tr('wiz_confirm_place')}
             </button>
           </div>
         </div>
@@ -778,6 +784,7 @@ function PlaceOrderWizard({ cargoTypes, onDone, onClose }: WizardProps) {
 
 // ─── Live Track Tab (WebSocket + Leaflet map) ─────────────────────────────────
 function LiveTrackTab({ orderId, token }: { orderId: string; token: string }) {
+  const { t: tr } = useLanguage()
   const [loc, setLoc] = useState<TrackInfo['location'] | null>(null)
   const [status, setStatus] = useState('')
   const [driver, setDriver] = useState<TrackInfo['driver'] | null>(null)
@@ -855,10 +862,10 @@ function LiveTrackTab({ orderId, token }: { orderId: string; token: string }) {
         <div style={{ display:'flex', alignItems:'center', gap:'0.45rem' }}>
           <span style={{ width:8, height:8, borderRadius:'50%', background: wsState==='connected' ? '#4ade80' : wsState==='connecting' ? '#fbbf24' : '#f87171', display:'inline-block', flexShrink:0, boxShadow: wsState==='connected' ? '0 0 6px #4ade80' : 'none' }}/>
           <span style={{ fontSize:'0.72rem', color:'var(--clr-muted)' }}>
-            {wsState==='connected' ? 'Live tracking active' : wsState==='connecting' ? 'Connecting…' : ['DELIVERED','CANCELLED'].includes(status) ? 'Order completed — last location shown' : 'Offline — showing last known'}
+            {wsState==='connected' ? tr('track_live') : wsState==='connecting' ? tr('track_connecting') : ['DELIVERED','CANCELLED'].includes(status) ? tr('track_completed') : tr('track_offline')}
           </span>
         </div>
-        {status && statusBadge(status)}
+        {status && <StatusBadge status={status}/>}
       </div>
 
       {/* Leaflet map with truck icon */}
@@ -875,26 +882,26 @@ function LiveTrackTab({ orderId, token }: { orderId: string; token: string }) {
       ) : (
         <div style={{ textAlign:'center', color:'var(--clr-muted)', padding:'2.5rem', fontSize:'0.85rem', background:'rgba(255,255,255,0.02)', borderRadius:12, border:'1px dashed rgba(255,255,255,0.08)' }}>
           <LuNavigation size={28} style={{ opacity:0.3, display:'block', margin:'0 auto 0.75rem' }}/>
-          No location data yet.<br/>
-          <span style={{ fontSize:'0.78rem' }}>Driver location will appear here once they start moving.</span>
+          {tr('track_no_loc')}<br/>
+          <span style={{ fontSize:'0.78rem' }}>{tr('track_loc_soon')}</span>
         </div>
       )}
 
       {/* Info panel */}
       {hasLoc && (
         <div className="glass-inner" style={{ padding:'0.85rem 1rem', display:'flex', flexDirection:'column', gap:'0.4rem', fontSize:'0.78rem' }}>
-          {driver?.name && <div style={{ display:'flex', gap:'0.5rem' }}><span style={{ color:'var(--clr-muted)', width:70, flexShrink:0 }}>Driver</span><span style={{ color:'var(--clr-text)', fontWeight:600 }}>{driver.name}</span></div>}
-          <div style={{ display:'flex', gap:'0.5rem' }}><span style={{ color:'var(--clr-muted)', width:70, flexShrink:0 }}>Position</span><span style={{ color:'var(--clr-text)' }}>{Number(loc!.lat).toFixed(5)}, {Number(loc!.lng).toFixed(5)}</span></div>
-          {loc!.speed_kmh != null && <div style={{ display:'flex', gap:'0.5rem' }}><span style={{ color:'var(--clr-muted)', width:70, flexShrink:0 }}>Speed</span><span style={{ color:'var(--clr-text)' }}>{loc!.speed_kmh} km/h</span></div>}
-          {loc!.heading != null && <div style={{ display:'flex', gap:'0.5rem' }}><span style={{ color:'var(--clr-muted)', width:70, flexShrink:0 }}>Heading</span><span style={{ color:'var(--clr-text)' }}>{loc!.heading}°</span></div>}
-          <div style={{ display:'flex', gap:'0.5rem' }}><span style={{ color:'var(--clr-muted)', width:70, flexShrink:0 }}>Updated</span><span style={{ color:'var(--clr-text)' }}>{fmtDate(loc!.recorded_at)}</span></div>
+          {driver?.name && <div style={{ display:'flex', gap:'0.5rem' }}><span style={{ color:'var(--clr-muted)', width:70, flexShrink:0 }}>{tr('track_driver')}</span><span style={{ color:'var(--clr-text)', fontWeight:600 }}>{driver.name}</span></div>}
+          <div style={{ display:'flex', gap:'0.5rem' }}><span style={{ color:'var(--clr-muted)', width:70, flexShrink:0 }}>{tr('track_position')}</span><span style={{ color:'var(--clr-text)' }}>{Number(loc!.lat).toFixed(5)}, {Number(loc!.lng).toFixed(5)}</span></div>
+          {loc!.speed_kmh != null && <div style={{ display:'flex', gap:'0.5rem' }}><span style={{ color:'var(--clr-muted)', width:70, flexShrink:0 }}>{tr('track_speed')}</span><span style={{ color:'var(--clr-text)' }}>{loc!.speed_kmh} km/h</span></div>}
+          {loc!.heading != null && <div style={{ display:'flex', gap:'0.5rem' }}><span style={{ color:'var(--clr-muted)', width:70, flexShrink:0 }}>{tr('track_heading')}</span><span style={{ color:'var(--clr-text)' }}>{loc!.heading}°</span></div>}
+          <div style={{ display:'flex', gap:'0.5rem' }}><span style={{ color:'var(--clr-muted)', width:70, flexShrink:0 }}>{tr('track_updated')}</span><span style={{ color:'var(--clr-text)' }}>{fmtDate(loc!.recorded_at)}</span></div>
         </div>
       )}
 
       {hasLoc && (
         <a href={`https://www.google.com/maps?q=${loc!.lat},${loc!.lng}`} target="_blank" rel="noopener noreferrer"
           style={{ display:'flex', alignItems:'center', gap:'0.5rem', padding:'0.65rem 1rem', borderRadius:10, border:'1px solid rgba(0,229,255,0.2)', background:'rgba(0,229,255,0.05)', color:'var(--clr-accent)', textDecoration:'none', fontSize:'0.82rem', fontWeight:700 }}>
-          <LuMapPin size={14}/> Open in Google Maps ↗
+          <LuMapPin size={14}/> {tr('track_open_maps')}
         </a>
       )}
     </div>
@@ -934,6 +941,7 @@ function OtpRow({ label, otp, onCopy }: { label: string; otp: string | undefined
 }
 
 function OtpRevealBox({ pickupOtp, deliveryOtp }: { pickupOtp?: string | null; deliveryOtp?: string | null }) {
+  const { t: tr } = useLanguage()
   const [show, setShow] = useState(false)
   const [copied, setCopied] = useState('')
 
@@ -949,35 +957,35 @@ function OtpRevealBox({ pickupOtp, deliveryOtp }: { pickupOtp?: string | null; d
     <div className="glass-inner" style={{ padding:'0.85rem 1rem' }}>
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'0.25rem' }}>
         <span style={{ fontSize:'0.7rem', color:'var(--clr-muted)', fontWeight:700, letterSpacing:'0.06em', textTransform:'uppercase' }}>
-          Order OTPs
+          {tr('otp_box_title')}
         </span>
         <button onClick={() => setShow(s => !s)}
           style={{ background:'none', border:'none', cursor:'pointer', color:'var(--clr-muted)', display:'flex', alignItems:'center', gap:'0.3rem', padding:'0.2rem 0.4rem', borderRadius:6, fontSize:'0.72rem' }}>
-          {show ? <><LuEyeOff size={13}/> Hide</> : <><LuEye size={13}/> Reveal</>}
+          {show ? <><LuEyeOff size={13}/> {tr('otp_hide')}</> : <><LuEye size={13}/> {tr('otp_reveal')}</>}
         </button>
       </div>
       {show ? (
         hasOtps ? (
           <>
-            <OtpRow label="Pickup OTP" otp={pickupOtp ?? undefined} onCopy={copy}/>
-            <OtpRow label="Delivery OTP" otp={deliveryOtp ?? undefined} onCopy={copy}/>
+            <OtpRow label={tr('otp_pickup_lbl')} otp={pickupOtp ?? undefined} onCopy={copy}/>
+            <OtpRow label={tr('otp_delivery_lbl')} otp={deliveryOtp ?? undefined} onCopy={copy}/>
             {copied && (
-              <p style={{ fontSize:'0.7rem', color:'#4ade80', marginTop:'0.4rem', textAlign:'right' }}>Copied ✓</p>
+              <p style={{ fontSize:'0.7rem', color:'#4ade80', marginTop:'0.4rem', textAlign:'right' }}>{tr('otp_copied')}</p>
             )}
           </>
         ) : (
           <div style={{ padding:'0.6rem 0.75rem', borderRadius:8, background:'rgba(251,191,36,0.08)', border:'1px solid rgba(251,191,36,0.2)', marginTop:'0.4rem' }}>
             <p style={{ fontSize:'0.75rem', color:'#fbbf24', margin:0, lineHeight:1.5 }}>
-              <b>OTPs not stored for this order.</b><br/>
-              They were displayed on the order confirmation screen when you placed the order. Check your email inbox for the order confirmation, or ask the driver to contact you directly to coordinate handover.
+              <b>{tr('otp_not_stored')}</b><br/>
+              {tr('otp_not_stored_desc')}
             </p>
           </div>
         )
       ) : (
         <p style={{ fontSize:'0.75rem', color:'var(--clr-muted)', margin:0 }}>
           {hasOtps
-            ? <>Click <b>Reveal</b> to show OTPs — share with driver at pickup &amp; delivery.</>
-            : <>Click <b>Reveal</b> to check OTP status for this order.</> }
+            ? <>{tr('otp_hint_has')}</>
+            : <>{tr('otp_hint_none')}</> }
         </p>
       )}
     </div>
@@ -986,6 +994,7 @@ function OtpRevealBox({ pickupOtp, deliveryOtp }: { pickupOtp?: string | null; d
 
 // ─── Order Detail Modal ───────────────────────────────────────────────────────
 function OrderDetailModal({ order, onClose, onCancelled }: { order: Order; onClose: () => void; onCancelled: () => void }) {
+  const { t: tr } = useLanguage()
   const isCrossBorder = !!order.is_cross_border
   const [tab, setTab] = useState<'info' | 'history' | 'chat' | 'track' | 'docs'>('info')
   const [chatChannel, _setChatChannel] = useState<'main' | 'shipper'>('shipper')
@@ -1107,7 +1116,7 @@ function OrderDetailModal({ order, onClose, onCancelled }: { order: Order; onClo
     setDocErr(''); setDocSuccess(''); setDocUploading(true)
     try {
       await orderApi.uploadCrossBorderDoc(order.id, { document_type: docType, file_base64: docFile, notes: docNotes || undefined })
-      setDocSuccess('Document uploaded successfully. Pending admin review.')
+      setDocSuccess(tr('odm_doc_success'))
       setDocFile(''); setDocNotes('')
       if (docInputRef.current) docInputRef.current.value = ''
       await loadCrossBorderDocs()
@@ -1119,13 +1128,13 @@ function OrderDetailModal({ order, onClose, onCancelled }: { order: Order; onClo
   }
 
   const handleCancel = async () => {
-    if (!window.confirm('Cancel this order?')) return
+    if (!window.confirm(tr('odm_cancel_confirm'))) return
     setCancelErr(''); setCancelling(true)
     try {
       await orderApi.cancelOrder(order.id)
       onCancelled()
       onClose()
-    } catch (e: any) { setCancelErr(e.response?.data?.message ?? 'Cannot cancel this order.') }
+    } catch (e: any) { setCancelErr(e.response?.data?.message ?? tr('odm_cancel_fail')) }
     finally { setCancelling(false) }
   }
 
@@ -1216,7 +1225,7 @@ function OrderDetailModal({ order, onClose, onCancelled }: { order: Order; onClo
             <div>
               <div style={{ display:'flex', alignItems:'center', gap:'0.5rem', flexWrap:'wrap' }}>
                 <h2 style={{ fontSize:'1rem', fontWeight:800, color:'var(--clr-text)' }}>{order.reference_code}</h2>
-                {statusBadge(order.status)}
+                <StatusBadge status={order.status}/>
               </div>
               <p style={{ fontSize:'0.75rem', color:'var(--clr-muted)', marginTop:'0.15rem' }}>{fmtDate(order.created_at)}</p>
             </div>
@@ -1229,9 +1238,9 @@ function OrderDetailModal({ order, onClose, onCancelled }: { order: Order; onClo
           <div style={{ display:'flex', gap:'0.25rem', background:'rgba(255,255,255,0.04)', borderRadius:10, padding:'0.25rem', marginBottom:'1rem' }}>
             {([...(isCrossBorder ? ['info','history','chat','track','docs'] as const : ['info','history','chat','track'] as const)]).map(t => (
               <button key={t} onClick={() => setTab(t)} style={{ flex:1, padding:'0.4rem 0.25rem', border:'none', borderRadius:8, background: tab === t ? 'rgba(0,229,255,0.12)' : 'transparent', color: tab === t ? 'var(--clr-accent)' : 'var(--clr-muted)', fontFamily:'inherit', fontSize:'0.72rem', fontWeight:700, cursor:'pointer', transition:'all 0.15s', outline: tab === t ? '1px solid rgba(0,229,255,0.2)' : 'none', textTransform:'capitalize', position:'relative' }}>
-                {t === 'history' ? 'Timeline' : t === 'chat' ? (
-                  <>{unreadChat && tab !== 'chat' && <span style={{ position:'absolute', top:2, right:2, width:7, height:7, borderRadius:'50%', background:'#f87171', boxShadow:'0 0 4px #f87171' }}/>}Chat</>
-                ) : t === 'track' ? 'Track' : t === 'docs' ? 'Docs' : 'Details'}
+                {t === 'history' ? tr('odm_tab_timeline') : t === 'chat' ? (
+                  <>{unreadChat && tab !== 'chat' && <span style={{ position:'absolute', top:2, right:2, width:7, height:7, borderRadius:'50%', background:'#f87171', boxShadow:'0 0 4px #f87171' }}/>}{tr('odm_tab_chat')}</>
+                ) : t === 'track' ? tr('odm_tab_track') : t === 'docs' ? tr('odm_tab_docs') : tr('odm_tab_details')}
               </button>
             ))}
           </div>
@@ -1246,7 +1255,7 @@ function OrderDetailModal({ order, onClose, onCancelled }: { order: Order; onClo
                 <div style={{ display:'flex', flexDirection:'column', gap:'0.55rem', fontSize:'0.8rem' }}>
                   {/* Cargo type row with icon */}
                   <div style={{ display:'flex', gap:'0.5rem' }}>
-                    <span style={{ color:'var(--clr-muted)', width:80, flexShrink:0 }}>Cargo Type</span>
+                    <span style={{ color:'var(--clr-muted)', width:80, flexShrink:0 }}>{tr('odm_cargo_type')}</span>
                     <span style={{ color:'var(--clr-text)', fontWeight:500, display:'flex', alignItems:'center', gap:'0.4rem' }}>
                       {order.cargo_type_icon_url
                         ? <img src={order.cargo_type_icon_url} alt="" style={{ width:16, height:16, borderRadius:3, objectFit:'cover' }}/>
@@ -1256,13 +1265,13 @@ function OrderDetailModal({ order, onClose, onCancelled }: { order: Order; onClo
                     </span>
                   </div>
                   {[
-                    ['Vehicle', order.vehicle_type_required],
-                    ['Weight', order.estimated_weight_kg != null ? `${order.estimated_weight_kg} kg` : '—'],
-                    ['Pickup', order.pickup_address],
-                    ['Delivery', order.delivery_address],
-                    ['Price', `${Number(order.final_price ?? order.estimated_price).toLocaleString()} ETB`],
-                    ...(order.description ? [['Note', order.description]] : []),
-                    ...(order.estimated_value ? [['Cargo Value', `${Number(order.estimated_value).toLocaleString()} ETB`]] : []),
+                    [tr('odm_vehicle'), order.vehicle_type_required],
+                    [tr('odm_weight'), order.estimated_weight_kg != null ? `${order.estimated_weight_kg} kg` : '—'],
+                    [tr('odm_pickup'), order.pickup_address],
+                    [tr('odm_delivery'), order.delivery_address],
+                    [tr('odm_price'), `${Number(order.final_price ?? order.estimated_price).toLocaleString()} ETB`],
+                    ...(order.description ? [[tr('odm_note'), order.description]] : []),
+                    ...(order.estimated_value ? [[tr('odm_cargo_value'), `${Number(order.estimated_value).toLocaleString()} ETB`]] : []),
                   ].map(([l, v]) => (
                     <div key={l} style={{ display:'flex', gap:'0.5rem' }}>
                       <span style={{ color:'var(--clr-muted)', width:80, flexShrink:0 }}>{l}</span>
@@ -1294,7 +1303,7 @@ function OrderDetailModal({ order, onClose, onCancelled }: { order: Order; onClo
               {deliveredOrCompleted && (
                 <button type="button" onClick={handleDownloadInvoice} disabled={invoiceDling}
                   style={{ display:'flex', alignItems:'center', gap:'0.5rem', padding:'0.7rem 1rem', borderRadius:10, border:'1px solid rgba(0,229,255,0.2)', background:'rgba(0,229,255,0.05)', color: invoiceDling ? 'var(--clr-muted)' : 'var(--clr-accent)', fontFamily:'inherit', fontSize:'0.82rem', fontWeight:700, cursor: invoiceDling ? 'wait' : 'pointer', width:'100%', justifyContent:'center' }}>
-                  {invoiceDling ? <><Spinner/> Generating…</> : <><LuFileText size={15}/> Download Invoice PDF</>}
+                  {invoiceDling ? <><Spinner/> {tr('odm_generating')}</> : <><LuFileText size={15}/> {tr('odm_download_inv')}</>}
                 </button>
               )}
 
@@ -1303,10 +1312,10 @@ function OrderDetailModal({ order, onClose, onCancelled }: { order: Order; onClo
                 <div className="glass-inner" style={{ padding:'0.9rem 1rem', display:'flex', flexDirection:'column', gap:'0.75rem' }}>
                   <div>
                     <p style={{ fontSize:'0.78rem', color:'var(--clr-muted)', marginBottom:'0.35rem', textTransform:'uppercase', letterSpacing:'0.05em', fontWeight:700 }}>
-                      Driver Rating (one time)
+                      {tr('odm_rating_title')}
                     </p>
                     {hasRated ? (
-                      <p style={{ fontSize:'0.8rem', color:'#4ade80', fontWeight:700 }}>You already rated this order.</p>
+                      <p style={{ fontSize:'0.8rem', color:'#4ade80', fontWeight:700 }}>{tr('odm_already_rated')}</p>
                     ) : (
                       <>
                         <div style={{ display:'flex', gap:'0.35rem', marginBottom:'0.55rem' }}>
@@ -1327,7 +1336,7 @@ function OrderDetailModal({ order, onClose, onCancelled }: { order: Order; onClo
                         <textarea
                           value={ratingComment}
                           onChange={(e) => setRatingComment(e.target.value)}
-                          placeholder="Optional comment about delivery"
+                          placeholder={tr('odm_rating_ph')}
                           style={{ width:'100%', minHeight:64, resize:'vertical', background:'rgba(255,255,255,0.04)', border:'1px solid rgba(255,255,255,0.1)', borderRadius:8, color:'var(--clr-text)', fontFamily:'inherit', fontSize:'0.78rem', padding:'0.55rem 0.65rem', outline:'none' }}
                         />
                         <button
@@ -1337,7 +1346,7 @@ function OrderDetailModal({ order, onClose, onCancelled }: { order: Order; onClo
                           style={{ marginTop:'0.5rem', padding:'0.5rem 0.8rem', border:'none', borderRadius:8, background:'rgba(251,191,36,0.16)', color:'#fbbf24', fontWeight:700, cursor: ratingBusy ? 'not-allowed' : 'pointer', fontSize:'0.78rem' }}
                           className="hover-lift"
                         >
-                          {ratingBusy ? 'Submitting...' : 'Submit Rating'}
+                          {ratingBusy ? tr('odm_submitting') : tr('odm_submit_rating')}
                         </button>
                       </>
                     )}
@@ -1345,7 +1354,7 @@ function OrderDetailModal({ order, onClose, onCancelled }: { order: Order; onClo
 
                   <div style={{ borderTop:'1px solid rgba(255,255,255,0.08)', paddingTop:'0.7rem' }}>
                     <p style={{ fontSize:'0.78rem', color:'var(--clr-muted)', marginBottom:'0.35rem', textTransform:'uppercase', letterSpacing:'0.05em', fontWeight:700 }}>
-                      Tip Driver (unlimited)
+                      {tr('odm_tip_title')}
                     </p>
                     <div style={{ display:'flex', gap:'0.4rem', flexWrap:'wrap', marginBottom:'0.5rem' }}>
                       {[50, 100, 200, 500].map((v) => (
@@ -1361,7 +1370,7 @@ function OrderDetailModal({ order, onClose, onCancelled }: { order: Order; onClo
                         min="1"
                         value={tipAmount}
                         onChange={(e) => setTipAmount(e.target.value)}
-                        placeholder="Tip amount"
+                        placeholder={tr('odm_tip_ph')}
                         style={{ flex:1, padding:'0.5rem 0.7rem', borderRadius:8, border:'1px solid rgba(255,255,255,0.1)', background:'rgba(255,255,255,0.04)', color:'var(--clr-text)', fontFamily:'inherit', fontSize:'0.8rem', outline:'none' }}
                       />
                       <button
@@ -1371,7 +1380,7 @@ function OrderDetailModal({ order, onClose, onCancelled }: { order: Order; onClo
                         style={{ padding:'0.5rem 0.8rem', border:'none', borderRadius:8, background:'linear-gradient(135deg,#7c3aed,#0ea5e9)', color:'#fff', fontWeight:700, cursor: tipBusy ? 'not-allowed' : 'pointer', fontSize:'0.78rem' }}
                         className="hover-lift"
                       >
-                        {tipBusy ? 'Adding...' : 'Add Tip'}
+                        {tipBusy ? tr('odm_adding') : tr('odm_add_tip')}
                       </button>
                     </div>
 
@@ -1397,7 +1406,7 @@ function OrderDetailModal({ order, onClose, onCancelled }: { order: Order; onClo
                   {cancelErr && <div className="alert alert-error" style={{ marginBottom:'0.5rem' }}><LuTriangleAlert size={13}/> {cancelErr}</div>}
                   <button onClick={handleCancel} disabled={cancelling}
                     style={{ width:'100%', padding:'0.65rem', borderRadius:10, border:'1px solid rgba(248,113,113,0.3)', background:'rgba(248,113,113,0.06)', color:'#f87171', fontFamily:'inherit', fontSize:'0.82rem', fontWeight:700, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:'0.4rem' }}>
-                    {cancelling ? <><Spinner/> Cancelling…</> : <><LuBan size={14}/> Cancel Order</>}
+                    {cancelling ? <><Spinner/> {tr('odm_cancelling')}</> : <><LuBan size={14}/> {tr('odm_cancel_order')}</>}
                   </button>
                 </div>
               )}
@@ -1408,7 +1417,7 @@ function OrderDetailModal({ order, onClose, onCancelled }: { order: Order; onClo
           {tab === 'history' && (
             <div style={{ display:'flex', flexDirection:'column', gap:'0' }}>
               {history.length === 0 ? (
-                <div style={{ textAlign:'center', color:'var(--clr-muted)', padding:'2rem', fontSize:'0.85rem' }}>No history yet.</div>
+                <div style={{ textAlign:'center', color:'var(--clr-muted)', padding:'2rem', fontSize:'0.85rem' }}>{tr('odm_no_history')}</div>
               ) : history.map((h, i) => (
                 <div key={h.id} style={{ display:'flex', gap:'0.75rem', paddingBottom:'1rem' }}>
                   <div style={{ display:'flex', flexDirection:'column', alignItems:'center', flexShrink:0, width:24 }}>
@@ -1417,7 +1426,7 @@ function OrderDetailModal({ order, onClose, onCancelled }: { order: Order; onClo
                   </div>
                   <div style={{ flex:1, minWidth:0 }}>
                     <div style={{ display:'flex', alignItems:'center', gap:'0.4rem', flexWrap:'wrap', marginBottom:'0.15rem' }}>
-                      {statusBadge(h.status)}
+                      <StatusBadge status={h.status}/>
                       <span style={{ fontSize:'0.72rem', color:'var(--clr-muted)' }}>{fmtDate(h.created_at)}</span>
                     </div>
                     {h.notes && <p style={{ fontSize:'0.76rem', color:'var(--clr-muted)', lineHeight:1.5 }}>{h.notes}</p>}
@@ -1434,12 +1443,12 @@ function OrderDetailModal({ order, onClose, onCancelled }: { order: Order; onClo
               <div style={{ display:'flex', gap:'0.4rem', marginBottom:'0.6rem', flexShrink:0 }}>
                 <button style={{ flex:1, padding:'0.35rem 0.5rem', borderRadius:8, border:'none', cursor:'default', fontFamily:'inherit', fontSize:'0.75rem', fontWeight:700,
                   background: 'var(--clr-accent)', color: '#000' }}>
-                  🛡️ Admin Chat
+                  🛡️ {tr('odm_admin_chat')}
                 </button>
               </div>
               <div style={{ flex:1, display:'flex', flexDirection:'column', gap:'0.6rem', minHeight:200, maxHeight:340, overflowY:'auto', padding:'0.25rem 0' }}>
                 {messages.length === 0 ? (
-                  <div style={{ textAlign:'center', color:'var(--clr-muted)', padding:'2rem', fontSize:'0.85rem' }}>No messages yet. Start the conversation!</div>
+                  <div style={{ textAlign:'center', color:'var(--clr-muted)', padding:'2rem', fontSize:'0.85rem' }}>{tr('odm_no_messages')}</div>
                 ) : messages.map(m => {
                   const role = m.sender_role ?? (m.sender_role_id === 1 ? 'Admin' : m.sender_role_id === 2 ? 'Shipper' : 'Driver')
                   const isMe = m.sender_role_id === 2
@@ -1461,7 +1470,7 @@ function OrderDetailModal({ order, onClose, onCancelled }: { order: Order; onClo
               {order.status !== 'DELIVERED' && order.status !== 'CANCELLED' && (
                 <div style={{ display:'flex', gap:'0.5rem', marginTop:'0.75rem', flexShrink:0 }}>
                   <input value={msgText} onChange={e => setMsgText(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend() } }}
-                    placeholder="Send a message…" style={{ flex:1, padding:'0.6rem 0.85rem', borderRadius:10, border:'1px solid rgba(255,255,255,0.1)', background:'rgba(255,255,255,0.04)', color:'var(--clr-text)', fontFamily:'inherit', fontSize:'0.85rem', outline:'none' }}/>
+                    placeholder={tr('odm_send_ph')} style={{ flex:1, padding:'0.6rem 0.85rem', borderRadius:10, border:'1px solid rgba(255,255,255,0.1)', background:'rgba(255,255,255,0.04)', color:'var(--clr-text)', fontFamily:'inherit', fontSize:'0.85rem', outline:'none' }}/>
                   <button onClick={handleSend} disabled={sending || !msgText.trim()}
                     style={{ padding:'0.6rem 0.85rem', borderRadius:10, border:'none', background:'var(--clr-accent)', color:'#080b14', cursor:'pointer', display:'flex', alignItems:'center', opacity: sending || !msgText.trim() ? 0.5 : 1 }}>
                     {sending ? <Spinner/> : <LuSend size={16}/>}
@@ -1475,12 +1484,12 @@ function OrderDetailModal({ order, onClose, onCancelled }: { order: Order; onClo
           {tab === 'docs' && isCrossBorder && (
             <div style={{ display:'flex', flexDirection:'column', gap:'0.85rem' }}>
               <div className="glass-inner" style={{ padding:'0.85rem 1rem', fontSize:'0.8rem' }}>
-                <p style={{ fontWeight:700, color:'var(--clr-text)', marginBottom:'0.45rem' }}>Border Info</p>
+                <p style={{ fontWeight:700, color:'var(--clr-text)', marginBottom:'0.45rem' }}>{tr('odm_border_info')}</p>
                 {[
-                  ['Border Ref', order.border_crossing_ref],
-                  ['Customs Ref', order.customs_declaration_ref],
-                  ['HS Code', order.hs_code],
-                  ['Shipper TIN', order.shipper_tin],
+                  [tr('odm_border_ref'), order.border_crossing_ref],
+                  [tr('odm_customs_ref'), order.customs_declaration_ref],
+                  [tr('odm_hs_code'), order.hs_code],
+                  [tr('odm_shipper_tin'), order.shipper_tin],
                 ].map(([l, v]) => (
                   <div key={String(l)} style={{ display:'flex', gap:'0.5rem', marginBottom:'0.25rem' }}>
                     <span style={{ color:'var(--clr-muted)', width:95, flexShrink:0 }}>{l}</span>
@@ -1490,7 +1499,7 @@ function OrderDetailModal({ order, onClose, onCancelled }: { order: Order; onClo
               </div>
 
               <div className="glass-inner" style={{ padding:'0.85rem 1rem' }}>
-                <p style={{ fontWeight:700, color:'var(--clr-text)', marginBottom:'0.5rem', fontSize:'0.85rem' }}>Upload Document</p>
+                <p style={{ fontWeight:700, color:'var(--clr-text)', marginBottom:'0.5rem', fontSize:'0.85rem' }}>{tr('odm_upload_doc')}</p>
                 {docErr && <div className="alert alert-error" style={{ marginBottom:'0.6rem', fontSize:'0.78rem' }}><LuTriangleAlert size={12}/> {docErr}</div>}
                 {docSuccess && <div className="alert alert-success" style={{ marginBottom:'0.6rem', fontSize:'0.78rem' }}><LuCircleCheck size={12}/> {docSuccess}</div>}
                 <div style={{ display:'flex', flexDirection:'column', gap:'0.5rem' }}>
@@ -1500,21 +1509,21 @@ function OrderDetailModal({ order, onClose, onCancelled }: { order: Order; onClo
                   </select>
                   <input ref={docInputRef} type="file" accept="image/*,application/pdf" onChange={handleDocFileChange}
                     style={{ padding:'0.4rem', borderRadius:8, border:'1px solid rgba(255,255,255,0.1)', background:'rgba(255,255,255,0.04)', color:'var(--clr-text)', fontSize:'0.78rem' }}/>
-                  <input value={docNotes} onChange={e => setDocNotes(e.target.value)} placeholder="Notes (optional)"
+                  <input value={docNotes} onChange={e => setDocNotes(e.target.value)} placeholder={tr('odm_notes_ph')}
                     style={{ padding:'0.5rem 0.75rem', borderRadius:8, border:'1px solid rgba(255,255,255,0.1)', background:'rgba(255,255,255,0.04)', color:'var(--clr-text)', fontFamily:'inherit', fontSize:'0.8rem', outline:'none' }}/>
                   <button onClick={handleUploadCrossBorderDoc} disabled={docUploading || !docFile}
                     style={{ padding:'0.6rem', borderRadius:10, border:'none', background: docFile ? 'var(--clr-accent)' : 'rgba(255,255,255,0.08)', color: docFile ? '#080b14' : 'var(--clr-muted)', fontFamily:'inherit', fontSize:'0.82rem', fontWeight:700, cursor: docFile ? 'pointer' : 'not-allowed', display:'flex', alignItems:'center', justifyContent:'center', gap:'0.4rem' }}>
-                    {docUploading ? <Spinner/> : <><LuUpload size={14}/> Upload</>}
+                    {docUploading ? <Spinner/> : <><LuUpload size={14}/> {tr('odm_upload_btn')}</>}
                   </button>
                 </div>
               </div>
 
               <div className="glass-inner" style={{ padding:'0.85rem 1rem' }}>
-                <p style={{ fontWeight:700, color:'var(--clr-text)', marginBottom:'0.5rem', fontSize:'0.85rem' }}>Uploaded Documents</p>
+                <p style={{ fontWeight:700, color:'var(--clr-text)', marginBottom:'0.5rem', fontSize:'0.85rem' }}>{tr('odm_uploaded_docs')}</p>
                 {docsLoading ? (
-                  <div style={{ display:'flex', alignItems:'center', gap:'0.5rem', padding:'0.75rem 0', color:'var(--clr-muted)', fontSize:'0.8rem' }}><Spinner/> Loading…</div>
+                  <div style={{ display:'flex', alignItems:'center', gap:'0.5rem', padding:'0.75rem 0', color:'var(--clr-muted)', fontSize:'0.8rem' }}><Spinner/> {tr('ship_loading')}</div>
                 ) : cbDocs.length === 0 ? (
-                  <p style={{ fontSize:'0.78rem', color:'var(--clr-muted)', padding:'0.5rem 0' }}>No documents uploaded yet.</p>
+                  <p style={{ fontSize:'0.78rem', color:'var(--clr-muted)', padding:'0.5rem 0' }}>{tr('odm_no_docs')}</p>
                 ) : (
                   <div style={{ display:'flex', flexDirection:'column', gap:'0.75rem' }}>
                     {cbDocs.map(doc => {
@@ -1531,7 +1540,7 @@ function OrderDetailModal({ order, onClose, onCancelled }: { order: Order; onClo
                               {DOC_TYPE_OPTIONS.find(d => d.value === doc.document_type)?.label ?? doc.document_type?.replace(/_/g,' ')}
                             </span>
                             <span style={{ fontSize:'0.7rem', fontWeight:700, color: statusColor, background: statusBg, border:`1px solid ${borderColor}`, borderRadius:99, padding:'0.15rem 0.55rem', letterSpacing:'0.04em', textTransform:'uppercase', whiteSpace:'nowrap' }}>
-                              {doc.status === 'PENDING_REVIEW' ? '⏳ Pending' : doc.status === 'APPROVED' ? '✓ Approved' : '✗ Rejected'}
+                              {doc.status === 'PENDING_REVIEW' ? tr('odm_doc_pending') : doc.status === 'APPROVED' ? tr('odm_doc_approved') : tr('odm_doc_rejected')}
                             </span>
                           </div>
 
@@ -1546,20 +1555,20 @@ function OrderDetailModal({ order, onClose, onCancelled }: { order: Order; onClo
                           {/* View link */}
                           <a href={fileHref} target="_blank" rel="noreferrer"
                             style={{ fontSize:'0.74rem', color:'var(--clr-accent)', display:'inline-flex', alignItems:'center', gap:'0.25rem', width:'fit-content' }}>
-                            <LuFileText size={12}/> View document ↗
+                            <LuFileText size={12}/> {tr('odm_view_doc')}
                           </a>
 
                           {/* Review result for APPROVED */}
                           {doc.status === 'APPROVED' && doc.review_notes && (
                             <div style={{ marginTop:'0.2rem', padding:'0.4rem 0.6rem', borderRadius:8, background:'rgba(16,185,129,0.08)', border:'1px solid rgba(16,185,129,0.2)', fontSize:'0.73rem', color:'#10b981' }}>
-                              <b>Review note:</b> {doc.review_notes}
+                              <b>{tr('odm_review_note')}</b> {doc.review_notes}
                             </div>
                           )}
 
                           {/* Review result for REJECTED */}
                           {doc.status === 'REJECTED' && (
                             <div style={{ marginTop:'0.2rem', padding:'0.4rem 0.6rem', borderRadius:8, background:'rgba(248,113,113,0.08)', border:'1px solid rgba(248,113,113,0.2)', fontSize:'0.73rem', color:'#f87171' }}>
-                              <b>Reason:</b> {doc.review_notes || 'No reason provided.'}
+                              <b>{tr('odm_reject_reason')}</b> {doc.review_notes || tr('odm_no_reason')}
                             </div>
                           )}
 
@@ -1571,25 +1580,25 @@ function OrderDetailModal({ order, onClose, onCancelled }: { order: Order; onClo
                               e.stopPropagation()
                               setDocErr(''); setDocSuccess('')
                               try {
-                                await orderApi.shipperReviewCrossBorderDoc(order.id, docId, { action: 'APPROVED', review_notes: note })
-                                setDocSuccess('Document approved ✓')
+                                  await orderApi.shipperReviewCrossBorderDoc(order.id, docId, { action: 'APPROVED', review_notes: note })
+                                setDocSuccess(tr('odm_approve_ok'))
                                 await loadCrossBorderDocs()
-                              } catch { setDocErr('Failed to approve. Please try again.') }
+                              } catch { setDocErr(tr('odm_approve_fail')) }
                             }
                             const doReject = async (e: React.MouseEvent) => {
                               e.stopPropagation()
-                              if (!note.trim()) { setDocErr('Please enter a reason before rejecting.'); return }
+                              if (!note.trim()) { setDocErr(tr('odm_reject_req')); return }
                               setDocErr(''); setDocSuccess('')
                               try {
                                 await orderApi.shipperReviewCrossBorderDoc(order.id, docId, { action: 'REJECTED', review_notes: note })
                                 setDocSuccess('Document rejected.')
                                 await loadCrossBorderDocs()
-                              } catch { setDocErr('Failed to reject. Please try again.') }
+                              } catch { setDocErr(tr('odm_reject_fail')) }
                             }
                             return (
                               <div style={{ marginTop:'0.5rem', display:'flex', flexDirection:'column', gap:'0.5rem' }}>
                                 <input
-                                  placeholder="Review notes (optional for approve, required for reject)"
+                                  placeholder={tr('odm_review_ph')}
                                   value={note}
                                   onChange={e => setReviewNotes(prev => ({ ...prev, [docId]: e.target.value }))}
                                   style={{ width:'100%', boxSizing:'border-box', padding:'0.5rem 0.7rem', borderRadius:8, border:'1px solid rgba(255,255,255,0.12)', background:'rgba(255,255,255,0.04)', color:'var(--clr-text)', fontFamily:'inherit', fontSize:'0.8rem', outline:'none' }}
@@ -1599,13 +1608,13 @@ function OrderDetailModal({ order, onClose, onCancelled }: { order: Order; onClo
                                     type="button"
                                     onClick={doApprove}
                                     style={{ flex:1, padding:'0.55rem 0.5rem', borderRadius:9, border:'none', background:'linear-gradient(135deg,#059669,#10b981)', color:'#fff', fontFamily:'inherit', fontSize:'0.82rem', fontWeight:700, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:'0.35rem', boxShadow:'0 2px 8px rgba(16,185,129,0.3)' }}>
-                                    <LuCircleCheck size={14}/> Approve
+                                    <LuCircleCheck size={14}/> {tr('odm_approve')}
                                   </button>
                                   <button
                                     type="button"
                                     onClick={doReject}
                                     style={{ flex:1, padding:'0.55rem 0.5rem', borderRadius:9, border:'1px solid rgba(248,113,113,0.5)', background:'rgba(248,113,113,0.08)', color:'#f87171', fontFamily:'inherit', fontSize:'0.82rem', fontWeight:700, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:'0.35rem' }}>
-                                    <LuBan size={14}/> Reject
+                                    <LuBan size={14}/> {tr('odm_reject')}
                                   </button>
                                 </div>
                               </div>
@@ -1634,6 +1643,7 @@ function OrderDetailModal({ order, onClose, onCancelled }: { order: Order; onClo
 type PageTab = 'orders' | 'place'
 
 export default function ShipperOrdersPage() {
+  const { t: tr } = useLanguage()
   const [pageTab, setPageTab] = useState<PageTab>('orders')
   const [orders, setOrders] = useState<Order[]>([])
   const [cargoTypes, setCargoTypes] = useState<CargoType[]>([])
@@ -1690,21 +1700,21 @@ export default function ShipperOrdersPage() {
           <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', gap:'0.75rem', flexWrap:'wrap' }}>
             <div>
               <h2 style={{ fontSize:'1.05rem', fontWeight:800, color:'var(--clr-text)', display:'flex', alignItems:'center', gap:'0.45rem' }}>
-                <LuPackage size={18}/> My Shipments
+                <LuPackage size={18}/> {tr('ship_my_shipments')}
               </h2>
               <p style={{ fontSize:'0.78rem', color:'var(--clr-muted)', marginTop:'0.15rem' }}>
-                {total} total order{total !== 1 ? 's' : ''}
+                {total} {total !== 1 ? tr('ship_total_ordersp') : tr('ship_total_orders')}
               </p>
             </div>
             <div style={{ display:'flex', gap:'0.4rem' }}>
               <button onClick={() => loadOrders(page, statusFilter)} disabled={loading}
                 style={{ display:'flex', alignItems:'center', gap:'0.35rem', padding:'0.35rem 0.7rem', borderRadius:8, border:'1px solid rgba(255,255,255,0.1)', background:'rgba(255,255,255,0.04)', color:'var(--clr-muted)', fontFamily:'inherit', fontSize:'0.75rem', fontWeight:600, cursor:'pointer' }}>
-                <LuRefreshCw size={13}/> Refresh
+                <LuRefreshCw size={13}/> {tr('ship_refresh')}
               </button>
               <button
                 onClick={() => setShowWizard(true)}
                 style={{ display:'flex', alignItems:'center', gap:'0.4rem', padding:'0.4rem 0.9rem', borderRadius:8, border:'none', background:'var(--clr-accent)', color:'#080b14', fontFamily:'inherit', fontSize:'0.8rem', fontWeight:700, cursor:'pointer' }}>
-                <LuPlus size={15}/> New Order
+                <LuPlus size={15}/> {tr('ship_new_order')}
               </button>
             </div>
           </div>
@@ -1713,7 +1723,7 @@ export default function ShipperOrdersPage() {
           <div style={{ display:'flex', gap:'0.25rem', background:'rgba(255,255,255,0.04)', borderRadius:10, padding:'0.25rem', marginTop:'1rem' }}>
             {(['orders','place'] as PageTab[]).map(t => (
               <button key={t} onClick={() => { setPageTab(t); if (t === 'place') setShowWizard(true) }} style={{ flex:1, padding:'0.45rem', border:'none', borderRadius:8, background: pageTab === t ? 'rgba(0,229,255,0.12)' : 'transparent', color: pageTab === t ? 'var(--clr-accent)' : 'var(--clr-muted)', fontFamily:'inherit', fontSize:'0.78rem', fontWeight:700, cursor:'pointer', transition:'all 0.15s', outline: pageTab === t ? '1px solid rgba(0,229,255,0.2)' : 'none' }}>
-                {t === 'orders' ? 'My Orders' : '+ Place New Order'}
+                {t === 'orders' ? tr('ship_my_orders') : tr('ship_place_new')}
               </button>
             ))}
           </div>
@@ -1724,13 +1734,13 @@ export default function ShipperOrdersPage() {
           <div className="glass" style={{ padding:'0.85rem 1.1rem', display:'flex', gap:'0.65rem', flexWrap:'wrap', alignItems:'center' }}>
             <div style={{ flex:1, minWidth:160, display:'flex', alignItems:'center', gap:'0.5rem', background:'rgba(255,255,255,0.04)', borderRadius:8, padding:'0.45rem 0.75rem' }}>
               <LuSearch size={14} style={{ color:'var(--clr-muted)', flexShrink:0 }}/>
-              <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search orders…"
+              <input value={search} onChange={e => setSearch(e.target.value)} placeholder={tr('ship_search_ph')}
                 style={{ background:'none', border:'none', color:'var(--clr-text)', fontFamily:'inherit', fontSize:'0.82rem', outline:'none', width:'100%' }}/>
               {search && <button onClick={() => setSearch('')} style={{ background:'none', border:'none', cursor:'pointer', color:'var(--clr-muted)', padding:0, display:'flex', alignItems:'center' }}><LuX size={13}/></button>}
             </div>
             <select value={statusFilter} onChange={e => { setStatusFilter(e.target.value); setPage(1) }}
               style={{ padding:'0.45rem 0.65rem', borderRadius:8, border:'1px solid rgba(255,255,255,0.1)', background:'rgba(255,255,255,0.04)', color:'var(--clr-text)', fontFamily:'inherit', fontSize:'0.8rem', outline:'none' }}>
-              {STATUSES.map(s => <option key={s} value={s} style={{ background:'#0f172a' }}>{s || 'All Statuses'}</option>)}
+              {STATUSES.map(s => <option key={s} value={s} style={{ background:'#0f172a' }}>{s || tr('ship_all_statuses')}</option>)}
             </select>
           </div>
         )}
@@ -1740,19 +1750,19 @@ export default function ShipperOrdersPage() {
           <div style={{ display:'grid', gap:'1rem', gridTemplateColumns:'repeat(auto-fill, minmax(320px, 1fr))' }}>
             {loading ? (
               <div style={{ display:'flex', justifyContent:'center', padding:'2.5rem', color:'var(--clr-muted)', gap:'0.65rem', alignItems:'center' }}>
-                <Spinner/> Loading orders…
+                <Spinner/> {tr('ship_loading')}
               </div>
             ) : visible.length === 0 ? (
               <div style={{ textAlign:'center', padding:'3rem 1rem', color:'var(--clr-muted)', fontSize:'0.875rem' }}>
                 <LuPackage size={36} style={{ opacity:0.25, display:'block', margin:'0 auto 1rem' }}/>
-                {statusFilter || search ? 'No orders match your filter.' : 'No orders yet. Place your first shipment!'}
+                {statusFilter || search ? tr('ship_no_match') : tr('ship_no_orders')}
               </div>
             ) : visible.map((order) => (
               <div key={order.id} className="glass-inner" onClick={e => { if ((e.target as HTMLElement).closest('button')) return; setSelectedOrder(order); }} style={{ padding:'0.9rem 1rem', cursor:'pointer', transition:'background 0.15s', display:'flex', flexDirection:'column', justifyContent:'space-between' }} onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.04)')} onMouseLeave={e => (e.currentTarget.style.background = '')}>
                 <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', gap:'0.5rem', marginBottom:'0.5rem' }}>
                   <div style={{ display:'flex', alignItems:'center', gap:'0.5rem', flexWrap:'wrap' }}>
                     <span style={{ fontWeight:800, fontSize:'0.88rem', color:'var(--clr-text)' }}>{order.reference_code}</span>
-                    {statusBadge(order.status)}
+                    <StatusBadge status={order.status}/>
                     {(unreadCounts[order.id] ?? 0) > 0 && (
                       <span style={{ display:'flex', alignItems:'center', gap:'0.25rem', fontSize:'0.68rem', fontWeight:700, color:'#fff', background:'#ef4444', borderRadius:99, padding:'0.12rem 0.45rem', lineHeight:1 }}>
                         <LuMessageSquare size={10}/> {unreadCounts[order.id]}
@@ -1778,7 +1788,7 @@ export default function ShipperOrdersPage() {
 
                 <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-end', gap:'0.5rem' }}>
                   <div style={{ display:'flex', flexDirection:'column', gap:'0.2rem' }}>
-                    {order.driver_first_name && <p style={{ fontSize:'0.73rem', color:'var(--clr-muted)', display:'flex', gap:'0.25rem' }}><span style={{color:'var(--clr-text)'}}>Driver:</span> {order.driver_first_name} {order.driver_last_name}</p>}
+                    {order.driver_first_name && <p style={{ fontSize:'0.73rem', color:'var(--clr-muted)', display:'flex', gap:'0.25rem' }}><span style={{color:'var(--clr-text)'}}>{tr('ship_driver_label')}</span> {order.driver_first_name} {order.driver_last_name}</p>}
                     {(order.cargo_type_name || order.vehicle_type_required) && (
                       <p style={{ fontSize:'0.73rem', color:'var(--clr-muted)', display:'flex', gap:'0.4rem', marginTop:'0.2rem', alignItems: 'center' }}>
                         {(order.cargo_type_icon_url || order.cargo_type_icon) && (
@@ -1809,7 +1819,7 @@ export default function ShipperOrdersPage() {
                   style={{ padding:'0.3rem 0.6rem', borderRadius:7, border:'1px solid rgba(255,255,255,0.1)', background:'rgba(255,255,255,0.04)', color:'var(--clr-muted)', cursor:'pointer', display:'flex', alignItems:'center', opacity: page === 1 ? 0.4 : 1 }}>
                   <LuChevronLeft size={14}/>
                 </button>
-                <span style={{ fontSize:'0.78rem', color:'var(--clr-muted)' }}>Page {page} of {totalPages}</span>
+                <span style={{ fontSize:'0.78rem', color:'var(--clr-muted)' }}>{tr('ship_page_of')} {page} {tr('ship_of')} {totalPages}</span>
                 <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}
                   style={{ padding:'0.3rem 0.6rem', borderRadius:7, border:'1px solid rgba(255,255,255,0.1)', background:'rgba(255,255,255,0.04)', color:'var(--clr-muted)', cursor:'pointer', display:'flex', alignItems:'center', opacity: page === totalPages ? 0.4 : 1 }}>
                   <LuChevronRight size={14}/>
@@ -1826,7 +1836,7 @@ export default function ShipperOrdersPage() {
           <div className="glass modal-box" style={{ padding:'1.5rem', maxWidth:480, width:'100%', maxHeight:'90vh', overflowY:'auto' }}>
             <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'1.25rem' }}>
               <h2 style={{ fontSize:'1rem', fontWeight:800, color:'var(--clr-text)', display:'flex', alignItems:'center', gap:'0.45rem' }}>
-                <LuPackage size={17}/> Place New Order
+                <LuPackage size={17}/> {tr('ship_place_title')}
               </h2>
               <button onClick={() => setShowWizard(false)} style={{ background:'none', border:'none', cursor:'pointer', color:'var(--clr-muted)', padding:0, display:'flex', alignItems:'center' }}>
                 <LuX size={18}/>

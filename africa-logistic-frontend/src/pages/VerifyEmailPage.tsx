@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useSearchParams, useNavigate } from 'react-router-dom'
 import { authApi } from '../lib/apiClient'
+import { useLanguage } from '../context/LanguageContext'
 import { LuLoader, LuMailCheck, LuMailX, LuArrowRight } from 'react-icons/lu'
 
 type Status = 'loading' | 'success' | 'error'
@@ -8,6 +9,7 @@ type Status = 'loading' | 'success' | 'error'
 export default function VerifyEmailPage() {
   const [params]   = useSearchParams()
   const navigate   = useNavigate()
+  const { t: tr }  = useLanguage()
   const [status, setStatus]   = useState<Status>('loading')
   const [message, setMessage] = useState('')
 
@@ -40,9 +42,9 @@ export default function VerifyEmailPage() {
                 <LuLoader size={48} color="var(--clr-accent)" strokeWidth={1.5} style={{animation:'spin 1s linear infinite'}}/>
               </div>
               <h1 style={{ fontSize: '1.2rem', fontWeight: 700, color: 'var(--clr-text)', marginBottom: '0.5rem' }}>
-                Verifying…
+                {tr('ve_verifying')}
               </h1>
-              <p style={{ color: 'var(--clr-muted)', fontSize: '0.9rem' }}>Please wait while we verify your email.</p>
+              <p style={{ color: 'var(--clr-muted)', fontSize: '0.9rem' }}>{tr('ve_please_wait')}</p>
             </>
           )}
 
@@ -52,11 +54,11 @@ export default function VerifyEmailPage() {
                 <LuMailCheck size={52} color="#4ade80" strokeWidth={1.5} />
               </div>
               <h1 style={{ fontSize: '1.3rem', fontWeight: 800, color: 'var(--clr-text)', marginBottom: '0.5rem' }}>
-                Email Verified!
+                {tr('ve_success_title')}
               </h1>
               <p style={{ color: 'var(--clr-muted)', fontSize: '0.9rem', marginBottom: '1.75rem' }}>{message}</p>
               <button className="btn-primary" onClick={() => navigate('/dashboard')} style={{display:'flex',alignItems:'center',justifyContent:'center',gap:'0.5rem'}}>
-                Go to Dashboard <LuArrowRight size={16}/>
+                {tr('ve_go_dashboard')} <LuArrowRight size={16}/>
               </button>
             </>
           )}
@@ -67,15 +69,15 @@ export default function VerifyEmailPage() {
                 <LuMailX size={52} color="#fca5a5" strokeWidth={1.5} />
               </div>
               <h1 style={{ fontSize: '1.3rem', fontWeight: 800, color: '#fca5a5', marginBottom: '0.5rem' }}>
-                Verification Failed
+                {tr('ve_fail_title')}
               </h1>
               <p style={{ color: 'var(--clr-muted)', fontSize: '0.9rem', marginBottom: '1.75rem' }}>{message}</p>
               <div style={{ display: 'flex', gap: '0.75rem' }}>
                 <button className="btn-outline" style={{ flex: 1 }} onClick={() => navigate('/login')}>
-                  Back to Login
+                  {tr('ve_back_login')}
                 </button>
                 <button className="btn-primary" style={{ flex: 1 }} onClick={() => navigate('/dashboard')}>
-                  Dashboard
+                  {tr('ve_dashboard')}
                 </button>
               </div>
             </>

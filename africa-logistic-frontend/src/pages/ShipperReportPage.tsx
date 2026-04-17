@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useLanguage } from '../context/LanguageContext'
 import logoImg from '../assets/logo.webp'
 import { orderApi } from '../lib/apiClient'
 import {
@@ -128,6 +129,7 @@ function pill(label: string, color: string) {
 }
 
 export default function ShipperReportPage() {
+  const { t: tr } = useLanguage()
   const today = new Date()
   const defaultTo = today.toISOString().slice(0, 10)
   const defaultFrom = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
@@ -145,7 +147,7 @@ export default function ShipperReportPage() {
       const { data } = await orderApi.getReport({ from: f, to: t })
       setReport(data.report)
     } catch {
-      setError('Failed to load your shipper report. Please try again.')
+      setError(tr('srpt_error'))
     } finally {
       setLoading(false)
     }
@@ -193,7 +195,7 @@ export default function ShipperReportPage() {
           <LuCalendar size={14} style={{ color: 'var(--clr-muted)', flexShrink: 0 }} />
           {(['From', 'To'] as const).map((label, index) => (
             <div key={label} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-              <label style={{ fontSize: '0.72rem', color: 'var(--clr-muted)', fontWeight: 600 }}>{label}</label>
+              <label style={{ fontSize: '0.72rem', color: 'var(--clr-muted)', fontWeight: 600 }}>{index === 0 ? tr('rpt_from') : tr('rpt_to')}</label>
               <input
                 type="date"
                 value={index === 0 ? from : to}
@@ -223,7 +225,7 @@ export default function ShipperReportPage() {
             disabled={loading}
             style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', padding: '0.38rem 0.85rem', borderRadius: 9, border: '1px solid rgba(255,255,255,0.12)', background: 'rgba(255,255,255,0.06)', color: 'var(--clr-text)', fontSize: '0.78rem', fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}
           >
-            <LuRefreshCw size={13} style={{ animation: loading ? 'spin 1s linear infinite' : 'none' }} /> Apply
+            <LuRefreshCw size={13} style={{ animation: loading ? 'spin 1s linear infinite' : 'none' }} /> {tr('rpt_apply')}
           </button>
         </div>
 
@@ -235,7 +237,7 @@ export default function ShipperReportPage() {
 
         {loading && !report && (
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '4rem', gap: '0.7rem', color: 'var(--clr-muted)' }}>
-            <LuRefreshCw size={18} style={{ animation: 'spin 1s linear infinite', color: 'var(--clr-accent)' }} /> Loading shipper report…
+            <LuRefreshCw size={18} style={{ animation: 'spin 1s linear infinite', color: 'var(--clr-accent)' }} /> {tr('srpt_loading')}
           </div>
         )}
 
@@ -245,33 +247,33 @@ export default function ShipperReportPage() {
               <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', minWidth: 0 }}>
                 <img src={logoImg} alt="Africa Logistics" style={{ height: 46, width: 'auto', objectFit: 'contain', borderRadius: 8 }} />
                 <div style={{ minWidth: 0 }}>
-                  <p style={{ margin: 0, fontWeight: 800, fontSize: '1rem', color: 'var(--clr-text)' }}>Shipper General Report</p>
+                  <p style={{ margin: 0, fontWeight: 800, fontSize: '1rem', color: 'var(--clr-text)' }}>{tr('srpt_general')}</p>
                   <p style={{ margin: '0.15rem 0 0', fontSize: '0.78rem', color: 'var(--clr-muted)' }}>{report.shipper.name || `${report.shipper.first_name} ${report.shipper.last_name}`.trim()}</p>
                   <div style={{ marginTop: '0.45rem', display: 'flex', flexWrap: 'wrap', gap: '0.45rem' }}>
-                    {pill(`${fmt(summary.total_orders)} total orders`, '#60a5fa')}
-                    {pill(`${fmt(summary.completed_orders)} completed`, '#4ade80')}
-                    {pill(`${fmt(summary.active_orders)} active`, '#fbbf24')}
+                    {pill(`${fmt(summary.total_orders)} ${tr('srpt_pill_total')}`, '#60a5fa')}
+                    {pill(`${fmt(summary.completed_orders)} ${tr('srpt_pill_completed')}`, '#4ade80')}
+                    {pill(`${fmt(summary.active_orders)} ${tr('srpt_pill_active')}`, '#fbbf24')}
                   </div>
                 </div>
               </div>
               <div style={{ textAlign: 'right', minWidth: 220 }}>
-                <p style={{ margin: 0, fontSize: '0.72rem', color: 'var(--clr-muted)' }}>Report Period</p>
+                <p style={{ margin: 0, fontSize: '0.72rem', color: 'var(--clr-muted)' }}>{tr('rpt_period')}</p>
                 <p style={{ margin: 0, fontWeight: 700, fontSize: '0.84rem', color: 'var(--clr-text)' }}>{fmtDateFull(report.date_range.from)} — {fmtDateFull(report.date_range.to)}</p>
-                <p style={{ margin: '0.2rem 0 0', fontSize: '0.7rem', color: 'var(--clr-muted)' }}>Generated: {fmtDateTime(report.generated_at)}</p>
+                <p style={{ margin: '0.2rem 0 0', fontSize: '0.7rem', color: 'var(--clr-muted)' }}>{tr('rpt_generated')} {fmtDateTime(report.generated_at)}</p>
               </div>
             </div>
 
             <div className="shipper-report-kpis">
-              <KpiCard label="Total Orders" value={fmt(summary.total_orders)} sub={`${fmt(summary.completed_orders)} completed`} icon={<LuTruck size={18} />} />
-              <KpiCard label="Active Orders" value={fmt(summary.active_orders)} sub={`${fmt(summary.cancelled_orders)} cancelled`} icon={<LuClock size={18} />} accent="#fbbf24" />
-              <KpiCard label="Total Spend" value={fmtCurrency(summary.total_spent)} sub={`${fmtCurrency(summary.avg_order_value)} avg order`} icon={<LuWallet size={18} />} accent="#4ade80" />
-              <KpiCard label="Distance" value={`${fmt(summary.total_distance_km)} km`} sub={`${summary.avg_delivery_hours.toFixed(1)}h avg delivery`} icon={<LuRoute size={18} />} accent="#34d399" />
-              <KpiCard label="Payments" value={`${fmt(summary.paid_orders)} paid`} sub={`${fmt(summary.unpaid_orders)} pending`} icon={<LuDollarSign size={18} />} accent="#a78bfa" />
-              <KpiCard label="Cross-Border" value={fmt(summary.cross_border_orders)} sub={`${report.feedback.ratings_given} ratings given`} icon={<LuGlobe size={18} />} accent="#60a5fa" />
+              <KpiCard label={tr('srpt_kpi_total_orders')} value={fmt(summary.total_orders)} sub={`${fmt(summary.completed_orders)} ${tr('srpt_sub_completed')}`} icon={<LuTruck size={18} />} />
+              <KpiCard label={tr('srpt_kpi_active')} value={fmt(summary.active_orders)} sub={`${fmt(summary.cancelled_orders)} ${tr('srpt_sub_cancelled')}`} icon={<LuClock size={18} />} accent="#fbbf24" />
+              <KpiCard label={tr('srpt_kpi_spend')} value={fmtCurrency(summary.total_spent)} sub={`${fmtCurrency(summary.avg_order_value)} ${tr('srpt_sub_avg_order')}`} icon={<LuWallet size={18} />} accent="#4ade80" />
+              <KpiCard label={tr('srpt_kpi_distance')} value={`${fmt(summary.total_distance_km)} km`} sub={`${summary.avg_delivery_hours.toFixed(1)}${tr('srpt_sub_avg_delivery')}`} icon={<LuRoute size={18} />} accent="#34d399" />
+              <KpiCard label={tr('srpt_kpi_payments')} value={`${fmt(summary.paid_orders)} ${tr('srpt_sub_paid')}`} sub={`${fmt(summary.unpaid_orders)} ${tr('srpt_sub_pending')}`} icon={<LuDollarSign size={18} />} accent="#a78bfa" />
+              <KpiCard label={tr('srpt_kpi_cross_border')} value={fmt(summary.cross_border_orders)} sub={`${report.feedback.ratings_given} ${tr('srpt_sub_ratings')}`} icon={<LuGlobe size={18} />} accent="#60a5fa" />
             </div>
 
             <div className="shipper-report-grid-2">
-              <ChartCard title="Daily Orders & Spending" height={290}>
+              <ChartCard title={tr('srpt_chart_daily')} height={290}>
                 <ResponsiveContainer width="100%" height="100%">
                   <AreaChart data={report.daily} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
                     <defs>
@@ -290,14 +292,14 @@ export default function ShipperReportPage() {
                     <YAxis yAxisId="right" orientation="right" tick={{ fill: '#9ca3af', fontSize: 10 }} tickLine={false} axisLine={false} tickFormatter={(value) => `${(Number(value) / 1000).toFixed(0)}k`} />
                     <Tooltip content={<CustomTooltip />} />
                     <Legend wrapperStyle={{ fontSize: '0.72rem' }} />
-                    <Area yAxisId="left" type="monotone" dataKey="orders" name="Orders" stroke="#00e5ff" fill="url(#shipOrders)" strokeWidth={2} dot={false} />
-                    <Area yAxisId="left" type="monotone" dataKey="completed" name="Completed" stroke="#fbbf24" fillOpacity={0} strokeWidth={2} dot={false} />
-                    <Area yAxisId="right" type="monotone" dataKey="spent" name="Spent" stroke="#4ade80" fill="url(#shipSpend)" strokeWidth={2} dot={false} />
+                    <Area yAxisId="left" type="monotone" dataKey="orders" name={tr('srpt_legend_orders')} stroke="#00e5ff" fill="url(#shipOrders)" strokeWidth={2} dot={false} />
+                    <Area yAxisId="left" type="monotone" dataKey="completed" name={tr('srpt_legend_completed')} stroke="#fbbf24" fillOpacity={0} strokeWidth={2} dot={false} />
+                    <Area yAxisId="right" type="monotone" dataKey="spent" name={tr('srpt_legend_spent')} stroke="#4ade80" fill="url(#shipSpend)" strokeWidth={2} dot={false} />
                   </AreaChart>
                 </ResponsiveContainer>
               </ChartCard>
 
-              <ChartCard title="Order Status Breakdown" height={290}>
+              <ChartCard title={tr('srpt_chart_status')} height={290}>
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
                     <Pie data={statusData} cx="42%" cy="50%" innerRadius={55} outerRadius={92} paddingAngle={2} dataKey="value">
@@ -311,7 +313,7 @@ export default function ShipperReportPage() {
             </div>
 
             <div className="shipper-report-grid-even">
-              <ChartCard title="Orders by Vehicle Type" height={250}>
+              <ChartCard title={tr('srpt_chart_vehicle')} height={250}>
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={report.by_vehicle} layout="vertical" margin={{ top: 5, right: 30, left: 0, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" horizontal={false} />
@@ -319,13 +321,13 @@ export default function ShipperReportPage() {
                     <YAxis type="category" dataKey="vehicle_type" tick={{ fill: '#9ca3af', fontSize: 10 }} tickLine={false} axisLine={false} width={85} />
                     <Tooltip formatter={(value: any, name: any) => [name === 'spent' ? fmtCurrency(Number(value)) : fmt(Number(value)), name]} contentStyle={{ background: '#171b28', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 10, fontSize: '0.74rem' }} />
                     <Legend wrapperStyle={{ fontSize: '0.72rem' }} />
-                    <Bar dataKey="orders" name="Orders" radius={[0, 4, 4, 0]} maxBarSize={16} fill="#60a5fa" />
-                    <Bar dataKey="spent" name="Spent" radius={[0, 4, 4, 0]} maxBarSize={16} fill="#4ade80" />
+                    <Bar dataKey="orders" name={tr('srpt_legend_orders')} radius={[0, 4, 4, 0]} maxBarSize={16} fill="#60a5fa" />
+                    <Bar dataKey="spent" name={tr('srpt_legend_spent')} radius={[0, 4, 4, 0]} maxBarSize={16} fill="#4ade80" />
                   </BarChart>
                 </ResponsiveContainer>
               </ChartCard>
 
-              <ChartCard title="Payment Status" height={250}>
+              <ChartCard title={tr('srpt_chart_payment')} height={250}>
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
                     <Pie data={paymentData} cx="50%" cy="50%" innerRadius={50} outerRadius={82} paddingAngle={3} dataKey="value">
@@ -341,13 +343,13 @@ export default function ShipperReportPage() {
             <div style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.09)', borderRadius: 14, overflow: 'hidden' }}>
               <div style={{ padding: '1rem 1.1rem', borderBottom: '1px solid rgba(255,255,255,0.07)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                 <LuChartColumnBig size={15} style={{ color: 'var(--clr-accent)' }} />
-                <p style={{ margin: 0, fontWeight: 700, fontSize: '0.83rem', color: 'var(--clr-text)' }}>Recent Orders</p>
+                <p style={{ margin: 0, fontWeight: 700, fontSize: '0.83rem', color: 'var(--clr-text)' }}>{tr('srpt_recent_orders')}</p>
               </div>
               <div className="shipper-report-scroll">
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.78rem' }}>
                   <thead>
                     <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
-                      {['Ref', 'Status', 'Payment', 'Pickup', 'Delivery', 'Driver', 'Amount', 'Created'].map((label) => (
+                      {[tr('srpt_col_ref'), tr('srpt_col_status'), tr('srpt_col_payment'), tr('srpt_col_pickup'), tr('srpt_col_delivery'), tr('srpt_col_driver'), tr('srpt_col_amount'), tr('srpt_col_created')].map((label) => (
                         <th key={label} style={{ padding: '0.7rem 1rem', textAlign: 'left', color: 'var(--clr-muted)', fontWeight: 600, fontSize: '0.7rem', letterSpacing: '0.05em', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>{label}</th>
                       ))}
                     </tr>
@@ -360,13 +362,13 @@ export default function ShipperReportPage() {
                         <td style={{ padding: '0.7rem 1rem' }}>{pill(order.payment_status, order.payment_status === 'SETTLED' ? '#4ade80' : order.payment_status === 'ESCROWED' ? '#60a5fa' : '#fbbf24')}</td>
                         <td style={{ padding: '0.7rem 1rem', maxWidth: 180 }}><span style={{ display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{order.pickup_address || '—'}</span></td>
                         <td style={{ padding: '0.7rem 1rem', maxWidth: 180 }}><span style={{ display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{order.delivery_address || '—'}</span></td>
-                        <td style={{ padding: '0.7rem 1rem', color: 'var(--clr-muted)' }}>{order.driver_name || 'Unassigned'}</td>
+                        <td style={{ padding: '0.7rem 1rem', color: 'var(--clr-muted)' }}>{order.driver_name || tr('srpt_unassigned')}</td>
                         <td style={{ padding: '0.7rem 1rem', color: '#4ade80', fontWeight: 700 }}>{fmtCurrency(order.amount)}</td>
                         <td style={{ padding: '0.7rem 1rem', color: 'var(--clr-muted)' }}>{fmtDateTime(order.created_at)}</td>
                       </tr>
                     )) : (
                       <tr>
-                        <td colSpan={8} style={{ padding: '1rem', textAlign: 'center', color: 'var(--clr-muted)' }}>No orders found in this period.</td>
+                        <td colSpan={8} style={{ padding: '1rem', textAlign: 'center', color: 'var(--clr-muted)' }}>{tr('srpt_no_orders')}</td>
                       </tr>
                     )}
                   </tbody>
@@ -378,19 +380,19 @@ export default function ShipperReportPage() {
               <div style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.09)', borderRadius: 14, padding: '1.1rem' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.9rem' }}>
                   <LuRoute size={15} style={{ color: 'var(--clr-accent)' }} />
-                  <p style={{ margin: 0, fontWeight: 700, fontSize: '0.83rem', color: 'var(--clr-text)' }}>Top Routes</p>
+                  <p style={{ margin: 0, fontWeight: 700, fontSize: '0.83rem', color: 'var(--clr-text)' }}>{tr('srpt_top_routes')}</p>
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.55rem' }}>
                   {report.top_routes.length > 0 ? report.top_routes.map((route, index) => (
                     <div key={route.from_city + route.to_city + index} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.6rem', padding: '0.7rem 0.8rem', borderRadius: 10, border: '1px solid rgba(255,255,255,0.07)', background: 'rgba(255,255,255,0.02)' }}>
                       <div style={{ minWidth: 0 }}>
                         <p style={{ margin: 0, color: 'var(--clr-text)', fontSize: '0.8rem', fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{`${route.from_city || 'Unknown'} -> ${route.to_city || 'Unknown'}`}</p>
-                        <p style={{ margin: '0.2rem 0 0', color: 'var(--clr-muted)', fontSize: '0.7rem' }}>{route.avg_km.toFixed(1)} km avg</p>
+                        <p style={{ margin: '0.2rem 0 0', color: 'var(--clr-muted)', fontSize: '0.7rem' }}>{route.avg_km.toFixed(1)} {tr('srpt_km_avg')}</p>
                       </div>
                       {pill(`${route.count}`, '#60a5fa')}
                     </div>
                   )) : (
-                    <p style={{ margin: 0, color: 'var(--clr-muted)', fontSize: '0.8rem' }}>No route trends yet.</p>
+                    <p style={{ margin: 0, color: 'var(--clr-muted)', fontSize: '0.8rem' }}>{tr('srpt_no_routes')}</p>
                   )}
                 </div>
               </div>
@@ -398,19 +400,19 @@ export default function ShipperReportPage() {
               <div style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.09)', borderRadius: 14, padding: '1.1rem' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.9rem' }}>
                   <LuCircleCheck size={15} style={{ color: '#4ade80' }} />
-                  <p style={{ margin: 0, fontWeight: 700, fontSize: '0.83rem', color: 'var(--clr-text)' }}>Shipper Activity</p>
+                  <p style={{ margin: 0, fontWeight: 700, fontSize: '0.83rem', color: 'var(--clr-text)' }}>{tr('srpt_activity')}</p>
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
                   <div style={{ padding: '0.8rem', borderRadius: 10, border: '1px solid rgba(255,255,255,0.07)', background: 'rgba(255,255,255,0.02)' }}>
-                    <p style={{ margin: 0, fontSize: '0.68rem', color: 'var(--clr-muted)', textTransform: 'uppercase', fontWeight: 700 }}>Ratings Given</p>
+                    <p style={{ margin: 0, fontSize: '0.68rem', color: 'var(--clr-muted)', textTransform: 'uppercase', fontWeight: 700 }}>{tr('srpt_ratings_given')}</p>
                     <p style={{ margin: '0.25rem 0 0', color: 'var(--clr-text)', fontSize: '1.1rem', fontWeight: 800 }}>{fmt(report.feedback.ratings_given)}</p>
                   </div>
                   <div style={{ padding: '0.8rem', borderRadius: 10, border: '1px solid rgba(255,255,255,0.07)', background: 'rgba(255,255,255,0.02)' }}>
-                    <p style={{ margin: 0, fontSize: '0.68rem', color: 'var(--clr-muted)', textTransform: 'uppercase', fontWeight: 700 }}>Avg Stars Given</p>
+                    <p style={{ margin: 0, fontSize: '0.68rem', color: 'var(--clr-muted)', textTransform: 'uppercase', fontWeight: 700 }}>{tr('srpt_avg_stars')}</p>
                     <p style={{ margin: '0.25rem 0 0', color: 'var(--clr-text)', fontSize: '1.1rem', fontWeight: 800 }}>{report.feedback.avg_stars_given.toFixed(2)}</p>
                   </div>
                   <div style={{ gridColumn: '1 / -1', padding: '0.8rem', borderRadius: 10, border: '1px solid rgba(255,255,255,0.07)', background: 'rgba(255,255,255,0.02)' }}>
-                    <p style={{ margin: 0, fontSize: '0.68rem', color: 'var(--clr-muted)', textTransform: 'uppercase', fontWeight: 700 }}>Contact</p>
+                    <p style={{ margin: 0, fontSize: '0.68rem', color: 'var(--clr-muted)', textTransform: 'uppercase', fontWeight: 700 }}>{tr('srpt_contact')}</p>
                     <p style={{ margin: '0.22rem 0 0', color: 'var(--clr-text)', fontSize: '0.8rem', fontWeight: 600 }}>{report.shipper.phone_number || '—'} {report.shipper.email ? `| ${report.shipper.email}` : ''}</p>
                   </div>
                 </div>

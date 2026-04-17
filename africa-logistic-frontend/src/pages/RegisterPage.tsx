@@ -2,6 +2,7 @@ import { useState, useRef, useCallback, useEffect } from 'react'
 import type { FormEvent, KeyboardEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import { useLanguage } from '../context/LanguageContext'
 import apiClient from '../lib/apiClient'
 import PhoneField from '../components/PhoneField'
 import { normalisePhone } from '../lib/normalisePhone'
@@ -14,8 +15,8 @@ import { SiTelegram } from 'react-icons/si'
 import LanguageToggle from '../components/LanguageToggle'
 
 /* ── Password strength helpers ─────────────────────────────────────── */
-function getStrength(pw: string): { score: number; label: string; color: string } {
-  if (!pw) return { score: 0, label: '', color: '' }
+function getStrength(pw: string): { score: number; labelKey: string; color: string } {
+  if (!pw) return { score: 0, labelKey: '', color: '' }
   let s = 0
   if (pw.length >= 6)  s++
   if (pw.length >= 10) s++
@@ -23,12 +24,12 @@ function getStrength(pw: string): { score: number; label: string; color: string 
   if (/[0-9]/.test(pw)) s++
   if (/[^A-Za-z0-9]/.test(pw)) s++
   const levels = [
-    { label: 'Too short',  color: '#ef4444' },
-    { label: 'Weak',       color: '#f59e0b' },
-    { label: 'Fair',       color: '#eab308' },
-    { label: 'Good',       color: '#22c55e' },
-    { label: 'Strong',     color: '#00e5ff' },
-    { label: 'Very strong', color: '#39ff14' },
+    { labelKey: 'pw_too_short',  color: '#ef4444' },
+    { labelKey: 'pw_weak',       color: '#f59e0b' },
+    { labelKey: 'pw_fair',       color: '#eab308' },
+    { labelKey: 'pw_good',       color: '#22c55e' },
+    { labelKey: 'pw_strong',     color: '#00e5ff' },
+    { labelKey: 'pw_very_strong', color: '#39ff14' },
   ]
   return { score: s, ...levels[s] }
 }
@@ -113,6 +114,7 @@ function useCountdown(seconds: number) {
 export default function RegisterPage() {
   const { login } = useAuth()
   const navigate  = useNavigate()
+  const { t: tr } = useLanguage()
 
   const [step, setStep] = useState<1 | 2 | 3>(1)
 
@@ -146,7 +148,7 @@ export default function RegisterPage() {
       setStep(2)
       startTimer()
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to send OTP. Please try again.')
+      setError(err.response?.data?.message || tr('reg_otp_fail'))
     } finally {
       setLoading(false)
     }
@@ -155,7 +157,7 @@ export default function RegisterPage() {
   /* Step 2 → verify OTP, move to step 3 */
   const handleVerifyOtp = async (e: FormEvent) => {
     e.preventDefault()
-    if (otp.replace(/\D/g,'').length < 6) { setError('Enter all 6 digits'); return }
+    if (otp.replace(/\D/g,'').length < 6) { setError(tr('reg_enter_all')); return }
     setError('')
     setStep(3)
   }
@@ -177,13 +179,13 @@ export default function RegisterPage() {
       await login(data.token)
       navigate('/dashboard')
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Registration failed. Please try again.')
+      setError(err.response?.data?.message || tr('reg_failed'))
     } finally {
       setLoading(false)
     }
   }
 
-  const stepTitle = ['Enter phone number', 'Verify OTP', 'Set up profile'][step - 1]
+  const stepTitle = [tr('reg_step1_title'), tr('reg_step2_title'), tr('reg_step3_title')][step - 1]
 
   return (
     <div className="aurora-bg">
@@ -227,18 +229,18 @@ export default function RegisterPage() {
             <form key="s1" className="step-enter" onSubmit={handleRequestOtp}
               style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
               <div>
-                <span className="phone-label">Phone number</span>
+                <span className="phone-label">{tr('reg_phone_label')}</span>
                 <PhoneField id="reg-phone" value={phone} onChange={setPhone} />
               </div>
               <button type="submit" className="btn-primary" disabled={loading}>
                 {loading
-                  ? <span style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:'0.5rem' }}><span className="spinner" /> Sending OTP…</span>
-                  : <span style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:'0.5rem' }}>Send OTP via SMS <LuArrowRight size={16}/></span>}
+                  ? <span style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:'0.5rem' }}><span className="spinner" /> {tr('reg_sending_otp')}</span>
+                  : <span style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:'0.5rem' }}>{tr('reg_send_otp')} <LuArrowRight size={16}/></span>}
               </button>
-              <div className="divider">or</div>
+              <div className="divider">{tr('reg_or')}</div>
               <button type="button" className="btn-telegram">
                 <SiTelegram size={20} />
-                Register with Telegram
+                {tr('reg_telegram')}
               </button>
             </form>
           )}
@@ -248,30 +250,30 @@ export default function RegisterPage() {
             <form key="s2" className="step-enter" onSubmit={handleVerifyOtp}
               style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
               <div className="alert alert-info" style={{ fontSize: '0.85rem', display:'flex', alignItems:'center', gap:'0.4rem' }}>
-                <LuSmartphone size={15}/> OTP sent to <strong>{normalisePhone(phone)}</strong>{' '}
+                <LuSmartphone size={15}/> {tr('reg_otp_sent')} <strong>{normalisePhone(phone)}</strong>{' '}
                 <button type="button" className="link-accent" style={{ fontSize:'0.8rem', background:'none', border:'none', cursor:'pointer', padding:0 }}
                   onClick={() => { setStep(1); setOtp(''); setError('') }}>
-                  Change
+                  {tr('reg_change')}
                 </button>
               </div>
               <div>
                 <p style={{ color: 'var(--clr-muted)', fontSize: '0.85rem', marginBottom: '0.85rem', textAlign: 'center' }}>
-                  Enter the 6-digit code
+                  {tr('reg_enter_6digits')}
                 </p>
                 <OtpInput value={otp} onChange={setOtp} />
               </div>
               <div style={{ textAlign: 'center', fontSize: '0.85rem', color: 'var(--clr-muted)' }}>
                 {remaining > 0 ? (
-                  <>Resend in <span className="countdown">{Math.floor(remaining/60)}:{String(remaining%60).padStart(2,'0')}</span></>
+                  <>{tr('reg_resend_in')} <span className="countdown">{Math.floor(remaining/60)}:{String(remaining%60).padStart(2,'0')}</span></>
                 ) : (
                   <button type="button" className="link-accent" style={{ background:'none', border:'none', cursor:'pointer', padding:0, fontSize:'0.85rem' }}
                     onClick={() => { handleRequestOtp({ preventDefault: ()=>{} } as any) }}>
-                    Resend OTP
+                    {tr('reg_resend')}
                   </button>
                 )}
               </div>
               <button type="submit" className="btn-primary" disabled={otp.replace(/\D/g,'').length < 6}>
-                Verify Code →
+                {tr('reg_verify_code')}
               </button>
             </form>
           )}
@@ -284,22 +286,22 @@ export default function RegisterPage() {
                 <div className="input-wrap">
                   <input id="fn" type="text" placeholder=" " value={firstName}
                     onChange={e => setFirstName(e.target.value)} required autoComplete="given-name" />
-                  <label htmlFor="fn">First name</label>
+                  <label htmlFor="fn">{tr('reg_first_name')}</label>
                 </div>
                 <div className="input-wrap">
                   <input id="ln" type="text" placeholder=" " value={lastName}
                     onChange={e => setLastName(e.target.value)} autoComplete="family-name" />
-                  <label htmlFor="ln">Last name</label>
+                  <label htmlFor="ln">{tr('reg_last_name')}</label>
                 </div>
               </div>
 
               {/* Role selector */}
               <div>
                 <p style={{ color: 'var(--clr-muted)', fontSize: '0.78rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.6rem' }}>
-                  I am a…
+                  {tr('reg_i_am')}
                 </p>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.75rem' }}>
-                  {([{ id: 2, icon: <LuPackage size={16}/>, label: 'Shipper' }, { id: 3, icon: <LuTruck size={16}/>, label: 'Driver' }, { id: 6, icon: <LuCar size={16}/>, label: 'Car Owner' }] as const).map(r => (
+                  {([{ id: 2, icon: <LuPackage size={16}/>, key: 'reg_shipper' as const }, { id: 3, icon: <LuTruck size={16}/>, key: 'reg_driver' as const }, { id: 6, icon: <LuCar size={16}/>, key: 'reg_car_owner' as const }] as const).map(r => (
                     <button key={r.id} type="button"
                       style={{
                         padding: '0.75rem',
@@ -315,7 +317,7 @@ export default function RegisterPage() {
                         boxShadow: roleId === r.id ? '0 0 12px rgba(0,229,255,0.15)' : 'none',
                       }}
                       onClick={() => setRoleId(r.id as 2 | 3 | 6)}>
-                      <span style={{display:'flex',alignItems:'center',gap:'0.4rem'}}>{r.icon} {r.label}</span>
+                      <span style={{display:'flex',alignItems:'center',gap:'0.4rem'}}>{r.icon} {tr(r.key)}</span>
                     </button>
                   ))}
                 </div>
@@ -327,7 +329,7 @@ export default function RegisterPage() {
                   <input id="new-pw" type={showPw ? 'text' : 'password'} placeholder=" "
                     value={password} onChange={e => setPassword(e.target.value)}
                     required minLength={6} style={{ paddingRight: '2.8rem' }} autoComplete="new-password" />
-                  <label htmlFor="new-pw">Password</label>
+                  <label htmlFor="new-pw">{tr('reg_password')}</label>
                   <button type="button" className="input-suffix" onClick={() => setShowPw(v=>!v)}>
                     {showPw ? <LuEyeOff size={16}/> : <LuEye size={16}/>}
                   </button>
@@ -338,7 +340,7 @@ export default function RegisterPage() {
                       <div className="strength-fill" style={{ width: `${(strength.score / 5) * 100}%`, background: strength.color }} />
                     </div>
                     <p style={{ fontSize: '0.75rem', color: strength.color, marginTop: '0.3rem', fontWeight: 600 }}>
-                      {strength.label}
+                      {strength.labelKey ? tr(strength.labelKey as any) : ''}
                     </p>
                   </>
                 )}
@@ -346,16 +348,16 @@ export default function RegisterPage() {
 
               <button type="submit" className="btn-primary" disabled={loading} style={{ marginTop: '0.25rem' }}>
                 {loading ? <span style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:'0.5rem' }}>
-                  <span className="spinner" /> Creating account…</span>
-                  : <span style={{display:'flex',alignItems:'center',gap:'0.4rem'}}><LuCheck size={16}/> Create My Account</span>}
+                  <span className="spinner" /> {tr('reg_creating')}</span>
+                  : <span style={{display:'flex',alignItems:'center',gap:'0.4rem'}}><LuCheck size={16}/> {tr('reg_create_btn')}</span>}
               </button>
             </form>
           )}
 
           {/* Login link */}
           <p style={{ textAlign: 'center', color: 'var(--clr-muted)', fontSize: '0.875rem', marginTop: '1.5rem' }}>
-            Already have an account?{' '}
-            <Link to="/login" className="link-accent">Sign in</Link>
+            {tr('reg_have_account')}{' '}
+            <Link to="/login" className="link-accent">{tr('reg_sign_in')}</Link>
           </p>
 
         </div>

@@ -5,14 +5,16 @@ import apiClient from '../lib/apiClient'
 import PhoneField from '../components/PhoneField'
 import { normalisePhone } from '../lib/normalisePhone'
 import logoImg from '../assets/logo.webp'
+import { useLanguage } from '../context/LanguageContext'
+import LanguageToggle from '../components/LanguageToggle'
 import {
   LuEye, LuEyeOff, LuTriangleAlert, LuSmartphone,
   LuShieldCheck, LuMail, LuPhone,
 } from 'react-icons/lu'
 
 /* ── Helpers ───────────────────────────────────────────────────── */
-function getStrength(pw: string): { score: number; label: string; color: string } {
-  if (!pw) return { score: 0, label: '', color: '' }
+function getStrength(pw: string): { score: number; labelKey: string; color: string } {
+  if (!pw) return { score: 0, labelKey: '', color: '' }
   let s = 0
   if (pw.length >= 6)  s++
   if (pw.length >= 10) s++
@@ -20,12 +22,12 @@ function getStrength(pw: string): { score: number; label: string; color: string 
   if (/[0-9]/.test(pw)) s++
   if (/[^A-Za-z0-9]/.test(pw)) s++
   const levels = [
-    { label: 'Too short',   color: '#ef4444' },
-    { label: 'Weak',        color: '#f59e0b' },
-    { label: 'Fair',        color: '#eab308' },
-    { label: 'Good',        color: '#22c55e' },
-    { label: 'Strong',      color: '#00e5ff' },
-    { label: 'Very strong', color: '#39ff14' },
+    { labelKey: 'pw_too_short',   color: '#ef4444' },
+    { labelKey: 'pw_weak',        color: '#f59e0b' },
+    { labelKey: 'pw_fair',        color: '#eab308' },
+    { labelKey: 'pw_good',        color: '#22c55e' },
+    { labelKey: 'pw_strong',      color: '#00e5ff' },
+    { labelKey: 'pw_very_strong', color: '#39ff14' },
   ]
   return { score: s, ...levels[s] }
 }
@@ -85,6 +87,7 @@ function useCountdown(seconds: number) {
 type ResetMode = 'phone' | 'email'
 
 function ModeSwitcher({ mode, onChange }: { mode: ResetMode; onChange: (m: ResetMode) => void }) {
+  const { t: tr } = useLanguage()
   return (
     <div style={{
       display: 'flex', gap: '0.5rem', background: 'rgba(255,255,255,0.04)',
@@ -106,7 +109,7 @@ function ModeSwitcher({ mode, onChange }: { mode: ResetMode; onChange: (m: Reset
           }}
         >
           {m === 'phone' ? <LuPhone size={14}/> : <LuMail size={14}/>}
-          {m === 'phone' ? 'Phone OTP' : 'Email Link'}
+          {m === 'phone' ? tr('fp_phone_otp') : tr('fp_email_link')}
         </button>
       ))}
     </div>
@@ -120,8 +123,9 @@ function PasswordFields({
   newPw: string; setNewPw: (v: string) => void
   confirmPw: string; setConfirmPw: (v: string) => void
   showPw: boolean; setShowPw: (v: boolean | ((prev: boolean) => boolean)) => void
-  strength: { score: number; label: string; color: string }
+  strength: { score: number; labelKey: string; color: string }
 }) {
+  const { t: tr } = useLanguage()
   return (
     <>
       <div>
@@ -129,7 +133,7 @@ function PasswordFields({
           <input id="fp-pw" type={showPw ? 'text' : 'password'} placeholder=" "
             value={newPw} onChange={e => setNewPw(e.target.value)}
             required minLength={6} style={{ paddingRight:'2.8rem' }} autoComplete="new-password" />
-          <label htmlFor="fp-pw">New password</label>
+          <label htmlFor="fp-pw">{tr('fp_new_password')}</label>
           <button type="button" className="input-suffix" onClick={() => setShowPw(v => !v)}>
             {showPw ? <LuEyeOff size={16}/> : <LuEye size={16}/>}
           </button>
@@ -140,7 +144,7 @@ function PasswordFields({
               <div className="strength-fill" style={{ width:`${(strength.score/5)*100}%`, background:strength.color }} />
             </div>
             <p style={{ fontSize:'0.75rem', color:strength.color, marginTop:'0.3rem', fontWeight:600 }}>
-              {strength.label}
+              {tr(strength.labelKey)}
             </p>
           </>
         )}
@@ -149,10 +153,10 @@ function PasswordFields({
         <input id="fp-cpw" type={showPw ? 'text' : 'password'} placeholder=" "
           value={confirmPw} onChange={e => setConfirmPw(e.target.value)}
           required className={confirmPw && confirmPw !== newPw ? 'has-error' : ''} autoComplete="new-password" />
-        <label htmlFor="fp-cpw">Confirm new password</label>
+        <label htmlFor="fp-cpw">{tr('fp_confirm_password')}</label>
       </div>
       {confirmPw && confirmPw !== newPw && (
-        <p style={{ fontSize:'0.78rem', color:'var(--clr-danger)', marginTop:'-0.5rem' }}>Passwords don't match</p>
+        <p style={{ fontSize:'0.78rem', color:'var(--clr-danger)', marginTop:'-0.5rem' }}>{tr('fp_pw_no_match')}</p>
       )}
     </>
   )
@@ -160,6 +164,7 @@ function PasswordFields({
 
 /* ── Success block ─────────────────────────────────────────────── */
 function SuccessBlock({ onGoLogin }: { onGoLogin: () => void }) {
+  const { t: tr } = useLanguage()
   return (
     <div className="step-enter" style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:'1.25rem', textAlign:'center' }}>
       <div className="success-ring" style={{ display:'flex', alignItems:'center', justifyContent:'center' }}>
@@ -167,14 +172,14 @@ function SuccessBlock({ onGoLogin }: { onGoLogin: () => void }) {
       </div>
       <div>
         <h2 style={{ fontSize:'1.2rem', fontWeight:700, color:'var(--clr-text)', marginBottom:'0.4rem' }}>
-          Password Reset!
+          {tr('fp_reset_title')}
         </h2>
         <p style={{ color:'var(--clr-muted)', fontSize:'0.875rem' }}>
-          Your password has been updated successfully.
+          {tr('fp_reset_desc')}
         </p>
       </div>
       <button className="btn-primary" onClick={onGoLogin} style={{ maxWidth:240 }}>
-        Go to Sign In
+        {tr('fp_go_signin')}
       </button>
     </div>
   )
@@ -186,6 +191,7 @@ type EmailStep = 'email' | 'sent' | 'newpw' | 'success'
 
 export default function ForgotPasswordPage() {
   const navigate       = useNavigate()
+  const { t: tr }      = useLanguage()
   const [searchParams] = useSearchParams()
   const emailResetToken = searchParams.get('email_reset_token')
 
@@ -223,21 +229,21 @@ export default function ForgotPasswordPage() {
       setPhoneStep('otp')
       startTimer()
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to send OTP. Please try again.')
+      setError(err.response?.data?.message || tr('fp_fail_otp'))
     } finally { setLoading(false) }
   }
 
   const handleVerifyOtp = async (e: FormEvent) => {
     e.preventDefault()
-    if (otp.replace(/\D/g,'').length < 6) { setError('Enter all 6 digits'); return }
+    if (otp.replace(/\D/g,'').length < 6) { setError(tr('fp_fail_otp')); return }
     setError('')
     setPhoneStep('newpw')
   }
 
   const handleSetPasswordPhone = async (e: FormEvent) => {
     e.preventDefault()
-    if (newPw !== confirmPw) { setError('Passwords do not match'); return }
-    if (newPw.length < 6)    { setError('Password must be at least 6 characters'); return }
+    if (newPw !== confirmPw) { setError(tr('fp_pw_mismatch')); return }
+    if (newPw.length < 6)    { setError(tr('fp_pw_short')); return }
     setError('')
     setLoading(true)
     try {
@@ -248,7 +254,7 @@ export default function ForgotPasswordPage() {
       })
       setPhoneStep('success')
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Reset failed. Please try again.')
+      setError(err.response?.data?.message || tr('fp_fail_reset'))
     } finally { setLoading(false) }
   }
 
@@ -261,15 +267,15 @@ export default function ForgotPasswordPage() {
       await apiClient.post('/auth/forgot-password-email', { email: resetEmail })
       setEmailStep('sent')
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to send reset email. Please try again.')
+      setError(err.response?.data?.message || tr('fp_fail_email'))
     } finally { setLoading(false) }
   }
 
   const handleSetPasswordEmail = async (e: FormEvent) => {
     e.preventDefault()
-    if (newPw !== confirmPw) { setError('Passwords do not match'); return }
-    if (newPw.length < 6)    { setError('Password must be at least 6 characters'); return }
-    if (!emailResetToken)    { setError('Missing reset token.'); return }
+    if (newPw !== confirmPw) { setError(tr('fp_pw_mismatch')); return }
+    if (newPw.length < 6)    { setError(tr('fp_pw_short')); return }
+    if (!emailResetToken)    { setError(tr('fp_missing_token')); return }
     setError('')
     setLoading(true)
     try {
@@ -279,7 +285,7 @@ export default function ForgotPasswordPage() {
       })
       setEmailStep('success')
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Reset failed. Token may have expired.')
+      setError(err.response?.data?.message || tr('fp_fail_token'))
     } finally { setLoading(false) }
   }
 
@@ -290,16 +296,21 @@ export default function ForgotPasswordPage() {
   const currentStepIndex = resetMode === 'phone' ? phoneStepIndex : emailStepIndex
 
   const subtitleText = resetMode === 'phone'
-    ? "We'll send a 6-digit code to your phone"
+    ? tr('fp_phone_subtitle')
     : emailResetToken
-      ? 'Enter your new password below'
-      : "We'll send a reset link to your email"
+      ? tr('fp_newpw_subtitle')
+      : tr('fp_email_subtitle')
 
   return (
     <div className="aurora-bg">
       <div className="aurora-orb aurora-orb-1" />
       <div className="page-shell centered">
         <div className="glass page-enter" style={{ width: '100%', maxWidth: 440, padding: '2.5rem 2rem' }}>
+
+          {/* Language toggle */}
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '0.6rem' }}>
+            <LanguageToggle />
+          </div>
 
           {/* Logo */}
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', marginBottom: '1.5rem' }}>
@@ -341,13 +352,13 @@ export default function ForgotPasswordPage() {
                 <form key="ph1" className="step-enter" onSubmit={handleRequestOtp}
                   style={{ display:'flex', flexDirection:'column', gap:'1rem' }}>
                   <div>
-                    <span className="phone-label">Your registered phone number</span>
+                    <span className="phone-label">{tr('fp_phone_label')}</span>
                     <PhoneField id="fp-phone" value={phone} onChange={setPhone} />
                   </div>
                   <button type="submit" className="btn-primary" disabled={loading}>
                     {loading
-                      ? <span style={{display:'flex',alignItems:'center',justifyContent:'center',gap:'0.5rem'}}><span className="spinner"/>Sending OTP…</span>
-                      : 'Send Reset Code →'}
+                      ? <span style={{display:'flex',alignItems:'center',justifyContent:'center',gap:'0.5rem'}}><span className="spinner"/>{tr('fp_sending_otp')}</span>
+                      : tr('fp_send_reset')}
                   </button>
                 </form>
               )}
@@ -356,31 +367,31 @@ export default function ForgotPasswordPage() {
                 <form key="ph2" className="step-enter" onSubmit={handleVerifyOtp}
                   style={{ display:'flex', flexDirection:'column', gap:'1.25rem' }}>
                   <div className="alert alert-info" style={{ fontSize:'0.85rem', display:'flex', alignItems:'center', gap:'0.4rem' }}>
-                    <LuSmartphone size={15}/> Code sent to <strong>{normalisePhone(phone)}</strong>{' '}
+                    <LuSmartphone size={15}/> {tr('fp_code_sent_to')} <strong>{normalisePhone(phone)}</strong>{' '}
                     <button type="button" className="link-accent"
                       style={{ fontSize:'0.8rem', background:'none', border:'none', cursor:'pointer', padding:0 }}
                       onClick={() => { setPhoneStep('phone'); setOtp(''); setError('') }}>
-                      Change
+                      {tr('fp_change')}
                     </button>
                   </div>
                   <div>
                     <p style={{ color:'var(--clr-muted)', fontSize:'0.85rem', marginBottom:'0.85rem', textAlign:'center' }}>
-                      Enter the 6-digit code
+                      {tr('fp_enter_6digits')}
                     </p>
                     <OtpInput value={otp} onChange={setOtp} />
                   </div>
                   <div style={{ textAlign:'center', fontSize:'0.85rem', color:'var(--clr-muted)' }}>
                     {remaining > 0
-                      ? <>Resend in <span className="countdown">{Math.floor(remaining/60)}:{String(remaining%60).padStart(2,'0')}</span></>
+                      ? <>{tr('fp_resend_in')} <span className="countdown">{Math.floor(remaining/60)}:{String(remaining%60).padStart(2,'0')}</span></>
                       : <button type="button" className="link-accent"
                           style={{ background:'none', border:'none', cursor:'pointer', padding:0, fontSize:'0.85rem' }}
                           onClick={() => handleRequestOtp({ preventDefault:()=>{} } as any)}>
-                          Resend Code
+                          {tr('fp_resend')}
                         </button>
                     }
                   </div>
                   <button type="submit" className="btn-primary" disabled={otp.replace(/\D/g,'').length < 6}>
-                    Verify Code →
+                    {tr('fp_verify_code')}
                   </button>
                 </form>
               )}
@@ -396,8 +407,8 @@ export default function ForgotPasswordPage() {
                   />
                   <button type="submit" className="btn-primary" disabled={loading || newPw !== confirmPw || newPw.length < 6}>
                     {loading
-                      ? <span style={{display:'flex',alignItems:'center',justifyContent:'center',gap:'0.5rem'}}><span className="spinner"/>Saving…</span>
-                      : 'Set New Password ✓'}
+                      ? <span style={{display:'flex',alignItems:'center',justifyContent:'center',gap:'0.5rem'}}><span className="spinner"/>{tr('fp_saving')}</span>
+                      : tr('fp_set_new_pw')}
                   </button>
                 </form>
               )}
@@ -418,15 +429,15 @@ export default function ForgotPasswordPage() {
                       value={resetEmail} onChange={e => setResetEmail(e.target.value)}
                       required autoComplete="email"
                     />
-                    <label htmlFor="fp-email">Verified email address</label>
+                    <label htmlFor="fp-email">{tr('fp_email_label')}</label>
                   </div>
                   <p style={{ fontSize:'0.8rem', color:'var(--clr-muted)', marginTop:'-0.5rem' }}>
-                    Only works if your email is verified on your account.
+                    {tr('fp_email_hint')}
                   </p>
                   <button type="submit" className="btn-primary" disabled={loading}>
                     {loading
-                      ? <span style={{display:'flex',alignItems:'center',justifyContent:'center',gap:'0.5rem'}}><span className="spinner"/>Sending…</span>
-                      : <span style={{display:'flex',alignItems:'center',justifyContent:'center',gap:'0.5rem'}}><LuMail size={16}/>Send Reset Link →</span>}
+                      ? <span style={{display:'flex',alignItems:'center',justifyContent:'center',gap:'0.5rem'}}><span className="spinner"/>{tr('fp_sending')}</span>
+                      : <span style={{display:'flex',alignItems:'center',justifyContent:'center',gap:'0.5rem'}}><LuMail size={16}/>{tr('fp_send_link')}</span>}
                   </button>
                 </form>
               )}
@@ -442,19 +453,19 @@ export default function ForgotPasswordPage() {
                   </div>
                   <div>
                     <h2 style={{ fontSize:'1.1rem', fontWeight:700, color:'var(--clr-text)', marginBottom:'0.5rem' }}>
-                      Check your inbox
+                      {tr('fp_check_inbox')}
                     </h2>
                     <p style={{ color:'var(--clr-muted)', fontSize:'0.875rem', lineHeight:1.6 }}>
-                      We sent a reset link to{' '}
+                      {tr('fp_sent_to')}{' '}
                       <strong style={{ color:'var(--clr-text)' }}>{resetEmail}</strong>.
-                      Click the link in the email to set a new password.
+                      {' '}{tr('fp_sent_desc')}
                     </p>
                     <p style={{ color:'var(--clr-muted)', fontSize:'0.8rem', marginTop:'0.75rem' }}>
-                      Didn't get it?{' '}
+                      {tr('fp_no_email')}{' '}
                       <button type="button" className="link-accent"
                         style={{ background:'none', border:'none', cursor:'pointer', padding:0, fontSize:'0.8rem' }}
                         onClick={() => { setEmailStep('email'); setError('') }}>
-                        Try again
+                        {tr('fp_try_again')}
                       </button>
                     </p>
                   </div>
@@ -465,7 +476,7 @@ export default function ForgotPasswordPage() {
                 <form key="em3" className="step-enter" onSubmit={handleSetPasswordEmail}
                   style={{ display:'flex', flexDirection:'column', gap:'1rem' }}>
                   <p style={{ color:'var(--clr-muted)', fontSize:'0.85rem', marginBottom:'0.25rem' }}>
-                    Choose a new password for your account.
+                    {tr('fp_choose_new_pw')}
                   </p>
                   <PasswordFields
                     newPw={newPw} setNewPw={setNewPw}
@@ -475,8 +486,8 @@ export default function ForgotPasswordPage() {
                   />
                   <button type="submit" className="btn-primary" disabled={loading || newPw !== confirmPw || newPw.length < 6}>
                     {loading
-                      ? <span style={{display:'flex',alignItems:'center',justifyContent:'center',gap:'0.5rem'}}><span className="spinner"/>Saving…</span>
-                      : 'Set New Password ✓'}
+                      ? <span style={{display:'flex',alignItems:'center',justifyContent:'center',gap:'0.5rem'}}><span className="spinner"/>{tr('fp_saving')}</span>
+                      : tr('fp_set_new_pw')}
                   </button>
                 </form>
               )}
@@ -488,8 +499,8 @@ export default function ForgotPasswordPage() {
           {/* Back to login */}
           {!isSuccess && (
             <p style={{ textAlign:'center', color:'var(--clr-muted)', fontSize:'0.875rem', marginTop:'1.5rem' }}>
-              Remember your password?{' '}
-              <Link to="/login" className="link-accent">Sign in</Link>
+              {tr('fp_remember_pw')}{' '}
+              <Link to="/login" className="link-accent">{tr('fp_back_signin')}</Link>
             </p>
           )}
 
