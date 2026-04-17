@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import apiClient from '../lib/apiClient'
 import { walletApi } from '../lib/apiClient'
+import { useLanguage } from '../context/LanguageContext'
 import {
   LuWallet, LuArrowDownLeft, LuArrowUpRight, LuTrendingUp, LuRefreshCw,
   LuLock, LuTriangleAlert, LuBanknote, LuClock, LuCheck, LuX,
@@ -292,6 +293,7 @@ function Skeleton() {
 
 /* ── Withdrawal Form ─────────────────────────────────────────────────────── */
 function WithdrawalForm({ balance, onSuccess }: { balance: number; onSuccess: () => void }) {
+  const { t: tr } = useLanguage()
   const [amount,      setAmount]      = useState('')
   const [bankName,    setBankName]    = useState('')
   const [accountNum,  setAccountNum]  = useState('')
@@ -354,8 +356,8 @@ function WithdrawalForm({ balance, onSuccess }: { balance: number; onSuccess: ()
         <div style={{ width:64, height:64, borderRadius:'50%', background:'rgba(74,222,128,0.15)', border:'2px solid rgba(74,222,128,0.4)', display:'flex', alignItems:'center', justifyContent:'center', margin:'0 auto 1rem', color:'#4ade80' }}>
           <LuCheck size={28}/>
         </div>
-        <p style={{ fontWeight:800, color:'#4ade80', fontSize:'1.05rem' }}>Request Submitted!</p>
-        <p style={{ color:'var(--clr-muted)', fontSize:'0.85rem', marginTop:'0.4rem' }}>You'll be notified once reviewed by admin.</p>
+        <p style={{ fontWeight:800, color:'#4ade80', fontSize:'1.05rem' }}>{tr('request_submitted')}</p>
+        <p style={{ color:'var(--clr-muted)', fontSize:'0.85rem', marginTop:'0.4rem' }}>{tr('request_submitted_sub')}</p>
       </div>
     )
   }
@@ -374,15 +376,15 @@ function WithdrawalForm({ balance, onSuccess }: { balance: number; onSuccess: ()
         <div className="input-wrap">
           <input id="wd-amt" type="number" min="1" step="0.01" placeholder=" "
             value={amount} onChange={e => setAmount(e.target.value)} required />
-          <label htmlFor="wd-amt">Amount to Withdraw (ETB)</label>
+          <label htmlFor="wd-amt">{tr('amount_label')}</label>
         </div>
         <div style={{ display:'flex', justifyContent:'space-between', marginTop:'0.35rem' }}>
           <span style={{ fontSize:'0.72rem', color:'var(--clr-muted)' }}>
-            Available: <strong style={{ color:'var(--clr-accent)' }}>{balance.toFixed(2)} ETB</strong>
+            {tr('available_label')}: <strong style={{ color:'var(--clr-accent)' }}>{balance.toFixed(2)} ETB</strong>
           </span>
           {parseFloat(amount) > 0 && (
             <span style={{ fontSize:'0.72rem', color: parseFloat(amount) > balance ? '#f87171' : 'var(--clr-muted)' }}>
-              {pct.toFixed(1)}% of balance
+              {pct.toFixed(1)}% {tr('pct_of_balance')}
             </span>
           )}
         </div>
@@ -396,7 +398,7 @@ function WithdrawalForm({ balance, onSuccess }: { balance: number; onSuccess: ()
         <div className="input-wrap">
           <input id="wd-bank" type="text" placeholder=" " value={bankName}
             onChange={e => setBankName(e.target.value)} required />
-          <label htmlFor="wd-bank">Bank Name</label>
+          <label htmlFor="wd-bank">{tr('bank_name')}</label>
         </div>
         <div>
           <select value={method} onChange={e => setMethod(e.target.value)}
@@ -410,17 +412,17 @@ function WithdrawalForm({ balance, onSuccess }: { balance: number; onSuccess: ()
       <div className="input-wrap">
         <input id="wd-acnum" type="text" placeholder=" " value={accountNum}
           onChange={e => setAccountNum(e.target.value)} required />
-        <label htmlFor="wd-acnum">Account Number</label>
+        <label htmlFor="wd-acnum">{tr('account_number')}</label>
       </div>
       <div className="input-wrap">
         <input id="wd-acname" type="text" placeholder=" " value={accountName}
           onChange={e => setAccountName(e.target.value)} required />
-        <label htmlFor="wd-acname">Account Holder Name</label>
+        <label htmlFor="wd-acname">{tr('account_holder')}</label>
       </div>
       <div className="input-wrap">
         <input id="wd-notes" type="text" placeholder=" " value={notes}
           onChange={e => setNotes(e.target.value)} />
-        <label htmlFor="wd-notes">Note / Message (optional)</label>
+        <label htmlFor="wd-notes">{tr('note_optional')}</label>
       </div>
 
       {/* Proof image upload */}
@@ -428,7 +430,7 @@ function WithdrawalForm({ balance, onSuccess }: { balance: number; onSuccess: ()
         <label htmlFor="wd-proof" className="wlt-drop-zone"
           style={{ color: proofB64 ? '#00e5ff' : 'var(--clr-muted)' }}>
           <LuUpload size={15}/>
-          {proofB64 ? proofName : 'Attach receipt / document (optional, max 5 MB)'}
+          {proofB64 ? proofName : tr('attach_receipt')}
         </label>
         <input ref={fileRef} id="wd-proof" type="file" accept="image/jpeg,image/png,image/webp,application/pdf"
           style={{ display:'none' }} onChange={handleFileSelect} />
@@ -437,7 +439,7 @@ function WithdrawalForm({ balance, onSuccess }: { balance: number; onSuccess: ()
             <img src={proofPreview} alt="preview" className="wlt-img-thumb" />
             <button type="button" onClick={() => { setProofB64(null); setProofName(''); setProofPreview(null) }}
               style={{ background:'none', border:'none', color:'#f87171', fontSize:'0.75rem', cursor:'pointer', fontFamily:'inherit', display:'flex', alignItems:'center', gap:'0.3rem' }}>
-              <LuX size={12}/> Remove
+              <LuX size={12}/> {tr('remove')}
             </button>
           </div>
         )}
@@ -447,7 +449,7 @@ function WithdrawalForm({ balance, onSuccess }: { balance: number; onSuccess: ()
             <span style={{ fontSize:'0.76rem', color:'var(--clr-muted)' }}>{proofName}</span>
             <button type="button" onClick={() => { setProofB64(null); setProofName('') }}
               style={{ background:'none', border:'none', color:'#f87171', fontSize:'0.75rem', cursor:'pointer', fontFamily:'inherit' }}>
-              Remove
+              {tr('remove')}
             </button>
           </div>
         )}
@@ -456,8 +458,8 @@ function WithdrawalForm({ balance, onSuccess }: { balance: number; onSuccess: ()
       <button type="submit" className="btn-primary" disabled={submitting}
         style={{ padding:'0.95rem', borderRadius:'14px', fontWeight:700, fontSize:'0.95rem', letterSpacing:'0.02em' }}>
         {submitting
-          ? <><span className="spinner" style={{ width:15, height:15, borderWidth:2, borderTopColor:'#fff' }}/> Submitting…</>
-          : <><LuBanknote size={16}/> Submit Withdrawal Request</>
+          ? <><span className="spinner" style={{ width:15, height:15, borderWidth:2, borderTopColor:'#fff' }}/> {tr('submitting')}</>
+          : <><LuBanknote size={16}/> {tr('submit_request_btn')}</>
         }
       </button>
     </form>
@@ -466,6 +468,7 @@ function WithdrawalForm({ balance, onSuccess }: { balance: number; onSuccess: ()
 
 /* ── Withdrawal History Card ─────────────────────────────────────────────── */
 function WithdrawalCard({ w }: { w: WithdrawalRequest }) {
+  const { t: tr } = useLanguage()
   const cfg = STATUS_CFG[w.status]
   const [open, setOpen] = useState(false)
   return (
@@ -500,11 +503,11 @@ function WithdrawalCard({ w }: { w: WithdrawalRequest }) {
           <LuCheck size={13} style={{ color:'#4ade80', flexShrink:0 }}/>
           <div>
             <span style={{ fontSize:'0.82rem', color:'#4ade80', fontWeight:700 }}>
-              Approved: {w.amount_approved.toFixed(2)} ETB
+              {tr('approved_label')}: {w.amount_approved!.toFixed(2)} ETB
             </span>
             {w.commission_amount && w.commission_amount > 0 && (
               <span style={{ fontSize:'0.74rem', color:'rgba(74,222,128,0.65)', display:'block' }}>
-                Platform fee ({w.commission_rate}%): {w.commission_amount.toFixed(2)} ETB deducted
+                {tr('platform_fee').replace('{rate}', String(w.commission_rate)).replace('{amount}', w.commission_amount.toFixed(2))}
               </span>
             )}
           </div>
@@ -516,18 +519,18 @@ function WithdrawalCard({ w }: { w: WithdrawalRequest }) {
         <div style={{ marginTop:'0.75rem', display:'flex', flexDirection:'column', gap:'0.5rem', animation:'wlt-slide-down 0.2s ease' }}>
           {w.notes && (
             <div style={{ fontSize:'0.8rem', color:'var(--clr-muted)', padding:'0.5rem 0.75rem', borderRadius:'10px', background:'rgba(255,255,255,0.02)', borderLeft:'2px solid rgba(255,255,255,0.1)' }}>
-              <span style={{ fontWeight:600 }}>Your note:</span> {w.notes}
+              <span style={{ fontWeight:600 }}>{tr('your_note')}:</span> {w.notes}
             </div>
           )}
           {/* User submitted proof */}
           {w.proof_image_url && (
             <div>
               <p style={{ fontSize:'0.73rem', color:'var(--clr-muted)', marginBottom:'0.35rem', display:'flex', alignItems:'center', gap:'0.3rem' }}>
-                <LuImage size={12}/> Your proof document
+                <LuImage size={12}/> {tr('your_proof')}
               </p>
               {w.proof_image_url.endsWith('.pdf') ? (
                 <a href={`${UPLOADS_BASE}${w.proof_image_url}`} target="_blank" rel="noopener noreferrer"
-                  style={{ fontSize:'0.8rem', color:'var(--clr-accent)' }}>View PDF</a>
+                  style={{ fontSize:'0.8rem', color:'var(--clr-accent)' }}>{tr('view_pdf')}</a>
               ) : (
                 <img src={`${UPLOADS_BASE}${w.proof_image_url}`} alt="Your proof"
                   className="wlt-img-thumb" onClick={() => window.open(`${UPLOADS_BASE}${w.proof_image_url}`, '_blank')} />
@@ -537,14 +540,14 @@ function WithdrawalCard({ w }: { w: WithdrawalRequest }) {
           {/* Admin note */}
           {w.admin_note && (
             <div style={{ fontSize:'0.8rem', color: w.status === 'REJECTED' ? '#fca5a5' : 'var(--clr-muted)', padding:'0.5rem 0.75rem', borderRadius:'10px', background: w.status === 'REJECTED' ? 'rgba(239,68,68,0.06)' : 'rgba(255,255,255,0.02)', borderLeft:`2px solid ${w.status === 'REJECTED' ? 'rgba(239,68,68,0.4)' : 'rgba(0,229,255,0.2)'}` }}>
-              <span style={{ fontWeight:600 }}>Admin note:</span> "{w.admin_note}"
+              <span style={{ fontWeight:600 }}>{tr('admin_note')}:</span> "{w.admin_note}"
             </div>
           )}
           {/* Admin proof image */}
           {w.admin_image_url && (
             <div>
               <p style={{ fontSize:'0.73rem', color:'var(--clr-muted)', marginBottom:'0.35rem', display:'flex', alignItems:'center', gap:'0.3rem' }}>
-                <LuImage size={12}/> Admin confirmation
+                <LuImage size={12}/> {tr('admin_confirmation')}
               </p>
               <img src={`${UPLOADS_BASE}${w.admin_image_url}`} alt="Admin confirmation"
                 className="wlt-img-thumb" onClick={() => window.open(`${UPLOADS_BASE}${w.admin_image_url}`, '_blank')} />
@@ -558,6 +561,7 @@ function WithdrawalCard({ w }: { w: WithdrawalRequest }) {
 
 /* ── Main WalletDashboard ────────────────────────────────────────────────── */
 export default function WalletDashboard() {
+  const { t: tr } = useLanguage()
   const [wallet,         setWallet]          = useState<Wallet | null>(null)
   const [recentTxs,      setRecentTxs]       = useState<Transaction[]>([])
   const [withdrawals,    setWithdrawals]      = useState<WithdrawalRequest[]>([])
@@ -617,7 +621,7 @@ export default function WalletDashboard() {
 
   if (!wallet) return (
     <div className="glass" style={{ padding:'2rem', textAlign:'center' }}>
-      <p style={{ color:'var(--clr-muted)' }}>No wallet data available.</p>
+      <p style={{ color:'var(--clr-muted)' }}>{tr('no_wallet')}</p>
     </div>
   )
 
@@ -646,7 +650,7 @@ export default function WalletDashboard() {
               </div>
               <div className="wlt-balance-wrap" style={{ minWidth:0, overflow:'hidden' }}>
                 <p style={{ fontSize:'0.78rem', textTransform:'uppercase', letterSpacing:'0.1em', color:'var(--clr-muted)', marginBottom:'0.3rem', fontWeight:700 }}>
-                  Available Balance
+                  {tr('wlt_available_balance')}
                 </p>
                 <div className="wlt-balance-num">{fmt(wallet.balance)}</div>
                 <p style={{ fontSize:'0.9rem', color:'rgba(148,163,184,0.6)', marginTop:'0.1rem', fontWeight:500 }}>ETB</p>
@@ -661,7 +665,7 @@ export default function WalletDashboard() {
               <div style={{ display:'flex', alignItems:'center', gap:'0.4rem' }}>
                 <span style={{ width:7, height:7, borderRadius:'50%', background: wallet.is_locked ? '#f87171' : '#4ade80', display:'inline-block', boxShadow: wallet.is_locked ? '0 0 6px #ef4444' : '0 0 6px #22c55e' }}/>
                 <span style={{ fontSize:'0.73rem', fontWeight:700, color: wallet.is_locked ? '#f87171' : '#4ade80' }}>
-                  {wallet.is_locked ? 'Locked' : 'Active'}
+                  {wallet.is_locked ? tr('locked_label') : tr('active_label')}
                 </span>
               </div>
             </div>
@@ -670,15 +674,15 @@ export default function WalletDashboard() {
           {/* Stats row */}
           <div className="wlt-stats-grid">
             <div className="wlt-stat-chip" style={{ animationDelay:'0.05s' }}>
-              <p style={{ fontSize:'0.68rem', color:'var(--clr-muted)', marginBottom:'0.3rem', fontWeight:700, textTransform:'uppercase', letterSpacing:'0.06em' }}>Earned</p>
+              <p style={{ fontSize:'0.68rem', color:'var(--clr-muted)', marginBottom:'0.3rem', fontWeight:700, textTransform:'uppercase', letterSpacing:'0.06em' }}>{tr('earned')}</p>
               <p style={{ fontSize:'0.92rem', fontWeight:800, color:'#4ade80' }}>+{fmt(wallet.total_earned)}</p>
             </div>
             <div className="wlt-stat-chip" style={{ animationDelay:'0.1s' }}>
-              <p style={{ fontSize:'0.68rem', color:'var(--clr-muted)', marginBottom:'0.3rem', fontWeight:700, textTransform:'uppercase', letterSpacing:'0.06em' }}>Spent</p>
+              <p style={{ fontSize:'0.68rem', color:'var(--clr-muted)', marginBottom:'0.3rem', fontWeight:700, textTransform:'uppercase', letterSpacing:'0.06em' }}>{tr('spent')}</p>
               <p style={{ fontSize:'0.92rem', fontWeight:800, color:'#f87171' }}>-{fmt(wallet.total_spent)}</p>
             </div>
             <div className="wlt-stat-chip" style={{ animationDelay:'0.15s' }}>
-              <p style={{ fontSize:'0.68rem', color:'var(--clr-muted)', marginBottom:'0.3rem', fontWeight:700, textTransform:'uppercase', letterSpacing:'0.06em' }}>Pending</p>
+              <p style={{ fontSize:'0.68rem', color:'var(--clr-muted)', marginBottom:'0.3rem', fontWeight:700, textTransform:'uppercase', letterSpacing:'0.06em' }}>{tr('pending_wd')}</p>
               <p style={{ fontSize:'0.92rem', fontWeight:800, color:'#fbbf24' }}>{pendingWd} wd</p>
             </div>
           </div>
@@ -687,7 +691,7 @@ export default function WalletDashboard() {
           {!wallet.is_locked && (
             <button className="wlt-withdraw-btn" onClick={() => setShowWdForm(v => !v)}>
               <LuBanknote size={18}/>
-              {showWdForm ? 'Cancel Withdrawal' : 'Request Withdrawal'}
+              {showWdForm ? tr('cancel_withdrawal') : tr('request_withdrawal')}
               {showWdForm ? <LuChevronUp size={15}/> : <LuChevronDown size={15}/>}
             </button>
           )}
@@ -695,7 +699,7 @@ export default function WalletDashboard() {
           {/* Withdrawal form — inline below button */}
           {showWdForm && !wallet.is_locked && (
             <div style={{ position:'relative', marginTop:'1.25rem', padding:'1.5rem', borderRadius:'16px', background:'rgba(0,0,0,0.25)', border:'1px solid rgba(255,255,255,0.08)', backdropFilter:'blur(10px)', animation:'wlt-slide-down 0.28s ease' }}>
-              <p className="wlt-section-title"><LuBanknote size={13}/> Withdrawal Request</p>
+              <p className="wlt-section-title"><LuBanknote size={13}/> {tr('withdrawal_req_title')}</p>
               <WithdrawalForm balance={wallet.balance} onSuccess={onWdSuccess} />
             </div>
           )}
@@ -708,9 +712,9 @@ export default function WalletDashboard() {
               <LuLock size={19}/>
             </div>
             <div>
-              <p style={{ fontWeight:700, color:'#f87171', fontSize:'0.9rem' }}>Wallet Locked</p>
+              <p style={{ fontWeight:700, color:'#f87171', fontSize:'0.9rem' }}>{tr('wallet_locked')}</p>
               <p style={{ color:'rgba(248,113,113,0.7)', fontSize:'0.8rem', marginTop:'0.15rem' }}>
-                {wallet.lock_reason || 'Your wallet has been suspended. Please contact support.'}
+                {wallet.lock_reason || tr('locked_default')}
               </p>
             </div>
           </div>
@@ -721,7 +725,7 @@ export default function WalletDashboard() {
         <div className="glass" style={{ padding:'1.25rem' }}>
           <div className="wlt-section-title">
             <LuClock size={14} style={{ color:'var(--clr-accent)' }}/>
-            Withdrawal Requests
+            {tr('withdrawal_requests')}
             {withdrawals.length > 0 && (
               <span style={{ background:'rgba(0,229,255,0.1)', color:'var(--clr-accent)', borderRadius:99, fontSize:'0.65rem', fontWeight:800, padding:'0.12rem 0.5rem', marginLeft:'auto' }}>{withdrawals.length}</span>
             )}
@@ -729,15 +733,15 @@ export default function WalletDashboard() {
 
           {!wdLoaded ? (
             <div style={{ display:'flex', alignItems:'center', gap:'0.5rem', color:'var(--clr-muted)', fontSize:'0.85rem', padding:'0.75rem 0' }}>
-              <span className="spinner" style={{ width:16, height:16, borderWidth:2 }}/> Loading requests…
+              <span className="spinner" style={{ width:16, height:16, borderWidth:2 }}/> {tr('loading_requests')}
             </div>
           ) : withdrawals.length === 0 ? (
             <div style={{ textAlign:'center', padding:'2rem 1rem' }}>
               <div style={{ width:52, height:52, borderRadius:'50%', background:'rgba(0,229,255,0.06)', border:'1px solid rgba(0,229,255,0.12)', display:'flex', alignItems:'center', justifyContent:'center', margin:'0 auto 0.75rem', color:'var(--clr-accent)', opacity:0.5 }}>
                 <LuBanknote size={22}/>
               </div>
-              <p style={{ color:'var(--clr-muted)', fontSize:'0.88rem' }}>No withdrawal requests yet.</p>
-              <p style={{ color:'rgba(100,116,139,0.5)', fontSize:'0.78rem', marginTop:'0.3rem' }}>Submit a request above and it will appear here.</p>
+              <p style={{ color:'var(--clr-muted)', fontSize:'0.88rem' }}>{tr('no_withdrawals')}</p>
+              <p style={{ color:'rgba(100,116,139,0.5)', fontSize:'0.78rem', marginTop:'0.3rem' }}>{tr('submit_request_above')}</p>
             </div>
           ) : (
             <div style={{ display:'flex', flexDirection:'column', gap:'0.6rem' }}>
@@ -750,12 +754,12 @@ export default function WalletDashboard() {
         <div className="glass" style={{ padding:'1.25rem' }}>
           <div className="wlt-section-title">
             <LuTrendingUp size={14} style={{ color:'var(--clr-accent)' }}/>
-            Recent Transactions
+            {tr('recent_transactions')}
           </div>
 
           {recentTxs.length === 0 ? (
             <div style={{ textAlign:'center', padding:'2rem 1rem' }}>
-              <p style={{ color:'var(--clr-muted)', fontSize:'0.88rem' }}>No transactions yet.</p>
+              <p style={{ color:'var(--clr-muted)', fontSize:'0.88rem' }}>{tr('no_transactions')}</p>
             </div>
           ) : (
             <div style={{ display:'flex', flexDirection:'column', gap:'0.5rem' }}>

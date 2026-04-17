@@ -3,6 +3,7 @@ import { useAuth } from '../context/AuthContext'
 import { useNavigate } from 'react-router-dom'
 import { carOwnerApi, configApi } from '../lib/apiClient'
 import logoImg from '../assets/logo.webp'
+import LanguageToggle from '../components/LanguageToggle'
 import {
   LuCar, LuPlus, LuLogOut, LuUser, LuClipboardList, LuCheck,
   LuTriangleAlert, LuRefreshCw, LuTrash2, LuX, LuClock,
@@ -166,6 +167,7 @@ export default function CarOwnerDashboard() {
                 </div>
               </div>
               <div style={{ display: 'flex', gap: '0.5rem' }}>
+                <LanguageToggle compact />
                 <button
                   onClick={loadVehicles}
                   style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, padding: '0.45rem 0.65rem', color: 'var(--clr-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center' }}

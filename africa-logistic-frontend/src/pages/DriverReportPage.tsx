@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import logoImg from '../assets/logo.webp'
+import { useLanguage } from '../context/LanguageContext'
 import { driverApi } from '../lib/apiClient'
 import {
   ResponsiveContainer, AreaChart, Area, PieChart, Pie, Cell,
@@ -146,6 +147,7 @@ function statusPill(label: string, tone: string) {
 }
 
 export default function DriverReportPage() {
+  const { t: tr } = useLanguage()
   const today = new Date()
   const defaultTo = today.toISOString().slice(0, 10)
   const defaultFrom = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
@@ -163,7 +165,7 @@ export default function DriverReportPage() {
       const { data } = await driverApi.getReport({ from: f, to: t })
       setReport(data.report)
     } catch {
-      setError('Failed to load your driver report. Please try again.')
+      setError(tr('rpt_error'))
     } finally {
       setLoading(false)
     }
@@ -207,7 +209,7 @@ export default function DriverReportPage() {
       <div style={{ width: '100%', maxWidth: 1220, display: 'flex', flexDirection: 'column', gap: '1rem' }}>
         <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '0.65rem', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 12, padding: '0.75rem 1rem' }}>
           <LuCalendar size={14} style={{ color: 'var(--clr-muted)', flexShrink: 0 }} />
-          {(['From', 'To'] as const).map((label, index) => (
+          {([tr('rpt_from'), tr('rpt_to')] as const).map((label, index) => (
             <div key={label} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
               <label style={{ fontSize: '0.72rem', color: 'var(--clr-muted)', fontWeight: 600 }}>{label}</label>
               <input
@@ -239,7 +241,7 @@ export default function DriverReportPage() {
             disabled={loading}
             style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', padding: '0.38rem 0.85rem', borderRadius: 9, border: '1px solid rgba(255,255,255,0.12)', background: 'rgba(255,255,255,0.06)', color: 'var(--clr-text)', fontSize: '0.78rem', fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}
           >
-            <LuRefreshCw size={13} style={{ animation: loading ? 'spin 1s linear infinite' : 'none' }} /> Apply
+            <LuRefreshCw size={13} style={{ animation: loading ? 'spin 1s linear infinite' : 'none' }} /> {tr('rpt_apply')}
           </button>
         </div>
 
@@ -251,7 +253,7 @@ export default function DriverReportPage() {
 
         {loading && !report && (
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '4rem', gap: '0.7rem', color: 'var(--clr-muted)' }}>
-            <LuRefreshCw size={18} style={{ animation: 'spin 1s linear infinite', color: 'var(--clr-accent)' }} /> Loading driver report…
+            <LuRefreshCw size={18} style={{ animation: 'spin 1s linear infinite', color: 'var(--clr-accent)' }} /> {tr('rpt_loading')}
           </div>
         )}
 
@@ -261,33 +263,33 @@ export default function DriverReportPage() {
               <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', minWidth: 0 }}>
                 <img src={logoImg} alt="Africa Logistics" style={{ height: 46, width: 'auto', objectFit: 'contain', borderRadius: 8 }} />
                 <div style={{ minWidth: 0 }}>
-                  <p style={{ margin: 0, fontWeight: 800, fontSize: '1rem', color: 'var(--clr-text)' }}>Driver General Report</p>
+                  <p style={{ margin: 0, fontWeight: 800, fontSize: '1rem', color: 'var(--clr-text)' }}>{tr('rpt_driver_general')}</p>
                   <p style={{ margin: '0.15rem 0 0', fontSize: '0.78rem', color: 'var(--clr-muted)' }}>{driver.name || `${driver.first_name} ${driver.last_name}`.trim()}</p>
                   <div style={{ marginTop: '0.45rem', display: 'flex', flexWrap: 'wrap', gap: '0.45rem' }}>
                     {statusPill(driver.status.replaceAll('_', ' '), STATUS_COLORS[driver.status] ?? '#60a5fa')}
-                    {driver.is_verified ? statusPill('Verified', '#4ade80') : statusPill('Pending Verification', '#fbbf24')}
-                    {driver.vehicle?.vehicle_type ? statusPill(driver.vehicle.vehicle_type, '#a78bfa') : statusPill('No Active Vehicle', '#94a3b8')}
+                    {driver.is_verified ? statusPill(tr('rpt_verified'), '#4ade80') : statusPill(tr('rpt_pending_verif'), '#fbbf24')}
+                    {driver.vehicle?.vehicle_type ? statusPill(driver.vehicle.vehicle_type, '#a78bfa') : statusPill(tr('rpt_no_vehicle'), '#94a3b8')}
                   </div>
                 </div>
               </div>
               <div style={{ textAlign: 'right', minWidth: 220 }}>
-                <p style={{ margin: 0, fontSize: '0.72rem', color: 'var(--clr-muted)' }}>Report Period</p>
+                <p style={{ margin: 0, fontSize: '0.72rem', color: 'var(--clr-muted)' }}>{tr('rpt_period')}</p>
                 <p style={{ margin: 0, fontWeight: 700, fontSize: '0.84rem', color: 'var(--clr-text)' }}>{fmtDateFull(report.date_range.from)} — {fmtDateFull(report.date_range.to)}</p>
-                <p style={{ margin: '0.2rem 0 0', fontSize: '0.7rem', color: 'var(--clr-muted)' }}>Generated: {fmtDateTime(report.generated_at)}</p>
+                <p style={{ margin: '0.2rem 0 0', fontSize: '0.7rem', color: 'var(--clr-muted)' }}>{tr('rpt_generated')} {fmtDateTime(report.generated_at)}</p>
               </div>
             </div>
 
             <div className="driver-report-kpis">
-              <KpiCard label="Total Jobs" value={fmt(summary.total_jobs)} sub={`${fmt(summary.completed_jobs)} completed`} icon={<LuTruck size={18} />} />
-              <KpiCard label="Active Jobs" value={fmt(summary.active_jobs)} sub="currently moving" icon={<LuClock size={18} />} accent="#fbbf24" />
-              <KpiCard label="Period Earnings" value={fmtCurrency(summary.period_earnings)} sub={`${fmtCurrency(driver.total_earned)} lifetime`} icon={<LuWallet size={18} />} accent="#4ade80" />
-              <KpiCard label="Distance" value={`${fmt(summary.total_distance_km)} km`} sub={`${summary.avg_distance_km.toFixed(1)} km average`} icon={<LuRoute size={18} />} accent="#34d399" />
-              <KpiCard label="Average Rating" value={(summary.period_avg_rating || driver.average_rating || driver.rating || 0).toFixed(2)} sub={`${fmt(summary.reviews_count)} reviews in range`} icon={<LuStar size={18} />} accent="#fbbf24" />
-              <KpiCard label="Cross-Border" value={fmt(summary.cross_border_jobs)} sub={`${summary.avg_delivery_hours.toFixed(1)}h avg delivery`} icon={<LuGlobe size={18} />} accent="#a78bfa" />
+              <KpiCard label={tr('kpi_total_jobs')} value={fmt(summary.total_jobs)} sub={`${fmt(summary.completed_jobs)} ${tr('kpi_completed_sub')}`} icon={<LuTruck size={18} />} />
+              <KpiCard label={tr('kpi_active_jobs')} value={fmt(summary.active_jobs)} sub={tr('kpi_currently_moving')} icon={<LuClock size={18} />} accent="#fbbf24" />
+              <KpiCard label={tr('kpi_period_earnings')} value={fmtCurrency(summary.period_earnings)} sub={`${fmtCurrency(driver.total_earned)} ${tr('kpi_lifetime')}`} icon={<LuWallet size={18} />} accent="#4ade80" />
+              <KpiCard label={tr('kpi_distance')} value={`${fmt(summary.total_distance_km)} km`} sub={`${summary.avg_distance_km.toFixed(1)} ${tr('kpi_km_average')}`} icon={<LuRoute size={18} />} accent="#34d399" />
+              <KpiCard label={tr('kpi_avg_rating')} value={(summary.period_avg_rating || driver.average_rating || driver.rating || 0).toFixed(2)} sub={`${fmt(summary.reviews_count)} ${tr('kpi_reviews_sub')}`} icon={<LuStar size={18} />} accent="#fbbf24" />
+              <KpiCard label={tr('kpi_cross_border')} value={fmt(summary.cross_border_jobs)} sub={`${summary.avg_delivery_hours.toFixed(1)}h ${tr('kpi_avg_delivery')}`} icon={<LuGlobe size={18} />} accent="#a78bfa" />
             </div>
 
             <div className="driver-report-grid-2">
-              <ChartCard title="Daily Jobs, Completions & Earnings" height={290}>
+              <ChartCard title={tr('chart_daily_jobs')} height={290}>
                 <ResponsiveContainer width="100%" height="100%">
                   <AreaChart data={report.daily} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
                     <defs>
@@ -313,7 +315,7 @@ export default function DriverReportPage() {
                 </ResponsiveContainer>
               </ChartCard>
 
-              <ChartCard title="Job Status Breakdown" height={290}>
+              <ChartCard title={tr('chart_status_breakdown')} height={290}>
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
                     <Pie data={statusData} cx="42%" cy="50%" innerRadius={55} outerRadius={92} paddingAngle={2} dataKey="value">
@@ -330,31 +332,31 @@ export default function DriverReportPage() {
               <div style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.09)', borderRadius: 14, padding: '1.1rem' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.9rem' }}>
                   <LuBadgeCheck size={16} style={{ color: 'var(--clr-accent)' }} />
-                  <p style={{ margin: 0, fontWeight: 700, fontSize: '0.83rem', color: 'var(--clr-text)' }}>Driver Snapshot</p>
+                  <p style={{ margin: 0, fontWeight: 700, fontSize: '0.83rem', color: 'var(--clr-text)' }}>{tr('chart_driver_snapshot')}</p>
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '0.75rem' }}>
                   <div>
-                    <p style={{ margin: '0 0 0.3rem', fontSize: '0.68rem', color: 'var(--clr-muted)', textTransform: 'uppercase', fontWeight: 700 }}>Phone</p>
+                    <p style={{ margin: '0 0 0.3rem', fontSize: '0.68rem', color: 'var(--clr-muted)', textTransform: 'uppercase', fontWeight: 700 }}>{tr('snap_phone')}</p>
                     <p style={{ margin: 0, fontSize: '0.82rem', color: 'var(--clr-text)', fontWeight: 600 }}>{driver.phone_number || '—'}</p>
                   </div>
                   <div>
-                    <p style={{ margin: '0 0 0.3rem', fontSize: '0.68rem', color: 'var(--clr-muted)', textTransform: 'uppercase', fontWeight: 700 }}>Email</p>
+                    <p style={{ margin: '0 0 0.3rem', fontSize: '0.68rem', color: 'var(--clr-muted)', textTransform: 'uppercase', fontWeight: 700 }}>{tr('snap_email')}</p>
                     <p style={{ margin: 0, fontSize: '0.82rem', color: 'var(--clr-text)', fontWeight: 600, wordBreak: 'break-word' }}>{driver.email || '—'}</p>
                   </div>
                   <div>
-                    <p style={{ margin: '0 0 0.3rem', fontSize: '0.68rem', color: 'var(--clr-muted)', textTransform: 'uppercase', fontWeight: 700 }}>On-Time Rate</p>
+                    <p style={{ margin: '0 0 0.3rem', fontSize: '0.68rem', color: 'var(--clr-muted)', textTransform: 'uppercase', fontWeight: 700 }}>{tr('snap_on_time_rate')}</p>
                     <p style={{ margin: 0, fontSize: '0.82rem', color: 'var(--clr-text)', fontWeight: 600 }}>{driver.on_time_percentage.toFixed(1)}%</p>
                   </div>
                   <div>
-                    <p style={{ margin: '0 0 0.3rem', fontSize: '0.68rem', color: 'var(--clr-muted)', textTransform: 'uppercase', fontWeight: 700 }}>Streak</p>
-                    <p style={{ margin: 0, fontSize: '0.82rem', color: 'var(--clr-text)', fontWeight: 600 }}>{fmt(driver.streak_days)} days</p>
+                    <p style={{ margin: '0 0 0.3rem', fontSize: '0.68rem', color: 'var(--clr-muted)', textTransform: 'uppercase', fontWeight: 700 }}>{tr('snap_streak')}</p>
+                    <p style={{ margin: 0, fontSize: '0.82rem', color: 'var(--clr-text)', fontWeight: 600 }}>{fmt(driver.streak_days)} {tr('snap_days')}</p>
                   </div>
                   <div>
-                    <p style={{ margin: '0 0 0.3rem', fontSize: '0.68rem', color: 'var(--clr-muted)', textTransform: 'uppercase', fontWeight: 700 }}>Last Trip</p>
+                    <p style={{ margin: '0 0 0.3rem', fontSize: '0.68rem', color: 'var(--clr-muted)', textTransform: 'uppercase', fontWeight: 700 }}>{tr('snap_last_trip')}</p>
                     <p style={{ margin: 0, fontSize: '0.82rem', color: 'var(--clr-text)', fontWeight: 600 }}>{driver.last_trip_date ? fmtDateTime(driver.last_trip_date) : '—'}</p>
                   </div>
                   <div>
-                    <p style={{ margin: '0 0 0.3rem', fontSize: '0.68rem', color: 'var(--clr-muted)', textTransform: 'uppercase', fontWeight: 700 }}>Documents</p>
+                    <p style={{ margin: '0 0 0.3rem', fontSize: '0.68rem', color: 'var(--clr-muted)', textTransform: 'uppercase', fontWeight: 700 }}>{tr('snap_documents')}</p>
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem' }}>
                       {statusPill(`National ID: ${driver.national_id_status}`, driver.national_id_status === 'APPROVED' ? '#4ade80' : driver.national_id_status === 'REJECTED' ? '#f87171' : '#fbbf24')}
                       {statusPill(`License: ${driver.license_status}`, driver.license_status === 'APPROVED' ? '#4ade80' : driver.license_status === 'REJECTED' ? '#f87171' : '#fbbf24')}
@@ -362,22 +364,22 @@ export default function DriverReportPage() {
                     </div>
                   </div>
                   <div style={{ gridColumn: '1 / -1' }}>
-                    <p style={{ margin: '0 0 0.3rem', fontSize: '0.68rem', color: 'var(--clr-muted)', textTransform: 'uppercase', fontWeight: 700 }}>Vehicle</p>
+                    <p style={{ margin: '0 0 0.3rem', fontSize: '0.68rem', color: 'var(--clr-muted)', textTransform: 'uppercase', fontWeight: 700 }}>{tr('snap_vehicle')}</p>
                     {driver.vehicle ? (
                       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.45rem' }}>
                         {statusPill(driver.vehicle.vehicle_type, '#a78bfa')}
                         {statusPill(driver.vehicle.plate_number, '#60a5fa')}
                         {statusPill(`${fmt(driver.vehicle.max_capacity_kg)} kg`, '#34d399')}
-                        {statusPill(driver.vehicle.is_approved ? 'Approved' : 'Pending Approval', driver.vehicle.is_approved ? '#4ade80' : '#fbbf24')}
+                        {statusPill(driver.vehicle.is_approved ? tr('rpt_approved') : tr('rpt_pending_approval'), driver.vehicle.is_approved ? '#4ade80' : '#fbbf24')}
                       </div>
                     ) : (
-                      <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--clr-muted)' }}>No active vehicle assigned yet.</p>
+                      <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--clr-muted)' }}>{tr('snap_no_vehicle')}</p>
                     )}
                   </div>
                 </div>
               </div>
 
-              <ChartCard title="Rating Distribution" height={270}>
+              <ChartCard title={tr('chart_rating_dist')} height={270}>
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={ratingData} layout="vertical" margin={{ top: 5, right: 20, left: 0, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" horizontal={false} />
@@ -395,13 +397,13 @@ export default function DriverReportPage() {
             <div style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.09)', borderRadius: 14, overflow: 'hidden' }}>
               <div style={{ padding: '1rem 1.1rem', borderBottom: '1px solid rgba(255,255,255,0.07)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                 <LuChartColumnBig size={15} style={{ color: 'var(--clr-accent)' }} />
-                <p style={{ margin: 0, fontWeight: 700, fontSize: '0.83rem', color: 'var(--clr-text)' }}>Recent Jobs</p>
+                  <p style={{ margin: 0, fontWeight: 700, fontSize: '0.83rem', color: 'var(--clr-text)' }}>{tr('chart_recent_jobs')}</p>
               </div>
               <div className="driver-report-scroll">
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.78rem' }}>
                   <thead>
                     <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
-                      {['Ref', 'Status', 'Pickup', 'Delivery', 'Distance', 'Earnings', 'Created'].map((label) => (
+                      {[tr('tbl_ref'), tr('col_status'), tr('tbl_pickup'), tr('tbl_delivery'), tr('tbl_distance'), tr('tbl_earnings'), tr('tbl_created')].map((label) => (
                         <th key={label} style={{ padding: '0.7rem 1rem', textAlign: 'left', color: 'var(--clr-muted)', fontWeight: 600, fontSize: '0.7rem', letterSpacing: '0.05em', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>{label}</th>
                       ))}
                     </tr>
@@ -419,7 +421,7 @@ export default function DriverReportPage() {
                       </tr>
                     )) : (
                       <tr>
-                        <td colSpan={7} style={{ padding: '1rem', textAlign: 'center', color: 'var(--clr-muted)' }}>No jobs found in this period.</td>
+                        <td colSpan={7} style={{ padding: '1rem', textAlign: 'center', color: 'var(--clr-muted)' }}>{tr('tbl_no_jobs')}</td>
                       </tr>
                     )}
                   </tbody>
@@ -431,7 +433,7 @@ export default function DriverReportPage() {
               <div style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.09)', borderRadius: 14, padding: '1.1rem' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.9rem' }}>
                   <LuStar size={15} style={{ color: '#fbbf24' }} />
-                  <p style={{ margin: 0, fontWeight: 700, fontSize: '0.83rem', color: 'var(--clr-text)' }}>Recent Shipper Feedback</p>
+                  <p style={{ margin: 0, fontWeight: 700, fontSize: '0.83rem', color: 'var(--clr-text)' }}>{tr('chart_feedback')}</p>
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.7rem' }}>
                   {report.recent_feedback.length > 0 ? report.recent_feedback.map((item) => (
@@ -440,11 +442,11 @@ export default function DriverReportPage() {
                         <span style={{ color: 'var(--clr-text)', fontSize: '0.8rem', fontWeight: 700 }}>{item.shipper_name}</span>
                         <span style={{ color: '#fbbf24', fontSize: '0.78rem', fontWeight: 700 }}>{item.stars}★</span>
                       </div>
-                      <p style={{ margin: '0 0 0.35rem', color: item.comment ? 'var(--clr-text)' : 'var(--clr-muted)', fontSize: '0.78rem', lineHeight: 1.55 }}>{item.comment || 'No written comment.'}</p>
+                      <p style={{ margin: '0 0 0.35rem', color: item.comment ? 'var(--clr-text)' : 'var(--clr-muted)', fontSize: '0.78rem', lineHeight: 1.55 }}>{item.comment || tr('no_comment')}</p>
                       <p style={{ margin: 0, color: 'var(--clr-muted)', fontSize: '0.68rem' }}>{fmtDateTime(item.created_at)}</p>
                     </div>
                   )) : (
-                    <p style={{ margin: 0, color: 'var(--clr-muted)', fontSize: '0.8rem' }}>No rating feedback yet.</p>
+                    <p style={{ margin: 0, color: 'var(--clr-muted)', fontSize: '0.8rem' }}>{tr('no_feedback')}</p>
                   )}
                 </div>
               </div>
@@ -452,7 +454,7 @@ export default function DriverReportPage() {
               <div style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.09)', borderRadius: 14, padding: '1.1rem' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.9rem' }}>
                   <LuFileText size={15} style={{ color: 'var(--clr-accent)' }} />
-                  <p style={{ margin: 0, fontWeight: 700, fontSize: '0.83rem', color: 'var(--clr-text)' }}>Document Review History</p>
+                  <p style={{ margin: 0, fontWeight: 700, fontSize: '0.83rem', color: 'var(--clr-text)' }}>{tr('chart_doc_review')}</p>
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.7rem' }}>
                   {report.document_reviews.length > 0 ? report.document_reviews.map((item, index) => {
@@ -463,19 +465,19 @@ export default function DriverReportPage() {
                           <span style={{ color: 'var(--clr-text)', fontSize: '0.8rem', fontWeight: 700 }}>{item.document_type.replaceAll('_', ' ')}</span>
                           {statusPill(item.action, tone)}
                         </div>
-                        <p style={{ margin: '0 0 0.35rem', color: item.reason ? 'var(--clr-text)' : 'var(--clr-muted)', fontSize: '0.78rem', lineHeight: 1.55 }}>{item.reason || 'No review note provided.'}</p>
+                        <p style={{ margin: '0 0 0.35rem', color: item.reason ? 'var(--clr-text)' : 'var(--clr-muted)', fontSize: '0.78rem', lineHeight: 1.55 }}>{item.reason || tr('review_note')}</p>
                         <p style={{ margin: 0, color: 'var(--clr-muted)', fontSize: '0.68rem' }}>{fmtDateTime(item.reviewed_at)}</p>
                       </div>
                     )
                   }) : (
-                    <p style={{ margin: 0, color: 'var(--clr-muted)', fontSize: '0.8rem' }}>No document review history available yet.</p>
+                    <p style={{ margin: 0, color: 'var(--clr-muted)', fontSize: '0.8rem' }}>{tr('doc_history')}</p>
                   )}
                 </div>
               </div>
             </div>
 
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.45rem', padding: '0.2rem 0.15rem', fontSize: '0.7rem', color: 'var(--clr-muted)' }}>
-              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}><LuShieldCheck size={13} /> Driver self-report</span>
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}><LuShieldCheck size={13} /> {tr('rpt_footer_self')}</span>
               <span>Generated on {fmtDateTime(report.generated_at)}</span>
             </div>
           </>

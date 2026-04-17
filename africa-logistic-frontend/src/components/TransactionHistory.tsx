@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import apiClient from '../lib/apiClient'
 import jsPDF from 'jspdf'
+import { useLanguage } from '../context/LanguageContext'
 import {
   LuArrowDownLeft, LuArrowUpRight, LuTrendingUp, LuWallet,
   LuSearch, LuChevronLeft, LuChevronRight, LuTriangleAlert, LuDownload,
@@ -20,6 +21,7 @@ interface Transaction {
 type FilterType = 'ALL' | 'CREDIT' | 'DEBIT' | 'BONUS' | 'TIP' | 'REFUND'
 
 export default function TransactionHistoryPage() {
+  const { t: tr } = useLanguage()
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [filteredTransactions, setFilteredTransactions] = useState<Transaction[]>([])
   const [loading, setLoading] = useState(true)
@@ -125,13 +127,13 @@ export default function TransactionHistoryPage() {
 
   const getTransactionLabel = (type: Transaction['type']) => {
     const labels: Record<Transaction['type'], string> = {
-      CREDIT: 'Credit',
-      DEBIT: 'Debit',
-      COMMISSION: 'Commission',
-      TIP: 'Tip',
-      REFUND: 'Refund',
-      BONUS: 'Bonus',
-      ADMIN_ADJUSTMENT: 'Adjustment'
+      CREDIT: tr('tx_credit'),
+      DEBIT: tr('tx_debit'),
+      COMMISSION: tr('tx_commission'),
+      TIP: tr('tx_tip'),
+      REFUND: tr('tx_refund'),
+      BONUS: tr('tx_bonus'),
+      ADMIN_ADJUSTMENT: tr('tx_adjustment')
     }
     return labels[type] || type
   }
@@ -174,7 +176,7 @@ export default function TransactionHistoryPage() {
       {/* Header */}
       <div className="glass" style={{ padding: '1.5rem' }}>
         <h3 style={{ fontSize: '1.3rem', fontWeight: 800, color: 'var(--clr-text)', marginBottom: '1rem' }}>
-          Transaction History
+          {tr('txhist_title')}
         </h3>
 
         {/* Search & Filter Bar */}
@@ -191,7 +193,7 @@ export default function TransactionHistoryPage() {
             <LuSearch size={16} style={{ color: 'var(--clr-muted)' }} />
             <input
               type="text"
-              placeholder="Search transactions..."
+              placeholder={tr('txhist_search_ph')}
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               style={{
@@ -213,12 +215,12 @@ export default function TransactionHistoryPage() {
               cursor: 'pointer'
             }}
           >
-            <option value="ALL">All Transactions</option>
-            <option value="CREDIT">Credits</option>
-            <option value="DEBIT">Debits</option>
-            <option value="BONUS">Bonuses</option>
-            <option value="TIP">Tips</option>
-            <option value="REFUND">Refunds</option>
+            <option value="ALL">{tr('txhist_filter_all')}</option>
+            <option value="CREDIT">{tr('txhist_filter_credits')}</option>
+            <option value="DEBIT">{tr('txhist_filter_debits')}</option>
+            <option value="BONUS">{tr('txhist_filter_bonuses')}</option>
+            <option value="TIP">{tr('txhist_filter_tips')}</option>
+            <option value="REFUND">{tr('txhist_filter_refunds')}</option>
           </select>
         </div>
       </div>
@@ -237,7 +239,7 @@ export default function TransactionHistoryPage() {
         {filteredTransactions.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '3rem 1rem', color: 'var(--clr-muted)' }}>
             <LuWallet size={40} style={{ margin: '0 auto 1rem', opacity: 0.3 }} />
-            <p>No transactions found</p>
+            <p>{tr('txhist_no_found')}</p>
           </div>
         ) : (
           <>
@@ -292,7 +294,7 @@ export default function TransactionHistoryPage() {
                     }}
                     className="hover-lift"
                   >
-                    <LuDownload size={14} /> Receipt
+                    <LuDownload size={14} /> {tr('txhist_receipt_btn')}
                   </button>
                 </div>
               </div>
@@ -321,11 +323,11 @@ export default function TransactionHistoryPage() {
             }}
             className="hover-lift"
           >
-            <LuChevronLeft size={16} /> Previous
+            <LuChevronLeft size={16} /> {tr('txhist_previous')}
           </button>
 
           <span style={{ color: 'var(--clr-muted)', fontSize: '0.9rem', fontWeight: 600 }}>
-            Page {page + 1}
+          {tr('txhist_page')} {page + 1}
           </span>
 
           <button
@@ -342,7 +344,7 @@ export default function TransactionHistoryPage() {
             }}
             className="hover-lift"
           >
-            Next <LuChevronRight size={16} />
+            {tr('txhist_next')} <LuChevronRight size={16} />
           </button>
         </div>
       )}

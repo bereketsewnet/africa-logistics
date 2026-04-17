@@ -11,6 +11,7 @@ import {
   LuLogIn, LuPhone, LuMail,
 } from 'react-icons/lu'
 import { SiTelegram } from 'react-icons/si'
+import LanguageToggle from '../components/LanguageToggle'
 
 type LoginMode = 'phone' | 'email'
 
@@ -75,6 +76,11 @@ export default function LoginPage() {
       <div className="aurora-orb aurora-orb-1" />
       <div className="page-shell centered">
         <div className="glass page-enter" style={{ width: '100%', maxWidth: 440, padding: '1.6rem 1.45rem', maxHeight: '92vh', overflowY: 'auto' }}>
+
+          {/* Language toggle — top right */}
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '0.6rem' }}>
+            <LanguageToggle />
+          </div>
 
           {/* Logo */}
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', marginBottom: '1.1rem' }}>

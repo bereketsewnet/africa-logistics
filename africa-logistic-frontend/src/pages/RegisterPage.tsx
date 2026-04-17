@@ -11,6 +11,7 @@ import {
   LuArrowRight, LuCheck, LuCar,
 } from 'react-icons/lu'
 import { SiTelegram } from 'react-icons/si'
+import LanguageToggle from '../components/LanguageToggle'
 
 /* ── Password strength helpers ─────────────────────────────────────── */
 function getStrength(pw: string): { score: number; label: string; color: string } {
@@ -189,6 +190,11 @@ export default function RegisterPage() {
       <div className="aurora-orb aurora-orb-1" />
       <div className="page-shell centered">
         <div className="glass page-enter" style={{ width: '100%', maxWidth: 460, padding: '2.5rem 2rem' }}>
+
+          {/* Language toggle */}
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '0.6rem' }}>
+            <LanguageToggle />
+          </div>
 
           {/* Logo */}
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', marginBottom: '1.5rem' }}>

@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { driverApi, orderApi } from '../lib/apiClient'
 import { useAuth } from '../context/AuthContext'
+import { useLanguage } from '../context/LanguageContext'
 import {
   LuTruck, LuRefreshCw, LuMapPin, LuCheck, LuX, LuBan,
   LuCircleCheck, LuTriangleAlert, LuChevronRight,
@@ -40,26 +41,26 @@ const STATUS_COLOR: Record<string, string> = {
   DELIVERED:       '#4ade80',
   CANCELLED:       '#f87171',
 }
-const STATUS_LABEL: Record<string, string> = {
-  PENDING:         'Pending',
-  ASSIGNED:        'Assigned',
-  EN_ROUTE:        'En Route',
-  AT_PICKUP:       'At Pickup',
-  IN_TRANSIT:      'In Transit',
-  AT_BORDER:       'At Border',
-  IN_CUSTOMS:      'In Customs',
-  CUSTOMS_CLEARED: 'Customs Cleared',
-  DELIVERED:       'Delivered',
-  CANCELLED:       'Cancelled',
-}
-
-function statusBadge(status: string) {
+function StatusBadge({ status }: { status: string }) {
+  const { t: tr } = useLanguage()
+  const statusLabels: Record<string, string> = {
+    PENDING:         tr('status_pending'),
+    ASSIGNED:        tr('status_assigned'),
+    EN_ROUTE:        tr('status_en_route'),
+    AT_PICKUP:       tr('status_at_pickup'),
+    IN_TRANSIT:      tr('status_in_transit'),
+    AT_BORDER:       tr('status_at_border'),
+    IN_CUSTOMS:      tr('status_in_customs'),
+    CUSTOMS_CLEARED: tr('status_customs_cleared'),
+    DELIVERED:       tr('status_delivered'),
+    CANCELLED:       tr('status_cancelled'),
+  }
   const c = STATUS_COLOR[status] ?? '#94a3b8'
   return (
     <span style={{ fontSize:'0.7rem', fontWeight:700, color:c,
       background:`${c}1a`, border:`1px solid ${c}44`,
       borderRadius:99, padding:'0.18rem 0.6rem', whiteSpace:'nowrap' }}>
-      {STATUS_LABEL[status] ?? status}
+      {statusLabels[status] ?? status}
     </span>
   )
 }
@@ -87,6 +88,7 @@ function OtpModal({ title, onConfirm, onClose }: { title: string; onConfirm: (ot
   const [otp, setOtp] = useState('')
   const [loading, setLoading] = useState(false)
   const [err, setErr] = useState('')
+  const { t: tr } = useLanguage()
 
   const handleSubmit = async () => {
     if (otp.length !== 6) { setErr('Enter the 6-digit OTP.'); return }
@@ -100,17 +102,17 @@ function OtpModal({ title, onConfirm, onClose }: { title: string; onConfirm: (ot
     <div className="modal-backdrop" onClick={e => { if (e.target === e.currentTarget) onClose() }}>
       <div className="glass modal-box" style={{ padding:'1.75rem', maxWidth:360, width:'100%' }}>
         <h3 style={{ fontSize:'1rem', fontWeight:800, color:'var(--clr-text)', marginBottom:'0.4rem' }}>{title}</h3>
-        <p style={{ fontSize:'0.8rem', color:'var(--clr-muted)', marginBottom:'1.1rem' }}>Enter the 6-digit OTP provided by the shipper.</p>
+        <p style={{ fontSize:'0.8rem', color:'var(--clr-muted)', marginBottom:'1.1rem' }}>{tr('otp_instruction')}</p>
         {err && <div className="alert alert-error" style={{ marginBottom:'0.75rem' }}><LuTriangleAlert size={13}/> {err}</div>}
         <div className="input-wrap" style={{ marginBottom:'1rem' }}>
           <input id="otp-in" type="text" inputMode="numeric" pattern="[0-9]*" maxLength={6} placeholder=" "
             value={otp} onChange={e => setOtp(e.target.value.replace(/\D/g, '').slice(0,6))} autoFocus/>
-          <label htmlFor="otp-in">6-Digit OTP</label>
+          <label htmlFor="otp-in">{tr('otp_placeholder')}</label>
         </div>
         <div style={{ display:'flex', gap:'0.6rem' }}>
-          <button className="btn-outline" style={{ flex:1 }} onClick={onClose}>Cancel</button>
+          <button className="btn-outline" style={{ flex:1 }} onClick={onClose}>{tr('btn_cancel')}</button>
           <button className="btn-primary" style={{ flex:2 }} onClick={handleSubmit} disabled={loading || otp.length !== 6}>
-            {loading ? <span style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:'0.5rem' }}><Spinner/> Verifying…</span> : 'Confirm OTP'}
+            {loading ? <span style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:'0.5rem' }}><Spinner/> {tr('btn_verifying')}</span> : tr('btn_confirm_otp')}
           </button>
         </div>
       </div>
@@ -120,6 +122,7 @@ function OtpModal({ title, onConfirm, onClose }: { title: string; onConfirm: (ot
 
 // ─── Job Detail Modal ─────────────────────────────────────────────────────────
 function JobDetailModal({ job, onClose, onRefresh }: { job: Job; onClose: () => void; onRefresh: () => void }) {
+  const { t: tr } = useLanguage()
   const [tab, setTab] = useState<'info' | 'chat' | 'docs'>('info')
   const [messages, setMessages] = useState<{ id: string; sender_first_name: string; sender_last_name: string; sender_role_id: number; message: string; created_at: string }[]>([])
   const [msgText, setMsgText] = useState('')
@@ -279,8 +282,8 @@ function JobDetailModal({ job, onClose, onRefresh }: { job: Job; onClose: () => 
               <div>
                 <div style={{ display:'flex', alignItems:'center', gap:'0.5rem', flexWrap:'wrap' }}>
                   <h2 style={{ fontSize:'1rem', fontWeight:800, color:'var(--clr-text)' }}>{localJob.reference_code}</h2>
-                  {statusBadge(status)}
-                  {isCrossBorder && <span style={{ fontSize:'0.65rem', fontWeight:700, color:'#f59e0b', background:'rgba(245,158,11,0.1)', border:'1px solid rgba(245,158,11,0.3)', borderRadius:99, padding:'0.12rem 0.5rem' }}>🌍 Cross-Border</span>}
+                  <StatusBadge status={status}/>
+                  {isCrossBorder && <span style={{ fontSize:'0.65rem', fontWeight:700, color:'#f59e0b', background:'rgba(245,158,11,0.1)', border:'1px solid rgba(245,158,11,0.3)', borderRadius:99, padding:'0.12rem 0.5rem' }}>🌍 {tr('cross_border')}</span>}
                 </div>
                 <p style={{ fontSize:'0.75rem', color:'var(--clr-muted)', marginTop:'0.15rem' }}>{fmtDate(localJob.created_at)}</p>
               </div>
@@ -290,10 +293,10 @@ function JobDetailModal({ job, onClose, onRefresh }: { job: Job; onClose: () => 
             </div>
             {/* Tabs */}
             <div style={{ display:'flex', gap:'0.25rem', background:'rgba(255,255,255,0.04)', borderRadius:10, padding:'0.25rem', marginBottom:'1rem' }}>
-              {(isCrossBorder ? ['info','chat','docs'] as const : ['info','chat'] as const).map(t => (
-                <button key={t} onClick={() => setTab(t as any)} style={{ flex:1, padding:'0.4rem', border:'none', borderRadius:8, background: tab === t ? 'rgba(0,229,255,0.12)' : 'transparent', color: tab === t ? 'var(--clr-accent)' : 'var(--clr-muted)', fontFamily:'inherit', fontSize:'0.78rem', fontWeight:700, cursor:'pointer', transition:'all 0.15s', outline: tab === t ? '1px solid rgba(0,229,255,0.2)' : 'none', position:'relative' }}>
-                  {t === 'info' ? 'Job Details' : t === 'docs' ? <><LuFileText size={12} style={{ marginRight:3 }}/> Docs</> : (
-                    <>{unreadChat && tab !== 'chat' && <span style={{ position:'absolute', top:2, right:2, width:7, height:7, borderRadius:'50%', background:'#f87171', boxShadow:'0 0 4px #f87171' }}/>}Admin Chat</>
+              {(isCrossBorder ? ['info','chat','docs'] as const : ['info','chat'] as const).map(tabKey => (
+                <button key={tabKey} onClick={() => setTab(tabKey as any)} style={{ flex:1, padding:'0.4rem', border:'none', borderRadius:8, background: tab === tabKey ? 'rgba(0,229,255,0.12)' : 'transparent', color: tab === tabKey ? 'var(--clr-accent)' : 'var(--clr-muted)', fontFamily:'inherit', fontSize:'0.78rem', fontWeight:700, cursor:'pointer', transition:'all 0.15s', outline: tab === tabKey ? '1px solid rgba(0,229,255,0.2)' : 'none', position:'relative' }}>
+                  {tabKey === 'info' ? tr('job_details_tab') : tabKey === 'docs' ? <><LuFileText size={12} style={{ marginRight:3 }}/> {tr('docs_tab')}</> : (
+                    <>{unreadChat && tab !== 'chat' && <span style={{ position:'absolute', top:2, right:2, width:7, height:7, borderRadius:'50%', background:'#f87171', boxShadow:'0 0 4px #f87171' }}/>}{tr('admin_chat_tab')}</>
                   )}
                 </button>
               ))}
@@ -310,12 +313,12 @@ function JobDetailModal({ job, onClose, onRefresh }: { job: Job; onClose: () => 
                 {/* Route */}
                 <div className="glass-inner" style={{ padding:'1rem', display:'flex', flexDirection:'column', gap:'0.55rem', fontSize:'0.8rem' }}>
                   {[
-                    ['Cargo', localJob.cargo_type_name],
-                    ['Vehicle', localJob.vehicle_type_required],
-                    ['Weight', localJob.estimated_weight_kg != null ? `${localJob.estimated_weight_kg} kg` : '—'],
-                    ['Pickup', localJob.pickup_address],
-                    ['Delivery', localJob.delivery_address],
-                    ...(localJob.description ? [['Note', localJob.description]] : []),
+                    [tr('cargo_label'), localJob.cargo_type_name],
+                    [tr('vehicle_label'), localJob.vehicle_type_required],
+                    [tr('weight_label'), localJob.estimated_weight_kg != null ? `${localJob.estimated_weight_kg} kg` : '—'],
+                    [tr('pickup_label'), localJob.pickup_address],
+                    [tr('delivery_label'), localJob.delivery_address],
+                    ...(localJob.description ? [[tr('note_label'), localJob.description]] : []),
                   ].map(([l, v]) => (
                     <div key={l} style={{ display:'flex', gap:'0.5rem' }}>
                       <span style={{ color:'var(--clr-muted)', width:70, flexShrink:0 }}>{l}</span>
@@ -330,7 +333,7 @@ function JobDetailModal({ job, onClose, onRefresh }: { job: Job; onClose: () => 
                     <LuCircleDot size={16} color="#a78bfa"/>
                   </div>
                   <div>
-                    <p style={{ fontWeight:700, fontSize:'0.85rem', color:'var(--clr-text)' }}>Shipper: {localJob.shipper_first_name} {localJob.shipper_last_name}</p>
+                    <p style={{ fontWeight:700, fontSize:'0.85rem', color:'var(--clr-text)' }}>{tr('shipper_label')}: {localJob.shipper_first_name} {localJob.shipper_last_name}</p>
                     {localJob.shipper_phone && <p style={{ fontSize:'0.75rem', color:'var(--clr-muted)' }}>{localJob.shipper_phone}</p>}
                   </div>
                 </div>
@@ -342,11 +345,11 @@ function JobDetailModal({ job, onClose, onRefresh }: { job: Job; onClose: () => 
                     <div style={{ display:'flex', gap:'0.5rem' }}>
                       <button onClick={handleDecline} disabled={actionLoading}
                         style={{ flex:1, padding:'0.65rem', borderRadius:10, border:'1px solid rgba(248,113,113,0.3)', background:'rgba(248,113,113,0.06)', color:'#f87171', fontFamily:'inherit', fontSize:'0.82rem', fontWeight:700, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:'0.4rem' }}>
-                        {actionLoading ? <Spinner/> : <><LuBan size={14}/> Decline</>}
+                        {actionLoading ? <Spinner/> : <><LuBan size={14}/> {tr('btn_decline')}</>}
                       </button>
                       <button onClick={handleAccept} disabled={actionLoading}
                         style={{ flex:2, padding:'0.65rem', borderRadius:10, border:'none', background:'var(--clr-accent)', color:'#080b14', fontFamily:'inherit', fontSize:'0.82rem', fontWeight:700, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:'0.4rem' }}>
-                        {actionLoading ? <Spinner/> : <><LuCheck size={14}/> Accept Job</>}
+                        {actionLoading ? <Spinner/> : <><LuCheck size={14}/> {tr('btn_accept_job')}</>}
                       </button>
                     </div>
                   )}
@@ -355,7 +358,12 @@ function JobDetailModal({ job, onClose, onRefresh }: { job: Job; onClose: () => 
                   {nextStatuses.map(ns => (
                     <button key={ns} onClick={() => handleStatus(ns)} disabled={actionLoading}
                       style={{ width:'100%', padding:'0.65rem', borderRadius:10, border:'none', background:'var(--clr-accent)', color:'#080b14', fontFamily:'inherit', fontSize:'0.82rem', fontWeight:700, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:'0.4rem' }}>
-                      {actionLoading ? <Spinner/> : <>Mark as {STATUS_LABEL[ns]}</>}
+                      {actionLoading ? <Spinner/> : <>{tr('mark_as')} {({
+                        PENDING: tr('status_pending'), ASSIGNED: tr('status_assigned'), EN_ROUTE: tr('status_en_route'),
+                        AT_PICKUP: tr('status_at_pickup'), IN_TRANSIT: tr('status_in_transit'), AT_BORDER: tr('status_at_border'),
+                        IN_CUSTOMS: tr('status_in_customs'), CUSTOMS_CLEARED: tr('status_customs_cleared'),
+                        DELIVERED: tr('status_delivered'), CANCELLED: tr('status_cancelled'),
+                      } as Record<string,string>)[ns] ?? ns}</>}
                     </button>
                   ))}
 
@@ -363,7 +371,7 @@ function JobDetailModal({ job, onClose, onRefresh }: { job: Job; onClose: () => 
                   {status === 'AT_PICKUP' && (
                     <button onClick={() => setOtpModal('pickup')}
                       style={{ width:'100%', padding:'0.65rem', borderRadius:10, border:'none', background:'var(--clr-accent)', color:'#080b14', fontFamily:'inherit', fontSize:'0.82rem', fontWeight:700, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:'0.4rem' }}>
-                      <LuCheck size={14}/> Verify Pickup OTP → In Transit
+                      <LuCheck size={14}/> {tr('verify_pickup_otp')}
                     </button>
                   )}
 
@@ -371,22 +379,22 @@ function JobDetailModal({ job, onClose, onRefresh }: { job: Job; onClose: () => 
                   {status === 'IN_TRANSIT' && isCrossBorder && (
                     <button onClick={() => handleStatus('AT_BORDER')} disabled={actionLoading}
                       style={{ width:'100%', padding:'0.65rem', borderRadius:10, border:'1px solid rgba(245,158,11,0.3)', background:'rgba(245,158,11,0.08)', color:'#f59e0b', fontFamily:'inherit', fontSize:'0.82rem', fontWeight:700, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:'0.4rem' }}>
-                      {actionLoading ? <Spinner/> : <>🌍 Arrived at Border Crossing</>}
+                      {actionLoading ? <Spinner/> : <>{tr('arrived_at_border')}</>}
                     </button>
                   )}
                   {status === 'IN_TRANSIT' && (
                     <button onClick={() => setOtpModal('delivery')}
                       style={{ width:'100%', padding:'0.65rem', borderRadius:10, border:'none', background:'#4ade80', color:'#080b14', fontFamily:'inherit', fontSize:'0.82rem', fontWeight:700, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:'0.4rem' }}>
-                      <LuCircleCheck size={14}/> Verify Delivery OTP → Delivered
+                      <LuCircleCheck size={14}/> {tr('verify_delivery_otp')}
                     </button>
                   )}
 
                   {/* Cross-border status info banner */}
                   {['AT_BORDER','IN_CUSTOMS','CUSTOMS_CLEARED'].includes(status) && (
                     <div style={{ padding:'0.75rem 1rem', borderRadius:10, background:'rgba(245,158,11,0.06)', border:'1px solid rgba(245,158,11,0.2)', fontSize:'0.78rem', color:'#f59e0b' }}>
-                      {status === 'AT_BORDER' && '🛂 Waiting at border. Upload checkpoint photo in the Docs tab.'}
-                      {status === 'IN_CUSTOMS' && '📋 Shipment is under customs review.'}
-                      {status === 'CUSTOMS_CLEARED' && '✅ Customs cleared! Mark as In Transit to resume delivery.'}
+                      {status === 'AT_BORDER' && tr('border_waiting')}
+                      {status === 'IN_CUSTOMS' && tr('customs_review')}
+                      {status === 'CUSTOMS_CLEARED' && tr('customs_cleared_msg')}
                     </div>
                   )}
                 </div>
@@ -397,12 +405,12 @@ function JobDetailModal({ job, onClose, onRefresh }: { job: Job; onClose: () => 
             {tab === 'docs' && isCrossBorder && (
               <div style={{ display:'flex', flexDirection:'column', gap:'1rem' }}>
                 <div className="glass-inner" style={{ padding:'0.85rem 1rem', fontSize:'0.8rem' }}>
-                  <p style={{ fontWeight:700, color:'var(--clr-text)', marginBottom:'0.5rem' }}>Border Info</p>
+                  <p style={{ fontWeight:700, color:'var(--clr-text)', marginBottom:'0.5rem' }}>{tr('border_info')}</p>
                   {[
-                    ['Border Ref', localJob.border_crossing_ref],
-                    ['Customs Ref', localJob.customs_declaration_ref],
-                    ['HS Code', localJob.hs_code],
-                    ['Shipper TIN', localJob.shipper_tin],
+                    [tr('border_ref'), localJob.border_crossing_ref],
+                    [tr('customs_ref'), localJob.customs_declaration_ref],
+                    [tr('hs_code'), localJob.hs_code],
+                    [tr('shipper_tin'), localJob.shipper_tin],
                   ].map(([l, v]) => v ? (
                     <div key={l} style={{ display:'flex', gap:'0.5rem', marginBottom:'0.3rem' }}>
                       <span style={{ color:'var(--clr-muted)', width:90, flexShrink:0 }}>{l}</span>
@@ -412,32 +420,32 @@ function JobDetailModal({ job, onClose, onRefresh }: { job: Job; onClose: () => 
                 </div>
 
                 <div className="glass-inner" style={{ padding:'1rem' }}>
-                  <p style={{ fontWeight:700, color:'var(--clr-text)', fontSize:'0.85rem', marginBottom:'0.75rem' }}>Upload Document</p>
+                  <p style={{ fontWeight:700, color:'var(--clr-text)', fontSize:'0.85rem', marginBottom:'0.75rem' }}>{tr('upload_document')}</p>
                   {docErr && <div className="alert alert-error" style={{ marginBottom:'0.6rem', fontSize:'0.78rem' }}><LuTriangleAlert size={12}/> {docErr}</div>}
                   {docSuccess && <div className="alert alert-success" style={{ marginBottom:'0.6rem', fontSize:'0.78rem' }}><LuCheck size={12}/> {docSuccess}</div>}
                   <div style={{ display:'flex', flexDirection:'column', gap:'0.5rem' }}>
                     <select value={docType} onChange={e => setDocType(e.target.value)}
                       style={{ padding:'0.5rem 0.75rem', borderRadius:8, border:'1px solid rgba(255,255,255,0.1)', background:'rgba(255,255,255,0.04)', color:'var(--clr-text)', fontFamily:'inherit', fontSize:'0.8rem', outline:'none' }}>
-                      {['CHECKPOINT_PHOTO','COMMERCIAL_INVOICE','BILL_OF_LADING','PACKING_LIST','CERTIFICATE_OF_ORIGIN','OTHER'].map(t => (
-                        <option key={t} value={t}>{t.replace(/_/g,' ')}</option>
+                      {['CHECKPOINT_PHOTO','COMMERCIAL_INVOICE','BILL_OF_LADING','PACKING_LIST','CERTIFICATE_OF_ORIGIN','OTHER'].map(docTypeName => (
+                        <option key={docTypeName} value={docTypeName}>{docTypeName.replace(/_/g,' ')}</option>
                       ))}
                     </select>
                     <input ref={fileInputRef} type="file" accept="image/*,application/pdf" onChange={handleFileChange}
                       style={{ padding:'0.4rem', borderRadius:8, border:'1px solid rgba(255,255,255,0.1)', background:'rgba(255,255,255,0.04)', color:'var(--clr-text)', fontSize:'0.78rem' }}/>
-                    <input value={docNotes} onChange={e => setDocNotes(e.target.value)} placeholder="Notes (optional)"
+                    <input value={docNotes} onChange={e => setDocNotes(e.target.value)} placeholder={tr('notes_optional')}
                       style={{ padding:'0.5rem 0.75rem', borderRadius:8, border:'1px solid rgba(255,255,255,0.1)', background:'rgba(255,255,255,0.04)', color:'var(--clr-text)', fontFamily:'inherit', fontSize:'0.8rem', outline:'none' }}/>
                     <button onClick={handleUploadDoc} disabled={docUploading || !docFile}
                       style={{ padding:'0.6rem', borderRadius:10, border:'none', background: docFile ? 'var(--clr-accent)' : 'rgba(255,255,255,0.08)', color: docFile ? '#080b14' : 'var(--clr-muted)', fontFamily:'inherit', fontSize:'0.82rem', fontWeight:700, cursor: docFile ? 'pointer' : 'not-allowed', display:'flex', alignItems:'center', justifyContent:'center', gap:'0.4rem' }}>
-                      {docUploading ? <Spinner/> : <><LuUpload size={14}/> Upload</>}
+                      {docUploading ? <Spinner/> : <><LuUpload size={14}/> {tr('btn_upload')}</>}
                     </button>
                   </div>
                 </div>
                 <div className="glass-inner" style={{ padding:'0.85rem 1rem', marginTop:'0.6rem' }}>
-                  <p style={{ fontWeight:700, color:'var(--clr-text)', marginBottom:'0.6rem', fontSize:'0.85rem' }}>Uploaded Documents</p>
+                  <p style={{ fontWeight:700, color:'var(--clr-text)', marginBottom:'0.6rem', fontSize:'0.85rem' }}>{tr('uploaded_documents')}</p>
                   {docsLoading ? (
-                    <div style={{ display:'flex', alignItems:'center', gap:'0.5rem', color:'var(--clr-muted)', fontSize:'0.8rem' }}><Spinner/> Loading…</div>
+                    <div style={{ display:'flex', alignItems:'center', gap:'0.5rem', color:'var(--clr-muted)', fontSize:'0.8rem' }}><Spinner/> {tr('loading')}</div>
                   ) : cbDocs.length === 0 ? (
-                    <p style={{ fontSize:'0.78rem', color:'var(--clr-muted)', padding:'0.25rem 0' }}>No documents uploaded yet.</p>
+                    <p style={{ fontSize:'0.78rem', color:'var(--clr-muted)', padding:'0.25rem 0' }}>{tr('no_documents')}</p>
                   ) : (
                     <div style={{ display:'flex', flexDirection:'column', gap:'0.75rem' }}>
                       {cbDocs.map(doc => {
@@ -470,20 +478,19 @@ function JobDetailModal({ job, onClose, onRefresh }: { job: Job; onClose: () => 
                             {/* View link */}
                             <a href={href} target="_blank" rel="noreferrer"
                               style={{ fontSize:'0.74rem', color:'var(--clr-accent)', display:'inline-flex', alignItems:'center', gap:'0.25rem', width:'fit-content' }}>
-                              <LuFileText size={12}/> View document ↗
+                              <LuFileText size={12}/> {tr('view_document')}
                             </a>
-
                             {/* Approved with notes */}
                             {doc.status === 'APPROVED' && doc.review_notes && (
                               <div style={{ padding:'0.4rem 0.6rem', borderRadius:8, background:'rgba(16,185,129,0.08)', border:'1px solid rgba(16,185,129,0.2)', fontSize:'0.73rem', color:'#10b981' }}>
-                                <b>Review note:</b> {doc.review_notes}
+                                <b>{tr('review_note')}</b> {doc.review_notes}
                               </div>
                             )}
 
                             {/* Rejected: show reason */}
                             {doc.status === 'REJECTED' && (
                               <div style={{ padding:'0.4rem 0.6rem', borderRadius:8, background:'rgba(248,113,113,0.08)', border:'1px solid rgba(248,113,113,0.2)', fontSize:'0.73rem', color:'#f87171' }}>
-                                <b>Reason for rejection:</b> {doc.review_notes || 'No reason provided.'}
+                                <b>{tr('reason_rejection')}</b> {doc.review_notes || tr('no_reason')}
                               </div>
                             )}
                           </div>
@@ -498,13 +505,13 @@ function JobDetailModal({ job, onClose, onRefresh }: { job: Job; onClose: () => 
             {/* ── Admin Chat tab ── */}
             {tab === 'chat' && (
               <div style={{ display:'flex', flexDirection:'column', height:'100%' }}>
-                <p style={{ fontSize:'0.72rem', color:'var(--clr-muted)', marginBottom:'0.5rem', flexShrink:0 }}>This chat is with Admin / Support only.</p>
+                <p style={{ fontSize:'0.72rem', color:'var(--clr-muted)', marginBottom:'0.5rem', flexShrink:0 }}>{tr('chat_with_admin')}</p>
                 <div style={{ flex:1, display:'flex', flexDirection:'column', gap:'0.6rem', minHeight:200, maxHeight:340, overflowY:'auto', padding:'0.25rem 0' }}>
                   {messages.length === 0 ? (
-                    <div style={{ textAlign:'center', color:'var(--clr-muted)', padding:'2rem', fontSize:'0.85rem' }}>No messages yet. Send a message to Admin.</div>
+                    <div style={{ textAlign:'center', color:'var(--clr-muted)', padding:'2rem', fontSize:'0.85rem' }}>{tr('no_messages')}</div>
                   ) : messages.map(m => {
                     const isMe = m.sender_role_id === 3
-                    const roleLabel = m.sender_role_id === 1 ? 'Admin' : m.sender_role_id === 4 ? 'Staff' : 'You'
+                    const roleLabel = m.sender_role_id === 1 ? tr('role_admin') : m.sender_role_id === 4 ? tr('role_staff') : tr('role_you')
                     return (
                       <div key={m.id} style={{ display:'flex', flexDirection:'column', alignItems: isMe ? 'flex-end' : 'flex-start' }}>
                         <div style={{ maxWidth:'80%', background: isMe ? 'rgba(0,229,255,0.12)' : 'rgba(255,255,255,0.05)', border: isMe ? '1px solid rgba(0,229,255,0.2)' : '1px solid rgba(255,255,255,0.08)', borderRadius:12, padding:'0.55rem 0.85rem' }}>
@@ -518,7 +525,7 @@ function JobDetailModal({ job, onClose, onRefresh }: { job: Job; onClose: () => 
                 </div>
                 <div style={{ display:'flex', gap:'0.5rem', marginTop:'0.75rem', flexShrink:0 }}>
                   <input value={msgText} onChange={e => setMsgText(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend() } }}
-                    placeholder="Message Admin…" style={{ flex:1, padding:'0.6rem 0.85rem', borderRadius:10, border:'1px solid rgba(255,255,255,0.1)', background:'rgba(255,255,255,0.04)', color:'var(--clr-text)', fontFamily:'inherit', fontSize:'0.85rem', outline:'none' }}/>
+                    placeholder={tr('message_admin_ph')} style={{ flex:1, padding:'0.6rem 0.85rem', borderRadius:10, border:'1px solid rgba(255,255,255,0.1)', background:'rgba(255,255,255,0.04)', color:'var(--clr-text)', fontFamily:'inherit', fontSize:'0.85rem', outline:'none' }}/>
                   <button onClick={handleSend} disabled={sending || !msgText.trim()}
                     style={{ padding:'0.6rem 0.85rem', borderRadius:10, border:'none', background:'var(--clr-accent)', color:'#080b14', cursor:'pointer', display:'flex', alignItems:'center', opacity: sending || !msgText.trim() ? 0.5 : 1 }}>
                     {sending ? <Spinner/> : <LuSend size={16}/>}
@@ -532,10 +539,10 @@ function JobDetailModal({ job, onClose, onRefresh }: { job: Job; onClose: () => 
 
       {/* OTP modals */}
       {otpModal === 'pickup' && (
-        <OtpModal title="Verify Pickup OTP" onConfirm={handlePickupOtp} onClose={() => setOtpModal(null)}/>
+        <OtpModal title={tr('otp_modal_title_pickup')} onConfirm={handlePickupOtp} onClose={() => setOtpModal(null)}/>
       )}
       {otpModal === 'delivery' && (
-        <OtpModal title="Verify Delivery OTP" onConfirm={handleDeliveryOtp} onClose={() => setOtpModal(null)}/>
+        <OtpModal title={tr('otp_modal_title_delivery')} onConfirm={handleDeliveryOtp} onClose={() => setOtpModal(null)}/>
       )}
     </>
   )
@@ -543,6 +550,7 @@ function JobDetailModal({ job, onClose, onRefresh }: { job: Job; onClose: () => 
 
 // ─── GPS Ping ─────────────────────────────────────────────────────────────────
 function GpsPingButton({ activeJobId }: { activeJobId: string | null }) {
+  const { t: tr } = useLanguage()
   const [pinging, setPinging] = useState(false)
   const [msg, setMsg] = useState('')
   const [autoPing, setAutoPing] = useState(true)
@@ -560,7 +568,7 @@ function GpsPingButton({ activeJobId }: { activeJobId: string | null }) {
 
   const ping = useCallback(() => {
     if (!navigator.geolocation) {
-      setMsg('Geolocation not supported on this device/browser.')
+      setMsg(tr('geo_not_supported'))
       return
     }
     if (inFlightRef.current) return
@@ -580,9 +588,9 @@ function GpsPingButton({ activeJobId }: { activeJobId: string | null }) {
             speed_kmh: pos.coords.speed != null ? pos.coords.speed * 3.6 : undefined,
           })
           setGeoPerm('granted')
-          setMsg('Location updated ✓')
+          setMsg(tr('location_updated'))
         } catch {
-          setMsg('Ping failed. Please try again.')
+          setMsg(tr('ping_failed'))
         } finally {
           setPinging(false)
           inFlightRef.current = false
@@ -594,15 +602,15 @@ function GpsPingButton({ activeJobId }: { activeJobId: string | null }) {
         inFlightRef.current = false
         if (err.code === 1) {
           setGeoPerm('denied')
-          setMsg('Location permission denied. Please allow location to share live tracking.')
+          setMsg(tr('geo_denied'))
         } else {
-          setMsg('Could not get current location.')
+          setMsg(tr('geo_failed'))
           setTimeout(() => setMsg(''), 3000)
         }
       },
       { enableHighAccuracy: true, timeout: 12000, maximumAge: 5000 }
     )
-  }, [activeJobId])
+  }, [activeJobId, tr])
 
   useEffect(() => {
     if (!navigator.permissions?.query) return
@@ -622,11 +630,11 @@ function GpsPingButton({ activeJobId }: { activeJobId: string | null }) {
     clearTimer()
     if (!autoPing) return
     if (!navigator.geolocation) {
-      setMsg('Geolocation not supported on this device/browser.')
+      setMsg(tr('geo_not_supported'))
       return
     }
     if (geoPerm === 'denied') {
-      setMsg('Please allow location permission to enable live tracking.')
+      setMsg(tr('allow_location_perm'))
       return
     }
 
@@ -647,11 +655,11 @@ function GpsPingButton({ activeJobId }: { activeJobId: string | null }) {
     <div style={{ display:'flex', alignItems:'center', gap:'0.5rem', flexWrap:'wrap' }}>
       <button onClick={ping} disabled={pinging}
         style={{ display:'flex', alignItems:'center', gap:'0.4rem', padding:'0.38rem 0.75rem', borderRadius:8, border:'1px solid rgba(0,229,255,0.25)', background:'rgba(0,229,255,0.07)', color:'var(--clr-accent)', fontFamily:'inherit', fontSize:'0.76rem', fontWeight:700, cursor:'pointer' }}>
-        {pinging ? <><Spinner/> Pinging…</> : <><LuNavigation size={13}/> Ping My Location</>}
+        {pinging ? <><Spinner/> {tr('pinging')}</> : <><LuNavigation size={13}/> {tr('btn_ping_location')}</>}
       </button>
       <button onClick={() => setAutoPing(v => !v)}
         style={{ padding:'0.38rem 0.65rem', borderRadius:8, border:'1px solid rgba(255,255,255,0.12)', background:autoPing ? 'rgba(74,222,128,0.14)' : 'rgba(255,255,255,0.05)', color:autoPing ? '#4ade80' : 'var(--clr-muted)', fontFamily:'inherit', fontSize:'0.72rem', fontWeight:700, cursor:'pointer' }}>
-        Auto: {autoPing ? 'ON' : 'OFF'}
+        {autoPing ? tr('auto_on') : tr('auto_off')}
       </button>
       <select
         value={intervalSec}
@@ -663,7 +671,7 @@ function GpsPingButton({ activeJobId }: { activeJobId: string | null }) {
         <option value={30}>30s</option>
       </select>
       {autoPing && geoPerm === 'prompt' && (
-        <span style={{ fontSize:'0.72rem', color:'#fbbf24' }}>Please allow location when your browser asks.</span>
+        <span style={{ fontSize:'0.72rem', color:'#fbbf24' }}>{tr('allow_location_prompt')}</span>
       )}
       {msg && <span style={{ fontSize:'0.72rem', color: msg.includes('✓') ? '#4ade80' : '#f87171' }}>{msg}</span>}
     </div>
@@ -675,6 +683,7 @@ type JobTab = 'active' | 'completed'
 
 export default function DriverJobsPage() {
   const { user } = useAuth()
+  const { t: tr } = useLanguage()
   const [jobTab, setJobTab] = useState<JobTab>('active')
   const [jobs, setJobs] = useState<Job[]>([])
   const [loading, setLoading] = useState(false)
@@ -770,7 +779,7 @@ export default function DriverJobsPage() {
           <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', gap:'0.75rem', flexWrap:'wrap' }}>
             <div>
               <h2 style={{ fontSize:'1.05rem', fontWeight:800, color:'var(--clr-text)', display:'flex', alignItems:'center', gap:'0.45rem' }}>
-                <LuTruck size={18}/> My Jobs
+                <LuTruck size={18}/> {tr('my_jobs_title')}
               </h2>
               <p style={{ fontSize:'0.78rem', color:'var(--clr-muted)', marginTop:'0.15rem' }}>
                 {active.length} active · {completed.length} completed
@@ -784,16 +793,16 @@ export default function DriverJobsPage() {
               <GpsPingButton activeJobId={activeJob?.id ?? null}/>
               <button onClick={() => { loadJobs(); loadUnreadCounts() }} disabled={loading}
                 style={{ display:'flex', alignItems:'center', gap:'0.35rem', padding:'0.38rem 0.75rem', borderRadius:8, border:'1px solid rgba(255,255,255,0.1)', background:'rgba(255,255,255,0.04)', color:'var(--clr-muted)', fontFamily:'inherit', fontSize:'0.76rem', fontWeight:600, cursor:'pointer' }}>
-                <LuRefreshCw size={13}/> Refresh
+                <LuRefreshCw size={13}/> {tr('btn_refresh')}
               </button>
             </div>
           </div>
 
           {/* Tab switcher */}
           <div style={{ display:'flex', gap:'0.25rem', background:'rgba(255,255,255,0.04)', borderRadius:10, padding:'0.25rem', marginTop:'1rem' }}>
-            {(['active','completed'] as JobTab[]).map(t => (
-              <button key={t} onClick={() => { setJobTab(t); clearSelection() }} style={{ flex:1, padding:'0.45rem', border:'none', borderRadius:8, background: jobTab === t ? 'rgba(0,229,255,0.12)' : 'transparent', color: jobTab === t ? 'var(--clr-accent)' : 'var(--clr-muted)', fontFamily:'inherit', fontSize:'0.78rem', fontWeight:700, cursor:'pointer', transition:'all 0.15s', outline: jobTab === t ? '1px solid rgba(0,229,255,0.2)' : 'none', display:'flex', alignItems:'center', justifyContent:'center', gap:'0.35rem' }}>
-                {t === 'active' ? <><LuClock size={13}/> Active ({active.length})</> : <><LuCircleCheck size={13}/> Completed ({completed.length})</>}
+            {(['active','completed'] as JobTab[]).map(tabKey => (
+              <button key={tabKey} onClick={() => { setJobTab(tabKey); clearSelection() }} style={{ flex:1, padding:'0.45rem', border:'none', borderRadius:8, background: jobTab === tabKey ? 'rgba(0,229,255,0.12)' : 'transparent', color: jobTab === tabKey ? 'var(--clr-accent)' : 'var(--clr-muted)', fontFamily:'inherit', fontSize:'0.78rem', fontWeight:700, cursor:'pointer', transition:'all 0.15s', outline: jobTab === tabKey ? '1px solid rgba(0,229,255,0.2)' : 'none', display:'flex', alignItems:'center', justifyContent:'center', gap:'0.35rem' }}>
+                {tabKey === 'active' ? <><LuClock size={13}/> Active ({active.length})</> : <><LuCircleCheck size={13}/> Completed ({completed.length})</>}
               </button>
             ))}
           </div>
@@ -807,15 +816,15 @@ export default function DriverJobsPage() {
             </span>
             <button onClick={bulkDeliver} disabled={bulkLoading}
               style={{ display:'flex', alignItems:'center', gap:'0.35rem', padding:'0.4rem 0.85rem', borderRadius:8, border:'1px solid rgba(74,222,128,0.3)', background:'rgba(74,222,128,0.1)', color:'#4ade80', fontFamily:'inherit', fontSize:'0.78rem', fontWeight:700, cursor:'pointer', opacity: bulkLoading ? 0.6 : 1 }}>
-              <LuCheck size={13}/> Mark Delivered
+              <LuCheck size={13}/> {tr('mark_delivered')}
             </button>
             <button onClick={bulkCancel} disabled={bulkLoading}
               style={{ display:'flex', alignItems:'center', gap:'0.35rem', padding:'0.4rem 0.85rem', borderRadius:8, border:'1px solid rgba(248,113,113,0.3)', background:'rgba(248,113,113,0.08)', color:'#f87171', fontFamily:'inherit', fontSize:'0.78rem', fontWeight:700, cursor:'pointer', opacity: bulkLoading ? 0.6 : 1 }}>
-              <LuBan size={13}/> Cancel
+              <LuBan size={13}/> {tr('btn_cancel')}
             </button>
             <button onClick={clearSelection}
               style={{ display:'flex', alignItems:'center', gap:'0.25rem', padding:'0.38rem 0.6rem', borderRadius:8, border:'1px solid rgba(255,255,255,0.1)', background:'none', color:'var(--clr-muted)', fontFamily:'inherit', fontSize:'0.75rem', cursor:'pointer' }}>
-              <LuX size={12}/> Clear
+              <LuX size={12}/> {tr('clear')}
             </button>
             {bulkMsg && <span style={{ fontSize:'0.75rem', color: bulkMsg.includes('✓') ? '#4ade80' : '#fbbf24', width:'100%' }}>{bulkMsg}</span>}
           </div>
@@ -832,8 +841,8 @@ export default function DriverJobsPage() {
               else setSelectedJobs(new Set(visible.map(j => j.id)))
             }} style={{ display:'flex', alignItems:'center', gap:'0.35rem', background:'rgba(255,255,255,0.05)', border:'1px solid rgba(255,255,255,0.1)', cursor:'pointer', color:'var(--clr-muted)', fontFamily:'inherit', fontSize:'0.75rem', padding:'0.4rem 0.8rem', borderRadius:8 }}>
               {selectedJobs.size === visible.length
-                ? <><LuSquareCheck size={14} color="var(--clr-accent)"/> Deselect All</>
-                : <><LuSquare size={14}/> Select All</>}
+                ? <><LuSquareCheck size={14} color="var(--clr-accent)"/> {tr('deselect_all')}</>
+                : <><LuSquare size={14}/> {tr('select_all')}</>}
             </button>
           )}
         </div>
@@ -841,12 +850,12 @@ export default function DriverJobsPage() {
         <div style={{ display:'grid', gap:'1rem', gridTemplateColumns:'repeat(auto-fill, minmax(320px, 1fr))' }}>
           {loading ? (
             <div style={{ gridColumn:'1/-1', display:'flex', justifyContent:'center', padding:'2.5rem', color:'var(--clr-muted)', gap:'0.65rem', alignItems:'center' }}>
-              <Spinner/> Loading jobs…
+              <Spinner/> {tr('loading_jobs')}
             </div>
           ) : visible.length === 0 ? (
             <div className="glass-inner" style={{ gridColumn:'1/-1', textAlign:'center', padding:'3rem 1rem', color:'var(--clr-muted)', fontSize:'0.875rem' }}>
               <LuTruck size={36} style={{ opacity:0.25, display:'block', margin:'0 auto 1rem' }}/>
-              {jobTab === 'active' ? 'No active jobs right now.' : 'No completed jobs yet.'}
+              {jobTab === 'active' ? tr('no_active_jobs') : tr('no_completed_jobs')}
             </div>
           ) : visible.map(job => {
             const isSelected = selectedJobs.has(job.id)
@@ -860,8 +869,8 @@ export default function DriverJobsPage() {
                 <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', gap:'0.5rem', marginBottom:'0.5rem' }}>
                   <div style={{ display:'flex', alignItems:'center', gap:'0.5rem', flexWrap:'wrap' }} onClick={() => setSelectedJob(job)}>
                     <span style={{ fontWeight:800, fontSize:'0.88rem', color:'var(--clr-text)' }}>{job.reference_code}</span>
-                    {statusBadge(job.status)}
-                    {!!job.is_cross_border && <span style={{ fontSize:'0.63rem', fontWeight:700, color:'#f59e0b', background:'rgba(245,158,11,0.08)', border:'1px solid rgba(245,158,11,0.25)', borderRadius:99, padding:'0.1rem 0.45rem' }}>🌍 Cross-Border</span>}
+                    <StatusBadge status={job.status}/>
+                    {!!job.is_cross_border && <span style={{ fontSize:'0.63rem', fontWeight:700, color:'#f59e0b', background:'rgba(245,158,11,0.08)', border:'1px solid rgba(245,158,11,0.25)', borderRadius:99, padding:'0.1rem 0.45rem' }}>🌍 {tr('cross_border')}</span>}
                     {unread > 0 && (
                       <span style={{ display:'flex', alignItems:'center', gap:'0.25rem', fontSize:'0.68rem', fontWeight:700, color:'#fff', background:'#ef4444', borderRadius:99, padding:'0.12rem 0.45rem', lineHeight:1 }}>
                         <LuMessageSquare size={10}/> {unread}
@@ -889,7 +898,7 @@ export default function DriverJobsPage() {
                     onClick={e => { e.stopPropagation(); toggleSelect(job.id) }}
                     style={{ background:'none', border:'none', cursor:'pointer', color: isSelected ? 'var(--clr-accent)' : 'var(--clr-muted)', padding:'0.2rem', display:'flex', alignItems:'center', flexShrink:0, gap:'0.25rem', fontSize:'0.75rem' }}>
                     {isSelected ? <LuSquareCheck size={16}/> : <LuSquare size={16}/>}
-                    {isSelected ? 'Selected' : 'Select'}
+                    {isSelected ? tr('selected_item') : tr('select_item')}
                   </button>
                   <LuChevronRight size={14} style={{ color:'var(--clr-muted)' }} onClick={() => setSelectedJob(job)}/>
                 </div>

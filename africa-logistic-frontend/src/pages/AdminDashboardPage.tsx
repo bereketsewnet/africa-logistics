@@ -5,6 +5,7 @@ import {
 import { useAuth } from '../context/AuthContext'
 import { useNavigate } from 'react-router-dom'
 import apiClient, { authApi, adminOrderApi, configApi, adminCarOwnerApi } from '../lib/apiClient'
+import LanguageToggle from '../components/LanguageToggle'
 import PhoneField from '../components/PhoneField'
 import { normalisePhone } from '../lib/normalisePhone'
 import { MapContainer, TileLayer, Marker, Popup, Polyline, useMapEvents } from 'react-leaflet'
@@ -7333,6 +7334,9 @@ export default function AdminDashboardPage() {
             </div>
           </div>
           <button onClick={() => { logout(); navigate('/login') }} style={{ width: '100%', padding: '0.42rem', borderRadius: 8, border: '1px solid rgba(255,255,255,0.09)', background: 'rgba(255,255,255,0.04)', color: 'var(--clr-muted)', fontFamily: 'inherit', fontSize: '0.75rem', fontWeight: 600, cursor: 'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:'0.35rem' }}><LuLogOut size={13}/> Sign out</button>
+          <div style={{ width:'100%', marginTop:'0.45rem', display:'flex', justifyContent:'center' }}>
+            <LanguageToggle compact />
+          </div>
         </div>
       </aside>
 

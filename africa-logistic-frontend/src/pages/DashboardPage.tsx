@@ -13,6 +13,8 @@ import WalletDashboard from '../components/WalletDashboard'
 import TransactionHistory from '../components/TransactionHistory'
 import InvoicesPage from '../components/InvoicesPage'
 import ManualPaymentPage from '../components/ManualPaymentPage'
+import LanguageToggle from '../components/LanguageToggle'
+import { useLanguage } from '../context/LanguageContext'
 import {
   LuTruck, LuUser, LuShield, LuPackage, LuPhone, LuMail,
   LuIdCard, LuCircleCheck, LuTriangleAlert, LuCamera, LuTrash2,
@@ -128,6 +130,7 @@ interface ContactInfo {
 }
 
 function HelpAndSupportPage() {
+  const { t: tr } = useLanguage()
   const [contact, setContact] = useState<ContactInfo>({})
   const [aiEnabled, setAiEnabled] = useState(false)
   const [loading, setLoading] = useState(true)
@@ -179,8 +182,8 @@ function HelpAndSupportPage() {
         <div style={{ position:'relative', width:80, height:80, borderRadius:'50%', background:'linear-gradient(135deg,rgba(0,229,255,0.12),rgba(139,92,246,0.12))', border:'1.5px solid rgba(0,229,255,0.22)', display:'flex', alignItems:'center', justifyContent:'center', margin:'0 auto 1.25rem', color:'var(--clr-accent)' }}>
           <LuLifeBuoy size={36}/>
         </div>
-        <h1 style={{ fontSize:'clamp(1.6rem,4.5vw,2.1rem)', fontWeight:900, color:'var(--clr-text)', margin:'0 0 0.5rem', letterSpacing:'-0.025em' }}>Help &amp; Support</h1>
-        <p style={{ fontSize:'0.9rem', color:'var(--clr-muted)', margin:0 }}>Fast, friendly help — whenever you need it</p>
+        <h1 style={{ fontSize:'clamp(1.6rem,4.5vw,2.1rem)', fontWeight:900, color:'var(--clr-text)', margin:'0 0 0.5rem', letterSpacing:'-0.025em' }}>{tr('help_title')}</h1>
+        <p style={{ fontSize:'0.9rem', color:'var(--clr-muted)', margin:0 }}>{tr('help_subtitle')}</p>
       </div>
 
       {/* ── AI spotlight ── */}
@@ -188,11 +191,11 @@ function HelpAndSupportPage() {
         <div style={{ display:'flex', alignItems:'center', gap:'1.25rem', flexWrap:'wrap', padding:'1.4rem 1.6rem', borderRadius:'1.25rem', background:'linear-gradient(135deg,rgba(99,102,241,0.13) 0%,rgba(139,92,246,0.09) 100%)', border:'1px solid rgba(99,102,241,0.28)', marginBottom:'1.5rem', boxShadow:'0 4px 24px rgba(99,102,241,0.12)' }}>
           <div style={{ width:54, height:54, borderRadius:'14px', background:'rgba(99,102,241,0.18)', border:'1px solid rgba(99,102,241,0.32)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'1.7rem', flexShrink:0 }}>🤖</div>
           <div style={{ flex:1, minWidth:150 }}>
-            <div style={{ fontWeight:800, color:'var(--clr-text)', fontSize:'1rem', marginBottom:'0.22rem' }}>AI Assistant</div>
-            <div style={{ fontSize:'0.8rem', color:'var(--clr-muted)', lineHeight:1.5 }}>Ask anything — instant intelligent answers, 24/7</div>
+            <div style={{ fontWeight:800, color:'var(--clr-text)', fontSize:'1rem', marginBottom:'0.22rem' }}>{tr('help_ai_title')}</div>
+            <div style={{ fontSize:'0.8rem', color:'var(--clr-muted)', lineHeight:1.5 }}>{tr('help_ai_sub')}</div>
           </div>
           <button style={{ display:'flex', alignItems:'center', gap:'0.5rem', padding:'0.72rem 1.4rem', borderRadius:'0.75rem', border:'none', cursor:'pointer', background:'linear-gradient(135deg,#6366f1,#8b5cf6)', color:'#fff', fontWeight:700, fontSize:'0.87rem', whiteSpace:'nowrap', boxShadow:'0 4px 16px rgba(99,102,241,0.38)', flexShrink:0 }}>
-            <LuMessageSquare size={15}/> Ask AI Assistant
+            <LuMessageSquare size={15}/> {tr('help_ask_ai')}
           </button>
         </div>
       )}
@@ -208,7 +211,7 @@ function HelpAndSupportPage() {
                 <div style={{ width:30, height:30, borderRadius:'8px', background:'rgba(0,229,255,0.1)', border:'1px solid rgba(0,229,255,0.18)', display:'flex', alignItems:'center', justifyContent:'center', color:'var(--clr-accent)', flexShrink:0 }}>
                   <LuPhone size={13}/>
                 </div>
-                <span style={{ fontSize:'0.68rem', fontWeight:800, letterSpacing:'0.1em', textTransform:'uppercase', color:'var(--clr-accent)' }}>Contact Us</span>
+                <span style={{ fontSize:'0.68rem', fontWeight:800, letterSpacing:'0.1em', textTransform:'uppercase', color:'var(--clr-accent)' }}>{tr('help_contact_us')}</span>
               </div>
               <div style={{ display:'flex', flexDirection:'column', gap:'0.55rem' }}>
                 {contactItems.map((item, i) => (
@@ -233,7 +236,7 @@ function HelpAndSupportPage() {
                 <div style={{ width:30, height:30, borderRadius:'8px', background:'rgba(139,92,246,0.12)', border:'1px solid rgba(139,92,246,0.22)', display:'flex', alignItems:'center', justifyContent:'center', color:'#a78bfa', flexShrink:0 }}>
                   <LuStar size={13}/>
                 </div>
-                <span style={{ fontSize:'0.68rem', fontWeight:800, letterSpacing:'0.1em', textTransform:'uppercase', color:'#a78bfa' }}>Follow Us</span>
+                <span style={{ fontSize:'0.68rem', fontWeight:800, letterSpacing:'0.1em', textTransform:'uppercase', color:'#a78bfa' }}>{tr('help_follow_us')}</span>
               </div>
               <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'0.5rem' }}>
                 {socialLinks.map(s => (
@@ -253,7 +256,7 @@ function HelpAndSupportPage() {
       {nothingToShow && (
         <div className="glass" style={{ padding:'3.5rem 2rem', textAlign:'center', borderRadius:'1.25rem' }}>
           <LuLifeBuoy size={40} style={{ color:'var(--clr-muted)', opacity:.25, marginBottom:'1rem' }}/>
-          <p style={{ fontSize:'0.9rem', color:'var(--clr-muted)', margin:0 }}>Support details coming soon.</p>
+          <p style={{ fontSize:'0.9rem', color:'var(--clr-muted)', margin:0 }}>{tr('help_support_soon')}</p>
         </div>
       )}
     </div>
@@ -482,6 +485,7 @@ function BemnetChat({ aiEnabled }: { aiEnabled: boolean }) {
 export default function DashboardPage() {
   const { user, logout, updateUser, refreshUser } = useAuth()
   const navigate = useNavigate()
+  const { t: tr } = useLanguage()
 
   const roleLabel = user?.role_id === 1 ? 'Admin' : user?.role_id === 2 ? 'Shipper' : user?.role_id === 3 ? 'Driver' : user?.role_name ?? 'User'
   const roleIcon  = user?.role_id === 1 ? <LuShield size={30}/> : user?.role_id === 2 ? <LuPackage size={30}/> : user?.role_id === 3 ? <LuTruck size={30}/> : <LuUser size={30}/>
@@ -853,23 +857,23 @@ export default function DashboardPage() {
   const photoUrl = user?.profile_photo_url
 
   const tabs: TabDef[] = [
-    { id: 'profile',     icon: <LuUser size={14}/>,     label: 'Profile'     },
-    { id: 'security',    icon: <LuLock size={14}/>,     label: 'Security'    },
-    { id: 'contact',     icon: <LuContact size={14}/>,  label: 'Contact'     },
-    { id: 'preferences', icon: <LuBell size={14}/>,     label: 'Prefs'       },
-    ...(user?.role_id === 3 ? [{ id: 'documents' as Tab, icon: <LuFileText size={14}/>, label: 'Docs' }] : []),
+    { id: 'profile',     icon: <LuUser size={14}/>,     label: tr('tab_profile')     },
+    { id: 'security',    icon: <LuLock size={14}/>,     label: tr('tab_security')    },
+    { id: 'contact',     icon: <LuContact size={14}/>,  label: tr('tab_contact')     },
+    { id: 'preferences', icon: <LuBell size={14}/>,     label: tr('tab_preferences') },
+    ...(user?.role_id === 3 ? [{ id: 'documents' as Tab, icon: <LuFileText size={14}/>, label: tr('tab_docs') }] : []),
   ]
 
   // ── Dock items ─────────────────────────────────────────────────────────────
   const dockItems: { id: DockPage; icon: React.ReactNode; label: string; soon?: boolean }[] = [
-    { id: 'account',      icon: <LuUser size={19}/>,          label: 'My Account'    },
-    ...(user?.role_id === 3 ? [{ id: 'vehicle' as DockPage, icon: <LuCar size={19}/>, label: 'My Vehicle' }] : []),
-    ...(user?.role_id === 2 ? [{ id: 'shipments' as DockPage, icon: <LuPackage size={19}/>, label: 'My Shipments' }] : []),
-    ...(user?.role_id === 3 ? [{ id: 'orders' as DockPage, icon: <LuTruck size={19}/>, label: 'My Jobs' }] : []),
-    ...((user?.role_id === 2 || user?.role_id === 3) ? [{ id: 'report' as DockPage, icon: <LuChartColumnBig size={19}/>, label: 'Report' }] : []),
-    { id: 'payments',     icon: <LuWallet size={19}/>,        label: 'Wallet'        },
-    { id: 'transactions', icon: <LuHistory size={19}/>,       label: 'History'       },
-    { id: 'help',         icon: <LuLifeBuoy size={19}/>,      label: 'Help & Support' },
+    { id: 'account',      icon: <LuUser size={19}/>,          label: tr('nav_account')    },
+    ...(user?.role_id === 3 ? [{ id: 'vehicle' as DockPage, icon: <LuCar size={19}/>, label: tr('nav_vehicle') }] : []),
+    ...(user?.role_id === 2 ? [{ id: 'shipments' as DockPage, icon: <LuPackage size={19}/>, label: tr('nav_shipments') }] : []),
+    ...(user?.role_id === 3 ? [{ id: 'orders' as DockPage, icon: <LuTruck size={19}/>, label: tr('nav_jobs') }] : []),
+    ...((user?.role_id === 2 || user?.role_id === 3) ? [{ id: 'report' as DockPage, icon: <LuChartColumnBig size={19}/>, label: tr('nav_report') }] : []),
+    { id: 'payments',     icon: <LuWallet size={19}/>,        label: tr('nav_wallet')        },
+    { id: 'transactions', icon: <LuHistory size={19}/>,       label: tr('nav_history')       },
+    { id: 'help',         icon: <LuLifeBuoy size={19}/>,      label: tr('nav_help') },
   ]
 
   // ── AI enabled state (for Bemnet chat) ────────────────────────────────────
@@ -920,6 +924,10 @@ export default function DashboardPage() {
         ))}
         <div style={{ flex:1 }}/>
         <div className="dock-divider"/>
+        {/* Language toggle in dock */}
+        <div style={{ alignSelf:'stretch', padding:'0.4rem 0.5rem', display:'flex', justifyContent:'center' }}>
+          <LanguageToggle compact={!dockExpanded} />
+        </div>
         <button onClick={toggleDock} className="dock-btn dock-toggle-btn"
           title={dockExpanded ? 'Collapse' : 'Expand'}>
           {dockExpanded ? <LuChevronLeft size={15}/> : <LuChevronRight size={15}/>}
@@ -927,7 +935,7 @@ export default function DashboardPage() {
         <button onClick={handleLogout} className="dock-btn" title="Sign out"
           style={{ flexDirection:'column', gap:'0.2rem', padding:'0.65rem 0.5rem' }}>
           <LuLogOut size={18}/>
-          {dockExpanded && <span className="dock-item-label">Sign Out</span>}
+          {dockExpanded && <span className="dock-item-label">{tr('sign_out')}</span>}
         </button>
       </div>
 
@@ -957,7 +965,7 @@ export default function DashboardPage() {
                       {user?.role_id === 3 && driverProfile && (() => {
                         const st: string = driverProfile.status ?? 'OFFLINE'
                         const stColor: Record<string, string> = { AVAILABLE:'#4ade80', ON_JOB:'#60a5fa', OFFLINE:'#94a3b8', SUSPENDED:'#fca5a5' }
-                        const stLabel: Record<string, string> = { AVAILABLE:'Available', ON_JOB:'On Job', OFFLINE:'Offline', SUSPENDED:'Suspended' }
+                        const stLabel: Record<string, string> = { AVAILABLE:tr('driver_status_available'), ON_JOB:tr('driver_status_on_job'), OFFLINE:tr('driver_status_offline'), SUSPENDED:tr('driver_status_suspended') }
                         const c = stColor[st] ?? '#94a3b8'
                         return (
                           <span style={{ display:'inline-flex', alignItems:'center', gap:'0.35rem', padding:'0.2rem 0.6rem', borderRadius:99, border:`1px solid ${c}44`, background:`${c}18`, fontSize:'0.72rem', fontWeight:700, color:c }}>
@@ -968,7 +976,7 @@ export default function DashboardPage() {
                       })()}
                       {user?.role_id === 3 && !vehicleLoading && myVehicles.length === 0 && (
                         <span style={{ display:'inline-flex', alignItems:'center', gap:'0.3rem', padding:'0.2rem 0.6rem', borderRadius:99, border:'1px solid rgba(251,191,36,0.35)', background:'rgba(251,191,36,0.12)', fontSize:'0.72rem', fontWeight:700, color:'#fbbf24' }}>
-                          <LuCar size={11}/> Needs Car
+                          <LuCar size={11}/> {tr('needs_car')}
                         </span>
                       )}
                     </div>
@@ -977,19 +985,20 @@ export default function DashboardPage() {
                       <p style={{ color:'var(--clr-muted)', fontSize:'0.78rem', marginTop:'0.1rem' }}>
                         {user.email}{' '}
                         {user.is_email_verified
-                          ? <span style={{ color:'#4ade80', fontSize:'0.72rem', display:'inline-flex', alignItems:'center', gap:'0.2rem' }}><LuCircleCheck size={12}/> verified</span>
-                          : <span style={{ color:'#fbbf24', fontSize:'0.72rem' }}>(pending)</span>}
+                          ? <span style={{ color:'#4ade80', fontSize:'0.72rem', display:'inline-flex', alignItems:'center', gap:'0.2rem' }}><LuCircleCheck size={12}/> {tr('verified')}</span>
+                          : <span style={{ color:'#fbbf24', fontSize:'0.72rem' }}>({tr('pending_verify')})</span>}
                       </p>
                     )}
                     {photoError && <p style={{ color:'#fca5a5', fontSize:'0.77rem', marginTop:'0.3rem' }}>{photoError}</p>}
                     {photoUrl && (
                       <button className="btn-outline" style={{ marginTop:'0.5rem', fontSize:'0.73rem', padding:'0.28rem 0.7rem', display:'flex', alignItems:'center', gap:'0.35rem' }}
                         onClick={handleDeletePhoto} disabled={photoLoading}>
-                        <LuTrash2 size={13}/> Remove photo
+                        <LuTrash2 size={13}/> {tr('remove_photo')}
                       </button>
                     )}
                   </div>
                   {/* Sign out only visible on mobile (desktop uses dock) */}
+                  <LanguageToggle compact />
                   <button className="btn-outline dash-signout-mobile" style={{ flexShrink:0, fontSize:'0.78rem', display:'flex', alignItems:'center', gap:'0.35rem' }} onClick={handleLogout}>
                     <LuLogOut size={14}/>
                   </button>
@@ -999,7 +1008,7 @@ export default function DashboardPage() {
               {/* Driver Rating — always visible */}
               {user?.role_id === 3 && (
                 <div className="glass" style={{ padding:'1rem 1.25rem', display:'flex', flexDirection:'column', gap:'0.65rem' }}>
-                  <h2 style={{ fontSize:'0.9rem', fontWeight:700, color:'var(--clr-text)', display:'flex', alignItems:'center', gap:'0.45rem', margin:0 }}><LuStar size={15} color="#fbbf24"/> My Rating</h2>
+                  <h2 style={{ fontSize:'0.9rem', fontWeight:700, color:'var(--clr-text)', display:'flex', alignItems:'center', gap:'0.45rem', margin:0 }}><LuStar size={15} color="#fbbf24"/> {tr('my_rating')}</h2>
                   {driverProfile ? (
                     driverProfile.rating != null ? (
                       <>
@@ -1013,10 +1022,10 @@ export default function DashboardPage() {
                         )}
                       </>
                     ) : (
-                      <p style={{ fontSize:'0.82rem', color:'var(--clr-muted)', margin:0 }}>No rating yet — complete deliveries to earn your score.</p>
+                      <p style={{ fontSize:'0.82rem', color:'var(--clr-muted)', margin:0 }}>{tr('rating_no_rating')}</p>
                     )
                   ) : (
-                    <p style={{ color:'var(--clr-muted)', fontSize:'0.82rem', margin:0 }}>Loading…</p>
+                    <p style={{ color:'var(--clr-muted)', fontSize:'0.82rem', margin:0 }}>{tr('loading')}</p>
                   )}
                 </div>
               )}
@@ -1048,7 +1057,7 @@ export default function DashboardPage() {
                   <div className="glass-inner" style={{ padding:'1rem', display:'flex', flexDirection:'column', gap:'0.6rem', borderLeft:'3px solid var(--clr-accent)' }}>
                     <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
                       <p style={{ fontWeight:700, fontSize:'0.875rem', color:'var(--clr-text)', display:'flex', alignItems:'center', gap:'0.4rem' }}>
-                        <LuUpload size={14} color="var(--clr-accent)"/> Verification Progress
+                        <LuUpload size={14} color="var(--clr-accent)"/> {tr('verification_progress')}
                       </p>
                       <span style={{ fontSize:'0.75rem', color:'var(--clr-muted)', fontWeight:600 }}>{completedDocs}/3 docs</span>
                     </div>
@@ -1056,39 +1065,39 @@ export default function DashboardPage() {
                       <div style={{ height:'100%', width:`${pct}%`, borderRadius:99, background:'linear-gradient(90deg,var(--clr-accent2),var(--clr-accent))', transition:'width 0.4s' }}/>
                     </div>
                     <p style={{ fontSize:'0.78rem', color:'var(--clr-muted)', lineHeight:1.5 }}>
-                      {completedDocs === 0 ? 'Upload your verification documents to get started.' : `${completedDocs} of 3 documents uploaded — ${3 - completedDocs} remaining.`}
+                      {completedDocs === 0 ? tr('verification_upload_start') : `${completedDocs} of 3 documents uploaded — ${3 - completedDocs} remaining.`}
                     </p>
                     <button onClick={() => setActiveTab('documents')} style={{ alignSelf:'flex-start', padding:'0.32rem 0.8rem', borderRadius:8, border:'1px solid rgba(0,229,255,0.25)', background:'rgba(0,229,255,0.07)', color:'var(--clr-accent)', fontFamily:'inherit', fontSize:'0.78rem', fontWeight:700, cursor:'pointer' }}>
-                      Go to Documents →
+                      {tr('go_to_documents')}
                     </button>
                   </div>
                 )
               })()}
-              <h2 style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--clr-text)', display:'flex', alignItems:'center', gap:'0.45rem' }}><LuUser size={16}/> Profile Information</h2>
+              <h2 style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--clr-text)', display:'flex', alignItems:'center', gap:'0.45rem' }}><LuUser size={16}/> {tr('profile_information')}</h2>
               <div className="glass-inner" style={{ padding: '1rem', display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
-                <InfoRow icon={<LuIdCard size={15}/>}       label="User ID" value={user?.id ? user.id.slice(0, 8) + '…' : '—'} />
-                <InfoRow icon={<LuPhone size={15}/>}        label="Phone"   value={user?.phone_number ?? '—'} />
-                <InfoRow icon={<LuMail size={15}/>}         label="Email"   value={user?.email || '— not linked'} />
-                <InfoRow icon={<LuShield size={15}/>}       label="Role"    value={roleLabel} />
-                <InfoRow icon={<LuCircleCheck size={15}/>}  label="Status"  value={user?.is_active ? 'Active' : 'Suspended'} />
+                <InfoRow icon={<LuIdCard size={15}/>}       label={tr('user_id_label')} value={user?.id ? user.id.slice(0, 8) + '…' : '—'} />
+                <InfoRow icon={<LuPhone size={15}/>}        label={tr('phone_label')}   value={user?.phone_number ?? '—'} />
+                <InfoRow icon={<LuMail size={15}/>}         label={tr('email_label')}   value={user?.email || `— ${tr('not_linked')}`} />
+                <InfoRow icon={<LuShield size={15}/>}       label={tr('role_label')}    value={roleLabel} />
+                <InfoRow icon={<LuCircleCheck size={15}/>}  label={tr('status_label')}  value={user?.is_active ? tr('status_active') : tr('status_suspended')} />
               </div>
               <Divider />
               <form onSubmit={handleSaveName} style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                <p style={{ fontWeight: 600, fontSize: '0.9rem', color: 'var(--clr-text)' }}>Display Name</p>
+                <p style={{ fontWeight: 600, fontSize: '0.9rem', color: 'var(--clr-text)' }}>{tr('display_name')}</p>
                 {nameError   && <div className="alert alert-error"><LuTriangleAlert size={14}/> {nameError}</div>}
-                {nameSuccess && <div className="alert alert-success" style={{display:'flex',alignItems:'center',gap:'0.4rem'}}><LuCheck size={14}/> Name saved!</div>}
+                {nameSuccess && <div className="alert alert-success" style={{display:'flex',alignItems:'center',gap:'0.4rem'}}><LuCheck size={14}/> {tr('name_saved')}</div>}
                 <div style={{ display: 'flex', gap: '0.65rem' }}>
                   <div className="input-wrap" style={{ flex: 1 }}>
                     <input id="ef" type="text" placeholder=" " value={editFirst} onChange={e => setEditFirst(e.target.value)} required />
-                    <label htmlFor="ef">First name</label>
+                    <label htmlFor="ef">{tr('first_name')}</label>
                   </div>
                   <div className="input-wrap" style={{ flex: 1 }}>
                     <input id="el" type="text" placeholder=" " value={editLast} onChange={e => setEditLast(e.target.value)} />
-                    <label htmlFor="el">Last name</label>
+                    <label htmlFor="el">{tr('last_name')}</label>
                   </div>
                 </div>
                 <button type="submit" className="btn-primary" disabled={nameLoading}>
-                  {nameLoading ? <Spinner text="Saving…" /> : 'Save Name'}
+                  {nameLoading ? <Spinner text={tr('saving')} /> : tr('save_name')}
                 </button>
               </form>
             </div>
@@ -1097,33 +1106,33 @@ export default function DashboardPage() {
           {/* Security tab */}
           {activeTab === 'security' && (
             <div className="glass step-enter" style={{ padding: '1.75rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-              <h2 style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--clr-text)', display:'flex', alignItems:'center', gap:'0.45rem' }}><LuLock size={16}/> Security</h2>
+              <h2 style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--clr-text)', display:'flex', alignItems:'center', gap:'0.45rem' }}><LuLock size={16}/> {tr('security_title')}</h2>
               <SectionRow
-                title="Password" sub="Update your login password"
+                title={tr('password_label')} sub={tr('password_sub')}
                 open={showPwForm} onToggle={() => { setShowPwForm(v => !v); setPwError(''); setPwSuccess(false) }}
-                toggleLabel={showPwForm ? 'Cancel' : 'Change'}
+                toggleLabel={showPwForm ? tr('btn_cancel') : tr('btn_change')}
               >
                 <form onSubmit={handleChangePassword} style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }} className="step-enter">
                   {pwError   && <div className="alert alert-error"><LuTriangleAlert size={14}/> {pwError}</div>}
-                  {pwSuccess && <div className="alert alert-success" style={{display:'flex',alignItems:'center',gap:'0.4rem'}}><LuCheck size={14}/> Password updated!</div>}
-                  <PasswordInput id="cpw-cur" label="Current password"          value={currentPw} onChange={setCurrentPw} show={showPw} onToggle={() => setShowPw(v => !v)} />
-                  <PasswordInput id="cpw-new" label="New password (min 6 chars)" value={newPw}     onChange={setNewPw}     show={showPw} onToggle={() => setShowPw(v => !v)} />
-                  <PasswordInput id="cpw-cfg" label="Confirm new password"      value={confirmPw} onChange={setConfirmPw} show={showPw} onToggle={() => setShowPw(v => !v)}
+                  {pwSuccess && <div className="alert alert-success" style={{display:'flex',alignItems:'center',gap:'0.4rem'}}><LuCheck size={14}/> {tr('password_updated')}</div>}
+                  <PasswordInput id="cpw-cur" label={tr('current_password')}          value={currentPw} onChange={setCurrentPw} show={showPw} onToggle={() => setShowPw(v => !v)} />
+                  <PasswordInput id="cpw-new" label={tr('new_password')} value={newPw}     onChange={setNewPw}     show={showPw} onToggle={() => setShowPw(v => !v)} />
+                  <PasswordInput id="cpw-cfg" label={tr('confirm_new_password')}      value={confirmPw} onChange={setConfirmPw} show={showPw} onToggle={() => setShowPw(v => !v)}
                     hasError={!!(confirmPw && confirmPw !== newPw)} />
                   <button type="submit" className="btn-primary" disabled={pwLoading}>
-                    {pwLoading ? <Spinner text="Saving…" /> : 'Update Password'}
+                    {pwLoading ? <Spinner text={tr('saving')} /> : tr('update_password')}
                   </button>
                 </form>
               </SectionRow>
               <Divider />
               <div className="danger-card">
-                <h3 style={{ fontSize: '0.9rem', fontWeight: 700, color: '#fca5a5', marginBottom: '0.5rem', display:'flex', alignItems:'center', gap:'0.4rem' }}><LuTriangleAlert size={15}/> Danger Zone</h3>
+                <h3 style={{ fontSize: '0.9rem', fontWeight: 700, color: '#fca5a5', marginBottom: '0.5rem', display:'flex', alignItems:'center', gap:'0.4rem' }}><LuTriangleAlert size={15}/> {tr('danger_zone')}</h3>
                 <p style={{ fontSize: '0.82rem', color: 'var(--clr-muted)', marginBottom: '1rem' }}>
-                  Permanently delete your account and all associated data.
+                  {tr('danger_desc')}
                 </p>
                 <button onClick={() => { setShowDeleteModal(true); setDeleteConfirm(''); setDeleteError('') }}
                   style={{ background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.3)', color: '#fca5a5', fontFamily: 'inherit', fontSize: '0.875rem', fontWeight: 600, padding: '0.6rem 1.2rem', borderRadius: 10, cursor: 'pointer', transition: 'all 0.2s' }}>
-                  Delete My Account
+                  {tr('delete_my_account')}
                 </button>
               </div>
             </div>
@@ -1132,18 +1141,18 @@ export default function DashboardPage() {
           {/* Contact tab */}
           {activeTab === 'contact' && (
             <div className="glass step-enter" style={{ padding: '1.75rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-              <h2 style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--clr-text)', display:'flex', alignItems:'center', gap:'0.45rem' }}><LuSmartphone size={16}/> Contact Details</h2>
+              <h2 style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--clr-text)', display:'flex', alignItems:'center', gap:'0.45rem' }}><LuSmartphone size={16}/> {tr('contact_title')}</h2>
 
               <SectionRow
-                title="Email Address"
-                sub={user?.email ? `${user.email}${user.is_email_verified ? ' ✓' : ' (unverified)'}` : 'Link an email for recovery & notifications'}
+                title={tr('email_address_label')}
+                sub={user?.email ? `${user.email}${user.is_email_verified ? ' ✓' : ' (unverified)'}` : tr('link_email_sub')}
                 open={showEmailForm}
                 onToggle={() => { setShowEmailForm(v => !v); setEmailError(''); setEmailSent(false) }}
-                toggleLabel={showEmailForm ? 'Cancel' : user?.email ? 'Change' : 'Link'}
+                toggleLabel={showEmailForm ? tr('btn_cancel') : user?.email ? tr('btn_change') : tr('btn_link')}
               >
                 {emailSent ? (
                   <div className="alert alert-success step-enter" style={{display:'flex',alignItems:'center',gap:'0.4rem'}}>
-                    <LuCheck size={14}/> Verification link sent to <strong>{emailInput}</strong>. Check your inbox and click the link.
+                    <LuCheck size={14}/> Verification link sent to <strong>{emailInput}</strong>. {tr('check_inbox')}
                   </div>
                 ) : (
                   <form onSubmit={handleLinkEmail} style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }} className="step-enter">
@@ -1151,10 +1160,10 @@ export default function DashboardPage() {
                     <div className="input-wrap">
                       <input id="em-in" type="email" placeholder=" " value={emailInput}
                         onChange={e => setEmailInput(e.target.value)} required autoComplete="email" />
-                      <label htmlFor="em-in">Email address</label>
+                      <label htmlFor="em-in">{tr('email_field_label')}</label>
                     </div>
                     <button type="submit" className="btn-primary" disabled={emailLoading}>
-                      {emailLoading ? <Spinner text="Sending…" /> : 'Send Verification Link'}
+                      {emailLoading ? <Spinner text={tr('sending')} /> : tr('send_verification_link')}
                     </button>
                   </form>
                 )}
@@ -1163,39 +1172,39 @@ export default function DashboardPage() {
               <Divider />
 
               <SectionRow
-                title="Phone Number" sub={user?.phone_number ?? 'Your verified phone'}
+                title={tr('phone_label')} sub={user?.phone_number ?? 'Your verified phone'}
                 open={showPhoneForm}
                 onToggle={() => { setShowPhoneForm(v => !v); setPhoneError(''); setPhoneSuccess(false); setPhoneStep('input'); setPhoneOtp(''); setNewPhone('') }}
-                toggleLabel={showPhoneForm ? 'Cancel' : 'Change'}
+                toggleLabel={showPhoneForm ? tr('btn_cancel') : tr('btn_change')}
               >
                 {phoneSuccess ? (
-                  <div className="alert alert-success step-enter" style={{display:'flex',alignItems:'center',gap:'0.4rem'}}><LuCheck size={14}/> Phone number updated!</div>
+                  <div className="alert alert-success step-enter" style={{display:'flex',alignItems:'center',gap:'0.4rem'}}><LuCheck size={14}/> {tr('phone_updated')}</div>
                 ) : phoneStep === 'input' ? (
                   <form onSubmit={handleRequestPhoneOtp} style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }} className="step-enter">
                     {phoneError && <div className="alert alert-error"><LuTriangleAlert size={14}/> {phoneError}</div>}
-                    <p style={{ fontSize: '0.8rem', color: 'var(--clr-muted)' }}>Enter your new number. An OTP will be sent to verify it.</p>
+                    <p style={{ fontSize: '0.8rem', color: 'var(--clr-muted)' }}>{tr('enter_new_phone_desc')}</p>
                     <PhoneField value={newPhone} onChange={setNewPhone} id="new-phone" />
                     <button type="submit" className="btn-primary" disabled={phoneLoading}>
-                      {phoneLoading ? <Spinner text="Sending OTP…" /> : 'Send OTP to New Number'}
+                      {phoneLoading ? <Spinner text={tr('sending_otp')} /> : tr('send_otp_to_new')}
                     </button>
                   </form>
                 ) : (
                   <form onSubmit={handleVerifyPhoneOtp} style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }} className="step-enter">
                     {phoneError && <div className="alert alert-error"><LuTriangleAlert size={14}/> {phoneError}</div>}
                     <p style={{ fontSize: '0.8rem', color: 'var(--clr-muted)' }}>
-                      OTP sent to <strong style={{ color: 'var(--clr-text)' }}>{normalisePhone(newPhone ?? '')}</strong>. Enter it below.
+                      {tr('otp_sent_to')} <strong style={{ color: 'var(--clr-text)' }}>{normalisePhone(newPhone ?? '')}</strong>. {tr('enter_it_below')}
                     </p>
                     <div className="input-wrap">
                       <input id="ph-otp" type="text" inputMode="numeric" placeholder=" " maxLength={6}
                         value={phoneOtp} onChange={e => setPhoneOtp(e.target.value.replace(/\D/g, ''))} required />
-                      <label htmlFor="ph-otp">6-digit OTP</label>
+                      <label htmlFor="ph-otp">{tr('six_digit_otp_label')}</label>
                     </div>
                     <div style={{ display: 'flex', gap: '0.5rem' }}>
                       <button type="button" className="btn-outline" style={{ flex: 1, display:'flex', alignItems:'center', gap:'0.3rem', justifyContent:'center' }}
-                        onClick={() => setPhoneStep('input')} disabled={phoneLoading}><LuArrowLeft size={14}/> Back</button>
+                        onClick={() => setPhoneStep('input')} disabled={phoneLoading}><LuArrowLeft size={14}/> {tr('back')}</button>
                       <button type="submit" className="btn-primary" style={{ flex: 2 }}
                         disabled={phoneLoading || phoneOtp.length < 6}>
-                        {phoneLoading ? <Spinner text="Verifying…" /> : 'Verify & Update'}
+                        {phoneLoading ? <Spinner text={tr('verifying_label')} /> : tr('verify_and_update')}
                       </button>
                     </div>
                   </form>
@@ -1209,9 +1218,9 @@ export default function DashboardPage() {
             <div className="glass step-enter" style={{ padding: '1.75rem', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
               {/* Theme */}
               <div>
-                <h2 style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--clr-text)', display:'flex', alignItems:'center', gap:'0.45rem', marginBottom:'1rem' }}><LuSun size={16}/> Display Theme</h2>
+                <h2 style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--clr-text)', display:'flex', alignItems:'center', gap:'0.45rem', marginBottom:'1rem' }}><LuSun size={16}/> {tr('pref_display_theme')}</h2>
                 <div style={{ display:'flex', gap:'0.6rem' }}>
-                  {([['LIGHT', <LuSun size={15}/>, 'Light'], ['DARK', <LuMoon size={15}/>, 'Dark'], ['SYSTEM', <LuMonitor size={15}/>, 'System']] as const).map(([val, icon, label]) => (
+                  {([['LIGHT', <LuSun size={15}/>, tr('pref_theme_light')], ['DARK', <LuMoon size={15}/>, tr('pref_theme_dark')], ['SYSTEM', <LuMonitor size={15}/>, tr('pref_theme_system')]] as const).map(([val, icon, label]) => (
                     <button key={val} onClick={() => handleSetTheme(val)} disabled={themeLoading}
                       style={{
                         flex: 1, padding: '0.7rem 0.5rem', borderRadius: 12, border: '1px solid',
@@ -1233,17 +1242,17 @@ export default function DashboardPage() {
 
               {/* Notifications */}
               <div>
-                <h2 style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--clr-text)', display:'flex', alignItems:'center', gap:'0.45rem', marginBottom:'0.25rem' }}><LuBell size={16}/> Notifications</h2>
-                <p style={{ fontSize:'0.78rem', color:'var(--clr-muted)', marginBottom:'1rem' }}>SMS is reserved for critical alerts only.</p>
+                <h2 style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--clr-text)', display:'flex', alignItems:'center', gap:'0.45rem', marginBottom:'0.25rem' }}><LuBell size={16}/> {tr('pref_notifications')}</h2>
+                <p style={{ fontSize:'0.78rem', color:'var(--clr-muted)', marginBottom:'1rem' }}>{tr('pref_notif_sub')}</p>
                 {notifMsg && <div className={`alert ${notifMsg.includes('Failed') ? 'alert-error' : 'alert-success'}`} style={{marginBottom:'0.75rem',display:'flex',alignItems:'center',gap:'0.4rem'}}><LuCheck size={13}/> {notifMsg}</div>}
                 <div style={{ display:'flex', flexDirection:'column', gap:'0' }}>
                   {([
-                    { key: 'sms_enabled',     icon: <LuSmartphone size={15}/>, label: 'SMS Alerts',            sub: 'Critical updates only — order status, OTPs' },
-                    { key: 'email_enabled',   icon: <LuMail size={15}/>,       label: 'Email Notifications',   sub: 'Order summaries, receipts, account alerts' },
-                    { key: 'browser_enabled', icon: <LuBell size={15}/>,       label: 'Browser Notifications', sub: 'Real-time web push alerts while browsing' },
-                    { key: 'telegram_enabled', icon: <LuMessageSquare size={15}/>, label: 'Telegram Alerts',       sub: 'Real-time alerts via Telegram bot' },
-                    { key: 'order_updates',   icon: <LuTruck size={15}/>,                label: 'Order Updates',         sub: 'Status changes on your logistics orders' },
-                    { key: 'promotions',      icon: <LuStar size={15}/>,       label: 'Promotions',            sub: 'News, offers and platform announcements' },
+                    { key: 'sms_enabled',     icon: <LuSmartphone size={15}/>, label: tr('notif_sms_label'),      sub: tr('notif_sms_sub')      },
+                    { key: 'email_enabled',   icon: <LuMail size={15}/>,       label: tr('notif_email_label'),    sub: tr('notif_email_sub')    },
+                    { key: 'browser_enabled', icon: <LuBell size={15}/>,       label: tr('notif_browser_label'),  sub: tr('notif_browser_sub')  },
+                    { key: 'telegram_enabled', icon: <LuMessageSquare size={15}/>, label: tr('notif_telegram_label'), sub: tr('notif_telegram_sub') },
+                    { key: 'order_updates',   icon: <LuTruck size={15}/>,      label: tr('notif_orders_label'),   sub: tr('notif_orders_sub')   },
+                    { key: 'promotions',      icon: <LuStar size={15}/>,       label: tr('notif_promo_label'),    sub: tr('notif_promo_sub')    },
                   ] as { key: keyof typeof notifPrefs; icon: React.ReactNode; label: string; sub: string }[]).map(({ key, icon, label, sub }, i, arr) => (
                     <div key={key} style={{ display:'flex', alignItems:'center', gap:'0.85rem', padding:'0.9rem 0', borderBottom: i < arr.length-1 ? '1px solid rgba(255,255,255,0.05)' : 'none' }}>
                       <span style={{ color:'var(--clr-accent)', display:'flex', alignItems:'center', flexShrink:0 }}>{icon}</span>
@@ -1286,23 +1295,23 @@ export default function DashboardPage() {
                     <div style={{ display:'flex', alignItems:'center', gap:'0.5rem' }}>
                       <span style={{ width:8, height:8, borderRadius:'50%', background:c, boxShadow:`0 0 5px ${c}`, display:'inline-block' }}/>
                       <span style={{ fontSize:'0.82rem', fontWeight:700, color:c }}>{stLabel[st] ?? st}</span>
-                      {st === 'AVAILABLE' && <span style={{ fontSize:'0.73rem', color:'var(--clr-muted)' }}>— available for orders</span>}
-                      {st === 'OFFLINE'   && <span style={{ fontSize:'0.73rem', color:'var(--clr-muted)' }}>— not receiving orders</span>}
-                      {st === 'ON_JOB'    && <span style={{ fontSize:'0.73rem', color:'var(--clr-muted)' }}>— delivery in progress</span>}
-                      {st === 'SUSPENDED' && <span style={{ fontSize:'0.73rem', color:'#fca5a5' }}>— contact admin</span>}
+                      {st === 'AVAILABLE' && <span style={{ fontSize:'0.73rem', color:'var(--clr-muted)' }}>{tr('driver_available_sub')}</span>}
+                      {st === 'OFFLINE'   && <span style={{ fontSize:'0.73rem', color:'var(--clr-muted)' }}>{tr('driver_offline_sub')}</span>}
+                      {st === 'ON_JOB'    && <span style={{ fontSize:'0.73rem', color:'var(--clr-muted)' }}>{tr('driver_on_job_sub')}</span>}
+                      {st === 'SUSPENDED' && <span style={{ fontSize:'0.73rem', color:'#fca5a5' }}>{tr('driver_suspended_sub')}</span>}
                     </div>
                     {st === 'AVAILABLE' && (
                       <button onClick={async () => {
                         try { await apiClient.patch('/driver/status', { status:'OFFLINE' }); const r = await apiClient.get('/profile/driver'); setDriverProfile(r.data.driver_profile) } catch { /* ignore */ }
                       }} style={{ padding:'0.3rem 0.85rem', borderRadius:8, border:'1px solid rgba(148,163,184,0.35)', background:'rgba(148,163,184,0.08)', color:'#94a3b8', fontFamily:'inherit', fontSize:'0.75rem', fontWeight:700, cursor:'pointer' }}>
-                        Go Offline
+                        {tr('goto_offline')}
                       </button>
                     )}
                     {st === 'OFFLINE' && (
                       <button onClick={async () => {
                         try { await apiClient.patch('/driver/status', { status:'AVAILABLE' }); const r = await apiClient.get('/profile/driver'); setDriverProfile(r.data.driver_profile) } catch { /* ignore */ }
                       }} style={{ padding:'0.3rem 0.85rem', borderRadius:8, border:'1px solid rgba(74,222,128,0.35)', background:'rgba(74,222,128,0.08)', color:'#4ade80', fontFamily:'inherit', fontSize:'0.75rem', fontWeight:700, cursor:'pointer' }}>
-                        Go Online
+                        {tr('goto_online')}
                       </button>
                     )}
                   </div>
@@ -1310,16 +1319,16 @@ export default function DashboardPage() {
               })()}
 
               <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-                <h2 style={{ fontSize:'0.95rem', fontWeight:700, color:'var(--clr-text)', display:'flex', alignItems:'center', gap:'0.45rem' }}><LuFileText size={16}/> Verification Documents</h2>
+                <h2 style={{ fontSize:'0.95rem', fontWeight:700, color:'var(--clr-text)', display:'flex', alignItems:'center', gap:'0.45rem' }}><LuFileText size={16}/> {tr('verif_docs_title')}</h2>
                 <button className="btn-outline" style={{ fontSize:'0.75rem', padding:'0.35rem 0.7rem', display:'flex', alignItems:'center', gap:'0.35rem' }}
                   onClick={() => { setDocsLoading(true); apiClient.get('/profile/driver').then(r => setDriverProfile(r.data.driver_profile)).catch(()=>{}).finally(()=>setDocsLoading(false)) }}>
-                  <LuRefreshCw size={13}/> Refresh
+                  <LuRefreshCw size={13}/> {tr('btn_refresh')}
                 </button>
               </div>
 
               {driverProfile?.is_verified === 1 && (
                 <div className="alert alert-success" style={{ display:'flex', alignItems:'center', gap:'0.5rem', fontWeight:700 }}>
-                  <LuCircleCheck size={15}/> Your account is fully verified!
+                  <LuCircleCheck size={15}/> {tr('account_verified_msg')}
                 </div>
               )}
               {driverProfile?.rejection_reason && (
@@ -1338,9 +1347,9 @@ export default function DashboardPage() {
               ) : (
                 <div style={{ display:'flex', flexDirection:'column', gap:'0.85rem' }}>
                   {([
-                    { key: 'national_id', label: 'National ID',             urlKey: 'national_id_url', statusKey: 'national_id_status' },
-                    { key: 'license',     label: "Driver's License",        urlKey: 'license_url',     statusKey: 'license_status'     },
-                    { key: 'libre',       label: 'Libre (Vehicle Ownership)', urlKey: 'libre_url',     statusKey: 'libre_status'       },
+                    { key: 'national_id', label: tr('doc_national_id'),            urlKey: 'national_id_url', statusKey: 'national_id_status' },
+                    { key: 'license',     label: tr('doc_license'),                 urlKey: 'license_url',     statusKey: 'license_status'     },
+                    { key: 'libre',       label: tr('doc_libre'),                   urlKey: 'libre_url',       statusKey: 'libre_status'       },
                   ] as { key: 'national_id'|'license'|'libre'; label: string; urlKey: string; statusKey: string }[]).map(doc => {
                     const rawUrl = driverProfile?.[doc.urlKey] as string | null
                     const apiBase = (import.meta.env.VITE_API_BASE_URL as string ?? '').replace(/\/api$/, '')
@@ -1370,12 +1379,12 @@ export default function DashboardPage() {
                           fontSize:'0.82rem', fontWeight:600, transition:'all 0.18s',
                           background: 'rgba(255,255,255,0.02)',
                         }}>
-                          {uploadingDoc === doc.key ? <><span className="spinner" /> Uploading…</> : <><LuUpload size={14}/> {url ? 'Replace' : 'Upload'} file</>}
+                          {uploadingDoc === doc.key ? <><span className="spinner" /> {tr('uploading')}</> : <><LuUpload size={14}/> {url ? tr('replace_file') : tr('upload_file_label')}</>}
                         </label>
                         <input id={inputId} type="file" accept="image/jpeg,image/png,image/webp,application/pdf"
                           style={{ display:'none' }} disabled={!!uploadingDoc}
                           onChange={e => { const f = e.target.files?.[0]; if(f) handleDocUpload(doc.key, f); e.target.value='' }} />
-                        <p style={{ fontSize:'0.72rem', color:'var(--clr-muted)' }}>Accepted: JPG, PNG, WEBP, PDF · Max 8 MB</p>
+                        <p style={{ fontSize:'0.72rem', color:'var(--clr-muted)' }}>{tr('doc_accepted_formats')}</p>
                       </div>
                     )
                   })}
@@ -1406,7 +1415,7 @@ export default function DashboardPage() {
                   display: 'flex', alignItems: 'center', gap: '0.4rem', whiteSpace: 'nowrap'
                 }}
               >
-                <LuWallet size={16} /> Wallet
+                <LuWallet size={16} /> {tr('wallet_tab')}
               </button>
               <button
                 onClick={() => setPaymentTab('transactions')}
@@ -1419,7 +1428,7 @@ export default function DashboardPage() {
                   display: 'flex', alignItems: 'center', gap: '0.4rem', whiteSpace: 'nowrap'
                 }}
               >
-                <LuHistory size={16} /> History
+                <LuHistory size={16} /> {tr('history_tab')}
               </button>
               <button
                 onClick={() => setPaymentTab('invoices')}
@@ -1432,7 +1441,7 @@ export default function DashboardPage() {
                   display: 'flex', alignItems: 'center', gap: '0.4rem', whiteSpace: 'nowrap'
                 }}
               >
-                <LuFileText size={16} /> Invoices
+                <LuFileText size={16} /> {tr('invoices_tab')}
               </button>
               <button
                 onClick={() => setPaymentTab('add-funds')}
@@ -1445,7 +1454,7 @@ export default function DashboardPage() {
                   display: 'flex', alignItems: 'center', gap: '0.4rem', whiteSpace: 'nowrap'
                 }}
               >
-                <LuPlus size={16} /> Add Funds
+                <LuPlus size={16} /> {tr('add_funds_tab')}
               </button>
               {user?.role_id === 3 && (
                 <button
@@ -1468,7 +1477,7 @@ export default function DashboardPage() {
                     display: 'flex', alignItems: 'center', gap: '0.4rem', whiteSpace: 'nowrap'
                   }}
                 >
-                  <LuLandmark size={16} /> Payouts
+                  <LuLandmark size={16} /> {tr('payouts_tab')}
                 </button>
               )}
             </div>
@@ -1481,7 +1490,7 @@ export default function DashboardPage() {
               <div className="glass" style={{ padding:'1.25rem', display:'flex', flexDirection:'column', gap:'1rem' }}>
                 <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
                   <h3 style={{ fontSize:'0.95rem', fontWeight:800, color:'var(--clr-text)', display:'flex', alignItems:'center', gap:'0.4rem' }}>
-                    <LuLandmark size={16} style={{ color:'var(--clr-accent)' }}/> Admin Payouts
+                    <LuLandmark size={16} style={{ color:'var(--clr-accent)' }}/> {tr('admin_payouts_title')}
                   </h3>
                   <button onClick={() => {
                     setDriverPayoutsLoading(true)
@@ -1495,9 +1504,9 @@ export default function DashboardPage() {
                   </button>
                 </div>
                 {driverPayoutsLoading ? (
-                  <p style={{ color:'var(--clr-muted)', fontSize:'0.82rem', textAlign:'center', padding:'1rem 0' }}>Loading…</p>
+                  <p style={{ color:'var(--clr-muted)', fontSize:'0.82rem', textAlign:'center', padding:'1rem 0' }}>{tr('loading')}</p>
                 ) : driverPayouts.length === 0 ? (
-                  <p style={{ color:'var(--clr-muted)', fontSize:'0.82rem', textAlign:'center', padding:'1rem 0' }}>No payout records yet.</p>
+                  <p style={{ color:'var(--clr-muted)', fontSize:'0.82rem', textAlign:'center', padding:'1rem 0' }}>{tr('no_payout_records')}</p>
                 ) : (
                   <div style={{ display:'flex', flexDirection:'column', gap:'0.55rem' }}>
                     {driverPayouts.map((p: any) => (
@@ -1508,22 +1517,22 @@ export default function DashboardPage() {
                               ? <LuWallet size={13} style={{ color:'#4ade80' }}/>
                               : <LuLandmark size={13} style={{ color:'#60a5fa' }}/>}
                             <span style={{ fontWeight:700, fontSize:'0.83rem', color: p.payment_type === 'WALLET' ? '#4ade80' : '#60a5fa' }}>
-                              {p.payment_type === 'WALLET' ? 'Wallet Credit' : 'Bank Transfer'}
+                              {p.payment_type === 'WALLET' ? tr('wallet_credit') : tr('bank_transfer_label')}
                             </span>
                           </div>
                           {p.reference_code && (
-                            <span style={{ fontSize:'0.72rem', color:'var(--clr-muted)' }}>Order: {p.reference_code}</span>
+                            <span style={{ fontSize:'0.72rem', color:'var(--clr-muted)' }}>{tr('order_label')} {p.reference_code}</span>
                           )}
                           {p.commission_type !== 'NONE' && Number(p.commission_amount) > 0 && (
                             <span style={{ fontSize:'0.72rem', color:'#fbbf24' }}>
-                              Commission: {Number(p.commission_amount).toLocaleString(undefined, { maximumFractionDigits:2 })} ETB deducted
+                              {tr('commission_label')} {Number(p.commission_amount).toLocaleString(undefined, { maximumFractionDigits:2 })} ETB {tr('etb_deducted')}
                             </span>
                           )}
                           {p.note && <span style={{ fontSize:'0.72rem', color:'var(--clr-muted)' }}>{p.note}</span>}
                           {p.receipt_url && (
                             <a href={((import.meta.env.VITE_API_BASE_URL as string ?? '').replace(/\/api$/, '')) + (p.receipt_url.startsWith('/') ? p.receipt_url : '/' + p.receipt_url)} target="_blank" rel="noreferrer"
                               style={{ fontSize:'0.72rem', color:'#60a5fa', display:'flex', alignItems:'center', gap:'0.25rem' }}>
-                              <LuReceipt size={11}/> View Receipt
+                              <LuReceipt size={11}/> {tr('view_receipt')}
                             </a>
                           )}
                         </div>
@@ -1560,7 +1569,7 @@ export default function DashboardPage() {
             <div style={{ width:'100%', maxWidth:560, display:'flex', flexDirection:'column', gap:'1.25rem' }}>
               <div className="glass page-enter" style={{ padding:'1.5rem' }}>
                 <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'1rem', gap:'0.5rem', flexWrap:'wrap' }}>
-                  <h2 style={{ fontSize:'1rem', fontWeight:800, color:'var(--clr-text)', display:'flex', alignItems:'center', gap:'0.45rem' }}><LuCar size={17}/> My Vehicle</h2>
+                  <h2 style={{ fontSize:'1rem', fontWeight:800, color:'var(--clr-text)', display:'flex', alignItems:'center', gap:'0.45rem' }}><LuCar size={17}/> {tr('my_vehicle_title')}</h2>
                   <div style={{ display:'flex', gap:'0.4rem' }}>
                     <button onClick={loadMyVehicles} disabled={vehicleLoading}
                       style={{ display:'flex', alignItems:'center', gap:'0.35rem', padding:'0.3rem 0.65rem', borderRadius:8, border:'1px solid rgba(255,255,255,0.1)', background:'rgba(255,255,255,0.04)', color:'var(--clr-muted)', fontFamily:'inherit', fontSize:'0.72rem', fontWeight:600, cursor:'pointer' }}>
@@ -1576,18 +1585,18 @@ export default function DashboardPage() {
                 </div>
 
                 <p style={{ fontSize:'0.8rem', color:'var(--clr-muted)', marginBottom:'1rem', lineHeight:1.6 }}>
-                  Own a vehicle? Submit it for admin approval. Once approved, it will be assigned to your driver profile.
+                  {tr('vehicle_desc')}
                 </p>
 
                 {vehicleLoading ? (
                   <div style={{ display:'flex', alignItems:'center', gap:'0.5rem', padding:'1.5rem', color:'var(--clr-muted)', fontSize:'0.875rem', justifyContent:'center' }}>
-                    <span className="spinner"/> Loading…
+                    <span className="spinner"/> {tr('loading')}
                   </div>
                 ) : myVehicles.length === 0 && !showVehicleForm ? (
                   <div style={{ padding:'2rem', textAlign:'center', color:'var(--clr-muted)', fontSize:'0.875rem', background:'rgba(255,255,255,0.02)', borderRadius:12, border:'1px dashed rgba(255,255,255,0.08)' }}>
                     <LuCar size={32} style={{ opacity:0.3, display:'block', margin:'0 auto 0.75rem' }}/>
-                    No vehicles submitted yet.<br/>
-                    <span style={{ fontSize:'0.78rem' }}>Click <strong style={{ color:'var(--clr-accent)' }}>Submit Vehicle</strong> above to get started.</span>
+                    {tr('no_vehicles_submitted')}<br/>
+                    <span style={{ fontSize:'0.78rem' }}>{tr('click_submit_vehicle')}</span>
                   </div>
                 ) : (
                   <div style={{ display:'flex', flexDirection:'column', gap:'0.65rem' }}>
@@ -1611,22 +1620,22 @@ export default function DashboardPage() {
                             <p style={{ fontSize:'0.73rem', color:'var(--clr-muted)' }}>{v.max_capacity_kg} kg{v.description ? ` · ${v.description}` : ''}</p>
                             {v.libre_url && (
                               <a href={absUrl(v.libre_url)!} target="_blank" rel="noopener noreferrer" style={{ fontSize:'0.7rem', color:'var(--clr-accent)', display:'inline-flex', alignItems:'center', gap:'0.2rem', marginTop:'0.2rem', textDecoration:'none' }}>
-                                <LuFileText size={11}/> View Libre ↗
+                                <LuFileText size={11}/> {tr('libre_view')}
                               </a>
                             )}
                             {st === 'PENDING' && (
                               <p style={{ fontSize:'0.73rem', color:'#fbbf24', marginTop:'0.25rem', display:'flex', alignItems:'center', gap:'0.3rem' }}>
-                                <LuClock size={11}/> Under review by admin
+                                <LuClock size={11}/> {tr('under_review')}
                               </p>
                             )}
                             {st === 'APPROVED' && (
                               <p style={{ fontSize:'0.73rem', color:'#4ade80', marginTop:'0.25rem', display:'flex', alignItems:'center', gap:'0.3rem' }}>
-                                <LuCircleCheck size={11}/> Approved — vehicle assigned to your profile
+                                <LuCircleCheck size={11}/> {tr('vehicle_approved')}
                               </p>
                             )}
                             {st === 'REJECTED' && (
                               <p style={{ fontSize:'0.73rem', color:'#fca5a5', marginTop:'0.25rem', display:'flex', alignItems:'center', gap:'0.3rem' }}>
-                                <LuTriangleAlert size={11}/> Rejected — you may submit a new vehicle
+                                <LuTriangleAlert size={11}/> {tr('vehicle_rejected')}
                               </p>
                             )}
                           </div>
@@ -1640,7 +1649,7 @@ export default function DashboardPage() {
                 {showVehicleForm && (
                   <div style={{ marginTop:'1rem', borderTop:'1px solid rgba(255,255,255,0.06)', paddingTop:'1rem' }}>
                     <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'0.85rem' }}>
-                      <h3 style={{ fontSize:'0.9rem', fontWeight:700, color:'var(--clr-text)' }}>Submit Your Vehicle</h3>
+                      <h3 style={{ fontSize:'0.9rem', fontWeight:700, color:'var(--clr-text)' }}>{tr('submit_your_vehicle')}</h3>
                       <button onClick={() => { setShowVehicleForm(false); setVFormError(''); setVPhoto(''); setVLibre('') }}
                         style={{ background:'none', border:'none', cursor:'pointer', color:'var(--clr-muted)', padding:0, display:'flex', alignItems:'center' }}>
                         <LuX size={16}/>
@@ -1650,38 +1659,38 @@ export default function DashboardPage() {
                       {vFormError && <div className="alert alert-error"><LuTriangleAlert size={13}/> {vFormError}</div>}
                       <div className="input-wrap">
                         <input id="v-plate" type="text" placeholder=" " value={vForm.plate_number} onChange={e => setVForm(f => ({ ...f, plate_number: e.target.value }))} required/>
-                        <label htmlFor="v-plate">Plate Number *</label>
+                        <label htmlFor="v-plate">{tr('plate_number')}</label>
                       </div>
                       <div className="input-wrap">
                         <select id="v-type" value={vForm.vehicle_type} onChange={e => setVForm(f => ({ ...f, vehicle_type: e.target.value }))}
                           style={{ background:'transparent', border:'none', color:'var(--clr-text)', fontFamily:'inherit', fontSize:'0.9rem', width:'100%', outline:'none', paddingTop:'1.1rem' }}>
-                          <option value="" style={{ background:'#0f172a' }}>— Select vehicle type —</option>
-                          {vehicleTypes.map(t => <option key={t.id} value={t.name} style={{ background:'#0f172a' }}>{t.name}</option>)}
+                          <option value="" style={{ background:'#0f172a' }}>{tr('select_vehicle_type')}</option>
+                          {vehicleTypes.map(vt => <option key={vt.id} value={vt.name} style={{ background:'#0f172a' }}>{vt.name}</option>)}
                         </select>
-                        <label htmlFor="v-type" style={{ top:'0.35rem', fontSize:'0.7rem', color:'var(--clr-accent)' }}>Vehicle Type</label>
+                        <label htmlFor="v-type" style={{ top:'0.35rem', fontSize:'0.7rem', color:'var(--clr-accent)' }}>{tr('vehicle_type_label')}</label>
                       </div>
                       <div className="input-wrap">
                         <input id="v-cap" type="number" placeholder=" " min="1" step="1" value={vForm.max_capacity_kg} onChange={e => setVForm(f => ({ ...f, max_capacity_kg: e.target.value }))} required/>
-                        <label htmlFor="v-cap">Max Capacity (kg) *</label>
+                        <label htmlFor="v-cap">{tr('max_capacity')}</label>
                       </div>
                       <div className="input-wrap">
                         <input id="v-desc" type="text" placeholder=" " value={vForm.description} onChange={e => setVForm(f => ({ ...f, description: e.target.value }))}/>
-                        <label htmlFor="v-desc">Description (optional)</label>
+                        <label htmlFor="v-desc">{tr('description_optional')}</label>
                       </div>
                       {/* Photo */}
                       <label htmlFor="v-photo" style={{ display:'flex', alignItems:'center', gap:'0.5rem', padding:'0.6rem', borderRadius:10, border:'1px dashed rgba(255,255,255,0.18)', color: vPhoto ? 'var(--clr-accent)' : 'var(--clr-muted)', cursor:'pointer', fontSize:'0.82rem', fontWeight:600, background:'rgba(255,255,255,0.02)' }}>
-                        <LuCamera size={14}/> {vPhoto ? 'Vehicle photo selected ✓' : 'Add vehicle photo (optional)'}
+                        <LuCamera size={14}/> {vPhoto ? tr('vehicle_photo_selected') : tr('vehicle_photo_optional')}
                       </label>
                       <input id="v-photo" ref={vPhotoRef} type="file" accept="image/jpeg,image/png,image/webp" style={{ display:'none' }} onChange={handleVFileSelect(setVPhoto)}/>
                       {/* Libre */}
                       <label htmlFor="v-libre" style={{ display:'flex', alignItems:'center', gap:'0.5rem', padding:'0.6rem', borderRadius:10, border:'1px dashed rgba(255,255,255,0.18)', color: vLibre ? 'var(--clr-accent)' : 'var(--clr-muted)', cursor:'pointer', fontSize:'0.82rem', fontWeight:600, background:'rgba(255,255,255,0.02)' }}>
-                        <LuFileText size={14}/> {vLibre ? 'Libre document selected ✓' : 'Upload libre document (optional)'}
+                        <LuFileText size={14}/> {vLibre ? tr('libre_doc_selected') : tr('libre_doc_optional')}
                       </label>
                       <input id="v-libre" ref={vLibreRef} type="file" accept="image/jpeg,image/png,image/webp,application/pdf" style={{ display:'none' }} onChange={handleVFileSelect(setVLibre)}/>
                       <div style={{ display:'flex', gap:'0.6rem' }}>
-                        <button type="button" className="btn-outline" style={{ flex:1 }} onClick={() => { setShowVehicleForm(false); setVFormError(''); setVPhoto(''); setVLibre('') }}>Cancel</button>
+                        <button type="button" className="btn-outline" style={{ flex:1 }} onClick={() => { setShowVehicleForm(false); setVFormError(''); setVPhoto(''); setVLibre('') }}>{tr('btn_cancel')}</button>
                         <button type="submit" className="btn-primary" style={{ flex:2 }} disabled={vSubmitting}>
-                          {vSubmitting ? <Spinner text="Submitting…"/> : 'Submit for Review'}
+                          {vSubmitting ? <Spinner text={tr('submitting')}/> : tr('submit_for_review')}
                         </button>
                       </div>
                     </form>
@@ -1702,18 +1711,18 @@ export default function DashboardPage() {
       {showDeleteModal && (
         <div className="modal-backdrop" onClick={e => { if (e.target === e.currentTarget) setShowDeleteModal(false) }}>
           <div className="glass modal-box" style={{ padding: '2rem' }}>
-            <h2 style={{ fontSize: '1.1rem', fontWeight: 800, color: '#fca5a5', marginBottom: '0.5rem' }}>Delete Account</h2>
+            <h2 style={{ fontSize: '1.1rem', fontWeight: 800, color: '#fca5a5', marginBottom: '0.5rem' }}>{tr('delete_account_title')}</h2>
             <p style={{ color: 'var(--clr-muted)', fontSize: '0.875rem', marginBottom: '1.25rem' }}>
-              This will permanently erase your account. Type <strong style={{ color: 'var(--clr-text)' }}>DELETE</strong> to confirm.
+              {tr('delete_confirm_desc')}
             </p>
             {deleteError && <div className="alert alert-error" style={{ marginBottom: '1rem' }}><LuTriangleAlert size={14}/> {deleteError}</div>}
             <div className="input-wrap" style={{ marginBottom: '1rem' }}>
               <input id="del-confirm" type="text" placeholder=" "
                 value={deleteConfirm} onChange={e => setDeleteConfirm(e.target.value)} autoComplete="off" />
-              <label htmlFor="del-confirm">Type DELETE</label>
+              <label htmlFor="del-confirm">{tr('type_delete')}</label>
             </div>
             <div style={{ display: 'flex', gap: '0.75rem' }}>
-              <button className="btn-outline" style={{ flex: 1 }} onClick={() => setShowDeleteModal(false)}>Cancel</button>
+              <button className="btn-outline" style={{ flex: 1 }} onClick={() => setShowDeleteModal(false)}>{tr('btn_cancel')}</button>
               <button disabled={deleteLoading || deleteConfirm !== 'DELETE'} onClick={handleDeleteAccount}
                 style={{
                   flex: 1, padding: '0.75rem', borderRadius: 12, border: 'none',
@@ -1721,7 +1730,7 @@ export default function DashboardPage() {
                   color: '#fff', fontFamily: 'inherit', fontSize: '0.875rem', fontWeight: 700,
                   cursor: deleteConfirm === 'DELETE' ? 'pointer' : 'not-allowed', transition: 'all 0.2s',
                 }}>
-                {deleteLoading ? <Spinner text="Deleting…" /> : 'Delete Forever'}
+                {deleteLoading ? <Spinner text={tr('deleting')} /> : tr('delete_forever')}
               </button>
             </div>
           </div>
