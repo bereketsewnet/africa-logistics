@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import apiClient from '../lib/apiClient'
 import { LuSearch, LuTriangleAlert, LuPlus, LuMinus, LuSettings } from 'react-icons/lu'
+import { useLanguage } from '../context/LanguageContext'
 
 interface UserWallet {
   user_id: string
@@ -35,6 +36,7 @@ interface AdminWalletTx {
 type AdjustmentType = 'DEPOSIT' | 'WITHDRAWAL' | 'REFUND' | 'ADJUSTMENT'
 
 export default function AdminWalletAdjustment() {
+  const { t: tr } = useLanguage()
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedUser, setSelectedUser] = useState<UserWallet | null>(null)
   const [allUsers, setAllUsers] = useState<UserWallet[]>([])
@@ -223,33 +225,33 @@ export default function AdminWalletAdjustment() {
             }}
             className="hover-opacity"
           >
-            ← Back
+            {tr('waj_back')}
           </button>
           <h3 style={{ fontSize: '1.3rem', fontWeight: 800, color: 'var(--clr-text)' }}>
-            Wallet Adjustment
+            {tr('waj_title')}
           </h3>
         </div>
 
         {/* User Info */}
         <div className="glass" style={{ padding: '1.5rem' }}>
           <h4 style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--clr-text)', marginBottom: '1rem' }}>
-            User Information
+            {tr('waj_user_info')}
           </h4>
           <div style={{ display: 'grid', gap: '0.75rem' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <span style={{ color: 'var(--clr-muted)' }}>Name:</span>
+              <span style={{ color: 'var(--clr-muted)' }}>{tr('waj_name')}:</span>
               <span style={{ color: 'var(--clr-text)', fontWeight: 600 }}>
                 {selectedUser.first_name} {selectedUser.last_name}
               </span>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <span style={{ color: 'var(--clr-muted)' }}>Email:</span>
+              <span style={{ color: 'var(--clr-muted)' }}>{tr('waj_email')}:</span>
               <span style={{ color: 'var(--clr-text)', fontWeight: 600 }}>
                 {selectedUser.email}
               </span>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <span style={{ color: 'var(--clr-muted)' }}>Current Balance:</span>
+              <span style={{ color: 'var(--clr-muted)' }}>{tr('waj_curr_bal')}:</span>
               <span style={{ color: 'var(--clr-accent)', fontWeight: 700, fontSize: '1.1rem' }}>
                 {formatCurrency(selectedUser.current_balance)}
               </span>
@@ -260,14 +262,14 @@ export default function AdminWalletAdjustment() {
         {/* Adjustment Form */}
         <div className="glass" style={{ padding: '1.5rem' }}>
           <h4 style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--clr-text)', marginBottom: '1rem' }}>
-            Make Adjustment
+            {tr('waj_make_adj')}
           </h4>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
             {/* Type Selection */}
             <div>
               <label style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--clr-text)', display: 'block', marginBottom: '0.5rem' }}>
-                Adjustment Type
+                {tr('waj_adj_type')}
               </label>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: '0.5rem' }}>
                 {(['DEPOSIT', 'WITHDRAWAL', 'REFUND', 'ADJUSTMENT'] as AdjustmentType[]).map((type) => (
@@ -294,7 +296,7 @@ export default function AdminWalletAdjustment() {
             {/* Amount Input */}
             <div>
               <label style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--clr-text)', display: 'block', marginBottom: '0.5rem' }}>
-                Amount (ብር)
+                {tr('waj_amount')}
               </label>
               <input
                 type="number"
@@ -315,7 +317,7 @@ export default function AdminWalletAdjustment() {
             {/* Notes */}
             <div>
               <label style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--clr-text)', display: 'block', marginBottom: '0.5rem' }}>
-                Notes (reason for adjustment)
+                {tr('waj_notes')}
               </label>
               <textarea
                 placeholder="e.g., Refund for cancelled order #12345"
@@ -350,13 +352,13 @@ export default function AdminWalletAdjustment() {
                 border: '1px solid rgba(124,58,237,0.2)', borderRadius: '10px'
               }}>
                 <p style={{ fontSize: '0.85rem', color: 'var(--clr-muted)', marginBottom: '0.5rem' }}>
-                  {adjustmentType === 'DEPOSIT' || adjustmentType === 'REFUND' ? 'Will add' : 'Will deduct'}:
+                  {adjustmentType === 'DEPOSIT' || adjustmentType === 'REFUND' ? tr('waj_will_add') : tr('waj_will_deduct')}:
                 </p>
                 <p style={{ fontSize: '1.2rem', fontWeight: 800, color: 'var(--clr-accent2)' }}>
                   {adjustmentType === 'DEPOSIT' || adjustmentType === 'REFUND' ? '+' : '-'}{formatCurrency(Number(adjustmentAmount))}
                 </p>
                 <p style={{ fontSize: '0.8rem', color: 'var(--clr-muted)', marginTop: '0.5rem' }}>
-                  New balance will be: {formatCurrency(
+                  {tr('waj_new_bal')}: {formatCurrency(
                     adjustmentType === 'DEPOSIT' || adjustmentType === 'REFUND'
                       ? selectedUser.current_balance + Number(adjustmentAmount)
                       : selectedUser.current_balance - Number(adjustmentAmount)
@@ -378,7 +380,7 @@ export default function AdminWalletAdjustment() {
                 }}
                 className="hover-lift"
               >
-                Cancel
+                {tr('waj_cancel')}
               </button>
               <button
                 onClick={handleAdjustment}
@@ -392,7 +394,7 @@ export default function AdminWalletAdjustment() {
                 }}
                 className="hover-lift"
               >
-                {processing ? 'Processing...' : 'Apply Adjustment'}
+                {processing ? tr('waj_processing') : tr('waj_apply')}
               </button>
             </div>
           </div>
@@ -417,10 +419,10 @@ export default function AdminWalletAdjustment() {
         </div>
         <div>
           <h3 style={{ fontSize: '1.3rem', fontWeight: 800, color: 'var(--clr-text)', marginBottom: '0.3rem' }}>
-            Adjustment Applied
+            {tr('waj_success_title')}
           </h3>
           <p style={{ fontSize: '0.9rem', color: 'var(--clr-muted)' }}>
-            Wallet has been updated successfully
+            {tr('waj_success_sub')}
           </p>
         </div>
       </div>
@@ -432,23 +434,23 @@ export default function AdminWalletAdjustment() {
       {/* Admin Wallet */}
       <div className="glass" style={{ padding: '1.5rem' }}>
         <h3 style={{ fontSize: '1.2rem', fontWeight: 800, color: 'var(--clr-text)', marginBottom: '1rem' }}>
-          Admin Wallet
+          {tr('waj_admin_wallet')}
         </h3>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))', gap: '0.75rem', marginBottom: '1rem' }}>
           <div style={{ padding: '0.9rem', borderRadius: '10px', background: 'rgba(0,229,255,0.08)', border: '1px solid rgba(0,229,255,0.2)' }}>
-            <p style={{ fontSize: '0.8rem', color: 'var(--clr-muted)' }}>Current Balance</p>
+            <p style={{ fontSize: '0.8rem', color: 'var(--clr-muted)' }}>{tr('waj_curr_bal_kpi')}</p>
             <p style={{ fontSize: '1.2rem', fontWeight: 800, color: 'var(--clr-accent)' }}>
               {formatCurrency(adminWallet?.balance ?? 0)}
             </p>
           </div>
           <div style={{ padding: '0.9rem', borderRadius: '10px', background: 'rgba(57,255,20,0.08)', border: '1px solid rgba(57,255,20,0.2)' }}>
-            <p style={{ fontSize: '0.8rem', color: 'var(--clr-muted)' }}>Total In</p>
+            <p style={{ fontSize: '0.8rem', color: 'var(--clr-muted)' }}>{tr('waj_total_in')}</p>
             <p style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--clr-neon)' }}>
               {formatCurrency(adminWallet?.total_earned ?? 0)}
             </p>
           </div>
           <div style={{ padding: '0.9rem', borderRadius: '10px', background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)' }}>
-            <p style={{ fontSize: '0.8rem', color: 'var(--clr-muted)' }}>Total Out</p>
+            <p style={{ fontSize: '0.8rem', color: 'var(--clr-muted)' }}>{tr('waj_total_out')}</p>
             <p style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--clr-danger)' }}>
               {formatCurrency(adminWallet?.total_spent ?? 0)}
             </p>
@@ -458,7 +460,7 @@ export default function AdminWalletAdjustment() {
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto', gap: '0.6rem', alignItems: 'center', marginBottom: '1rem' }}>
           <input
             type="number"
-            placeholder="Refill amount"
+            placeholder={tr('waj_refill_ph')}
             value={refillAmount}
             onChange={(e) => setRefillAmount(e.target.value)}
             style={{
@@ -468,7 +470,7 @@ export default function AdminWalletAdjustment() {
           />
           <input
             type="text"
-            placeholder="Refill reason"
+            placeholder={tr('waj_reason_ph')}
             value={refillReason}
             onChange={(e) => setRefillReason(e.target.value)}
             style={{
@@ -485,7 +487,7 @@ export default function AdminWalletAdjustment() {
             }}
             className="hover-lift"
           >
-            {refilling ? 'Refilling...' : 'Refill'}
+            {refilling ? tr('waj_refilling') : tr('waj_refill_btn')}
           </button>
         </div>
 
@@ -510,10 +512,10 @@ export default function AdminWalletAdjustment() {
       {/* Header */}
       <div className="glass" style={{ padding: '1.5rem' }}>
         <h3 style={{ fontSize: '1.3rem', fontWeight: 800, color: 'var(--clr-text)', marginBottom: '1rem' }}>
-          Wallet Adjustment
+          {tr('waj_title')}
         </h3>
         <p style={{ fontSize: '0.9rem', color: 'var(--clr-muted)', marginBottom: '1rem' }}>
-          Deposit, withdraw, or refund funds to user wallets
+          {tr('waj_subtitle')}
         </p>
 
         {/* Search */}
@@ -526,7 +528,7 @@ export default function AdminWalletAdjustment() {
             <LuSearch size={18} style={{ color: 'var(--clr-muted)' }} />
             <input
               type="text"
-              placeholder="Type name, phone, or email..."
+              placeholder={tr('waj_search_ph')}
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
@@ -548,7 +550,7 @@ export default function AdminWalletAdjustment() {
             }}
             className="hover-lift"
           >
-            {loading ? 'Loading...' : 'Refresh'}
+            {loading ? tr('waj_loading') : tr('waj_refresh_btn')}
           </button>
         </div>
       </div>
@@ -567,7 +569,7 @@ export default function AdminWalletAdjustment() {
       {searched && users.length === 0 && !error && (
         <div className="glass" style={{ padding: '2rem', textAlign: 'center' }}>
           <p style={{ color: 'var(--clr-muted)', fontSize: '1rem' }}>
-            No users found. Try a different search term.
+            {tr('waj_no_users')}
           </p>
         </div>
       )}
@@ -594,7 +596,7 @@ export default function AdminWalletAdjustment() {
               </div>
 
               <div style={{ textAlign: 'right' }}>
-                <p style={{ fontSize: '0.8rem', color: 'var(--clr-muted)', marginBottom: '0.2rem' }}>Balance</p>
+                <p style={{ fontSize: '0.8rem', color: 'var(--clr-muted)', marginBottom: '0.2rem' }}>{tr('waj_balance')}</p>
                 <p style={{ fontSize: '1.2rem', fontWeight: 800, color: 'var(--clr-accent)' }}>
                   {formatCurrency(user.current_balance)}
                 </p>
@@ -613,7 +615,7 @@ export default function AdminWalletAdjustment() {
                 }}
                 className="hover-lift"
               >
-                Adjust
+                {tr('waj_adjust_btn')}
               </button>
             </div>
           ))}

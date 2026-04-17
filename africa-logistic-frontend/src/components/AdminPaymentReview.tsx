@@ -4,6 +4,7 @@ import {
   LuCheck, LuX, LuClock, LuEye, LuTriangleAlert, LuChevronLeft,
   LuBanknote, LuUpload, LuArrowDownLeft,
 } from 'react-icons/lu'
+import { useLanguage } from '../context/LanguageContext'
 
 const UPLOADS_BASE = (import.meta.env.VITE_API_BASE_URL as string).replace(/\/api\/?$/, '')
 
@@ -53,6 +54,7 @@ function commissionPreview(roleId: number, approved: number, rate: number): stri
 }
 
 export default function AdminPaymentReview() {
+  const { t: tr } = useLanguage()
   const [activeMainTab, setActiveMainTab] = useState<'payments' | 'withdrawals'>('payments')
 
   // ── Manual Payments state ──
@@ -243,16 +245,16 @@ export default function AdminPaymentReview() {
         <div className="glass" style={{ padding: '1.5rem' }}>
           <button onClick={() => { setSelectedWithdrawal(null); setApprovedAmount(''); setAdminNote(''); setAdminImageB64(null); setRejectReason(''); setWCommissionRate('15') }}
             style={{ background: 'none', border: 'none', color: 'var(--clr-accent)', cursor: 'pointer', fontSize: '0.95rem', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem 0', fontWeight: 600, fontFamily: 'inherit' }}>
-            <LuChevronLeft size={18} /> Back to Withdrawals
+            <LuChevronLeft size={18} /> {tr('apr_back_wd')}
           </button>
-          <h3 style={{ fontSize: '1.3rem', fontWeight: 800, color: 'var(--clr-text)' }}>Withdrawal Review</h3>
+          <h3 style={{ fontSize: '1.3rem', fontWeight: 800, color: 'var(--clr-text)' }}>{tr('apr_wd_review')}</h3>
         </div>
 
         {/* User info */}
         <div className="glass" style={{ padding: '1.5rem' }}>
-          <h4 style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--clr-text)', marginBottom: '1rem' }}>User Information</h4>
+          <h4 style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--clr-text)', marginBottom: '1rem' }}>{tr('apr_user_info')}</h4>
           <div style={{ display: 'grid', gap: '0.65rem' }}>
-            {[['Name', wr.user_name], ['Phone', wr.user_phone || '—'], ['Email', wr.user_email || '—'], ['Role', wr.role_id === 3 ? 'Driver' : wr.role_id === 2 ? 'Shipper' : 'User']].map(([l, v]) => (
+            {[[tr('apr_name'), wr.user_name], [tr('apr_phone'), wr.user_phone || '—'], [tr('apr_email'), wr.user_email || '—'], [tr('apr_role_user'), wr.role_id === 3 ? tr('apr_driver') : wr.role_id === 2 ? tr('apr_shipper') : tr('apr_role_user')]].map(([l, v]) => (
               <div key={l} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <span style={{ color: 'var(--clr-muted)', fontSize: '0.9rem' }}>{l}:</span>
                 <span style={{ color: 'var(--clr-text)', fontWeight: 600 }}>{v}</span>
@@ -263,11 +265,11 @@ export default function AdminPaymentReview() {
 
         {/* Amount details */}
         <div className="glass" style={{ padding: '1.5rem' }}>
-          <h4 style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--clr-text)', marginBottom: '1rem' }}>Request Details</h4>
+          <h4 style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--clr-text)', marginBottom: '1rem' }}>{tr('apr_req_details')}</h4>
           <div style={{ display: 'grid', gap: '1rem', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', marginBottom: '1.25rem' }}>
-            {[{ label: 'Requested', val: `${fmt(wr.amount_requested)} ETB`, clr: 'var(--clr-accent)' },
-              { label: 'Current Balance', val: `${fmt(wr.current_balance)} ETB`, clr: 'var(--clr-neon)' },
-              { label: 'Status', val: wr.status, clr: wr.status === 'APPROVED' ? '#4ade80' : wr.status === 'REJECTED' ? 'var(--clr-danger)' : '#fbbf24' }
+            {[{ label: tr('apr_requested'), val: `${fmt(wr.amount_requested)} ETB`, clr: 'var(--clr-accent)' },
+              { label: tr('apr_curr_balance'), val: `${fmt(wr.current_balance)} ETB`, clr: 'var(--clr-neon)' },
+              { label: tr('apr_status'), val: wr.status, clr: wr.status === 'APPROVED' ? '#4ade80' : wr.status === 'REJECTED' ? 'var(--clr-danger)' : '#fbbf24' }
             ].map(({ label, val, clr }) => (
               <div key={label} style={{ padding: '1rem', background: 'rgba(255,255,255,0.03)', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.07)' }}>
                 <p style={{ fontSize: '0.75rem', color: 'var(--clr-muted)', marginBottom: '0.35rem' }}>{label}</p>
@@ -276,13 +278,13 @@ export default function AdminPaymentReview() {
             ))}
           </div>
           <div style={{ display: 'grid', gap: '0.6rem', fontSize: '0.88rem' }}>
-            <p style={{ color: 'var(--clr-muted)' }}>Bank: <strong style={{ color: 'var(--clr-text)' }}>{wr.bank_details.bank_name}</strong> · Acct: <strong style={{ color: 'var(--clr-text)' }}>{wr.bank_details.account_number}</strong></p>
-            <p style={{ color: 'var(--clr-muted)' }}>Account Holder: <strong style={{ color: 'var(--clr-text)' }}>{wr.bank_details.account_name}</strong></p>
+            <p style={{ color: 'var(--clr-muted)' }}>{tr('apr_bank')}: <strong style={{ color: 'var(--clr-text)' }}>{wr.bank_details.bank_name}</strong> · Acct: <strong style={{ color: 'var(--clr-text)' }}>{wr.bank_details.account_number}</strong></p>
+            <p style={{ color: 'var(--clr-muted)' }}>{tr('apr_acct_holder')}: <strong style={{ color: 'var(--clr-text)' }}>{wr.bank_details.account_name}</strong></p>
             {wr.notes && <p style={{ color: 'var(--clr-muted)', fontStyle: 'italic' }}>Note: "{wr.notes}"</p>}
           </div>
           {wr.proof_image_url && (
             <div style={{ marginTop: '1rem' }}>
-              <p style={{ fontSize: '0.82rem', color: 'var(--clr-muted)', marginBottom: '0.5rem' }}>User Proof</p>
+              <p style={{ fontSize: '0.82rem', color: 'var(--clr-muted)', marginBottom: '0.5rem' }}>{tr('apr_user_proof')}</p>
               <img src={`${UPLOADS_BASE}${wr.proof_image_url}`} alt="User proof" style={{ maxWidth: '100%', maxHeight: 300, borderRadius: 10, objectFit: 'contain', border: '1px solid rgba(255,255,255,0.08)' }} />
             </div>
           )}
@@ -291,12 +293,12 @@ export default function AdminPaymentReview() {
         {/* Actions */}
         {wr.status === 'PENDING' ? (
           <div className="glass" style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-            <h4 style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--clr-text)' }}>Review Decision</h4>
+            <h4 style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--clr-text)' }}>{tr('apr_review_dec')}</h4>
 
             {/* Approved amount + commission rate side by side for drivers */}
             <div style={{ display: 'grid', gridTemplateColumns: wr.role_id === 3 ? '1fr 1fr' : '1fr', gap: '0.65rem' }}>
               <div>
-                <label style={{ fontSize: '0.85rem', color: 'var(--clr-muted)', display: 'block', marginBottom: '0.4rem' }}>Approved Amount (ETB)</label>
+                <label style={{ fontSize: '0.85rem', color: 'var(--clr-muted)', display: 'block', marginBottom: '0.4rem' }}>{tr('apr_approved_amt')}</label>
                 <input type="number" min="0.01" max={wr.amount_requested} step="0.01"
                   value={approvedAmount} onChange={e => setApprovedAmount(e.target.value)}
                   placeholder={`Max ${fmt(wr.amount_requested)}`}
@@ -304,7 +306,7 @@ export default function AdminPaymentReview() {
               </div>
               {wr.role_id === 3 && (
                 <div>
-                  <label style={{ fontSize: '0.85rem', color: '#fbbf24', display: 'block', marginBottom: '0.4rem' }}>Platform Fee % (Driver)</label>
+                  <label style={{ fontSize: '0.85rem', color: '#fbbf24', display: 'block', marginBottom: '0.4rem' }}>{tr('apr_platform_fee')}</label>
                   <input type="number" min="0" max="100" step="0.1"
                     value={wCommissionRate} onChange={e => setWCommissionRate(e.target.value)}
                     placeholder="e.g. 15"
@@ -317,7 +319,7 @@ export default function AdminPaymentReview() {
             {/* User's submitted proof image */}
             {wr.proof_image_url && (
               <div>
-                <label style={{ fontSize: '0.82rem', color: 'var(--clr-muted)', display: 'block', marginBottom: '0.4rem' }}>User Proof Document</label>
+                <label style={{ fontSize: '0.82rem', color: 'var(--clr-muted)', display: 'block', marginBottom: '0.4rem' }}>{tr('apr_user_proof_doc')}</label>
                 {wr.proof_image_url.endsWith('.pdf') ? (
                   <a href={`${UPLOADS_BASE}${wr.proof_image_url}`} target="_blank" rel="noopener noreferrer"
                     style={{ color: 'var(--clr-accent)', fontSize: '0.85rem' }}>📄 View PDF</a>
@@ -331,14 +333,14 @@ export default function AdminPaymentReview() {
 
             {/* Admin note */}
             <div>
-              <label style={{ fontSize: '0.85rem', color: 'var(--clr-muted)', display: 'block', marginBottom: '0.4rem' }}>Admin Note (optional for approval, required for rejection)</label>
+              <label style={{ fontSize: '0.85rem', color: 'var(--clr-muted)', display: 'block', marginBottom: '0.4rem' }}>{tr('apr_admin_note')}</label>
               <textarea value={adminNote} onChange={e => setAdminNote(e.target.value)} rows={3} placeholder="Enter note…"
                 style={{ width: '100%', padding: '0.75rem', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '0.75rem', color: 'var(--clr-text)', fontSize: '0.9rem', fontFamily: 'inherit', outline: 'none', resize: 'none', boxSizing: 'border-box' }} />
             </div>
 
             {/* Reject reason (separate) */}
             <div>
-              <label style={{ fontSize: '0.85rem', color: 'var(--clr-danger)', display: 'block', marginBottom: '0.4rem' }}>Rejection Reason (required to reject)</label>
+              <label style={{ fontSize: '0.85rem', color: 'var(--clr-danger)', display: 'block', marginBottom: '0.4rem' }}>{tr('apr_reject_reason')}</label>
               <textarea value={rejectReason} onChange={e => setRejectReason(e.target.value)} rows={2} placeholder="Explain why this is rejected…"
                 style={{ width: '100%', padding: '0.75rem', background: 'rgba(239,68,68,0.04)', border: '1px solid rgba(239,68,68,0.12)', borderRadius: '0.75rem', color: 'var(--clr-text)', fontSize: '0.9rem', fontFamily: 'inherit', outline: 'none', resize: 'none', boxSizing: 'border-box' }} />
             </div>
@@ -346,7 +348,7 @@ export default function AdminPaymentReview() {
             {/* Admin proof image */}
             <div>
               <label htmlFor="admin-proof" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.6rem 1rem', borderRadius: '0.75rem', border: '1px dashed rgba(255,255,255,0.15)', cursor: 'pointer', color: adminImageB64 ? 'var(--clr-accent)' : 'var(--clr-muted)', fontSize: '0.82rem', fontWeight: 600 }}>
-                <LuUpload size={14}/> {adminImageB64 ? adminImageName : 'Attach admin proof (optional)'}
+                <LuUpload size={14}/> {adminImageB64 ? adminImageName : tr('apr_attach_proof')}
               </label>
               <input ref={wImageRef} id="admin-proof" type="file" accept="image/jpeg,image/png,image/webp" style={{ display: 'none' }} onChange={handleWImageSelect} />
             </div>
@@ -354,20 +356,20 @@ export default function AdminPaymentReview() {
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginTop: '0.25rem' }}>
               <button onClick={handleWReject} disabled={wProcessing}
                 style={{ padding: '0.9rem', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: '10px', color: 'var(--clr-danger)', fontWeight: 700, cursor: wProcessing ? 'not-allowed' : 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', opacity: wProcessing ? 0.6 : 1 }}>
-                <LuX size={16}/> {wProcessing ? 'Processing…' : 'Reject'}
+                <LuX size={16}/> {wProcessing ? tr('apr_processing') : tr('apr_reject_btn')}
               </button>
               <button onClick={handleWApprove} disabled={wProcessing}
                 style={{ padding: '0.9rem', background: 'linear-gradient(135deg,#7c3aed,#0ea5e9)', border: 'none', borderRadius: '10px', color: '#fff', fontWeight: 700, cursor: wProcessing ? 'not-allowed' : 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', opacity: wProcessing ? 0.6 : 1 }}>
-                <LuCheck size={16}/> {wProcessing ? 'Processing…' : 'Approve & Debit'}
+                <LuCheck size={16}/> {wProcessing ? tr('apr_processing') : tr('apr_approve_debit')}
               </button>
             </div>
           </div>
         ) : (
           <div className="glass" style={{ padding: '1.25rem', borderLeft: `3px solid ${wr.status === 'APPROVED' ? '#4ade80' : 'var(--clr-danger)'}` }}>
             <p style={{ fontWeight: 700, color: wr.status === 'APPROVED' ? '#4ade80' : 'var(--clr-danger)', marginBottom: '0.35rem' }}>
-              {wr.status === 'APPROVED' ? `Approved: ${fmt(wr.amount_approved ?? 0)} ETB` : 'Rejected'}
+              {wr.status === 'APPROVED' ? `${tr('apr_approved_label')}: ${fmt(wr.amount_approved ?? 0)} ETB` : tr('apr_rejected_label')}
             </p>
-            {wr.commission_amount ? <p style={{ fontSize: '0.82rem', color: '#fbbf24' }}>Commission credited: {fmt(wr.commission_amount)} ETB</p> : null}
+            {wr.commission_amount ? <p style={{ fontSize: '0.82rem', color: '#fbbf24' }}>{tr('apr_commission')}: {fmt(wr.commission_amount)} ETB</p> : null}
             {wr.admin_note && <p style={{ fontSize: '0.85rem', color: 'var(--clr-muted)', marginTop: '0.35rem', fontStyle: 'italic' }}>"{wr.admin_note}"</p>}
           </div>
         )}
@@ -394,34 +396,34 @@ export default function AdminPaymentReview() {
             }}
             className="hover-opacity"
           >
-            <LuChevronLeft size={18} /> Back to List
+            <LuChevronLeft size={18} /> {tr('apr_back_list')}
           </button>
 
           <h3 style={{ fontSize: '1.3rem', fontWeight: 800, color: 'var(--clr-text)' }}>
-            Payment Review
+            {tr('apr_pay_review')}
           </h3>
         </div>
 
         {/* User Info */}
         <div className="glass" style={{ padding: '1.5rem' }}>
           <h4 style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--clr-text)', marginBottom: '1rem' }}>
-            User Information
+            {tr('apr_user_info')}
           </h4>
           <div style={{ display: 'grid', gap: '0.75rem' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <span style={{ color: 'var(--clr-muted)', fontSize: '0.9rem' }}>Name:</span>
+              <span style={{ color: 'var(--clr-muted)', fontSize: '0.9rem' }}>{tr('apr_name')}:</span>
               <span style={{ color: 'var(--clr-text)', fontWeight: 600 }}>
                 {selectedPayment.user_name}
               </span>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <span style={{ color: 'var(--clr-muted)', fontSize: '0.9rem' }}>Email:</span>
+              <span style={{ color: 'var(--clr-muted)', fontSize: '0.9rem' }}>{tr('apr_email')}:</span>
               <span style={{ color: 'var(--clr-text)', fontWeight: 600, wordBreak: 'break-all' }}>
                 {selectedPayment.user_email || '—'}
               </span>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <span style={{ color: 'var(--clr-muted)', fontSize: '0.9rem' }}>Phone:</span>
+              <span style={{ color: 'var(--clr-muted)', fontSize: '0.9rem' }}>{tr('apr_phone')}:</span>
               <span style={{ color: 'var(--clr-text)', fontWeight: 600 }}>
                 {selectedPayment.user_phone || '—'}
               </span>
@@ -436,19 +438,19 @@ export default function AdminPaymentReview() {
           </h4>
           <div style={{ display: 'grid', gap: '1rem', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', marginBottom: '1.5rem' }}>
             <div style={{ padding: '1rem', background: 'rgba(0,229,255,0.08)', borderRadius: '10px', border: '1px solid rgba(0,229,255,0.2)' }}>
-              <p style={{ fontSize: '0.75rem', color: 'var(--clr-muted)', marginBottom: '0.25rem' }}>Amount</p>
+              <p style={{ fontSize: '0.75rem', color: 'var(--clr-muted)', marginBottom: '0.25rem' }}>{tr('apr_amount')}</p>
               <p style={{ fontSize: '1.3rem', fontWeight: 800, color: 'var(--clr-accent)' }}>
                 {formatCurrency(selectedPayment.amount)}
               </p>
             </div>
             <div style={{ padding: '1rem', background: 'rgba(124,58,237,0.08)', borderRadius: '10px', border: '1px solid rgba(124,58,237,0.2)' }}>
-              <p style={{ fontSize: '0.75rem', color: 'var(--clr-muted)', marginBottom: '0.25rem' }}>Status</p>
+              <p style={{ fontSize: '0.75rem', color: 'var(--clr-muted)', marginBottom: '0.25rem' }}>{tr('apr_status')}</p>
               <p style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--clr-accent2)' }}>
                 {selectedPayment.status}
               </p>
             </div>
             <div style={{ padding: '1rem', background: 'rgba(255,255,255,0.03)', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.08)' }}>
-              <p style={{ fontSize: '0.75rem', color: 'var(--clr-muted)', marginBottom: '0.25rem' }}>Submitted</p>
+              <p style={{ fontSize: '0.75rem', color: 'var(--clr-muted)', marginBottom: '0.25rem' }}>{tr('apr_submitted')}</p>
               <p style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--clr-text)' }}>
                 {formatDate(selectedPayment.submitted_at)}
               </p>
@@ -476,7 +478,7 @@ export default function AdminPaymentReview() {
                   rel="noopener noreferrer"
                   style={{ color: 'var(--clr-accent)', fontWeight: 600 }}
                 >
-                  View PDF Document
+                  {tr('apr_view_pdf')}
                 </a>
               </div>
             ) : (
@@ -497,7 +499,7 @@ export default function AdminPaymentReview() {
               background: 'rgba(255,255,255,0.02)',
               textAlign: 'center', color: 'var(--clr-muted)'
             }}>
-              No payment proof attached
+              {tr('apr_no_proof')}
             </div>
           )}
         </div>
@@ -505,12 +507,12 @@ export default function AdminPaymentReview() {
         {/* Notes */}
         <div className="glass" style={{ padding: '1.5rem' }}>
           <label style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--clr-text)', display: 'block', marginBottom: '0.75rem' }}>
-            {selectedPayment.status === 'PENDING' ? 'Admin Notes' : 'Review Notes'}
+            {selectedPayment.status === 'PENDING' ? tr('apr_admin_notes') : tr('apr_review_notes')}
           </label>
           <textarea
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
-            placeholder={selectedPayment.status === 'PENDING' ? 'Enter notes (optional)' : 'Enter rejection reason'}
+            placeholder={selectedPayment.status === 'PENDING' ? tr('apr_notes_opt') : tr('apr_reject_input')}
             disabled={selectedPayment.status !== 'PENDING'}
             style={{
               width: '100%', minHeight: '100px', padding: '1rem',
@@ -538,7 +540,7 @@ export default function AdminPaymentReview() {
               }}
               className="hover-lift"
             >
-              <LuX size={18} /> {processing ? 'Rejecting...' : 'Reject'}
+              <LuX size={18} /> {processing ? tr('apr_rejecting') : tr('apr_reject_btn')}
             </button>
             <button
               onClick={handleApprove}
@@ -553,7 +555,7 @@ export default function AdminPaymentReview() {
               }}
               className="hover-lift"
             >
-              <LuCheck size={18} /> {processing ? 'Approving...' : 'Approve & Credit'}
+              <LuCheck size={18} /> {processing ? tr('apr_approving') : tr('apr_approve_credit')}
             </button>
           </div>
         )}
@@ -566,14 +568,14 @@ export default function AdminPaymentReview() {
       {/* ── Main Tabs ── */}
       <div className="glass" style={{ padding: '1.5rem' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem', flexWrap: 'wrap', gap: '1rem' }}>
-          <h3 style={{ fontSize: '1.3rem', fontWeight: 800, color: 'var(--clr-text)' }}>Payment Reviews</h3>
+          <h3 style={{ fontSize: '1.3rem', fontWeight: 800, color: 'var(--clr-text)' }}>{tr('apr_title')}</h3>
           <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
             <div style={{ padding: '0.55rem 1rem', borderRadius: '8px', background: 'rgba(0,229,255,0.08)', border: '1px solid rgba(0,229,255,0.15)', display: 'flex', alignItems: 'center', gap: '0.4rem', color: 'var(--clr-accent)', fontWeight: 700, fontSize: '0.85rem' }}>
-              <LuClock size={15}/> {pendingCount} manual pending
+              <LuClock size={15}/> {pendingCount} {tr('apr_manual_pending')}
             </div>
             {wPendingCount > 0 && (
               <div style={{ padding: '0.55rem 1rem', borderRadius: '8px', background: 'rgba(251,191,36,0.08)', border: '1px solid rgba(251,191,36,0.2)', display: 'flex', alignItems: 'center', gap: '0.4rem', color: '#fbbf24', fontWeight: 700, fontSize: '0.85rem' }}>
-                <LuArrowDownLeft size={15}/> {wPendingCount} withdrawal pending
+                <LuArrowDownLeft size={15}/> {wPendingCount} {tr('apr_wd_pending')}
               </div>
             )}
           </div>
@@ -582,9 +584,9 @@ export default function AdminPaymentReview() {
           {(['payments', 'withdrawals'] as const).map(tab => (
             <button key={tab} onClick={() => setActiveMainTab(tab)} style={{ padding: '0.55rem 1.2rem', borderRadius: '7px', border: 'none', fontFamily: 'inherit', fontSize: '0.88rem', fontWeight: 700, cursor: 'pointer', transition: 'all 0.18s', background: activeMainTab === tab ? 'rgba(0,229,255,0.12)' : 'transparent', color: activeMainTab === tab ? 'var(--clr-accent)' : 'var(--clr-muted)', boxShadow: activeMainTab === tab ? '0 0 0 1px rgba(0,229,255,0.2)' : 'none' }}>
               {tab === 'payments' ? (
-                <span style={{ display:'flex', alignItems:'center', gap:'0.4rem' }}><LuCheck size={14}/>Manual Payments</span>
+                <span style={{ display:'flex', alignItems:'center', gap:'0.4rem' }}><LuCheck size={14}/>{tr('apr_manual_tab')}</span>
               ) : (
-                <span style={{ display:'flex', alignItems:'center', gap:'0.4rem' }}><LuBanknote size={14}/>Withdrawal Requests</span>
+                <span style={{ display:'flex', alignItems:'center', gap:'0.4rem' }}><LuBanknote size={14}/>{tr('apr_wd_tab')}</span>
               )}
             </button>
           ))}
@@ -594,14 +596,14 @@ export default function AdminPaymentReview() {
         {activeMainTab === 'payments' ? (
           <select value={filterStatus} onChange={e => setFilterStatus(e.target.value as 'PENDING' | 'ALL')}
             style={{ marginTop: '1rem', padding: '0.6rem 1rem', background: 'rgba(255,255,255,0.04)', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.08)', color: 'var(--clr-text)', fontFamily: 'inherit', fontSize: '0.9rem', cursor: 'pointer' }}>
-            <option value="PENDING">Pending Only</option>
-            <option value="ALL">All Payments</option>
+            <option value="PENDING">{tr('apr_pending_only')}</option>
+            <option value="ALL">{tr('apr_all_payments')}</option>
           </select>
         ) : (
           <select value={wFilterStatus} onChange={e => setWFilterStatus(e.target.value as 'PENDING' | 'ALL')}
             style={{ marginTop: '1rem', padding: '0.6rem 1rem', background: 'rgba(255,255,255,0.04)', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.08)', color: 'var(--clr-text)', fontFamily: 'inherit', fontSize: '0.9rem', cursor: 'pointer' }}>
-            <option value="PENDING">Pending Only</option>
-            <option value="ALL">All Requests</option>
+            <option value="PENDING">{tr('apr_pending_only')}</option>
+            <option value="ALL">{tr('apr_all_requests')}</option>
           </select>
         )}
       </div>
@@ -632,7 +634,7 @@ export default function AdminPaymentReview() {
               <LuCheck size={32}/>
             </div>
             <p style={{ color: 'var(--clr-muted)', fontSize: '1rem', fontWeight: 600 }}>
-              {filterStatus === 'PENDING' ? 'No pending payments' : 'No payments found'}
+              {filterStatus === 'PENDING' ? tr('apr_no_pending') : tr('apr_no_payments')}
             </p>
           </div>
         ) : (
@@ -657,7 +659,7 @@ export default function AdminPaymentReview() {
                   </div>
                   <button onClick={e => { e.stopPropagation(); setSelectedPayment(payment); setNotes('') }}
                     style={{ padding: '0.6rem 1rem', background: 'rgba(0,229,255,0.1)', border: '1px solid rgba(0,229,255,0.2)', borderRadius: '8px', color: 'var(--clr-accent)', cursor: 'pointer', fontSize: '0.9rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.4rem', fontFamily: 'inherit', transition: 'all 0.2s' }} className="hover-lift">
-                    <LuEye size={16}/> View
+                    <LuEye size={16}/> {tr('apr_view_btn')}
                   </button>
                 </div>
               </div>
@@ -676,7 +678,7 @@ export default function AdminPaymentReview() {
               <LuBanknote size={28}/>
             </div>
             <p style={{ color: 'var(--clr-muted)', fontSize: '1rem', fontWeight: 600 }}>
-              {wFilterStatus === 'PENDING' ? 'No pending withdrawal requests' : 'No withdrawal requests found'}
+              {wFilterStatus === 'PENDING' ? tr('apr_no_wd_pending') : tr('apr_no_wd_found')}
             </p>
           </div>
         ) : (
@@ -688,7 +690,7 @@ export default function AdminPaymentReview() {
                   onClick={() => { setSelectedWithdrawal(wr); setApprovedAmount(String(wr.amount_requested)); setWCommissionRate(String(wr.commission_rate ?? 15)); setAdminNote(''); setAdminImageB64(null); setRejectReason('') }}>
                   <div style={{ flex: 1, minWidth: '200px' }}>
                     <p style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--clr-text)', marginBottom: '0.2rem' }}>
-                      {wr.user_name} <span style={{ fontSize: '0.75rem', color: wr.role_id === 3 ? '#fbbf24' : 'var(--clr-muted)', fontWeight: 600 }}>({wr.role_id === 3 ? 'Driver' : 'Shipper'})</span>
+                      {wr.user_name} <span style={{ fontSize: '0.75rem', color: wr.role_id === 3 ? '#fbbf24' : 'var(--clr-muted)', fontWeight: 600 }}>({wr.role_id === 3 ? tr('apr_driver') : tr('apr_shipper')})</span>
                     </p>
                     <p style={{ fontSize: '0.8rem', color: 'var(--clr-muted)' }}>{wr.bank_details.bank_name} · {wr.bank_details.account_number}</p>
                     <p style={{ fontSize: '0.75rem', color: 'rgba(148,163,184,0.5)', marginTop: '0.2rem' }}>{new Date(wr.created_at).toLocaleDateString('en-ET', { month: 'short', day: 'numeric', year: '2-digit', hour: '2-digit', minute: '2-digit' })}</p>
