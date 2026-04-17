@@ -310,16 +310,18 @@ function LoadingSpinner() {
 // ─── Admin Notification Settings (7.5) ───────────────────────────────────────
 
 function AdminNotifSettings() {
-  const SETTING_DEFS = [
-    { key: 'push_order_updates',     label: 'Push — Order Status Updates',      sub: 'Send push notifications to shippers and drivers when order status changes (e.g. Assigned, In Transit, Delivered).' },
-    { key: 'push_driver_job_alerts', label: 'Push — Driver Job Assignments',     sub: 'Send a high-priority push to drivers when a new job is assigned to them.' },
-    { key: 'push_admin_alerts',      label: 'Push — Admin Event Alerts',         sub: 'Push notifications to admin panel when a new order is placed or a significant event occurs.' },
-    { key: 'email_order_updates',    label: 'Email — Order Status Updates',      sub: 'Send email to shippers at key order milestones (accepted, in transit, delivered).' },
-    { key: 'email_payment_alerts',   label: 'Email — Payment Approvals/Rejections', sub: 'Email the user when their manual payment request is approved or rejected.' },
-    { key: 'email_admin_alerts',     label: 'Email — Admin Event Notifications', sub: 'Send email to admin staff when new orders are created or events require attention.' },
-  ] as const
+  const { t: tr } = useLanguage()
 
-  type SettingKey = typeof SETTING_DEFS[number]['key']
+  type SettingKey = 'push_order_updates' | 'push_driver_job_alerts' | 'push_admin_alerts' | 'email_order_updates' | 'email_payment_alerts' | 'email_admin_alerts'
+
+  const SETTING_DEFS: Array<{ key: SettingKey; label: string; sub: string }> = [
+    { key: 'push_order_updates',     label: tr('ns_push_orders_label'),   sub: tr('ns_push_orders_sub') },
+    { key: 'push_driver_job_alerts', label: tr('ns_push_driver_label'),   sub: tr('ns_push_driver_sub') },
+    { key: 'push_admin_alerts',      label: tr('ns_push_admin_label'),    sub: tr('ns_push_admin_sub') },
+    { key: 'email_order_updates',    label: tr('ns_email_orders_label'),  sub: tr('ns_email_orders_sub') },
+    { key: 'email_payment_alerts',   label: tr('ns_email_payment_label'), sub: tr('ns_email_payment_sub') },
+    { key: 'email_admin_alerts',     label: tr('ns_email_admin_label'),   sub: tr('ns_email_admin_sub') },
+  ]
 
   const [settings, setSettings] = useState<Record<SettingKey, boolean>>({
     push_order_updates: true, push_driver_job_alerts: true, push_admin_alerts: true,
@@ -341,11 +343,11 @@ function AdminNotifSettings() {
     setSaving(true); setMsg('')
     try {
       await apiClient.put('/admin/notification-settings', { [key]: next })
-      setMsg('Saved.')
+      setMsg(tr('ns_saved'))
     } catch {
       // revert on failure
       setSettings(s => ({ ...s, [key]: !next }))
-      setMsg('Save failed.')
+      setMsg(tr('ns_save_fail'))
     } finally { setSaving(false) }
   }
 
@@ -353,22 +355,22 @@ function AdminNotifSettings() {
     <div style={{ display:'flex', flexDirection:'column', gap:'1.25rem' }}>
       <div style={{ display:'flex', alignItems:'center', gap:'0.6rem' }}>
         <h2 style={{ fontSize:'1rem', fontWeight:800, color:'var(--clr-text)', display:'flex', alignItems:'center', gap:'0.45rem' }}>
-          <LuBell size={17}/> Notification Controls
+          <LuBell size={17}/> {tr('ns_title')}
         </h2>
-        {saving && <span style={{ fontSize:'0.72rem', color:'var(--clr-muted)' }}>Saving…</span>}
+        {saving && <span style={{ fontSize:'0.72rem', color:'var(--clr-muted)' }}>{tr('ns_saving')}</span>}
         {msg && !saving && <span style={{ fontSize:'0.72rem', color: msg === 'Saved.' ? '#4ade80' : '#f87171' }}>{msg}</span>}
       </div>
 
       <p style={{ fontSize:'0.8rem', color:'var(--clr-muted)', marginTop:'-0.75rem' }}>
-        Global on/off switches for each notification channel. Per-user preferences (their own toggles in dashboard) still apply alongside these.
+        {tr('ns_subtitle')}
       </p>
 
       {loading ? (
-        <div style={{ textAlign:'center', color:'var(--clr-muted)', padding:'2rem', fontSize:'0.85rem' }}>Loading…</div>
+        <div style={{ textAlign:'center', color:'var(--clr-muted)', padding:'2rem', fontSize:'0.85rem' }}>{tr('ns_loading')}</div>
       ) : (
         <div style={{ display:'flex', flexDirection:'column', gap:'0.65rem' }}>
           {/* Push group */}
-          <p style={{ fontSize:'0.7rem', fontWeight:700, color:'var(--clr-accent)', textTransform:'uppercase', letterSpacing:'0.07em', marginBottom:'0.1rem' }}>Push Notifications</p>
+          <p style={{ fontSize:'0.7rem', fontWeight:700, color:'var(--clr-accent)', textTransform:'uppercase', letterSpacing:'0.07em', marginBottom:'0.1rem' }}>{tr('ns_group_push')}</p>
           {SETTING_DEFS.filter(d => d.key.startsWith('push_')).map(def => (
             <div key={def.key} className="glass-inner" style={{ padding:'0.9rem 1rem', display:'flex', alignItems:'flex-start', gap:'1rem' }}>
               <div style={{ flex:1 }}>
@@ -383,7 +385,7 @@ function AdminNotifSettings() {
                   background: settings[def.key] ? 'var(--clr-accent)' : 'rgba(255,255,255,0.12)',
                   position:'relative', transition:'background 0.2s', outline:'none',
                 }}
-                title={settings[def.key] ? 'Enabled — click to disable' : 'Disabled — click to enable'}
+                title={settings[def.key] ? tr('ns_toggle_enable') : tr('ns_toggle_disable')}
               >
                 <span style={{
                   position:'absolute', top:3, left: settings[def.key] ? 22 : 3,
@@ -397,7 +399,7 @@ function AdminNotifSettings() {
           ))}
 
           {/* Email group */}
-          <p style={{ fontSize:'0.7rem', fontWeight:700, color:'var(--clr-accent)', textTransform:'uppercase', letterSpacing:'0.07em', marginBottom:'0.1rem', marginTop:'0.4rem' }}>Email Notifications</p>
+          <p style={{ fontSize:'0.7rem', fontWeight:700, color:'var(--clr-accent)', textTransform:'uppercase', letterSpacing:'0.07em', marginBottom:'0.1rem', marginTop:'0.4rem' }}>{tr('ns_group_email')}</p>
           {SETTING_DEFS.filter(d => d.key.startsWith('email_')).map(def => (
             <div key={def.key} className="glass-inner" style={{ padding:'0.9rem 1rem', display:'flex', alignItems:'flex-start', gap:'1rem' }}>
               <div style={{ flex:1 }}>
@@ -446,6 +448,7 @@ const VT_PRESET_ICONS = [
 ]
 
 function AdminVehicleTypesSection() {
+  const { t: tr } = useLanguage()
   const [items, setItems] = useState<VehicleTypeRow[]>([])
   const [loading, setLoading] = useState(false)
   const [modal, setModal] = useState<'create' | 'edit' | null>(null)
@@ -463,7 +466,7 @@ function AdminVehicleTypesSection() {
   const load = async () => {
     setLoading(true)
     try { const { data } = await adminOrderApi.listVehicleTypes(); setItems(data.vehicle_types ?? []) }
-    catch { showToast('Failed to load') }
+    catch { showToast(tr('vt_load_fail')) }
     finally { setLoading(false) }
   }
 
@@ -480,7 +483,7 @@ function AdminVehicleTypesSection() {
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!form.name.trim()) { setFormErr('Name is required.'); return }
+    if (!form.name.trim()) { setFormErr(tr('vt_err_name')); return }
     setFormErr(''); setSaving(true)
     try {
       const payload: Record<string, unknown> = {
@@ -494,31 +497,31 @@ function AdminVehicleTypesSection() {
 
       if (modal === 'create') {
         await apiClient.post('/admin/vehicle-types', payload)
-        showToast('Vehicle type created.')
+        showToast(tr('vt_created'))
       } else if (editTarget) {
         await apiClient.put(`/admin/vehicle-types/${editTarget.id}`, payload)
         showToast('Updated.')
       }
       setModal(null); load()
-    } catch (err: any) { setFormErr(err.response?.data?.message ?? 'Failed') }
+    } catch (err: any) { setFormErr(err.response?.data?.message ?? tr('vt_err_fail')) }
     finally { setSaving(false) }
   }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
-        <h2 style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--clr-text)', display: 'flex', alignItems: 'center', gap: '0.45rem' }}><LuTruck size={17}/> Vehicle Types</h2>
+        <h2 style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--clr-text)', display: 'flex', alignItems: 'center', gap: '0.45rem' }}><LuTruck size={17}/> {tr('vt_title')}</h2>
         <div style={{ display: 'flex', gap: '0.5rem' }}>
           <button onClick={load} style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', padding: '0.3rem 0.7rem', borderRadius: 8, border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.04)', color: 'var(--clr-muted)', fontFamily: 'inherit', fontSize: '0.72rem', fontWeight: 600, cursor: 'pointer' }}><LuRefreshCw size={12}/></button>
           <button onClick={openCreate} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', padding: '0.38rem 0.85rem', borderRadius: 8, border: 'none', background: 'var(--clr-accent)', color: '#000', fontFamily: 'inherit', fontSize: '0.8rem', fontWeight: 700, cursor: 'pointer' }}><LuPlus size={14}/> Add</button>
         </div>
       </div>
       <p style={{ fontSize: '0.78rem', color: 'var(--clr-muted)', marginTop: '-0.75rem' }}>
-        These vehicle types populate all dropdowns across admin, shipper, and driver screens. Add icons or custom images for each.
+        {tr('vt_subtitle')}
       </p>
       {loading ? <LoadingSpinner /> : (
         <div className="glass-inner" style={{ overflow: 'hidden' }}>
-          {items.length === 0 ? <p style={{ padding: '2rem', textAlign: 'center', color: 'var(--clr-muted)' }}>No vehicle types.</p>
+          {items.length === 0 ? <p style={{ padding: '2rem', textAlign: 'center', color: 'var(--clr-muted)' }}>{tr('vt_empty')}</p>
             : items.map((v, i) => (
               <div key={v.id} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.75rem 1rem', borderBottom: i < items.length - 1 ? '1px solid rgba(255,255,255,0.05)' : 'none' }}>
                 <div style={{ width: 36, height: 36, borderRadius: 8, background: 'rgba(0,229,255,0.08)', border: '1px solid rgba(0,229,255,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color: 'var(--clr-accent)' }}>
@@ -527,11 +530,11 @@ function AdminVehicleTypesSection() {
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap' }}>
                     <span style={{ fontWeight: 700, fontSize: '0.875rem', color: 'var(--clr-text)' }}>{v.name}</span>
-                    {!v.is_active && <span className="badge badge-red" style={{ fontSize: '0.65rem' }}>Inactive</span>}
+                    {!v.is_active && <span className="badge badge-red" style={{ fontSize: '0.65rem' }}>{tr('vt_badge_inactive')}</span>}
                   </div>
                   {v.max_capacity_kg && <p style={{ fontSize: '0.73rem', color: 'var(--clr-muted)', marginTop: '0.1rem' }}>Max {v.max_capacity_kg} kg</p>}
                 </div>
-                <button onClick={() => openEdit(v)} style={{ padding: '0.28rem 0.55rem', borderRadius: 7, border: '1px solid rgba(255,255,255,0.12)', background: 'rgba(255,255,255,0.05)', color: 'var(--clr-muted)', fontFamily: 'inherit', fontSize: '0.7rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.3rem' }}><LuPencil size={11}/> Edit</button>
+                <button onClick={() => openEdit(v)} style={{ padding: '0.28rem 0.55rem', borderRadius: 7, border: '1px solid rgba(255,255,255,0.12)', background: 'rgba(255,255,255,0.05)', color: 'var(--clr-muted)', fontFamily: 'inherit', fontSize: '0.7rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.3rem' }}><LuPencil size={11}/> {tr('vt_btn_edit')}</button>
               </div>
             ))}
         </div>
@@ -540,19 +543,19 @@ function AdminVehicleTypesSection() {
       {(modal === 'create' || modal === 'edit') && (
         <div className="modal-backdrop" onClick={e => { if (e.target === e.currentTarget) { setModal(null); resetForm() } }}>
           <div className="glass modal-box" style={{ padding: '1.75rem', maxWidth: 420 }}>
-            <h2 style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--clr-text)', marginBottom: '1rem' }}>{modal === 'create' ? 'Add Vehicle Type' : 'Edit Vehicle Type'}</h2>
+            <h2 style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--clr-text)', marginBottom: '1rem' }}>{modal === 'create' ? tr('vt_modal_create') : tr('vt_modal_edit')}</h2>
             <form onSubmit={handleSave} style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
               {formErr && <div className="alert alert-error"><LuTriangleAlert size={13}/> {formErr}</div>}
-              <div><label style={labelStyle}>Name *</label><input style={inputStyle} value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} required placeholder="e.g. Mini Truck"/></div>
-              <div><label style={labelStyle}>Max Capacity (kg)</label><input style={inputStyle} type="number" min="0" step="1" value={form.max_capacity_kg} onChange={e => setForm(f => ({ ...f, max_capacity_kg: e.target.value }))} placeholder="Optional"/></div>
-              <div><label style={labelStyle}>Sort Order</label><input style={inputStyle} type="number" min="0" step="1" value={form.sort_order} onChange={e => setForm(f => ({ ...f, sort_order: e.target.value }))}/></div>
+              <div><label style={labelStyle}>{tr('vt_label_name')}</label><input style={inputStyle} value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} required placeholder="e.g. Mini Truck"/></div>
+              <div><label style={labelStyle}>{tr('vt_label_capacity')}</label><input style={inputStyle} type="number" min="0" step="1" value={form.max_capacity_kg} onChange={e => setForm(f => ({ ...f, max_capacity_kg: e.target.value }))} placeholder="Optional"/></div>
+              <div><label style={labelStyle}>{tr('vt_label_sort')}</label><input style={inputStyle} type="number" min="0" step="1" value={form.sort_order} onChange={e => setForm(f => ({ ...f, sort_order: e.target.value }))}/></div>
 
               {/* Icon picker */}
               <div>
-                <label style={labelStyle}>Icon</label>
+                <label style={labelStyle}>{tr('vt_label_icon')}</label>
                 <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.6rem' }}>
-                  <button type="button" onClick={() => setIconMode('preset')} style={{ flex: 1, padding: '0.4rem', borderRadius: 7, border: `1px solid ${iconMode === 'preset' ? 'var(--clr-accent)' : 'rgba(255,255,255,0.1)'}`, background: iconMode === 'preset' ? 'rgba(0,229,255,0.1)' : 'rgba(255,255,255,0.04)', color: iconMode === 'preset' ? 'var(--clr-accent)' : 'var(--clr-muted)', fontFamily: 'inherit', fontSize: '0.75rem', fontWeight: 600, cursor: 'pointer' }}>Preset Icons</button>
-                  <button type="button" onClick={() => setIconMode('custom')} style={{ flex: 1, padding: '0.4rem', borderRadius: 7, border: `1px solid ${iconMode === 'custom' ? 'var(--clr-accent)' : 'rgba(255,255,255,0.1)'}`, background: iconMode === 'custom' ? 'rgba(0,229,255,0.1)' : 'rgba(255,255,255,0.04)', color: iconMode === 'custom' ? 'var(--clr-accent)' : 'var(--clr-muted)', fontFamily: 'inherit', fontSize: '0.75rem', fontWeight: 600, cursor: 'pointer' }}><LuImage size={12}/> Custom Image</button>
+                  <button type="button" onClick={() => setIconMode('preset')} style={{ flex: 1, padding: '0.4rem', borderRadius: 7, border: `1px solid ${iconMode === 'preset' ? 'var(--clr-accent)' : 'rgba(255,255,255,0.1)'}`, background: iconMode === 'preset' ? 'rgba(0,229,255,0.1)' : 'rgba(255,255,255,0.04)', color: iconMode === 'preset' ? 'var(--clr-accent)' : 'var(--clr-muted)', fontFamily: 'inherit', fontSize: '0.75rem', fontWeight: 600, cursor: 'pointer' }}>{tr('vt_icon_preset')}</button>
+                  <button type="button" onClick={() => setIconMode('custom')} style={{ flex: 1, padding: '0.4rem', borderRadius: 7, border: `1px solid ${iconMode === 'custom' ? 'var(--clr-accent)' : 'rgba(255,255,255,0.1)'}`, background: iconMode === 'custom' ? 'rgba(0,229,255,0.1)' : 'rgba(255,255,255,0.04)', color: iconMode === 'custom' ? 'var(--clr-accent)' : 'var(--clr-muted)', fontFamily: 'inherit', fontSize: '0.75rem', fontWeight: 600, cursor: 'pointer' }}><LuImage size={12}/> {tr('vt_icon_custom')}</button>
                 </div>
                 {iconMode === 'preset' ? (
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5,1fr)', gap: '0.4rem' }}>
@@ -569,7 +572,7 @@ function AdminVehicleTypesSection() {
                     {form.icon_url && !form.icon_url.startsWith('data:') && <img src={form.icon_url} alt="preview" style={{ width: 48, height: 48, borderRadius: 8, objectFit: 'cover', border: '1px solid rgba(255,255,255,0.1)', marginBottom: '0.4rem' }}/>}
                     {form.icon_url?.startsWith('data:') && <img src={form.icon_url} alt="preview" style={{ width: 48, height: 48, borderRadius: 8, objectFit: 'cover', border: '1px solid rgba(255,255,255,0.1)', marginBottom: '0.4rem' }}/>}
                     <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem 0.75rem', borderRadius: 8, border: '1px dashed rgba(255,255,255,0.2)', background: 'rgba(255,255,255,0.03)', color: 'var(--clr-muted)', cursor: 'pointer', fontSize: '0.78rem' }}>
-                      <LuImage size={14}/> {form.icon_url ? 'Change image' : 'Upload image'}
+                      <LuImage size={14}/> {form.icon_url ? tr('vt_icon_change') : tr('vt_icon_upload')}
                       <input type="file" accept="image/*" style={{ display: 'none' }} onChange={e => {
                         const file = e.target.files?.[0]; if (!file) return
                         const reader = new FileReader()
@@ -587,12 +590,12 @@ function AdminVehicleTypesSection() {
                     style={{ width: 38, height: 22, borderRadius: 99, border: 'none', cursor: 'pointer', background: form.is_active ? 'var(--clr-accent)' : 'rgba(255,255,255,0.12)', transition: 'background 0.2s', flexShrink: 0, position: 'relative' }}>
                     <span style={{ position: 'absolute', top: 2, left: form.is_active ? 18 : 2, width: 18, height: 18, borderRadius: '50%', background: form.is_active ? '#080b14' : 'var(--clr-muted)', transition: 'left 0.2s' }}/>
                   </button>
-                  <span style={{ fontSize: '0.85rem', color: 'var(--clr-text)' }}>Active</span>
+                  <span style={{ fontSize: '0.85rem', color: 'var(--clr-text)' }}>{tr('vt_toggle_active')}</span>
                 </div>
               )}
               <div style={{ display: 'flex', gap: '0.6rem', marginTop: '0.25rem' }}>
-                <button type="button" className="btn-outline" style={{ flex: 1 }} onClick={() => { setModal(null); resetForm() }}>Cancel</button>
-                <button type="submit" className="btn-primary" style={{ flex: 2 }} disabled={saving}>{saving ? <BtnSpinner text="Saving…"/> : modal === 'create' ? 'Create' : 'Save'}</button>
+                <button type="button" className="btn-outline" style={{ flex: 1 }} onClick={() => { setModal(null); resetForm() }}>{tr('vt_btn_cancel')}</button>
+                <button type="submit" className="btn-primary" style={{ flex: 2 }} disabled={saving}>{saving ? <BtnSpinner text={tr('vt_saving')}/> : modal === 'create' ? tr('vt_btn_create') : tr('vt_btn_save')}</button>
               </div>
             </form>
           </div>
@@ -608,6 +611,7 @@ function AdminVehicleTypesSection() {
 interface CountryRow { id: number; name: string; iso_code: string; is_active: number }
 
 function AdminCountriesSection() {
+  const { t: tr } = useLanguage()
   const [items, setItems] = useState<CountryRow[]>([])
   const [loading, setLoading] = useState(false)
   const [modal, setModal] = useState<'create' | 'edit' | null>(null)
@@ -624,7 +628,7 @@ function AdminCountriesSection() {
   const load = async () => {
     setLoading(true)
     try { const { data } = await apiClient.get('/admin/countries'); setItems(data.countries ?? []) }
-    catch { showToast('Failed to load') }
+    catch { showToast(tr('co_load_fail')) }
     finally { setLoading(false) }
   }
   useEffect(() => { load() }, []) // eslint-disable-line
@@ -634,15 +638,15 @@ function AdminCountriesSection() {
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!form.name.trim())    { setFormErr('Country name is required.'); return }
-    if (form.iso_code.trim().length !== 2) { setFormErr('ISO code must be exactly 2 characters (e.g. et).'); return }
+    if (!form.name.trim())    { setFormErr(tr('co_err_name')); return }
+    if (form.iso_code.trim().length !== 2) { setFormErr(tr('co_err_iso')); return }
     setFormErr(''); setSaving(true)
     try {
       const payload = { name: form.name.trim(), iso_code: form.iso_code.trim().toLowerCase(), is_active: form.is_active }
-      if (modal === 'create') { await apiClient.post('/admin/countries', payload); showToast('Country added.') }
-      else if (editTarget)   { await apiClient.put(`/admin/countries/${editTarget.id}`, payload); showToast('Updated.') }
+      if (modal === 'create') { await apiClient.post('/admin/countries', payload); showToast(tr('co_added')) }
+      else if (editTarget)   { await apiClient.put(`/admin/countries/${editTarget.id}`, payload); showToast(tr('co_updated')) }
       setModal(null); load()
-    } catch (err: any) { setFormErr(err.response?.data?.message ?? 'Failed') }
+    } catch (err: any) { setFormErr(err.response?.data?.message ?? tr('co_err_fail')) }
     finally { setSaving(false) }
   }
 
@@ -652,30 +656,30 @@ function AdminCountriesSection() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
-        <h2 style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--clr-text)', display: 'flex', alignItems: 'center', gap: '0.45rem' }}><LuGlobe size={17}/> Countries & Corridors</h2>
+        <h2 style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--clr-text)', display: 'flex', alignItems: 'center', gap: '0.45rem' }}><LuGlobe size={17}/> {tr('co_title')}</h2>
         <div style={{ display: 'flex', gap: '0.5rem' }}>
           <button onClick={load} style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', padding: '0.3rem 0.7rem', borderRadius: 8, border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.04)', color: 'var(--clr-muted)', fontFamily: 'inherit', fontSize: '0.72rem', fontWeight: 600, cursor: 'pointer' }}><LuRefreshCw size={12}/></button>
-          <button onClick={openCreate} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', padding: '0.38rem 0.85rem', borderRadius: 8, border: 'none', background: 'var(--clr-accent)', color: '#000', fontFamily: 'inherit', fontSize: '0.8rem', fontWeight: 700, cursor: 'pointer' }}><LuPlus size={14}/> Add Country</button>
+          <button onClick={openCreate} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', padding: '0.38rem 0.85rem', borderRadius: 8, border: 'none', background: 'var(--clr-accent)', color: '#000', fontFamily: 'inherit', fontSize: '0.8rem', fontWeight: 700, cursor: 'pointer' }}><LuPlus size={14}/> {tr('co_btn_add')}</button>
         </div>
       </div>
       <p style={{ fontSize: '0.78rem', color: 'var(--clr-muted)', marginTop: '-0.75rem' }}>
-        Active countries control where orders can be placed and restrict map search results. Inactive countries remain in the database but cannot be used for new orders.
+        {tr('co_subtitle')}
       </p>
 
       {loading ? <LoadingSpinner /> : (
         <>
           {active.length > 0 && (
             <>
-              <p style={{ fontSize: '0.7rem', fontWeight: 700, color: '#4ade80', textTransform: 'uppercase', letterSpacing: '0.07em' }}>Active — {active.length} {active.length === 1 ? 'country' : 'countries'}</p>
+              <p style={{ fontSize: '0.7rem', fontWeight: 700, color: '#4ade80', textTransform: 'uppercase', letterSpacing: '0.07em' }}>{tr('co_active_header')} — {active.length} {active.length === 1 ? tr('co_country') : tr('co_countries')}</p>
               <div className="glass-inner" style={{ overflow: 'hidden' }}>
                 {active.map((c, i) => (
                   <div key={c.id} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.75rem 1rem', borderBottom: i < active.length - 1 ? '1px solid rgba(255,255,255,0.05)' : 'none' }}>
                     <div style={{ width: 34, height: 34, borderRadius: 8, background: 'rgba(74,222,128,0.08)', border: '1px solid rgba(74,222,128,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color: '#4ade80', fontWeight: 800, fontSize: '0.75rem' }}>{c.iso_code.toUpperCase()}</div>
                     <div style={{ flex: 1 }}>
                       <span style={{ fontWeight: 700, fontSize: '0.875rem', color: 'var(--clr-text)' }}>{c.name}</span>
-                      <span className="badge badge-cyan" style={{ fontSize: '0.62rem', marginLeft: '0.4rem' }}>Active</span>
+                      <span className="badge badge-cyan" style={{ fontSize: '0.62rem', marginLeft: '0.4rem' }}>{tr('co_badge_active')}</span>
                     </div>
-                    <button onClick={() => openEdit(c)} style={{ padding: '0.28rem 0.55rem', borderRadius: 7, border: '1px solid rgba(255,255,255,0.12)', background: 'rgba(255,255,255,0.05)', color: 'var(--clr-muted)', fontFamily: 'inherit', fontSize: '0.7rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.3rem' }}><LuPencil size={11}/> Edit</button>
+                    <button onClick={() => openEdit(c)} style={{ padding: '0.28rem 0.55rem', borderRadius: 7, border: '1px solid rgba(255,255,255,0.12)', background: 'rgba(255,255,255,0.05)', color: 'var(--clr-muted)', fontFamily: 'inherit', fontSize: '0.7rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.3rem' }}><LuPencil size={11}/> {tr('co_btn_edit')}</button>
                   </div>
                 ))}
               </div>
@@ -683,43 +687,43 @@ function AdminCountriesSection() {
           )}
           {inactive.length > 0 && (
             <>
-              <p style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--clr-muted)', textTransform: 'uppercase', letterSpacing: '0.07em' }}>Inactive — {inactive.length}</p>
+              <p style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--clr-muted)', textTransform: 'uppercase', letterSpacing: '0.07em' }}>{tr('co_inactive_header')} — {inactive.length}</p>
               <div className="glass-inner" style={{ overflow: 'hidden' }}>
                 {inactive.map((c, i) => (
                   <div key={c.id} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.75rem 1rem', borderBottom: i < inactive.length - 1 ? '1px solid rgba(255,255,255,0.05)' : 'none' }}>
                     <div style={{ width: 34, height: 34, borderRadius: 8, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color: 'var(--clr-muted)', fontWeight: 800, fontSize: '0.75rem' }}>{c.iso_code.toUpperCase()}</div>
                     <div style={{ flex: 1 }}>
                       <span style={{ fontWeight: 700, fontSize: '0.875rem', color: 'var(--clr-muted)' }}>{c.name}</span>
-                      <span className="badge badge-red" style={{ fontSize: '0.62rem', marginLeft: '0.4rem' }}>Inactive</span>
+                      <span className="badge badge-red" style={{ fontSize: '0.62rem', marginLeft: '0.4rem' }}>{tr('co_badge_inactive')}</span>
                     </div>
-                    <button onClick={() => openEdit(c)} style={{ padding: '0.28rem 0.55rem', borderRadius: 7, border: '1px solid rgba(255,255,255,0.12)', background: 'rgba(255,255,255,0.05)', color: 'var(--clr-muted)', fontFamily: 'inherit', fontSize: '0.7rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.3rem' }}><LuPencil size={11}/> Edit</button>
+                    <button onClick={() => openEdit(c)} style={{ padding: '0.28rem 0.55rem', borderRadius: 7, border: '1px solid rgba(255,255,255,0.12)', background: 'rgba(255,255,255,0.05)', color: 'var(--clr-muted)', fontFamily: 'inherit', fontSize: '0.7rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.3rem' }}><LuPencil size={11}/> {tr('co_btn_edit')}</button>
                   </div>
                 ))}
               </div>
             </>
           )}
-          {items.length === 0 && <p style={{ padding: '2rem', textAlign: 'center', color: 'var(--clr-muted)' }}>No countries configured.</p>}
+          {items.length === 0 && <p style={{ padding: '2rem', textAlign: 'center', color: 'var(--clr-muted)' }}>{tr('co_empty')}</p>}
         </>
       )}
 
       {(modal === 'create' || modal === 'edit') && (
         <div className="modal-backdrop" onClick={e => { if (e.target === e.currentTarget) setModal(null) }}>
           <div className="glass modal-box" style={{ padding: '1.75rem', maxWidth: 380 }}>
-            <h2 style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--clr-text)', marginBottom: '1rem' }}>{modal === 'create' ? 'Add Country' : 'Edit Country'}</h2>
+            <h2 style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--clr-text)', marginBottom: '1rem' }}>{modal === 'create' ? tr('co_modal_create') : tr('co_modal_edit')}</h2>
             <form onSubmit={handleSave} style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
               {formErr && <div className="alert alert-error"><LuTriangleAlert size={13}/> {formErr}</div>}
-              <div><label style={labelStyle}>Country Name *</label><input style={inputStyle} value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} required placeholder="e.g. Kenya"/></div>
-              <div><label style={labelStyle}>ISO Code * (2 chars)</label><input style={{ ...inputStyle, textTransform: 'lowercase' }} value={form.iso_code} onChange={e => setForm(f => ({ ...f, iso_code: e.target.value.slice(0,2) }))} required maxLength={2} placeholder="e.g. ke"/></div>
+              <div><label style={labelStyle}>{tr('co_label_name')}</label><input style={inputStyle} value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} required placeholder="e.g. Kenya"/></div>
+              <div><label style={labelStyle}>{tr('co_label_iso')}</label><input style={{ ...inputStyle, textTransform: 'lowercase' }} value={form.iso_code} onChange={e => setForm(f => ({ ...f, iso_code: e.target.value.slice(0,2) }))} required maxLength={2} placeholder="e.g. ke"/></div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
                 <button type="button" onClick={() => setForm(f => ({ ...f, is_active: !f.is_active }))}
                   style={{ width: 38, height: 22, borderRadius: 99, border: 'none', cursor: 'pointer', background: form.is_active ? 'var(--clr-accent)' : 'rgba(255,255,255,0.12)', transition: 'background 0.2s', flexShrink: 0, position: 'relative' }}>
                   <span style={{ position: 'absolute', top: 2, left: form.is_active ? 18 : 2, width: 18, height: 18, borderRadius: '50%', background: form.is_active ? '#080b14' : 'var(--clr-muted)', transition: 'left 0.2s' }}/>
                 </button>
-                <span style={{ fontSize: '0.85rem', color: 'var(--clr-text)' }}>Active (enables order creation &amp; map search)</span>
+                <span style={{ fontSize: '0.85rem', color: 'var(--clr-text)' }}>{tr('co_toggle_active')}</span>
               </div>
               <div style={{ display: 'flex', gap: '0.6rem', marginTop: '0.25rem' }}>
-                <button type="button" className="btn-outline" style={{ flex: 1 }} onClick={() => setModal(null)}>Cancel</button>
-                <button type="submit" className="btn-primary" style={{ flex: 2 }} disabled={saving}>{saving ? <BtnSpinner text="Saving…"/> : modal === 'create' ? 'Add Country' : 'Save'}</button>
+                <button type="button" className="btn-outline" style={{ flex: 1 }} onClick={() => setModal(null)}>{tr('co_btn_cancel')}</button>
+                <button type="submit" className="btn-primary" style={{ flex: 2 }} disabled={saving}>{saving ? <BtnSpinner text={tr('co_saving')}/> : modal === 'create' ? tr('co_btn_add') : tr('co_btn_save')}</button>
               </div>
             </form>
           </div>
@@ -733,6 +737,7 @@ function AdminCountriesSection() {
 // ─── Admin Maintenance Mode Section (8.3) ─────────────────────────────────────
 
 function AdminMaintenanceSection() {
+  const { t: tr } = useLanguage()
   const [config, setConfig] = useState({ maintenance_mode: false, maintenance_message: '', app_version: '' })
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -750,8 +755,8 @@ function AdminMaintenanceSection() {
     setSaving(true)
     try {
       await apiClient.put('/admin/system-config', config)
-      showToast('Configuration saved.')
-    } catch { showToast('Failed to save.') }
+      showToast(tr('mn_saved'))
+    } catch { showToast(tr('mn_save_fail')) }
     finally { setSaving(false) }
   }
 
@@ -760,7 +765,7 @@ function AdminMaintenanceSection() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-      <h2 style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--clr-text)', display: 'flex', alignItems: 'center', gap: '0.45rem' }}><LuWrench size={17}/> Maintenance &amp; Versioning</h2>
+      <h2 style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--clr-text)', display: 'flex', alignItems: 'center', gap: '0.45rem' }}><LuWrench size={17}/> {tr('mn_title')}</h2>
 
       {loading ? <LoadingSpinner /> : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
@@ -769,10 +774,10 @@ function AdminMaintenanceSection() {
             <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
               <div style={{ flex: 1 }}>
                 <p style={{ fontWeight: 700, fontSize: '0.9rem', color: config.maintenance_mode ? '#fb923c' : 'var(--clr-text)' }}>
-                  {config.maintenance_mode ? '⚠️ Maintenance Mode is ON' : 'Maintenance Mode'}
+                  {config.maintenance_mode ? tr('mn_mode_on') : tr('mn_mode_off')}
                 </p>
                 <p style={{ fontSize: '0.75rem', color: 'var(--clr-muted)', marginTop: '0.2rem' }}>
-                  When enabled, all client apps (shipper, driver, Telegram) will show a maintenance screen and block new writes.
+                  {tr('mn_mode_sub')}
                 </p>
               </div>
               <button onClick={() => setConfig(c => ({ ...c, maintenance_mode: !c.maintenance_mode }))}
@@ -782,20 +787,20 @@ function AdminMaintenanceSection() {
             </div>
           </div>
 
-          <div><label style={labelStyle}>Maintenance Message</label>
+          <div><label style={labelStyle}>{tr('mn_label_message')}</label>
             <textarea style={{ ...inputStyle, minHeight: 72, resize: 'vertical' }} value={config.maintenance_message}
               onChange={e => setConfig(c => ({ ...c, maintenance_message: e.target.value }))}
-              placeholder="Message shown to users during maintenance…"/>
+              placeholder={tr('mn_placeholder_msg')}/>
           </div>
 
-          <div><label style={labelStyle}>App Version</label>
+          <div><label style={labelStyle}>{tr('mn_label_version')}</label>
             <input style={inputStyle} value={config.app_version}
               onChange={e => setConfig(c => ({ ...c, app_version: e.target.value }))}
-              placeholder="e.g. 1.2.0"/>
+              placeholder={tr('mn_placeholder_ver')}/>
           </div>
 
           <button onClick={save} disabled={saving} className="btn-primary" style={{ alignSelf: 'flex-start', padding: '0.55rem 1.4rem' }}>
-            {saving ? <BtnSpinner text="Saving…"/> : 'Save Configuration'}
+            {saving ? <BtnSpinner text={tr('mn_saving')}/> : tr('mn_btn_save')}
           </button>
         </div>
       )}
@@ -807,6 +812,7 @@ function AdminMaintenanceSection() {
 // ─── Admin Role Management Section (9.4) ────────────────────────────────────
 
 function AdminRoleManagementSection({ onPermissionsSaved }: { onPermissionsSaved?: () => void }) {
+  const { t: tr } = useLanguage()
   const { user } = useAuth()
   const isSuperAdmin = user?.role_id === 1
   const [roles, setRoles] = useState<Array<{ id: number; role_name: string; description: string | null }>>([])
@@ -833,7 +839,7 @@ function AdminRoleManagementSection({ onPermissionsSaved }: { onPermissionsSaved
       setPermissions(data.permissions ?? [])
       setMatrix(data.matrix ?? {})
     } catch {
-      showToast('Failed to load role permissions')
+      showToast(tr('rm_toast_load_fail'))
     } finally {
       setLoading(false)
     }
@@ -860,11 +866,11 @@ function AdminRoleManagementSection({ onPermissionsSaved }: { onPermissionsSaved
         .filter(p => matrix[roleId]?.[p.permission_key])
         .map(p => p.permission_key)
       await adminOrderApi.updateRolePermissions(roleId, selected)
-      showToast('Permissions saved')
+      showToast(tr('rm_toast_saved'))
       await load()
       onPermissionsSaved?.()
     } catch {
-      showToast('Failed to save permissions')
+      showToast(tr('rm_toast_save_fail'))
     } finally {
       setSavingRole(null)
     }
@@ -872,29 +878,29 @@ function AdminRoleManagementSection({ onPermissionsSaved }: { onPermissionsSaved
 
   const handleCreateRole = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!newRoleName.trim()) { setCreateErr('Role name is required'); return }
+    if (!newRoleName.trim()) { setCreateErr(tr('rm_err_name')); return }
     setCreateErr(''); setCreating(true)
     try {
       await adminOrderApi.createRole({ role_name: newRoleName.trim(), description: newRoleDesc.trim() || undefined })
       setNewRoleName(''); setNewRoleDesc(''); setShowCreate(false)
-      showToast('Role created')
+      showToast(tr('rm_toast_created'))
       await load()
     } catch (err: any) {
-      setCreateErr(err.response?.data?.message ?? 'Failed to create role')
+      setCreateErr(err.response?.data?.message ?? tr('rm_err_create_fail'))
     } finally {
       setCreating(false)
     }
   }
 
   const handleDeleteRole = async (roleId: number, roleName: string) => {
-    if (!window.confirm(`Delete role "${roleName}"? This cannot be undone.`)) return
+    if (!window.confirm(tr('rm_confirm_delete').replace('{name}', roleName))) return
     setDeletingRole(roleId)
     try {
       await adminOrderApi.deleteRole(roleId)
-      showToast('Role deleted')
+      showToast(tr('rm_toast_deleted'))
       await load()
     } catch (err: any) {
-      showToast(err.response?.data?.message ?? 'Failed to delete role')
+      showToast(err.response?.data?.message ?? tr('rm_toast_save_fail'))
     } finally {
       setDeletingRole(null)
     }
@@ -908,14 +914,14 @@ function AdminRoleManagementSection({ onPermissionsSaved }: { onPermissionsSaved
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
-        <h2 style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--clr-text)', display: 'flex', alignItems: 'center', gap: '0.45rem', flex: 1 }}><LuKey size={17}/> Role Management</h2>
+        <h2 style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--clr-text)', display: 'flex', alignItems: 'center', gap: '0.45rem', flex: 1 }}><LuKey size={17}/> {tr('rm_title')}</h2>
         {isSuperAdmin && (
           <button onClick={() => { setCreateErr(''); setShowCreate(true) }} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', padding: '0.42rem 0.9rem', borderRadius: 9, border: 'none', background: 'var(--clr-accent)', color: '#000', fontFamily: 'inherit', fontSize: '0.82rem', fontWeight: 700, cursor: 'pointer' }}>
-            <LuPlus size={14}/> New Role
+            <LuPlus size={14}/> {tr('rm_btn_new')}
           </button>
         )}
       </div>
-      <p style={{ fontSize: '0.78rem', color: 'var(--clr-muted)', marginTop: '-0.6rem' }}>Configure what each staff role can do. Super admin always has full access.</p>
+      <p style={{ fontSize: '0.78rem', color: 'var(--clr-muted)', marginTop: '-0.6rem' }}>{tr('rm_subtitle')}</p>
 
       {roles.map(role => (
         <div key={role.id} className="glass-inner" style={{ padding: '0.9rem 1rem' }}>
@@ -923,7 +929,7 @@ function AdminRoleManagementSection({ onPermissionsSaved }: { onPermissionsSaved
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                 <p style={{ fontSize: '0.88rem', fontWeight: 700, color: 'var(--clr-text)' }}>{role.role_name}</p>
-                {role.id > 5 && <span className="badge" style={{ fontSize: '0.62rem', padding: '0.1rem 0.45rem', borderRadius: 6, background: 'rgba(168,85,247,0.15)', color: '#c084fc', border: '1px solid rgba(168,85,247,0.3)' }}>Custom</span>}
+                {role.id > 5 && <span className="badge" style={{ fontSize: '0.62rem', padding: '0.1rem 0.45rem', borderRadius: 6, background: 'rgba(168,85,247,0.15)', color: '#c084fc', border: '1px solid rgba(168,85,247,0.3)' }}>{tr('rm_badge_custom')}</span>}
               </div>
               {role.description && <p style={{ fontSize: '0.72rem', color: 'var(--clr-muted)' }}>{role.description}</p>}
             </div>
@@ -931,13 +937,13 @@ function AdminRoleManagementSection({ onPermissionsSaved }: { onPermissionsSaved
               {role.id !== 1 && isSuperAdmin && (
                 <button onClick={() => saveRole(role.id)} disabled={savingRole === role.id}
                   style={{ padding: '0.38rem 0.8rem', borderRadius: 8, border: 'none', background: 'var(--clr-accent)', color: '#000', fontFamily: 'inherit', fontSize: '0.76rem', fontWeight: 700, cursor: 'pointer' }}>
-                  {savingRole === role.id ? 'Saving…' : 'Save'}
+                  {savingRole === role.id ? tr('rm_saving') : tr('rm_btn_save')}
                 </button>
               )}
               {role.id > 5 && isSuperAdmin && (
                 <button onClick={() => handleDeleteRole(role.id, role.role_name)} disabled={deletingRole === role.id}
                   style={{ padding: '0.38rem 0.7rem', borderRadius: 8, border: '1px solid rgba(239,68,68,0.35)', background: 'rgba(239,68,68,0.08)', color: '#fca5a5', fontFamily: 'inherit', fontSize: '0.76rem', fontWeight: 700, cursor: 'pointer' }}>
-                  {deletingRole === role.id ? 'Deleting…' : 'Delete'}
+                  {deletingRole === role.id ? tr('rm_deleting') : tr('rm_btn_delete')}
                 </button>
               )}
             </div>
@@ -965,23 +971,23 @@ function AdminRoleManagementSection({ onPermissionsSaved }: { onPermissionsSaved
             <button onClick={() => setShowCreate(false)} style={{ position: 'absolute', top: '0.85rem', right: '0.85rem', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--clr-muted)' }}><LuX size={18}/></button>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '1.25rem' }}>
               <LuKey size={20} color="var(--clr-accent)"/>
-              <h3 style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--clr-text)' }}>Create Custom Role</h3>
+              <h3 style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--clr-text)' }}>{tr('rm_modal_title')}</h3>
             </div>
             <form onSubmit={handleCreateRole} style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
               <div>
-                <label style={labelStyle}>Role Name *</label>
+                <label style={labelStyle}>{tr('rm_label_name')}</label>
                 <input style={inputStyle} placeholder="e.g. Finance Manager" value={newRoleName} onChange={e => setNewRoleName(e.target.value)} required />
               </div>
               <div>
-                <label style={labelStyle}>Description (optional)</label>
+                <label style={labelStyle}>{tr('rm_label_desc')}</label>
                 <input style={inputStyle} placeholder="Brief description of this role" value={newRoleDesc} onChange={e => setNewRoleDesc(e.target.value)} />
               </div>
-              <p style={{ fontSize: '0.76rem', color: 'var(--clr-muted)' }}>After creating, set permissions using the permission grid below.</p>
+              <p style={{ fontSize: '0.76rem', color: 'var(--clr-muted)' }}>{tr('rm_hint')}</p>
               {createErr && <p style={{ color: '#fca5a5', fontSize: '0.8rem', margin: 0 }}>{createErr}</p>}
               <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.25rem' }}>
-                <button type="button" onClick={() => setShowCreate(false)} style={{ flex: 1, padding: '0.6rem', borderRadius: 10, border: '1px solid rgba(255,255,255,0.12)', background: 'rgba(255,255,255,0.04)', color: 'var(--clr-muted)', fontFamily: 'inherit', fontSize: '0.85rem', fontWeight: 600, cursor: 'pointer' }}>Cancel</button>
+                <button type="button" onClick={() => setShowCreate(false)} style={{ flex: 1, padding: '0.6rem', borderRadius: 10, border: '1px solid rgba(255,255,255,0.12)', background: 'rgba(255,255,255,0.04)', color: 'var(--clr-muted)', fontFamily: 'inherit', fontSize: '0.85rem', fontWeight: 600, cursor: 'pointer' }}>{tr('rm_btn_cancel')}</button>
                 <button type="submit" disabled={creating} style={{ flex: 2, padding: '0.6rem', borderRadius: 10, border: 'none', background: 'var(--clr-accent)', color: '#000', fontFamily: 'inherit', fontSize: '0.85rem', fontWeight: 700, cursor: creating ? 'not-allowed' : 'pointer', opacity: creating ? 0.6 : 1 }}>
-                  {creating ? 'Creating…' : 'Create Role'}
+                  {creating ? tr('rm_creating') : tr('rm_btn_create')}
                 </button>
               </div>
             </form>
@@ -1022,6 +1028,7 @@ const DOC_TYPE_OPTIONS = [
 ]
 
 function AdminCrossBorderSection() {
+  const { t: tr } = useLanguage()
   const [orders, setOrders] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [page, setPage] = useState(1)
@@ -1058,7 +1065,7 @@ function AdminCrossBorderSection() {
       setOrders(data.orders ?? [])
       setPages(data.pagination?.pages ?? 1)
     } catch {
-      showToast('Failed to load cross-border orders')
+      showToast(tr('cb_toast_load_fail'))
     } finally {
       setLoading(false)
     }
@@ -1070,7 +1077,7 @@ function AdminCrossBorderSection() {
       const { data } = await adminOrderApi.getOrderCrossBorderDocs(orderId)
       setDocs(data.documents ?? data.docs ?? [])
     } catch {
-      showToast('Failed to load documents')
+      showToast(tr('cb_toast_docs_fail'))
     } finally {
       setDocsLoading(false)
     }
@@ -1104,14 +1111,14 @@ function AdminCrossBorderSection() {
       // Map UI action to backend enum and require notes when rejecting
       const backendAction = action === 'approve' ? 'APPROVED' : 'REJECTED'
       if (backendAction === 'REJECTED' && !(reviewNotes[docId] ?? '').trim()) {
-        showToast('Enter review notes when rejecting a document')
+        showToast(tr('cb_toast_notes_req'))
         return
       }
       await adminOrderApi.reviewCrossBorderDoc(selectedOrderId, docId, { action: backendAction, review_notes: reviewNotes[docId] ?? '' })
-      showToast(`Document ${action === 'approve' ? 'approved' : 'rejected'}`)
+      showToast(action === 'approve' ? tr('cb_toast_doc_approved') : tr('cb_toast_doc_rejected'))
       loadDocs(selectedOrderId)
     } catch {
-      showToast('Review failed')
+      showToast(tr('cb_toast_review_fail'))
     }
   }
 
@@ -1120,13 +1127,13 @@ function AdminCrossBorderSection() {
     setBorderSaving(true)
     try {
       await adminOrderApi.updateOrderBorderInfo(selectedOrderId, borderForm)
-      showToast('Border info saved')
+      showToast(tr('cb_toast_border_saved'))
       setEditBorder(false)
       // refresh order in list
       setSelectedOrder((prev: any) => prev ? { ...prev, ...borderForm } : prev)
       setOrders(prev => prev.map(o => o.id === selectedOrderId ? { ...o, ...borderForm } : o))
     } catch {
-      showToast('Failed to save border info')
+      showToast(tr('cb_toast_border_fail'))
     } finally {
       setBorderSaving(false)
     }
@@ -1141,7 +1148,7 @@ function AdminCrossBorderSection() {
       setSelectedOrder((prev: any) => prev ? { ...prev, customs_declaration_ref: data.esw_reference } : prev)
       setBorderForm(prev => ({ ...prev, customs_declaration_ref: data.esw_reference ?? prev.customs_declaration_ref }))
     } catch {
-      showToast('eSW submission failed')
+      showToast(tr('cb_toast_esw_fail'))
     } finally {
       setEswLoading(false)
     }
@@ -1156,10 +1163,10 @@ function AdminCrossBorderSection() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
       <h2 style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--clr-text)', display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
-        <LuGlobe size={17}/> Cross-Border & Customs
+        <LuGlobe size={17}/> {tr('cb_title')}
       </h2>
       <p style={{ fontSize: '0.78rem', color: 'var(--clr-muted)', marginTop: '-0.6rem' }}>
-        Manage international shipments, customs documents, and eSW declarations.
+        {tr('cb_subtitle')}
       </p>
 
       {/* Filter bar */}
@@ -1169,7 +1176,7 @@ function AdminCrossBorderSection() {
           onChange={e => { setStatusFilter(e.target.value); setPage(1); loadOrders(1, e.target.value) }}
           style={{ ...inputStyle, width: 'auto', minWidth: 180 }}
         >
-          <option value="" style={{ background: '#0f172a' }}>— All border statuses —</option>
+          <option value="" style={{ background: '#0f172a' }}>{tr('cb_filter_all')}</option>
           {Object.entries(CB_STATUS_LABEL).map(([v, l]) => (
             <option key={v} value={v} style={{ background: '#0f172a' }}>{l}</option>
           ))}
@@ -1185,13 +1192,13 @@ function AdminCrossBorderSection() {
           {/* Orders table */}
           <div className="glass-inner" style={{ flex: 1, minWidth: 340, overflow: 'hidden' }}>
             {orders.length === 0 ? (
-              <p style={{ padding: '2rem', textAlign: 'center', color: 'var(--clr-muted)', fontSize: '0.85rem' }}>No cross-border orders found.</p>
+              <p style={{ padding: '2rem', textAlign: 'center', color: 'var(--clr-muted)', fontSize: '0.85rem' }}>{tr('cb_none')}</p>
             ) : (
               <div style={{ overflowX: 'auto' }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.78rem' }}>
                   <thead>
                     <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.09)' }}>
-                      {['Order', 'Route', 'Status', 'Border Ref', 'Customs Ref', 'Shipper TIN', ''].map(h => (
+                      {[tr('cb_col_order'), tr('cb_col_route'), tr('cb_col_status'), tr('cb_col_border_ref'), tr('cb_col_customs_ref'), tr('cb_col_tin'), ''].map(h => (
                         <th key={h} style={{ padding: '0.6rem 0.75rem', textAlign: 'left', color: 'var(--clr-muted)', fontWeight: 600, whiteSpace: 'nowrap' }}>{h}</th>
                       ))}
                     </tr>
@@ -1229,7 +1236,7 @@ function AdminCrossBorderSection() {
                         </td>
                         <td style={{ padding: '0.55rem 0.75rem' }}>
                           <button className="btn-outline" style={{ fontSize: '0.72rem', padding: '0.3rem 0.65rem' }} onClick={e => { e.stopPropagation(); openOrder(ord) }}>
-                            Manage
+                            {tr('cb_manage_btn')}
                           </button>
                         </td>
                       </tr>
@@ -1259,7 +1266,7 @@ function AdminCrossBorderSection() {
             <div className="glass-inner" style={{ width: 380, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: '1rem' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <span style={{ fontWeight: 800, fontSize: '0.88rem' }}>Order {selectedOrder.id?.slice(0, 8)}…</span>
-                <button className="btn-outline" style={{ fontSize: '0.72rem', padding: '0.3rem 0.65rem' }} onClick={closeOrder}>✕ Close</button>
+                <button className="btn-outline" style={{ fontSize: '0.72rem', padding: '0.3rem 0.65rem' }} onClick={closeOrder}>{tr('cb_detail_close')}</button>
               </div>
 
               {/* Status badge */}
@@ -1275,18 +1282,18 @@ function AdminCrossBorderSection() {
               {/* Border info */}
               <div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
-                  <span style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--clr-muted)' }}>Border Info</span>
+                  <span style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--clr-muted)' }}>{tr('cb_border_info')}</span>
                   {!editBorder && (
-                    <button className="btn-outline" style={{ fontSize: '0.72rem', padding: '0.25rem 0.55rem' }} onClick={() => setEditBorder(true)}>Edit</button>
+                    <button className="btn-outline" style={{ fontSize: '0.72rem', padding: '0.25rem 0.55rem' }} onClick={() => setEditBorder(true)}>{tr('cb_edit_btn')}</button>
                   )}
                 </div>
                 {editBorder ? (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                     {([
-                      ['border_crossing_ref',     'Border Crossing Ref'],
-                      ['customs_declaration_ref',  'Customs Declaration Ref'],
-                      ['hs_code',                  'HS Code'],
-                      ['shipper_tin',              'Shipper TIN'],
+                      ['border_crossing_ref',     tr('cb_field_border_ref')],
+                      ['customs_declaration_ref',  tr('cb_field_customs_ref')],
+                      ['hs_code',                  tr('cb_field_hs_code')],
+                      ['shipper_tin',              tr('cb_field_tin')],
                     ] as [keyof typeof borderForm, string][]).map(([key, label]) => (
                       <div key={key}>
                         <label style={{ fontSize: '0.72rem', color: 'var(--clr-muted)', marginBottom: 4, display: 'block' }}>{label}</label>
@@ -1300,18 +1307,18 @@ function AdminCrossBorderSection() {
                     ))}
                     <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.25rem' }}>
                       <button className="btn-primary" style={{ fontSize: '0.78rem', padding: '0.4rem 0.85rem' }} onClick={handleSaveBorderInfo} disabled={borderSaving}>
-                        {borderSaving ? 'Saving…' : 'Save'}
+                        {borderSaving ? tr('cb_saving') : tr('cb_save')}
                       </button>
-                      <button className="btn-outline" style={{ fontSize: '0.78rem', padding: '0.4rem 0.85rem' }} onClick={() => setEditBorder(false)}>Cancel</button>
+                      <button className="btn-outline" style={{ fontSize: '0.78rem', padding: '0.4rem 0.85rem' }} onClick={() => setEditBorder(false)}>{tr('cb_cancel')}</button>
                     </div>
                   </div>
                 ) : (
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.4rem 0.75rem', fontSize: '0.75rem' }}>
                     {[
-                      ['Border Ref',     borderForm.border_crossing_ref     || '—'],
-                      ['Customs Ref',    borderForm.customs_declaration_ref  || '—'],
-                      ['HS Code',        borderForm.hs_code                  || '—'],
-                      ['Shipper TIN',    borderForm.shipper_tin               || '—'],
+                      [tr('cb_info_border_ref'),    borderForm.border_crossing_ref     || '—'],
+                      [tr('cb_info_customs_ref'),   borderForm.customs_declaration_ref  || '—'],
+                      [tr('cb_info_hs_code'),       borderForm.hs_code                  || '—'],
+                      [tr('cb_info_tin'),           borderForm.shipper_tin               || '—'],
                     ].map(([k, v]) => (
                       <>
                         <span key={`${k}-k`} style={{ color: 'var(--clr-muted)' }}>{k}</span>
@@ -1334,9 +1341,9 @@ function AdminCrossBorderSection() {
               <div>
                 <div style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--clr-muted)', marginBottom: '0.5rem' }}>Customs Documents</div>
                 {docsLoading ? (
-                  <p style={{ fontSize: '0.78rem', color: 'var(--clr-muted)' }}>Loading…</p>
+                  <p style={{ fontSize: '0.78rem', color: 'var(--clr-muted)' }}>{tr('cb_docs_loading')}</p>
                 ) : docs.length === 0 ? (
-                  <p style={{ fontSize: '0.78rem', color: 'var(--clr-muted)' }}>No documents uploaded yet.</p>
+                  <p style={{ fontSize: '0.78rem', color: 'var(--clr-muted)' }}>{tr('cb_docs_none')}</p>
                 ) : (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
                     {docs.map(doc => {
@@ -1351,45 +1358,45 @@ function AdminCrossBorderSection() {
                             {DOC_TYPE_OPTIONS.find(d => d.value === doc.document_type)?.label ?? doc.document_type}
                           </span>
                           <span style={{ fontSize: '0.7rem', fontWeight: 700, color: borderClr, background: 'rgba(0,0,0,0.3)', borderRadius: 5, padding: '0.15rem 0.45rem', border: `1px solid ${borderClr}` }}>
-                            {isApproved ? '✓ Approved' : isRejected ? '✕ Rejected' : '⏳ Pending Review'}
+                            {isApproved ? tr('cb_doc_approved') : isRejected ? tr('cb_doc_rejected') : tr('cb_doc_pending')}
                           </span>
                         </div>
                         {doc.notes && <p style={{ fontSize: '0.72rem', color: 'var(--clr-muted)', margin: 0 }}>{doc.notes}</p>}
                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.7rem', color: 'var(--clr-muted)' }}>
-                          <span>By {doc.uploader_first_name} {doc.uploader_last_name} · {new Date(doc.created_at).toLocaleString()}</span>
+                          <span>{tr('cb_doc_by')} {doc.uploader_first_name} {doc.uploader_last_name} · {new Date(doc.created_at).toLocaleString()}</span>
                           <a href={doc.file_url} target="_blank" rel="noreferrer" style={{ color: 'var(--clr-accent)', marginLeft: 'auto', whiteSpace: 'nowrap' }}>
                             View ↗
                           </a>
                         </div>
                         {isApproved && doc.review_notes && (
                           <div style={{ fontSize: '0.72rem', color: '#10b981', background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.2)', borderRadius: 6, padding: '0.3rem 0.55rem' }}>
-                            Note: {doc.review_notes}
+                            {tr('cb_note_prefix')} {doc.review_notes}
                           </div>
                         )}
                         {isRejected && (
                           <div style={{ fontSize: '0.72rem', color: '#f87171', background: 'rgba(248,113,113,0.08)', border: '1px solid rgba(248,113,113,0.2)', borderRadius: 6, padding: '0.3rem 0.55rem' }}>
-                            {doc.review_notes ? `Reason: ${doc.review_notes}` : 'Rejected — no reason provided.'}
+                            {doc.review_notes ? `${tr('cb_reason_prefix')} ${doc.review_notes}` : tr('cb_rejected_no_reason')}
                           </div>
                         )}
                         {doc.reviewed_at && (
                           <div style={{ fontSize: '0.68rem', color: 'var(--clr-muted)' }}>
-                            Reviewed by {doc.reviewer_first_name} {doc.reviewer_last_name} · {new Date(doc.reviewed_at).toLocaleString()}
+                            {tr('cb_reviewed_by')} {doc.reviewer_first_name} {doc.reviewer_last_name} · {new Date(doc.reviewed_at).toLocaleString()}
                           </div>
                         )}
                         {isPending && (
                           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem', marginTop: '0.25rem' }}>
                             <input
                               style={{ ...inputStyle, fontSize: '0.72rem' }}
-                              placeholder="Review notes (optional for approve, required for reject)"
+                              {...{placeholder: tr('cb_review_ph')}}
                               value={reviewNotes[doc.id] ?? ''}
                               onChange={e => setReviewNotes(prev => ({ ...prev, [doc.id]: e.target.value }))}
                             />
                             <div style={{ display: 'flex', gap: '0.4rem' }}>
                               <button className="btn-primary" style={{ fontSize: '0.72rem', padding: '0.3rem 0.7rem', background: 'linear-gradient(135deg,#10b981,#059669)', border: 'none', flex: 1 }} onClick={() => handleReview(doc.id, 'approve')}>
-                                ✓ Approve
+                                {tr('cb_approve_btn')}
                               </button>
                               <button className="btn-outline" style={{ fontSize: '0.72rem', padding: '0.3rem 0.7rem', color: '#f87171', borderColor: '#f87171', flex: 1 }} onClick={() => handleReview(doc.id, 'reject')}>
-                                ✕ Reject
+                                {tr('cb_reject_btn')}
                               </button>
                             </div>
                           </div>
@@ -1425,6 +1432,7 @@ const IconWhatsApp = () => <svg width="16" height="16" viewBox="0 0 24 24" fill=
 const IconTelegram = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.6 0 12 0zm5.9 8.2-2 9.4c-.1.6-.5.8-.9.5l-2.5-1.9-1.2 1.1c-.1.1-.3.2-.6.2l.2-2.7 5.2-4.7c.2-.2 0-.3-.3-.1L6.8 14.6l-2.4-.8c-.5-.2-.5-.5.1-.7l11.5-4.4c.5-.2.9.1.8.8-.1-.3 0-.3-.1-.3z"/></svg>
 
 function AdminContactInfoSection() {
+  const { t: tr } = useLanguage()
   const [form, setForm] = useState({
     phone1: '', phone2: '', email1: '', email2: '', po_box: '',
     youtube_url: '', tiktok_url: '', instagram_url: '', x_url: '',
@@ -1454,7 +1462,7 @@ function AdminContactInfoSection() {
           telegram_url:    c.telegram_url    ?? '',
         })
       })
-      .catch(() => showToast('Failed to load contact info.'))
+      .catch(() => showToast(tr('ci_load_fail')))
       .finally(() => setLoading(false))
   }, [])
 
@@ -1467,8 +1475,8 @@ function AdminContactInfoSection() {
       const payload: Record<string, string | null> = {}
       for (const [k, v] of Object.entries(form)) payload[k] = v.trim() || null
       await adminOrderApi.updateContactInfo(payload as any)
-      showToast('Contact info saved.')
-    } catch { showToast('Failed to save.') }
+      showToast(tr('ci_saved'))
+    } catch { showToast(tr('ci_save_fail')) }
     finally  { setSaving(false) }
   }
 
@@ -1482,7 +1490,7 @@ function AdminContactInfoSection() {
   }
   const Field = ({ label, icon, fkey, placeholder }: { label: string; icon: React.ReactNode; fkey: keyof typeof form; placeholder?: string }) => (
     <div>
-      <label style={labelStyle}>{icon} {label} <span style={{ color: 'rgba(255,255,255,0.2)', fontSize: '0.65rem' }}>optional</span></label>
+      <label style={labelStyle}>{icon} {label} <span style={{ color: 'rgba(255,255,255,0.2)', fontSize: '0.65rem' }}>{tr('ci_optional')}</span></label>
       <input style={inputStyle} value={form[fkey]} onChange={set(fkey)} placeholder={placeholder ?? label} />
     </div>
   )
@@ -1490,43 +1498,43 @@ function AdminContactInfoSection() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
       <h2 style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--clr-text)', display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
-        <LuPhone size={17}/> Contact Information
+        <LuPhone size={17}/> {tr('ci_title')}
       </h2>
       <p style={{ fontSize: '0.78rem', color: 'var(--clr-muted)', marginTop: '-0.75rem' }}>
-        Company-wide contact details shown to users. All fields are optional.
+        {tr('ci_subtitle')}
       </p>
 
       {loading ? <LoadingSpinner /> : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
           {/* Contact details */}
           <div className="glass-inner" style={{ padding: '1.1rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-            <p style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--clr-muted)', marginBottom: '0.25rem' }}>Contact Details</p>
+            <p style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--clr-muted)', marginBottom: '0.25rem' }}>{tr('ci_section_contact')}</p>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(240px,1fr))', gap: '0.75rem' }}>
-              <Field label="Phone Number 1" icon={<LuPhone size={12}/>} fkey="phone1" placeholder="+251 9XX XXX XXX" />
-              <Field label="Phone Number 2" icon={<LuPhone size={12}/>} fkey="phone2" placeholder="+251 9XX XXX XXX" />
-              <Field label="Email Address 1" icon={<LuMail size={12}/>} fkey="email1" placeholder="info@company.com" />
-              <Field label="Email Address 2" icon={<LuMail size={12}/>} fkey="email2" placeholder="support@company.com" />
-              <Field label="PO Box" icon={<LuFileText size={12}/>} fkey="po_box" placeholder="P.O. Box 1234" />
+              <Field label={tr('ci_label_phone1')} icon={<LuPhone size={12}/>} fkey="phone1" placeholder="+251 9XX XXX XXX" />
+              <Field label={tr('ci_label_phone2')} icon={<LuPhone size={12}/>} fkey="phone2" placeholder="+251 9XX XXX XXX" />
+              <Field label={tr('ci_label_email1')} icon={<LuMail size={12}/>} fkey="email1" placeholder="info@company.com" />
+              <Field label={tr('ci_label_email2')} icon={<LuMail size={12}/>} fkey="email2" placeholder="support@company.com" />
+              <Field label={tr('ci_label_po_box')} icon={<LuFileText size={12}/>} fkey="po_box" placeholder="P.O. Box 1234" />
             </div>
           </div>
 
           {/* Social media */}
           <div className="glass-inner" style={{ padding: '1.1rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-            <p style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--clr-muted)', marginBottom: '0.25rem' }}>Social Media</p>
+            <p style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--clr-muted)', marginBottom: '0.25rem' }}>{tr('ci_section_social')}</p>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(240px,1fr))', gap: '0.75rem' }}>
-              <Field label="YouTube"   icon={<span style={{ color: '#ff0000' }}><IconYouTube/></span>}   fkey="youtube_url"     placeholder="https://youtube.com/@channel" />
-              <Field label="TikTok"    icon={<span style={{ color: '#e0e0e0' }}><IconTikTok/></span>}    fkey="tiktok_url"      placeholder="https://tiktok.com/@handle" />
-              <Field label="Instagram" icon={<span style={{ color: '#c13584' }}><IconInstagram/></span>} fkey="instagram_url"   placeholder="https://instagram.com/handle" />
-              <Field label="X (Twitter)" icon={<span style={{ color: '#e0e0e0' }}><IconX/></span>}      fkey="x_url"           placeholder="https://x.com/handle" />
-              <Field label="LinkedIn"  icon={<span style={{ color: '#0077b5' }}><IconLinkedIn/></span>}  fkey="linkedin_url"    placeholder="https://linkedin.com/company/..." />
-              <Field label="WhatsApp"  icon={<span style={{ color: '#25d366' }}><IconWhatsApp/></span>}  fkey="whatsapp_number" placeholder="+251 9XX XXX XXX" />
-              <Field label="Telegram"  icon={<span style={{ color: '#229ed9' }}><IconTelegram/></span>}  fkey="telegram_url"    placeholder="https://t.me/channel" />
+              <Field label={tr('ci_label_youtube')}   icon={<span style={{ color: '#ff0000' }}><IconYouTube/></span>}   fkey="youtube_url"     placeholder="https://youtube.com/@channel" />
+              <Field label={tr('ci_label_tiktok')}    icon={<span style={{ color: '#e0e0e0' }}><IconTikTok/></span>}    fkey="tiktok_url"      placeholder="https://tiktok.com/@handle" />
+              <Field label={tr('ci_label_instagram')} icon={<span style={{ color: '#c13584' }}><IconInstagram/></span>} fkey="instagram_url"   placeholder="https://instagram.com/handle" />
+              <Field label={tr('ci_label_x')} icon={<span style={{ color: '#e0e0e0' }}><IconX/></span>}      fkey="x_url"           placeholder="https://x.com/handle" />
+              <Field label={tr('ci_label_linkedin')}  icon={<span style={{ color: '#0077b5' }}><IconLinkedIn/></span>}  fkey="linkedin_url"    placeholder="https://linkedin.com/company/..." />
+              <Field label={tr('ci_label_whatsapp')}  icon={<span style={{ color: '#25d366' }}><IconWhatsApp/></span>}  fkey="whatsapp_number" placeholder="+251 9XX XXX XXX" />
+              <Field label={tr('ci_label_telegram')}  icon={<span style={{ color: '#229ed9' }}><IconTelegram/></span>}  fkey="telegram_url"    placeholder="https://t.me/channel" />
             </div>
           </div>
 
           <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
             <button className="btn-primary" onClick={handleSave} disabled={saving} style={{ padding: '0.5rem 1.4rem', fontSize: '0.85rem' }}>
-              {saving ? 'Saving…' : 'Save Changes'}
+              {saving ? tr('ci_saving') : tr('ci_btn_save')}
             </button>
           </div>
         </div>
@@ -1544,6 +1552,7 @@ function AdminContactInfoSection() {
 // ─── AI Assistance Section ────────────────────────────────────────────────────
 
 function AdminAiSettingsSection() {
+  const { t: tr } = useLanguage()
   const [aiEnabled, setAiEnabled] = useState(false)
   const [customerId, setCustomerId] = useState('')
   const [apiKey, setApiKey]         = useState('')
@@ -1562,7 +1571,7 @@ function AdminAiSettingsSection() {
         setApiKeySet(Boolean(s.api_key_set))
         setApiKey('')
       })
-      .catch(() => showToast('Failed to load AI settings.'))
+      .catch(() => showToast(tr('ais_load_fail')))
       .finally(() => setLoading(false))
   }, [])
 
@@ -1580,8 +1589,8 @@ function AdminAiSettingsSection() {
       setCustomerId(s.customer_id ?? '')
       setApiKeySet(Boolean(s.api_key_set))
       setApiKey('')
-      showToast('AI settings saved.')
-    } catch { showToast('Failed to save.') }
+      showToast(tr('ais_saved'))
+    } catch { showToast(tr('ais_save_fail')) }
     finally  { setSaving(false) }
   }
 
@@ -1594,10 +1603,10 @@ function AdminAiSettingsSection() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
       <h2 style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--clr-text)', display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
-        <LuLink size={17}/> AI Assistance
+        <LuLink size={17}/> {tr('ais_title')}
       </h2>
       <p style={{ fontSize: '0.78rem', color: 'var(--clr-muted)', marginTop: '-0.75rem' }}>
-        Configure the AI assistant integration. Enable to unlock chat-based AI support for your platform.
+        {tr('ais_subtitle')}
       </p>
 
       {loading ? <LoadingSpinner /> : (
@@ -1606,8 +1615,8 @@ function AdminAiSettingsSection() {
             {/* Toggle */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingBottom: '0.85rem', borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
               <div>
-                <p style={{ fontWeight: 700, fontSize: '0.88rem', color: 'var(--clr-text)' }}>Enable AI Assistance</p>
-                <p style={{ fontSize: '0.72rem', color: 'var(--clr-muted)', marginTop: 2 }}>When enabled, the AI assistant will be available on the platform.</p>
+                <p style={{ fontWeight: 700, fontSize: '0.88rem', color: 'var(--clr-text)' }}>{tr('ais_toggle_title')}</p>
+                <p style={{ fontSize: '0.72rem', color: 'var(--clr-muted)', marginTop: 2 }}>{tr('ais_toggle_sub')}</p>
               </div>
               <button
                 onClick={() => setAiEnabled(v => !v)}
@@ -1624,23 +1633,23 @@ function AdminAiSettingsSection() {
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                 <div style={{ background: 'rgba(168,85,247,0.06)', border: '1px solid rgba(168,85,247,0.2)', borderRadius: 10, padding: '0.65rem 0.9rem' }}>
                   <p style={{ fontSize: '0.72rem', color: 'rgba(168,85,247,0.9)' }}>
-                    Enter the credentials provided by your AI service provider. These are stored securely on the server and are never exposed to users.
+                    {tr('ais_cred_hint')}
                   </p>
                 </div>
                 <div>
-                  <label style={{ fontSize: '0.7rem', color: 'var(--clr-muted)', marginBottom: 4, display: 'block' }}>Customer ID</label>
+                  <label style={{ fontSize: '0.7rem', color: 'var(--clr-muted)', marginBottom: 4, display: 'block' }}>{tr('ais_label_cust_id')}</label>
                   <input style={inputStyle} value={customerId} onChange={e => setCustomerId(e.target.value)} placeholder="e.g. cust_abc123xyz" />
                 </div>
                 <div>
                   <label style={{ fontSize: '0.7rem', color: 'var(--clr-muted)', marginBottom: 4, display: 'block' }}>
-                    API Key {apiKeySet && <span style={{ color: '#10b981', marginLeft: 6 }}>✓ Key is set — enter a new value to replace it</span>}
+                    {tr('ais_label_api_key')} {apiKeySet && <span style={{ color: '#10b981', marginLeft: 6 }}>{tr('ais_key_set')}</span>}
                   </label>
                   <input
                     style={inputStyle}
                     type="password"
                     value={apiKey}
                     onChange={e => setApiKey(e.target.value)}
-                    placeholder={apiKeySet ? 'Leave blank to keep existing key' : 'Paste your API key here'}
+                    placeholder={apiKeySet ? tr('ais_ph_api_blank') : tr('ais_ph_api_new')}
                     autoComplete="new-password"
                   />
                 </div>
@@ -1650,7 +1659,7 @@ function AdminAiSettingsSection() {
 
           <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
             <button className="btn-primary" onClick={handleSave} disabled={saving} style={{ padding: '0.5rem 1.4rem', fontSize: '0.85rem' }}>
-              {saving ? 'Saving…' : 'Save Changes'}
+              {saving ? tr('ais_saving') : tr('ais_btn_save')}
             </button>
           </div>
         </div>
@@ -1674,6 +1683,7 @@ function AdminReportsSection({ allowedTabs }: { allowedTabs?: Array<'orders' | '
 // ─── Security Events Section ─────────────────────────────────────────────────
 
 function AdminSecurityEventsSection() {
+  const { t: tr } = useLanguage()
   const [events, setEvents] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [page, setPage] = useState(1)
@@ -1689,7 +1699,7 @@ function AdminSecurityEventsSection() {
       setEvents(data.events ?? [])
       setPages(data.pagination?.pages ?? 1)
     } catch {
-      showToast('Failed to load security events')
+      showToast(tr('sec_load_fail'))
     } finally {
       setLoading(false)
     }
@@ -1723,16 +1733,16 @@ function AdminSecurityEventsSection() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
       <h2 style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--clr-text)', display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
-        <LuShieldCheck size={17}/> Security Events
+        <LuShieldCheck size={17}/> {tr('sec_title')}
       </h2>
       <p style={{ fontSize: '0.78rem', color: 'var(--clr-muted)', marginTop: '-0.6rem' }}>
-        Audit log of denied access attempts, OTP lockouts, and security violations.
+        {tr('sec_subtitle')}
       </p>
 
       {/* Filter bar */}
       <div style={{ display: 'flex', gap: '0.6rem', flexWrap: 'wrap', alignItems: 'center' }}>
         <select value={filter} onChange={e => handleFilter(e.target.value)} style={{ ...inputStyle, minWidth: 230 }}>
-          <option value="" style={{ background: '#0f172a' }}>— All event types —</option>
+          <option value="" style={{ background: '#0f172a' }}>{tr('sec_filter_all')}</option>
           {EVENT_TYPES.map(t => <option key={t} value={t} style={{ background: '#0f172a' }}>{t.replaceAll('_', ' ')}</option>)}
         </select>
         <button className="btn-outline" style={{ fontSize: '0.78rem', padding: '0.45rem 0.85rem' }} onClick={() => { setFilter(''); setPage(1); load(1, '') }}>
@@ -1744,13 +1754,13 @@ function AdminSecurityEventsSection() {
         <>
           <div className="glass-inner" style={{ overflow: 'hidden' }}>
             {events.length === 0 ? (
-              <p style={{ padding: '2rem', textAlign: 'center', color: 'var(--clr-muted)', fontSize: '0.85rem' }}>No security events found.</p>
+              <p style={{ padding: '2rem', textAlign: 'center', color: 'var(--clr-muted)', fontSize: '0.85rem' }}>{tr('sec_none')}</p>
             ) : (
               <div style={{ overflowX: 'auto' }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.78rem' }}>
                   <thead>
                     <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.09)' }}>
-                      {['Time', 'Event Type', 'Role', 'Method', 'Endpoint', 'Reason', 'IP'].map(h => (
+                      {[tr('sec_col_time'), tr('sec_col_type'), tr('sec_col_role'), tr('sec_col_method'), tr('sec_col_endpoint'), tr('sec_col_reason'), tr('sec_col_ip')].map(h => (
                         <th key={h} style={{ padding: '0.6rem 0.75rem', textAlign: 'left', color: 'var(--clr-muted)', fontWeight: 600, whiteSpace: 'nowrap' }}>{h}</th>
                       ))}
                     </tr>
@@ -1815,15 +1825,15 @@ function AdminSecurityEventsSection() {
 function AdminSettingsHub({ onNav }: { onNav: (s: AdminSection) => void }) {
   const { t: tr } = useLanguage()
   const tiles: { id: AdminSection; icon: React.ReactNode; label: string; desc: string; accent: string }[] = [
-    { id: 'cargo-types',    icon: <LuBox size={22}/>,      label: tr('sb_st_cargo'),   desc: 'Define cargo categories, special handling flags, and icons.',         accent: 'rgba(0,229,255,0.12)' },
-    { id: 'pricing-rules',  icon: <LuSettings size={22}/>, label: tr('sb_st_pricing'), desc: 'Set base fares, per-km rates and additional fees per vehicle type.',   accent: 'rgba(139,92,246,0.12)' },
-    { id: 'vehicle-types',  icon: <LuTruck size={22}/>,    label: tr('sb_st_vehicles'), desc: 'Manage all vehicle types with icons — feeds every dropdown platform-wide.', accent: 'rgba(251,146,60,0.12)' },
-    { id: 'countries',      icon: <LuGlobe size={22}/>,    label: tr('sb_st_countries'), desc: 'Enable or disable operational countries. Controls map search scope.',   accent: 'rgba(74,222,128,0.12)' },
-    { id: 'notif-settings', icon: <LuBell size={22}/>,     label: tr('sb_st_notif'),   desc: 'Global on/off switches for push and email notification channels.',      accent: 'rgba(250,204,21,0.10)' },
-    { id: 'role-management', icon: <LuKey size={22}/>,      label: tr('sb_st_roles'),   desc: 'Set exactly what cashier and dispatcher accounts are allowed to do.',   accent: 'rgba(14,165,233,0.10)' },
+    { id: 'cargo-types',    icon: <LuBox size={22}/>,      label: tr('sb_st_cargo'),   desc: tr('sh_desc_cargo'),         accent: 'rgba(0,229,255,0.12)' },
+    { id: 'pricing-rules',  icon: <LuSettings size={22}/>, label: tr('sb_st_pricing'), desc: tr('sh_desc_pricing'),   accent: 'rgba(139,92,246,0.12)' },
+    { id: 'vehicle-types',  icon: <LuTruck size={22}/>,    label: tr('sb_st_vehicles'), desc: tr('sh_desc_vehicles'), accent: 'rgba(251,146,60,0.12)' },
+    { id: 'countries',      icon: <LuGlobe size={22}/>,    label: tr('sb_st_countries'), desc: tr('sh_desc_countries'),   accent: 'rgba(74,222,128,0.12)' },
+    { id: 'notif-settings', icon: <LuBell size={22}/>,     label: tr('sb_st_notif'),   desc: tr('sh_desc_notif'),      accent: 'rgba(250,204,21,0.10)' },
+    { id: 'role-management', icon: <LuKey size={22}/>,      label: tr('sb_st_roles'),   desc: tr('sh_desc_roles'),   accent: 'rgba(14,165,233,0.10)' },
     { id: 'maintenance-mode', icon: <LuWrench size={22}/>, label: tr('sb_st_maintenance'), desc: 'Activate maintenance kill-switch and manage app version string.',       accent: 'rgba(239,68,68,0.10)' },
-    { id: 'contact-info',   icon: <LuPhone size={22}/>,    label: tr('sb_st_contact'), desc: 'Company phone numbers, emails, PO Box and all social media links.',     accent: 'rgba(16,185,129,0.10)' },
-    { id: 'ai-settings',    icon: <LuLink size={22}/>,     label: tr('sb_st_ai'),      desc: 'Enable AI integration and configure Customer ID and API key.',          accent: 'rgba(168,85,247,0.12)' },
+    { id: 'contact-info',   icon: <LuPhone size={22}/>,    label: tr('sb_st_contact'), desc: tr('sh_desc_contact'),     accent: 'rgba(16,185,129,0.10)' },
+    { id: 'ai-settings',    icon: <LuLink size={22}/>,     label: tr('sb_st_ai'),      desc: tr('sh_desc_ai'),          accent: 'rgba(168,85,247,0.12)' },
   ]
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
@@ -2641,6 +2651,7 @@ function StaffManagementSection({ allUsers, loading, onToggleActive, onRefresh }
 // ─── Profile section (embedded, no aurora-bg wrapper) ────────────────────────
 
 function ProfileSection() {
+  const { t: tr } = useLanguage()
   const { user, updateUser, refreshUser } = useAuth()
   const [activeTab, setActiveTab] = useState<ProfileTab>('profile')
 
@@ -2653,14 +2664,14 @@ function ProfileSection() {
   const [photoError,   setPhotoError]   = useState('')
   const handlePhotoChange = async (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]; if (!file) return
-    if (file.size > 5 * 1024 * 1024) { setPhotoError('Max 5 MB'); return }
+    if (file.size > 5 * 1024 * 1024) { setPhotoError(tr('prf_photo_err_size')); return }
     setPhotoError(''); setPhotoLoading(true)
     const reader = new FileReader()
     reader.onload = async () => {
       try {
         await authApi.updateProfile({ profile_photo_base64: reader.result as string, profile_photo_filename: file.name })
         await refreshUser()
-      } catch (err: any) { setPhotoError(err.response?.data?.message || 'Upload failed.') }
+      } catch (err: any) { setPhotoError(err.response?.data?.message || tr('prf_photo_err_fail')) }
       finally { setPhotoLoading(false); if (photoInput.current) photoInput.current.value = '' }
     }
     reader.readAsDataURL(file)
@@ -2668,7 +2679,7 @@ function ProfileSection() {
   const handleDeletePhoto = async () => {
     setPhotoError(''); setPhotoLoading(true)
     try { await authApi.deleteProfilePhoto(); updateUser({ profile_photo_url: null }) }
-    catch (err: any) { setPhotoError(err.response?.data?.message || 'Failed.') }
+    catch (err: any) { setPhotoError(err.response?.data?.message || tr('prf_photo_err_fail')) }
     finally { setPhotoLoading(false) }
   }
 
@@ -2680,13 +2691,13 @@ function ProfileSection() {
   const [nameSuccess, setNameSuccess] = useState(false)
   const handleSaveName = async (e: FormEvent) => {
     e.preventDefault()
-    if (!editFirst.trim()) { setNameError('First name required'); return }
+    if (!editFirst.trim()) { setNameError(tr('prf_name_err_req')); return }
     setNameError(''); setNameLoading(true)
     try {
       await authApi.updateProfile({ first_name: editFirst.trim(), last_name: editLast.trim() })
       updateUser({ first_name: editFirst.trim(), last_name: editLast.trim() })
       setNameSuccess(true); setTimeout(() => setNameSuccess(false), 3000)
-    } catch (err: any) { setNameError(err.response?.data?.message || 'Failed.') }
+    } catch (err: any) { setNameError(err.response?.data?.message || tr('prf_photo_err_fail')) }
     finally { setNameLoading(false) }
   }
 
@@ -2697,11 +2708,11 @@ function ProfileSection() {
   const [pwLoading, setPwLoading] = useState(false); const [pwError, setPwError] = useState(''); const [pwSuccess, setPwSuccess] = useState(false)
   const handleChangePassword = async (e: FormEvent) => {
     e.preventDefault()
-    if (newPw !== confirmPw) { setPwError("Don't match"); return }
-    if (newPw.length < 6) { setPwError('Min 6 chars'); return }
+    if (newPw !== confirmPw) { setPwError(tr('prf_pw_no_match')); return }
+    if (newPw.length < 6) { setPwError(tr('prf_pw_min_chars')); return }
     setPwError(''); setPwLoading(true)
     try { await authApi.changePassword(currentPw, newPw); setPwSuccess(true); setCurrentPw(''); setNewPw(''); setConfirmPw(''); setTimeout(() => { setPwSuccess(false); setShowPwForm(false) }, 2500) }
-    catch (err: any) { setPwError(err.response?.data?.message || 'Failed.') }
+    catch (err: any) { setPwError(err.response?.data?.message || tr('prf_photo_err_fail')) }
     finally { setPwLoading(false) }
   }
 
@@ -2712,7 +2723,7 @@ function ProfileSection() {
   const handleLinkEmail = async (e: FormEvent) => {
     e.preventDefault(); setEmailError(''); setEmailLoading(true)
     try { await authApi.requestEmailLink(emailInput); setEmailSent(true) }
-    catch (err: any) { setEmailError(err.response?.data?.message || 'Failed.') }
+    catch (err: any) { setEmailError(err.response?.data?.message || tr('prf_photo_err_fail')) }
     finally { setEmailLoading(false) }
   }
 
@@ -2723,17 +2734,17 @@ function ProfileSection() {
   const [phoneLoading, setPhoneLoading] = useState(false); const [phoneError, setPhoneError] = useState(''); const [phoneSuccess, setPhoneSuccess] = useState(false)
   const handleRequestPhoneOtp = async (e: FormEvent) => {
     e.preventDefault()
-    const n = normalisePhone(newPhone ?? ''); if (!n) { setPhoneError('Invalid phone'); return }
+    const n = normalisePhone(newPhone ?? ''); if (!n) { setPhoneError(tr('prf_phone_invalid')); return }
     setPhoneError(''); setPhoneLoading(true)
     try { await authApi.requestPhoneChange(n); setPhoneStep('otp') }
-    catch (err: any) { setPhoneError(err.response?.data?.message || 'Failed.') }
+    catch (err: any) { setPhoneError(err.response?.data?.message || tr('prf_photo_err_fail')) }
     finally { setPhoneLoading(false) }
   }
   const handleVerifyPhoneOtp = async (e: FormEvent) => {
     e.preventDefault()
     const n = normalisePhone(newPhone ?? ''); setPhoneError(''); setPhoneLoading(true)
     try { await authApi.verifyPhoneChange(n, phoneOtp); updateUser({ phone_number: n }); setPhoneSuccess(true); setTimeout(() => { setPhoneSuccess(false); setShowPhoneForm(false); setPhoneStep('input'); setNewPhone(''); setPhoneOtp('') }, 2500) }
-    catch (err: any) { setPhoneError(err.response?.data?.message || 'Invalid OTP.') }
+    catch (err: any) { setPhoneError(err.response?.data?.message || tr('prf_phone_invalid_otp')) }
     finally { setPhoneLoading(false) }
   }
 
@@ -2742,17 +2753,17 @@ function ProfileSection() {
   const [deleteConfirm, setDeleteConfirm] = useState('')
   const [deleteLoading, setDeleteLoading] = useState(false); const [deleteError, setDeleteError] = useState('')
   const handleDeleteAccount = async () => {
-    if (deleteConfirm !== 'DELETE') { setDeleteError('Type DELETE'); return }
+    if (deleteConfirm !== 'DELETE') { setDeleteError(tr('prf_del_input_label')); return }
     setDeleteError(''); setDeleteLoading(true)
     try { throw new Error('Account deletion not yet enabled.') }
-    catch (err: any) { setDeleteError(err.message || 'Failed.'); setDeleteLoading(false) }
+    catch (err: any) { setDeleteError(err.message || tr('prf_photo_err_fail')); setDeleteLoading(false) }
   }
 
   const photoUrl = user?.profile_photo_url
   const tabs: { id: ProfileTab; icon: React.ReactNode; label: string }[] = [
-    { id: 'profile', icon: <LuUser size={14}/>, label: 'Profile' },
-    { id: 'security', icon: <LuLock size={14}/>, label: 'Security' },
-    { id: 'contact', icon: <LuContact size={14}/>, label: 'Contact' },
+    { id: 'profile', icon: <LuUser size={14}/>, label: tr('prf_tab_profile') },
+    { id: 'security', icon: <LuLock size={14}/>, label: tr('prf_tab_security') },
+    { id: 'contact', icon: <LuContact size={14}/>, label: tr('prf_tab_contact') },
   ]
 
   return (
@@ -2764,7 +2775,7 @@ function ProfileSection() {
             <div style={{ width: 72, height: 72, borderRadius: '50%', background: photoUrl ? 'transparent' : 'linear-gradient(135deg,var(--clr-accent2),var(--clr-accent))', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.9rem', overflow: 'hidden', border: '2.5px solid rgba(0,229,255,0.3)', boxShadow: '0 0 20px rgba(0,229,255,0.2)' }}>
               {photoUrl ? <img src={photoUrl} alt="Profile" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : roleIcon}
             </div>
-            <button title="Change photo" onClick={() => photoInput.current?.click()} disabled={photoLoading} style={{ position: 'absolute', bottom: 0, right: 0, width: 24, height: 24, borderRadius: '50%', background: 'var(--clr-accent)', border: '2px solid rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: '0.68rem' }}>
+            <button {...{title: tr('prf_photo_title')}} onClick={() => photoInput.current?.click()} disabled={photoLoading} style={{ position: 'absolute', bottom: 0, right: 0, width: 24, height: 24, borderRadius: '50%', background: 'var(--clr-accent)', border: '2px solid rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: '0.68rem' }}>
               {photoLoading ? '…' : <LuCamera size={12}/>}
             </button>
             <input ref={photoInput} type="file" accept="image/jpeg,image/png,image/webp" style={{ display: 'none' }} onChange={handlePhotoChange} />
@@ -2775,9 +2786,9 @@ function ProfileSection() {
               <span className="badge badge-cyan">{roleLabel}</span>
             </div>
             <p style={{ color: 'var(--clr-muted)', fontSize: '0.82rem', marginTop: '0.15rem' }}>{user?.phone_number}</p>
-            {user?.email && <p style={{ color: 'var(--clr-muted)', fontSize: '0.76rem', marginTop: '0.1rem' }}>{user.email} {user.is_email_verified ? <span style={{ color: '#4ade80', fontSize: '0.7rem', display:'inline-flex', alignItems:'center', gap:'0.2rem' }}><LuCircleCheck size={11}/></span> : <span style={{ color: '#fbbf24', fontSize: '0.7rem' }}>(pending)</span>}</p>}
+            {user?.email && <p style={{ color: 'var(--clr-muted)', fontSize: '0.76rem', marginTop: '0.1rem' }}>{user.email} {user.is_email_verified ? <span style={{ color: '#4ade80', fontSize: '0.7rem', display:'inline-flex', alignItems:'center', gap:'0.2rem' }}><LuCircleCheck size={11}/></span> : <span style={{ color: '#fbbf24', fontSize: '0.7rem' }}>{tr('prf_email_pending')}</span>}</p>}
             {photoError && <p style={{ color: '#fca5a5', fontSize: '0.75rem', marginTop: '0.25rem' }}>{photoError}</p>}
-            {photoUrl && <button className="btn-outline" style={{ marginTop: '0.4rem', fontSize: '0.71rem', padding: '0.25rem 0.65rem', display:'flex', alignItems:'center', gap:'0.3rem' }} onClick={handleDeletePhoto} disabled={photoLoading}><LuTrash2 size={11}/> Remove photo</button>}
+            {photoUrl && <button className="btn-outline" style={{ marginTop: '0.4rem', fontSize: '0.71rem', padding: '0.25rem 0.65rem', display:'flex', alignItems:'center', gap:'0.3rem' }} onClick={handleDeletePhoto} disabled={photoLoading}><LuTrash2 size={11}/> {tr('prf_photo_remove')}</button>}
           </div>
         </div>
       </div>
@@ -2794,24 +2805,24 @@ function ProfileSection() {
       {/* Profile tab */}
       {activeTab === 'profile' && (
         <div className="glass step-enter" style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1.1rem' }}>
-          <h2 style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--clr-text)', display:'flex', alignItems:'center', gap:'0.4rem' }}><LuUser size={15}/> Profile Information</h2>
+          <h2 style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--clr-text)', display:'flex', alignItems:'center', gap:'0.4rem' }}><LuUser size={15}/> {tr('prf_section_title')}</h2>
           <div className="glass-inner" style={{ padding: '1rem', display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
-            <InfoRow icon={<LuIdCard size={14}/>}      label="User ID" value={user?.id ? user.id.slice(0, 8) + '…' : '—'} />
-            <InfoRow icon={<LuPhone size={14}/>}       label="Phone"   value={user?.phone_number ?? '—'} />
-            <InfoRow icon={<LuMail size={14}/>}        label="Email"   value={user?.email || '— not linked'} />
-            <InfoRow icon={<LuShield size={14}/>}      label="Role"    value={roleLabel} />
-            <InfoRow icon={<LuCircleCheck size={14}/>} label="Status"  value={user?.is_active ? 'Active' : 'Suspended'} />
+            <InfoRow icon={<LuIdCard size={14}/>}      label={tr('prf_info_id')} value={user?.id ? user.id.slice(0, 8) + '…' : '—'} />
+            <InfoRow icon={<LuPhone size={14}/>}       label={tr('prf_info_phone')} value={user?.phone_number ?? '—'} />
+            <InfoRow icon={<LuMail size={14}/>}        label={tr('prf_info_email')} value={user?.email || tr('prf_info_email_none')} />
+            <InfoRow icon={<LuShield size={14}/>}      label={tr('prf_info_role')} value={roleLabel} />
+            <InfoRow icon={<LuCircleCheck size={14}/>} label={tr('prf_info_status')} value={user?.is_active ? tr('prf_info_active') : tr('prf_info_suspended')} />
           </div>
           <Divider />
           <form onSubmit={handleSaveName} style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
             <p style={{ fontWeight: 600, fontSize: '0.875rem', color: 'var(--clr-text)' }}>Display Name</p>
             {nameError   && <div className="alert alert-error"><LuTriangleAlert size={13}/> {nameError}</div>}
-            {nameSuccess && <div className="alert alert-success" style={{display:'flex',alignItems:'center',gap:'0.35rem'}}><LuCheck size={13}/> Name saved!</div>}
+            {nameSuccess && <div className="alert alert-success" style={{display:'flex',alignItems:'center',gap:'0.35rem'}}><LuCheck size={13}/> {tr('prf_name_saved')}</div>}
             <div style={{ display: 'flex', gap: '0.6rem' }}>
-              <div className="input-wrap" style={{ flex: 1 }}><input id="ef2" type="text" placeholder=" " value={editFirst} onChange={e => setEditFirst(e.target.value)} required /><label htmlFor="ef2">First name</label></div>
-              <div className="input-wrap" style={{ flex: 1 }}><input id="el2" type="text" placeholder=" " value={editLast}  onChange={e => setEditLast(e.target.value)} /><label htmlFor="el2">Last name</label></div>
+              <div className="input-wrap" style={{ flex: 1 }}><input id="ef2" type="text" placeholder=" " value={editFirst} onChange={e => setEditFirst(e.target.value)} required /><label htmlFor="ef2">{tr('prf_first_name')}</label></div>
+              <div className="input-wrap" style={{ flex: 1 }}><input id="el2" type="text" placeholder=" " value={editLast}  onChange={e => setEditLast(e.target.value)} /><label htmlFor="el2">{tr('prf_last_name')}</label></div>
             </div>
-            <button type="submit" className="btn-primary" disabled={nameLoading}>{nameLoading ? <BtnSpinner text="Saving…" /> : 'Save Name'}</button>
+            <button type="submit" className="btn-primary" disabled={nameLoading}>{nameLoading ? <BtnSpinner text={tr('prf_name_saving')} /> : tr('prf_name_save')}</button>
           </form>
         </div>
       )}
@@ -2819,22 +2830,22 @@ function ProfileSection() {
       {/* Security tab */}
       {activeTab === 'security' && (
         <div className="glass step-enter" style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1.1rem' }}>
-          <h2 style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--clr-text)', display:'flex', alignItems:'center', gap:'0.4rem' }}><LuLock size={15}/> Security</h2>
-          <SectionRow title="Password" sub="Update your login password" open={showPwForm} onToggle={() => { setShowPwForm(v => !v); setPwError(''); setPwSuccess(false) }} toggleLabel={showPwForm ? 'Cancel' : 'Change'}>
+          <h2 style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--clr-text)', display:'flex', alignItems:'center', gap:'0.4rem' }}><LuLock size={15}/> {tr('prf_sec_title')}</h2>
+          <SectionRow title={tr('prf_pw_title')} sub={tr('prf_pw_sub')} open={showPwForm} onToggle={() => { setShowPwForm(v => !v); setPwError(''); setPwSuccess(false) }} toggleLabel={showPwForm ? tr('prf_pw_cancel') : tr('prf_pw_change')}>
             <form onSubmit={handleChangePassword} style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }} className="step-enter">
               {pwError   && <div className="alert alert-error"><LuTriangleAlert size={13}/> {pwError}</div>}
-              {pwSuccess && <div className="alert alert-success" style={{display:'flex',alignItems:'center',gap:'0.35rem'}}><LuCheck size={13}/> Password updated!</div>}
-              <PasswordInput id="adm-cpw-cur" label="Current password"          value={currentPw} onChange={setCurrentPw} show={showPw} onToggle={() => setShowPw(v => !v)} />
-              <PasswordInput id="adm-cpw-new" label="New password (min 6 chars)" value={newPw}     onChange={setNewPw}     show={showPw} onToggle={() => setShowPw(v => !v)} />
-              <PasswordInput id="adm-cpw-cfg" label="Confirm new password"      value={confirmPw} onChange={setConfirmPw} show={showPw} onToggle={() => setShowPw(v => !v)} hasError={!!(confirmPw && confirmPw !== newPw)} />
-              <button type="submit" className="btn-primary" disabled={pwLoading}>{pwLoading ? <BtnSpinner text="Saving…" /> : 'Update Password'}</button>
+              {pwSuccess && <div className="alert alert-success" style={{display:'flex',alignItems:'center',gap:'0.35rem'}}><LuCheck size={13}/> {tr('prf_pw_success')}</div>}
+              <PasswordInput id="adm-cpw-cur" {...{label: tr('prf_pw_cur')}}          value={currentPw} onChange={setCurrentPw} show={showPw} onToggle={() => setShowPw(v => !v)} />
+              <PasswordInput id="adm-cpw-new" {...{label: tr('prf_pw_new')}} value={newPw}     onChange={setNewPw}     show={showPw} onToggle={() => setShowPw(v => !v)} />
+              <PasswordInput id="adm-cpw-cfg" {...{label: tr('prf_pw_confirm')}}      value={confirmPw} onChange={setConfirmPw} show={showPw} onToggle={() => setShowPw(v => !v)} hasError={!!(confirmPw && confirmPw !== newPw)} />
+              <button type="submit" className="btn-primary" disabled={pwLoading}>{pwLoading ? <BtnSpinner text={tr('prf_pw_saving')} /> : tr('prf_pw_save')}</button>
             </form>
           </SectionRow>
           <Divider />
           <div className="danger-card">
-            <h3 style={{ fontSize: '0.875rem', fontWeight: 700, color: '#fca5a5', marginBottom: '0.4rem', display:'flex', alignItems:'center', gap:'0.35rem' }}><LuTriangleAlert size={14}/> Danger Zone</h3>
-            <p style={{ fontSize: '0.8rem', color: 'var(--clr-muted)', marginBottom: '0.85rem' }}>Permanently delete your account and all data.</p>
-            <button onClick={() => { setShowDeleteModal(true); setDeleteConfirm(''); setDeleteError('') }} style={{ background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.3)', color: '#fca5a5', fontFamily: 'inherit', fontSize: '0.85rem', fontWeight: 600, padding: '0.55rem 1rem', borderRadius: 10, cursor: 'pointer' }}>Delete My Account</button>
+            <h3 style={{ fontSize: '0.875rem', fontWeight: 700, color: '#fca5a5', marginBottom: '0.4rem', display:'flex', alignItems:'center', gap:'0.35rem' }}><LuTriangleAlert size={14}/> {tr('prf_danger_title')}</h3>
+            <p style={{ fontSize: '0.8rem', color: 'var(--clr-muted)', marginBottom: '0.85rem' }}>{tr('prf_danger_sub')}</p>
+            <button onClick={() => { setShowDeleteModal(true); setDeleteConfirm(''); setDeleteError('') }} style={{ background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.3)', color: '#fca5a5', fontFamily: 'inherit', fontSize: '0.85rem', fontWeight: 600, padding: '0.55rem 1rem', borderRadius: 10, cursor: 'pointer' }}>{tr('prf_danger_btn')}</button>
           </div>
         </div>
       )}
@@ -2842,35 +2853,35 @@ function ProfileSection() {
       {/* Contact tab */}
       {activeTab === 'contact' && (
         <div className="glass step-enter" style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1.1rem' }}>
-          <h2 style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--clr-text)', display:'flex', alignItems:'center', gap:'0.4rem' }}><LuSmartphone size={15}/> Contact Details</h2>
-          <SectionRow title="Email Address" sub={user?.email ? `${user.email}${user.is_email_verified ? ' ✔' : ' (unverified)'}` : 'Link an email for recovery'} open={showEmailForm} onToggle={() => { setShowEmailForm(v => !v); setEmailError(''); setEmailSent(false) }} toggleLabel={showEmailForm ? 'Cancel' : user?.email ? 'Change' : 'Link'}>
+          <h2 style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--clr-text)', display:'flex', alignItems:'center', gap:'0.4rem' }}><LuSmartphone size={15}/> {tr('prf_contact_title')}</h2>
+          <SectionRow title={tr('prf_email_section')} sub={user?.email ? `${user.email}${user.is_email_verified ? ' ✔' : ` ${tr('prf_email_unverified')}`}` : tr('prf_email_sub_link')} open={showEmailForm} onToggle={() => { setShowEmailForm(v => !v); setEmailError(''); setEmailSent(false) }} toggleLabel={showEmailForm ? tr('prf_email_cancel') : user?.email ? tr('prf_email_change') : tr('prf_email_link')}>
             {emailSent ? (
-              <div className="alert alert-success step-enter" style={{display:'flex',alignItems:'center',gap:'0.35rem'}}><LuCheck size={13}/> Verification link sent to <strong>{emailInput}</strong>.</div>
+              <div className="alert alert-success step-enter" style={{display:'flex',alignItems:'center',gap:'0.35rem'}}><LuCheck size={13}/> {tr('prf_email_sent_prefix')} <strong>{emailInput}</strong>.</div>
             ) : (
               <form onSubmit={handleLinkEmail} style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }} className="step-enter">
                 {emailError && <div className="alert alert-error"><LuTriangleAlert size={13}/> {emailError}</div>}
-                <div className="input-wrap"><input id="adm-em" type="email" placeholder=" " value={emailInput} onChange={e => setEmailInput(e.target.value)} required /><label htmlFor="adm-em">Email address</label></div>
-                <button type="submit" className="btn-primary" disabled={emailLoading}>{emailLoading ? <BtnSpinner text="Sending…" /> : 'Send Verification Link'}</button>
+                <div className="input-wrap"><input id="adm-em" type="email" placeholder=" " value={emailInput} onChange={e => setEmailInput(e.target.value)} required /><label htmlFor="adm-em">{tr('prf_email_label')}</label></div>
+                <button type="submit" className="btn-primary" disabled={emailLoading}>{emailLoading ? <BtnSpinner text={tr('prf_email_sending')} /> : tr('prf_email_send')}</button>
               </form>
             )}
           </SectionRow>
           <Divider />
-          <SectionRow title="Phone Number" sub={user?.phone_number ?? ''} open={showPhoneForm} onToggle={() => { setShowPhoneForm(v => !v); setPhoneError(''); setPhoneSuccess(false); setPhoneStep('input'); setPhoneOtp(''); setNewPhone('') }} toggleLabel={showPhoneForm ? 'Cancel' : 'Change'}>
+          <SectionRow title={tr('prf_phone_section')} sub={user?.phone_number ?? ''} open={showPhoneForm} onToggle={() => { setShowPhoneForm(v => !v); setPhoneError(''); setPhoneSuccess(false); setPhoneStep('input'); setPhoneOtp(''); setNewPhone('') }} toggleLabel={showPhoneForm ? tr('prf_phone_cancel') : tr('prf_phone_change')}>
             {phoneSuccess ? (
-              <div className="alert alert-success step-enter" style={{display:'flex',alignItems:'center',gap:'0.35rem'}}><LuCheck size={13}/> Phone updated!</div>
+              <div className="alert alert-success step-enter" style={{display:'flex',alignItems:'center',gap:'0.35rem'}}><LuCheck size={13}/> {tr('prf_phone_success')}</div>
             ) : phoneStep === 'input' ? (
               <form onSubmit={handleRequestPhoneOtp} style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }} className="step-enter">
                 {phoneError && <div className="alert alert-error"><LuTriangleAlert size={13}/> {phoneError}</div>}
                 <PhoneField value={newPhone} onChange={setNewPhone} id="adm-new-phone" />
-                <button type="submit" className="btn-primary" disabled={phoneLoading}>{phoneLoading ? <BtnSpinner text="Sending OTP…" /> : 'Send OTP'}</button>
+                <button type="submit" className="btn-primary" disabled={phoneLoading}>{phoneLoading ? <BtnSpinner text={tr('prf_phone_sending')} /> : tr('prf_phone_send')}</button>
               </form>
             ) : (
               <form onSubmit={handleVerifyPhoneOtp} style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }} className="step-enter">
                 {phoneError && <div className="alert alert-error"><LuTriangleAlert size={13}/> {phoneError}</div>}
-                <div className="input-wrap"><input id="adm-ph-otp" type="text" inputMode="numeric" placeholder=" " maxLength={6} value={phoneOtp} onChange={e => setPhoneOtp(e.target.value.replace(/\D/g, ''))} required /><label htmlFor="adm-ph-otp">6-digit OTP</label></div>
+                <div className="input-wrap"><input id="adm-ph-otp" type="text" inputMode="numeric" placeholder=" " maxLength={6} value={phoneOtp} onChange={e => setPhoneOtp(e.target.value.replace(/\D/g, ''))} required /><label htmlFor="adm-ph-otp">{tr('prf_phone_otp_label')}</label></div>
                 <div style={{ display: 'flex', gap: '0.5rem' }}>
-                  <button type="button" className="btn-outline" style={{ flex: 1, display:'flex', alignItems:'center', gap:'0.3rem', justifyContent:'center' }} onClick={() => setPhoneStep('input')} disabled={phoneLoading}><LuArrowLeft size={13}/> Back</button>
-                  <button type="submit" className="btn-primary" style={{ flex: 2 }} disabled={phoneLoading || phoneOtp.length < 6}>{phoneLoading ? <BtnSpinner text="Verifying…" /> : 'Verify & Update'}</button>
+                  <button type="button" className="btn-outline" style={{ flex: 1, display:'flex', alignItems:'center', gap:'0.3rem', justifyContent:'center' }} onClick={() => setPhoneStep('input')} disabled={phoneLoading}><LuArrowLeft size={13}/> {tr('prf_phone_back')}</button>
+                  <button type="submit" className="btn-primary" style={{ flex: 2 }} disabled={phoneLoading || phoneOtp.length < 6}>{phoneLoading ? <BtnSpinner text={tr('prf_phone_verifying')} /> : tr('prf_phone_verify')}</button>
                 </div>
               </form>
             )}
@@ -2883,12 +2894,12 @@ function ProfileSection() {
         <div className="modal-backdrop" onClick={e => { if (e.target === e.currentTarget) setShowDeleteModal(false) }}>
           <div className="glass modal-box" style={{ padding: '1.75rem' }}>
             <h2 style={{ fontSize: '1rem', fontWeight: 800, color: '#fca5a5', marginBottom: '0.5rem' }}>Delete Account</h2>
-            <p style={{ color: 'var(--clr-muted)', fontSize: '0.85rem', marginBottom: '1rem' }}>Type <strong style={{ color: 'var(--clr-text)' }}>DELETE</strong> to confirm.</p>
+            <p style={{ color: 'var(--clr-muted)', fontSize: '0.85rem', marginBottom: '1rem' }}>Type <strong style={{ color: 'var(--clr-text)' }}>{tr('prf_del_type_delete')}</strong> {tr('prf_del_body')}</p>
             {deleteError && <div className="alert alert-error" style={{ marginBottom: '0.75rem' }}><LuTriangleAlert size={13}/> {deleteError}</div>}
-            <div className="input-wrap" style={{ marginBottom: '0.75rem' }}><input id="adm-del" type="text" placeholder=" " value={deleteConfirm} onChange={e => setDeleteConfirm(e.target.value)} autoComplete="off" /><label htmlFor="adm-del">Type DELETE</label></div>
+            <div className="input-wrap" style={{ marginBottom: '0.75rem' }}><input id="adm-del" type="text" placeholder=" " value={deleteConfirm} onChange={e => setDeleteConfirm(e.target.value)} autoComplete="off" /><label htmlFor="adm-del">{tr('prf_del_input_label')}</label></div>
             <div style={{ display: 'flex', gap: '0.6rem' }}>
-              <button className="btn-outline" style={{ flex: 1 }} onClick={() => setShowDeleteModal(false)}>Cancel</button>
-              <button disabled={deleteLoading || deleteConfirm !== 'DELETE'} onClick={handleDeleteAccount} style={{ flex: 1, padding: '0.7rem', borderRadius: 10, border: 'none', background: deleteConfirm === 'DELETE' ? '#ef4444' : 'rgba(239,68,68,0.25)', color: '#fff', fontFamily: 'inherit', fontSize: '0.85rem', fontWeight: 700, cursor: deleteConfirm === 'DELETE' ? 'pointer' : 'not-allowed' }}>{deleteLoading ? <BtnSpinner text="Deleting…" /> : 'Delete Forever'}</button>
+              <button className="btn-outline" style={{ flex: 1 }} onClick={() => setShowDeleteModal(false)}>{tr('prf_del_cancel')}</button>
+              <button disabled={deleteLoading || deleteConfirm !== 'DELETE'} onClick={handleDeleteAccount} style={{ flex: 1, padding: '0.7rem', borderRadius: 10, border: 'none', background: deleteConfirm === 'DELETE' ? '#ef4444' : 'rgba(239,68,68,0.25)', color: '#fff', fontFamily: 'inherit', fontSize: '0.85rem', fontWeight: 700, cursor: deleteConfirm === 'DELETE' ? 'pointer' : 'not-allowed' }}>{deleteLoading ? <BtnSpinner text={tr('prf_del_deleting')} /> : tr('prf_del_confirm')}</button>
             </div>
           </div>
         </div>
@@ -3189,7 +3200,7 @@ function DriverVerificationSection() {
     try {
       const { data } = await apiClient.get(`/admin/drivers?filter=${filter}`)
       setDrivers(data.drivers ?? [])
-    } catch { toast('Failed to load drivers') }
+    } catch { toast(tr('veh_toast_driver_fail')) }
     finally { setLoading(false) }
   }
 
@@ -3564,6 +3575,7 @@ function DriverVerificationSection() {
 // ─── Vehicle Management section ───────────────────────────────────────────────
 
 function VehicleManagementSection() {
+  const { t: tr } = useLanguage()
   const _apiBase = (import.meta.env.VITE_API_BASE_URL as string ?? '').replace(/\/api$/, '')
   const absUrl = (raw: string | null | undefined) => !raw ? null : raw.startsWith('http') ? raw : `${_apiBase}${raw}`
 
@@ -3606,7 +3618,7 @@ function VehicleManagementSection() {
     try {
       const { data } = await apiClient.get(`/admin/vehicles${showAll ? '?all=1' : ''}`)
       setVehicles(data.vehicles ?? [])
-    } catch { toast('Failed to load vehicles') }
+    } catch { toast(tr('veh_toast_load_fail')) }
     finally { setLoading(false) }
   }
 
@@ -3615,7 +3627,7 @@ function VehicleManagementSection() {
     try {
       const { data } = await apiClient.get('/admin/vehicles/submissions')
       setSubmissions(data.vehicles ?? [])
-    } catch { toast('Failed to load submissions') }
+    } catch { toast(tr('veh_toast_subs_fail')) }
     finally { setSubsLoading(false) }
   }
 
@@ -3641,7 +3653,7 @@ function VehicleManagementSection() {
 
   const handlePhotoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]; if (!file) return
-    if (file.size > 8 * 1024 * 1024) { setFormError('Max file size 8 MB'); return }
+    if (file.size > 8 * 1024 * 1024) { setFormError(tr('veh_err_photo_size')); return }
     const reader = new FileReader()
     reader.onload = () => setForm(f => ({ ...f, vehicle_photo: reader.result as string }))
     reader.readAsDataURL(file)
@@ -3652,7 +3664,7 @@ function VehicleManagementSection() {
     const files = Array.from(e.target.files ?? [])
     if (!files.length) return
     files.slice(0, 5 - vehicleGallery.length).forEach(file => {
-      if (file.size > 8 * 1024 * 1024) { setFormError('Max file size 8 MB each'); return }
+      if (file.size > 8 * 1024 * 1024) { setFormError(tr('veh_err_gallery_size')); return }
       const reader = new FileReader()
       reader.onload = () => setVehicleGallery(g => g.length < 5 ? [...g, reader.result as string] : g)
       reader.readAsDataURL(file)
@@ -3662,7 +3674,7 @@ function VehicleManagementSection() {
 
   const handleLibreSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]; if (!file) return
-    if (file.size > 8 * 1024 * 1024) { setFormError('Max 8 MB'); return }
+    if (file.size > 8 * 1024 * 1024) { setFormError(tr('veh_err_libre_size')); return }
     const reader = new FileReader()
     reader.onload = () => setFormLibre(reader.result as string)
     reader.readAsDataURL(file)
@@ -3671,9 +3683,9 @@ function VehicleManagementSection() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault(); setFormError('')
-    if (!form.plate_number.trim()) { setFormError('Plate number is required'); return }
+    if (!form.plate_number.trim()) { setFormError(tr('veh_err_plate')); return }
     const cap = parseFloat(form.max_capacity_kg)
-    if (isNaN(cap) || cap <= 0) { setFormError('Enter valid capacity (kg)'); return }
+    if (isNaN(cap) || cap <= 0) { setFormError(tr('veh_err_cap')); return }
     const payload: Record<string, unknown> = {
       plate_number: form.plate_number.trim(),
       vehicle_type: form.vehicle_type,
@@ -3688,13 +3700,13 @@ function VehicleManagementSection() {
     try {
       if (modal === 'create') {
         await apiClient.post('/admin/vehicles', payload)
-        toast('Vehicle created.')
+        toast(tr('veh_toast_created'))
       } else if (editTarget) {
         await apiClient.put(`/admin/vehicles/${editTarget.id}`, payload)
-        toast('Vehicle updated.')
+        toast(tr('veh_toast_updated'))
       }
       setModal(null); resetForm(); await load()
-    } catch (err: any) { setFormError(err.response?.data?.message ?? 'Failed.') }
+    } catch (err: any) { setFormError(err.response?.data?.message ?? tr('veh_toast_fail')) }
     finally { setActionLoading(null) }
   }
 
@@ -3702,9 +3714,9 @@ function VehicleManagementSection() {
     setActionLoading(`review-${vehicleId}-${action}`)
     try {
       await apiClient.post(`/admin/vehicles/${vehicleId}/review`, { action, driver_id: driverId })
-      toast(action === 'APPROVED' ? 'Vehicle approved & assigned to driver.' : 'Submission rejected.')
+      toast(action === 'APPROVED' ? tr('veh_toast_approved') : tr('veh_toast_sub_rejected'))
       await loadSubmissions()
-    } catch (err: any) { toast(err.response?.data?.message ?? 'Failed') }
+    } catch (err: any) { toast(err.response?.data?.message ?? tr('veh_toast_fail')) }
     finally { setActionLoading(null) }
   }
 
@@ -3712,8 +3724,8 @@ function VehicleManagementSection() {
     setActionLoading(`del-${v.id}`)
     try {
       await apiClient.delete(`/admin/vehicles/${v.id}`)
-      toast('Vehicle deactivated.'); setDeleteConfirm(null); await load()
-    } catch (err: any) { toast(err.response?.data?.message ?? 'Delete failed') }
+      toast(tr('veh_toast_deactivated')); setDeleteConfirm(null); await load()
+    } catch (err: any) { toast(err.response?.data?.message ?? tr('veh_toast_delete_fail')) }
     finally { setActionLoading(null) }
   }
 
@@ -3732,16 +3744,16 @@ function VehicleManagementSection() {
     setActionLoading(`assign-${assignModal.id}`)
     try {
       await apiClient.post(`/admin/vehicles/${assignModal.id}/assign-driver`, { driver_id: selectedDriver || null })
-      toast(selectedDriver ? 'Driver assigned.' : 'Driver unassigned.')
+      toast(selectedDriver ? tr('veh_toast_assigned') : tr('veh_toast_unassigned'))
       setAssignModal(null); await load()
-    } catch (err: any) { toast(err.response?.data?.message ?? 'Failed') }
+    } catch (err: any) { toast(err.response?.data?.message ?? tr('veh_toast_fail')) }
     finally { setActionLoading(null) }
   }
 
   return (
     <div style={{ display:'flex', flexDirection:'column', gap:'1rem' }}>
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', flexWrap:'wrap', gap:'0.5rem' }}>
-        <h2 style={{ fontSize:'1rem', fontWeight:800, color:'var(--clr-text)', display:'flex', alignItems:'center', gap:'0.45rem' }}><LuCar size={17}/> Vehicle Management</h2>
+        <h2 style={{ fontSize:'1rem', fontWeight:800, color:'var(--clr-text)', display:'flex', alignItems:'center', gap:'0.45rem' }}><LuCar size={17}/> {tr('veh_title')}</h2>
         <div style={{ display:'flex', gap:'0.5rem', alignItems:'center' }}>
           {vehicleTab === 'fleet' && (
             <>
@@ -3752,7 +3764,7 @@ function VehicleManagementSection() {
                 </button>
                 <span style={{ fontSize:'0.78rem', color:'var(--clr-muted)' }}>Show inactive</span>
               </div>
-              <button className="btn-primary" style={{ fontSize:'0.8rem', padding:'0.42rem 0.9rem', display:'flex', alignItems:'center', gap:'0.4rem' }} onClick={openCreate}><LuPlus size={14}/> Add Vehicle</button>
+              <button className="btn-primary" style={{ fontSize:'0.8rem', padding:'0.42rem 0.9rem', display:'flex', alignItems:'center', gap:'0.4rem' }} onClick={openCreate}><LuPlus size={14}/> {tr('veh_add_btn')}</button>
             </>
           )}
           <button className="btn-outline" style={{ fontSize:'0.75rem', padding:'0.35rem 0.7rem', display:'flex', alignItems:'center', gap:'0.35rem' }} onClick={vehicleTab === 'fleet' ? load : loadSubmissions} disabled={loading || subsLoading}><LuRefreshCw size={13}/></button>
@@ -3763,7 +3775,7 @@ function VehicleManagementSection() {
       <div style={{ display:'flex', gap:'0.4rem', background:'rgba(255,255,255,0.04)', borderRadius:12, padding:'0.3rem' }}>
         {(['fleet','submissions'] as const).map(tab => (
           <button key={tab} onClick={() => setVehicleTab(tab)} style={{ flex:1, padding:'0.45rem', border:'none', borderRadius:9, background: vehicleTab===tab ? 'rgba(0,229,255,0.12)' : 'transparent', color: vehicleTab===tab ? 'var(--clr-accent)' : 'var(--clr-muted)', fontFamily:'inherit', fontSize:'0.78rem', fontWeight:600, cursor:'pointer', transition:'all 0.18s', outline: vehicleTab===tab ? '1px solid rgba(0,229,255,0.2)' : 'none' }}>
-            {tab === 'fleet' ? 'Fleet' : `Driver Submissions${submissions.length > 0 ? ` (${submissions.length})` : ''}`}
+            {tab === 'fleet' ? tr('veh_tab_fleet') : `${tr('veh_tab_submissions')}${submissions.length > 0 ? ` (${submissions.length})` : ''}`}
           </button>
         ))}
       </div>
@@ -3771,7 +3783,7 @@ function VehicleManagementSection() {
       {/* Fleet tab */}
       {vehicleTab === 'fleet' && (
         loading ? <LoadingSpinner /> : vehicles.length === 0 ? (
-          <div className="glass-inner" style={{ padding:'2.5rem', textAlign:'center', color:'var(--clr-muted)', fontSize:'0.875rem' }}>No vehicles found. Add one above.</div>
+          <div className="glass-inner" style={{ padding:'2.5rem', textAlign:'center', color:'var(--clr-muted)', fontSize:'0.875rem' }}>{tr('veh_none')}</div>
         ) : (
           <div className="glass-inner" style={{ overflow:'hidden' }}>
             {vehicles.map((v, i) => {
@@ -3788,11 +3800,11 @@ function VehicleManagementSection() {
                     <div style={{ display:'flex', alignItems:'center', gap:'0.4rem', flexWrap:'wrap' }}>
                       <span style={{ fontWeight:700, fontSize:'0.885rem', color:'var(--clr-text)' }}>{v.plate_number}</span>
                       <span className="badge badge-cyan" style={{ fontSize:'0.67rem' }}>{v.vehicle_type}</span>
-                      {!!v.is_company_owned && <span className="badge badge-purple" style={{ fontSize:'0.67rem' }}>Company</span>}
-                      {!v.is_active && <span className="badge badge-red" style={{ fontSize:'0.67rem' }}>Inactive</span>}
+                      {!!v.is_company_owned && <span className="badge badge-purple" style={{ fontSize:'0.67rem' }}>{tr('veh_badge_company')}</span>}
+                      {!v.is_active && <span className="badge badge-red" style={{ fontSize:'0.67rem' }}>{tr('veh_badge_inactive')}</span>}
                       {v.libre_url && <a href={absUrl(v.libre_url)!} target="_blank" rel="noopener noreferrer" style={{ fontSize:'0.65rem', display:'inline-flex', alignItems:'center', gap:'0.15rem', color:'var(--clr-muted)', textDecoration:'none', border:'1px solid rgba(255,255,255,0.10)', borderRadius:5, padding:'0.1rem 0.35rem' }}><LuFileText size={10}/> Libre</a>}
                     </div>
-                    <p style={{ fontSize:'0.73rem', color:'var(--clr-muted)', marginTop:'0.1rem' }}>{v.max_capacity_kg} kg · {v.driver_id ? 'Assigned' : 'Unassigned'}</p>
+                    <p style={{ fontSize:'0.73rem', color:'var(--clr-muted)', marginTop:'0.1rem' }}>{v.max_capacity_kg} kg · {v.driver_id ? tr('veh_assigned') : tr('veh_unassigned')}</p>
                     {v.description && <p style={{ fontSize:'0.7rem', color:'var(--clr-muted)' }}>{v.description}</p>}
                     {gallery.length > 0 && (
                       <div style={{ display:'flex', gap:'0.3rem', marginTop:'0.4rem', flexWrap:'wrap' }}>
@@ -3833,7 +3845,7 @@ function VehicleManagementSection() {
       {/* Driver Submissions tab */}
       {vehicleTab === 'submissions' && (
         subsLoading ? <LoadingSpinner /> : submissions.length === 0 ? (
-          <div className="glass-inner" style={{ padding:'2.5rem', textAlign:'center', color:'var(--clr-muted)', fontSize:'0.875rem' }}>No driver vehicle submissions yet.</div>
+          <div className="glass-inner" style={{ padding:'2.5rem', textAlign:'center', color:'var(--clr-muted)', fontSize:'0.875rem' }}>{tr('veh_sub_none')}</div>
         ) : (
           <div style={{ display:'flex', flexDirection:'column', gap:'0.65rem' }}>
             {submissions.map(v => {
@@ -3852,19 +3864,19 @@ function VehicleManagementSection() {
                       <span className="badge badge-cyan" style={{ fontSize:'0.67rem' }}>{v.vehicle_type}</span>
                       <span style={{ fontSize:'0.68rem', fontWeight:700, color:sColor, background:`${sColor}18`, border:`1px solid ${sColor}44`, borderRadius:99, padding:'0.15rem 0.5rem' }}>{v.driver_submission_status ?? 'PENDING'}</span>
                     </div>
-                    <p style={{ fontSize:'0.73rem', color:'var(--clr-muted)', marginTop:'0.1rem' }}>By: <strong style={{ color:'var(--clr-text)' }}>{submitterName}</strong> · {v.max_capacity_kg} kg</p>
+                    <p style={{ fontSize:'0.73rem', color:'var(--clr-muted)', marginTop:'0.1rem' }}>{tr('veh_sub_by')} <strong style={{ color:'var(--clr-text)' }}>{submitterName}</strong> · {v.max_capacity_kg} kg</p>
                     {v.description && <p style={{ fontSize:'0.7rem', color:'var(--clr-muted)' }}>{v.description}</p>}
-                    {v.libre_url && <a href={absUrl(v.libre_url)!} target="_blank" rel="noopener noreferrer" style={{ fontSize:'0.65rem', display:'inline-flex', alignItems:'center', gap:'0.15rem', color:'var(--clr-accent)', textDecoration:'none', marginTop:'0.2rem' }}><LuFileText size={10}/> View Libre ↗</a>}
+                    {v.libre_url && <a href={absUrl(v.libre_url)!} target="_blank" rel="noopener noreferrer" style={{ fontSize:'0.65rem', display:'inline-flex', alignItems:'center', gap:'0.15rem', color:'var(--clr-accent)', textDecoration:'none', marginTop:'0.2rem' }}><LuFileText size={10}/> {tr('veh_view_libre')}</a>}
                   </div>
                   {v.driver_submission_status === 'PENDING' && (
                     <div style={{ display:'flex', gap:'0.4rem', flexShrink:0 }}>
                       <button onClick={() => handleReviewSubmission(v.id, 'APPROVED', v.submitted_by_driver_id ?? undefined)} disabled={!!actionLoading}
                         style={{ padding:'0.3rem 0.65rem', borderRadius:7, border:'1px solid rgba(74,222,128,0.35)', background:'rgba(74,222,128,0.08)', color:'#4ade80', fontFamily:'inherit', fontSize:'0.72rem', fontWeight:600, cursor:'pointer', display:'flex', alignItems:'center', gap:'0.25rem' }}>
-                        {actionLoading === `review-${v.id}-APPROVED` ? <span className="spinner"/> : null}✓ Approve
+                        {actionLoading === `review-${v.id}-APPROVED` ? <span className="spinner"/> : null}{tr('veh_approve_btn')}
                       </button>
                       <button onClick={() => handleReviewSubmission(v.id, 'REJECTED')} disabled={!!actionLoading}
                         style={{ padding:'0.3rem 0.65rem', borderRadius:7, border:'1px solid rgba(239,68,68,0.35)', background:'rgba(239,68,68,0.08)', color:'#fca5a5', fontFamily:'inherit', fontSize:'0.72rem', fontWeight:600, cursor:'pointer', display:'flex', alignItems:'center', gap:'0.25rem' }}>
-                        {actionLoading === `review-${v.id}-REJECTED` ? <span className="spinner"/> : null}✕ Reject
+                        {actionLoading === `review-${v.id}-REJECTED` ? <span className="spinner"/> : null}{tr('veh_reject_btn')}
                       </button>
                     </div>
                   )}
@@ -3879,16 +3891,16 @@ function VehicleManagementSection() {
       {modal !== null && (
         <div className="modal-backdrop" onClick={e => { if (e.target === e.currentTarget) { setModal(null); resetForm() } }}>
           <div className="glass modal-box" style={{ padding:'1.75rem', maxWidth:460, width:'95%', maxHeight:'90vh', overflowY:'auto' }}>
-            <h2 style={{ fontSize:'1rem', fontWeight:800, color:'var(--clr-text)', marginBottom:'1.1rem', display:'flex', alignItems:'center', gap:'0.4rem' }}><LuCar size={16}/> {modal === 'create' ? 'Add New Vehicle' : 'Edit Vehicle'}</h2>
+            <h2 style={{ fontSize:'1rem', fontWeight:800, color:'var(--clr-text)', marginBottom:'1.1rem', display:'flex', alignItems:'center', gap:'0.4rem' }}><LuCar size={16}/> {modal === 'create' ? tr('veh_create_title') : tr('veh_edit_title')}</h2>
             <form onSubmit={handleSubmit} style={{ display:'flex', flexDirection:'column', gap:'0.7rem' }}>
               {formError && <div className="alert alert-error"><LuTriangleAlert size={13}/> {formError}</div>}
-              <div className="input-wrap"><input id="veh-plate" type="text" placeholder=" " value={form.plate_number} onChange={e => setForm(f => ({ ...f, plate_number: e.target.value }))} required/><label htmlFor="veh-plate">Plate Number *</label></div>
+              <div className="input-wrap"><input id="veh-plate" type="text" placeholder=" " value={form.plate_number} onChange={e => setForm(f => ({ ...f, plate_number: e.target.value }))} required/><label htmlFor="veh-plate">{tr('veh_plate_label')}</label></div>
               <div className="input-wrap">
                 <VehicleTypeSelect value={form.vehicle_type} onChange={v => setForm(f => ({ ...f, vehicle_type: v }))} style={{ paddingTop:'1.1rem' }}/>
-                <label htmlFor="veh-type" style={{ top:'0.35rem', fontSize:'0.7rem', color:'var(--clr-accent)' }}>Vehicle Type</label>
+                <label htmlFor="veh-type" style={{ top:'0.35rem', fontSize:'0.7rem', color:'var(--clr-accent)' }}>{tr('veh_type_label')}</label>
               </div>
-              <div className="input-wrap"><input id="veh-cap" type="number" placeholder=" " min="1" step="1" value={form.max_capacity_kg} onChange={e => setForm(f => ({ ...f, max_capacity_kg: e.target.value }))} required/><label htmlFor="veh-cap">Max Capacity (kg) *</label></div>
-              <div className="input-wrap"><input id="veh-desc" type="text" placeholder=" " value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))}/><label htmlFor="veh-desc">Description (optional)</label></div>
+              <div className="input-wrap"><input id="veh-cap" type="number" placeholder=" " min="1" step="1" value={form.max_capacity_kg} onChange={e => setForm(f => ({ ...f, max_capacity_kg: e.target.value }))} required/><label htmlFor="veh-cap">{tr('veh_cap_label')}</label></div>
+              <div className="input-wrap"><input id="veh-desc" type="text" placeholder=" " value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))}/><label htmlFor="veh-desc">{tr('veh_desc_label')}</label></div>
               {/* company owned toggle */}
               <div style={{ display:'flex', alignItems:'center', gap:'0.65rem' }}>
                 <button type="button" onClick={() => setForm(f => ({ ...f, is_company_owned: !f.is_company_owned }))}
@@ -3901,7 +3913,7 @@ function VehicleManagementSection() {
               <div>
                 <p style={{ fontSize:'0.75rem', color:'var(--clr-muted)', marginBottom:'0.35rem', fontWeight:600 }}>Main Photo (optional)</p>
                 <label htmlFor="veh-photo" style={{ display:'flex', alignItems:'center', gap:'0.5rem', padding:'0.6rem', borderRadius:10, border:'1px dashed rgba(255,255,255,0.18)', color: form.vehicle_photo ? 'var(--clr-accent)' : 'var(--clr-muted)', cursor:'pointer', fontSize:'0.82rem', fontWeight:600, background:'rgba(255,255,255,0.02)' }}>
-                  <LuCamera size={14}/> {form.vehicle_photo ? 'Photo selected ✓' : (modal === 'edit' ? 'Replace photo (optional)' : 'Add photo (optional)')}
+                  <LuCamera size={14}/> {form.vehicle_photo ? tr('veh_photo_selected') : (modal === 'edit' ? tr('veh_photo_replace') : tr('veh_photo_add'))}
                 </label>
                 <input id="veh-photo" ref={photoInputRef} type="file" accept="image/jpeg,image/png,image/webp" style={{ display:'none' }} onChange={handlePhotoSelect}/>
               </div>
@@ -3909,7 +3921,7 @@ function VehicleManagementSection() {
               <div>
                 <p style={{ fontSize:'0.75rem', color:'var(--clr-muted)', marginBottom:'0.35rem', fontWeight:600 }}>Gallery — up to 5 images (optional)</p>
                 <label htmlFor="veh-gallery" style={{ display:'flex', alignItems:'center', gap:'0.5rem', padding:'0.6rem', borderRadius:10, border:'1px dashed rgba(255,255,255,0.18)', color: vehicleGallery.length > 0 ? 'var(--clr-accent)' : 'var(--clr-muted)', cursor: vehicleGallery.length >= 5 ? 'not-allowed' : 'pointer', fontSize:'0.82rem', fontWeight:600, background:'rgba(255,255,255,0.02)', opacity: vehicleGallery.length >= 5 ? 0.5 : 1 }}>
-                  <LuCamera size={14}/> {vehicleGallery.length > 0 ? `${vehicleGallery.length}/5 selected` : 'Add gallery images'}
+                  <LuCamera size={14}/> {vehicleGallery.length > 0 ? `${vehicleGallery.length}/5 selected` : tr('veh_gallery_add')}
                 </label>
                 <input id="veh-gallery" ref={galleryInputRef} type="file" accept="image/jpeg,image/png,image/webp" multiple style={{ display:'none' }} onChange={handleGallerySelect} disabled={vehicleGallery.length >= 5}/>
                 {vehicleGallery.length > 0 && (
@@ -3930,13 +3942,13 @@ function VehicleManagementSection() {
               <div>
                 <p style={{ fontSize:'0.75rem', color:'var(--clr-muted)', marginBottom:'0.35rem', fontWeight:600 }}>Libre Document (optional)</p>
                 <label htmlFor="veh-libre" style={{ display:'flex', alignItems:'center', gap:'0.5rem', padding:'0.6rem', borderRadius:10, border:'1px dashed rgba(255,255,255,0.18)', color: formLibre ? 'var(--clr-accent)' : 'var(--clr-muted)', cursor:'pointer', fontSize:'0.82rem', fontWeight:600, background:'rgba(255,255,255,0.02)' }}>
-                  <LuFileText size={14}/> {formLibre ? 'Libre selected ✓' : (modal === 'edit' ? 'Replace libre (optional)' : 'Upload libre (optional)')}
+                  <LuFileText size={14}/> {formLibre ? tr('veh_libre_selected') : (modal === 'edit' ? tr('veh_libre_replace') : tr('veh_libre_upload'))}
                 </label>
                 <input id="veh-libre" ref={libreInputRef} type="file" accept="image/jpeg,image/png,image/webp,application/pdf" style={{ display:'none' }} onChange={handleLibreSelect}/>
               </div>
               <div style={{ display:'flex', gap:'0.6rem', marginTop:'0.25rem' }}>
-                <button type="button" className="btn-outline" style={{ flex:1 }} onClick={() => { setModal(null); resetForm() }}>Cancel</button>
-                <button type="submit" className="btn-primary" style={{ flex:2 }} disabled={actionLoading === 'form'}>{actionLoading === 'form' ? <><span className="spinner"/> Saving…</> : (modal === 'create' ? 'Create Vehicle' : 'Save Changes')}</button>
+                <button type="button" className="btn-outline" style={{ flex:1 }} onClick={() => { setModal(null); resetForm() }}>{tr('veh_cancel')}</button>
+                <button type="submit" className="btn-primary" style={{ flex:2 }} disabled={actionLoading === 'form'}>{actionLoading === 'form' ? <><span className="spinner"/> {tr('veh_saving')}</> : (modal === 'create' ? tr('veh_create_submit') : tr('veh_save_changes'))}</button>
               </div>
             </form>
           </div>
@@ -3947,24 +3959,24 @@ function VehicleManagementSection() {
       {assignModal && (
         <div className="modal-backdrop" onClick={e => { if (e.target === e.currentTarget) setAssignModal(null) }}>
           <div className="glass modal-box" style={{ padding:'1.75rem' }}>
-            <h2 style={{ fontSize:'1rem', fontWeight:800, color:'var(--clr-text)', marginBottom:'0.35rem', display:'flex', alignItems:'center', gap:'0.4rem' }}><LuTruck size={15}/> Assign Driver</h2>
-            <p style={{ fontSize:'0.8rem', color:'var(--clr-muted)', marginBottom:'1rem' }}>Vehicle: <strong style={{ color:'var(--clr-text)' }}>{assignModal.plate_number}</strong></p>
+            <h2 style={{ fontSize:'1rem', fontWeight:800, color:'var(--clr-text)', marginBottom:'0.35rem', display:'flex', alignItems:'center', gap:'0.4rem' }}><LuTruck size={15}/> {tr('veh_assign_title')}</h2>
+            <p style={{ fontSize:'0.8rem', color:'var(--clr-muted)', marginBottom:'1rem' }}>{tr('veh_vehicle_label')} <strong style={{ color:'var(--clr-text)' }}>{assignModal.plate_number}</strong></p>
             {driversLoading ? <LoadingSpinner /> : (
               <>
                 <div className="input-wrap" style={{ marginBottom:'0.75rem' }}>
                   <select id="drv-sel" value={selectedDriver} onChange={e => setSelectedDriver(e.target.value)}
                     style={{ background:'transparent', border:'none', color:'var(--clr-text)', fontFamily:'inherit', fontSize:'0.9rem', width:'100%', outline:'none', paddingTop:'1.1rem' }}>
-                    <option value="" style={{ background:'#0f172a' }}>— Unassign driver —</option>
+                    <option value="" style={{ background:'#0f172a' }}>{tr('veh_unassign_opt')}</option>
                     {allDrivers.map(d => (
                       <option key={d.user_id} value={d.user_id} style={{ background:'#0f172a' }}>{d.first_name} {d.last_name} · {d.phone_number}</option>
                     ))}
                   </select>
-                  <label htmlFor="drv-sel" style={{ top:'0.35rem', fontSize:'0.7rem', color:'var(--clr-accent)' }}>Verified Driver</label>
+                  <label htmlFor="drv-sel" style={{ top:'0.35rem', fontSize:'0.7rem', color:'var(--clr-accent)' }}>{tr('veh_driver_label')}</label>
                 </div>
                 <div style={{ display:'flex', gap:'0.6rem' }}>
-                  <button className="btn-outline" style={{ flex:1 }} onClick={() => setAssignModal(null)}>Cancel</button>
+                  <button className="btn-outline" style={{ flex:1 }} onClick={() => setAssignModal(null)}>{tr('veh_cancel')}</button>
                   <button className="btn-primary" style={{ flex:2 }} disabled={!!actionLoading} onClick={handleAssign}>
-                    {actionLoading ? <><span className="spinner"/> …</> : (selectedDriver ? 'Assign Driver' : 'Unassign')}
+                    {actionLoading ? <><span className="spinner"/> …</> : (selectedDriver ? tr('veh_assign_btn') : tr('veh_unassign_btn'))}
                   </button>
                 </div>
               </>
@@ -3977,13 +3989,13 @@ function VehicleManagementSection() {
       {deleteConfirm && (
         <div className="modal-backdrop" onClick={e => { if (e.target === e.currentTarget) setDeleteConfirm(null) }}>
           <div className="glass modal-box" style={{ padding:'1.75rem' }}>
-            <h2 style={{ fontSize:'1rem', fontWeight:800, color:'#fca5a5', marginBottom:'0.4rem', display:'flex', alignItems:'center', gap:'0.4rem' }}><LuTriangleAlert size={15}/> Deactivate Vehicle</h2>
-            <p style={{ fontSize:'0.85rem', color:'var(--clr-muted)', marginBottom:'1.1rem' }}>Deactivate <strong style={{ color:'var(--clr-text)' }}>{deleteConfirm.plate_number}</strong>? The vehicle will be hidden but not deleted.</p>
+            <h2 style={{ fontSize:'1rem', fontWeight:800, color:'#fca5a5', marginBottom:'0.4rem', display:'flex', alignItems:'center', gap:'0.4rem' }}><LuTriangleAlert size={15}/> {tr('veh_deactivate_title')}</h2>
+            <p style={{ fontSize:'0.85rem', color:'var(--clr-muted)', marginBottom:'1.1rem' }}>Deactivate <strong style={{ color:'var(--clr-text)' }}>{deleteConfirm.plate_number}</strong>? {tr('veh_deactivate_confirm')}</p>
             <div style={{ display:'flex', gap:'0.6rem' }}>
-              <button className="btn-outline" style={{ flex:1 }} onClick={() => setDeleteConfirm(null)}>Cancel</button>
+              <button className="btn-outline" style={{ flex:1 }} onClick={() => setDeleteConfirm(null)}>{tr('veh_cancel')}</button>
               <button disabled={!!actionLoading} onClick={() => handleDelete(deleteConfirm)}
                 style={{ flex:1, padding:'0.7rem', borderRadius:10, border:'none', background:'#ef4444', color:'#fff', fontFamily:'inherit', fontSize:'0.85rem', fontWeight:700, cursor:'pointer' }}>
-                {actionLoading ? <><span className="spinner"/> …</> : 'Deactivate'}
+                {actionLoading ? <><span className="spinner"/> …</> : tr('veh_deactivate_btn')}
               </button>
             </div>
           </div>
@@ -6516,6 +6528,7 @@ function AdminGuestOrdersSection() {
 interface CargoType { id: number; name: string; description: string | null; requires_special_handling: number; icon: string | null; icon_url: string | null; is_active: number }
 
 function AdminCargoTypesSection() {
+  const { t: tr } = useLanguage()
   const [items, setItems] = useState<CargoType[]>([])
   const [loading, setLoading] = useState(false)
   const [modal, setModal] = useState<'create' | 'edit' | null>(null)
@@ -6545,7 +6558,7 @@ function AdminCargoTypesSection() {
   const load = async () => {
     setLoading(true)
     try { const { data } = await adminOrderApi.listCargoTypes(); setItems(data.cargo_types ?? []) }
-    catch { showToast('Failed to load') }
+    catch { showToast(tr('ct_load_fail')) }
     finally { setLoading(false) }
   }
 
@@ -6556,18 +6569,18 @@ function AdminCargoTypesSection() {
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!form.name.trim()) { setFormErr('Name required'); return }
+    if (!form.name.trim()) { setFormErr(tr('ct_err_name')); return }
     setFormErr(''); setSaving(true)
     try {
       if (modal === 'create') {
         await adminOrderApi.createCargoType({ name:form.name.trim(), description:form.description||undefined, requires_special_handling:form.requires_special_handling, icon:iconMode==='preset'?form.icon||undefined:undefined, icon_url:iconMode==='custom'?form.icon_url||undefined:undefined })
-        showToast('Cargo type created.')
+        showToast(tr('ct_created'))
       } else if (editTarget) {
         await adminOrderApi.updateCargoType(editTarget.id, { name:form.name.trim(), description:form.description||undefined, requires_special_handling:form.requires_special_handling, icon:iconMode==='preset'?form.icon||undefined:undefined, icon_url:iconMode==='custom'?form.icon_url||undefined:undefined, is_active:form.is_active })
-        showToast('Updated.')
+        showToast(tr('ct_updated'))
       }
       setModal(null); load()
-    } catch (err: any) { setFormErr(err.response?.data?.message ?? 'Failed') }
+    } catch (err: any) { setFormErr(err.response?.data?.message ?? tr('ct_err_fail')) }
     finally { setSaving(false) }
   }
 
@@ -6577,7 +6590,7 @@ function AdminCargoTypesSection() {
   return (
     <div style={{ display:'flex', flexDirection:'column', gap:'1.25rem' }}>
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', flexWrap:'wrap', gap:'0.5rem' }}>
-        <h2 style={{ fontSize:'1rem', fontWeight:800, color:'var(--clr-text)', display:'flex', alignItems:'center', gap:'0.45rem' }}><LuBox size={17}/> Cargo Types</h2>
+        <h2 style={{ fontSize:'1rem', fontWeight:800, color:'var(--clr-text)', display:'flex', alignItems:'center', gap:'0.45rem' }}><LuBox size={17}/> {tr('ct_title')}</h2>
         <div style={{ display:'flex', gap:'0.5rem' }}>
           <button onClick={load} style={{ display:'flex', alignItems:'center', gap:'0.35rem', padding:'0.3rem 0.7rem', borderRadius:8, border:'1px solid rgba(255,255,255,0.1)', background:'rgba(255,255,255,0.04)', color:'var(--clr-muted)', fontFamily:'inherit', fontSize:'0.72rem', fontWeight:600, cursor:'pointer' }}><LuRefreshCw size={12}/></button>
           <button onClick={openCreate} style={{ display:'flex', alignItems:'center', gap:'0.4rem', padding:'0.38rem 0.85rem', borderRadius:8, border:'none', background:'var(--clr-accent)', color:'#000', fontFamily:'inherit', fontSize:'0.8rem', fontWeight:700, cursor:'pointer' }}><LuPlus size={14}/> Add</button>
@@ -6585,7 +6598,7 @@ function AdminCargoTypesSection() {
       </div>
       {loading ? <LoadingSpinner /> : (
         <div className="glass-inner" style={{ overflow:'hidden' }}>
-          {items.length === 0 ? <p style={{ padding:'2rem', textAlign:'center', color:'var(--clr-muted)' }}>No cargo types.</p>
+          {items.length === 0 ? <p style={{ padding:'2rem', textAlign:'center', color:'var(--clr-muted)' }}>{tr('ct_empty')}</p>
           : items.map((c, i) => (
             <div key={c.id} style={{ display:'flex', alignItems:'center', gap:'0.75rem', padding:'0.75rem 1rem', borderBottom: i < items.length-1 ? '1px solid rgba(255,255,255,0.05)' : 'none' }}>
               <div style={{ width:36, height:36, borderRadius:8, background:'rgba(0,229,255,0.08)', border:'1px solid rgba(0,229,255,0.15)', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, color:'var(--clr-accent)', fontSize:'1rem' }}>
@@ -6594,12 +6607,12 @@ function AdminCargoTypesSection() {
               <div style={{ flex:1, minWidth:0 }}>
                 <div style={{ display:'flex', alignItems:'center', gap:'0.4rem', flexWrap:'wrap' }}>
                   <span style={{ fontWeight:700, fontSize:'0.875rem', color:'var(--clr-text)' }}>{c.name}</span>
-                  {!c.is_active && <span className="badge badge-red" style={{ fontSize:'0.65rem' }}>Inactive</span>}
-                  {!!c.requires_special_handling && <span className="badge badge-purple" style={{ fontSize:'0.65rem' }}>Special Handling</span>}
+                  {!c.is_active && <span className="badge badge-red" style={{ fontSize:'0.65rem' }}>{tr('ct_badge_inactive')}</span>}
+                  {!!c.requires_special_handling && <span className="badge badge-purple" style={{ fontSize:'0.65rem' }}>{tr('ct_badge_special')}</span>}
                 </div>
                 {c.description && <p style={{ fontSize:'0.73rem', color:'var(--clr-muted)', marginTop:'0.1rem' }}>{c.description}</p>}
               </div>
-              <button onClick={() => openEdit(c)} style={{ padding:'0.28rem 0.55rem', borderRadius:7, border:'1px solid rgba(255,255,255,0.12)', background:'rgba(255,255,255,0.05)', color:'var(--clr-muted)', fontFamily:'inherit', fontSize:'0.7rem', cursor:'pointer', display:'flex', alignItems:'center', gap:'0.3rem' }}><LuPencil size={11}/> Edit</button>
+              <button onClick={() => openEdit(c)} style={{ padding:'0.28rem 0.55rem', borderRadius:7, border:'1px solid rgba(255,255,255,0.12)', background:'rgba(255,255,255,0.05)', color:'var(--clr-muted)', fontFamily:'inherit', fontSize:'0.7rem', cursor:'pointer', display:'flex', alignItems:'center', gap:'0.3rem' }}><LuPencil size={11}/> {tr('ct_btn_edit')}</button>
             </div>
           ))}
         </div>
@@ -6608,17 +6621,17 @@ function AdminCargoTypesSection() {
       {(modal === 'create' || modal === 'edit') && (
         <div className="modal-backdrop" onClick={e => { if (e.target === e.currentTarget) setModal(null) }}>
           <div className="glass modal-box" style={{ padding:'1.75rem', maxWidth:420 }}>
-            <h2 style={{ fontSize:'1rem', fontWeight:800, color:'var(--clr-text)', marginBottom:'1rem' }}>{modal === 'create' ? 'Add Cargo Type' : 'Edit Cargo Type'}</h2>
+            <h2 style={{ fontSize:'1rem', fontWeight:800, color:'var(--clr-text)', marginBottom:'1rem' }}>{modal === 'create' ? tr('ct_modal_create') : tr('ct_modal_edit')}</h2>
             <form onSubmit={handleSave} style={{ display:'flex', flexDirection:'column', gap:'0.75rem' }}>
               {formErr && <div className="alert alert-error"><LuTriangleAlert size={13}/> {formErr}</div>}
-              <div><label style={labelStyle}>Name *</label><input style={inputStyle} value={form.name} onChange={e => setForm(f => ({ ...f, name:e.target.value }))} required/></div>
-              <div><label style={labelStyle}>Description</label><input style={inputStyle} value={form.description} onChange={e => setForm(f => ({ ...f, description:e.target.value }))}/></div>
+              <div><label style={labelStyle}>{tr('ct_label_name')}</label><input style={inputStyle} value={form.name} onChange={e => setForm(f => ({ ...f, name:e.target.value }))} required/></div>
+              <div><label style={labelStyle}>{tr('ct_label_desc')}</label><input style={inputStyle} value={form.description} onChange={e => setForm(f => ({ ...f, description:e.target.value }))}/></div>
               {/* Icon picker */}
               <div>
-                <label style={labelStyle}>Icon</label>
+                <label style={labelStyle}>{tr('ct_label_icon')}</label>
                 <div style={{ display:'flex', gap:'0.5rem', marginBottom:'0.6rem' }}>
-                  <button type="button" onClick={() => setIconMode('preset')} style={{ flex:1, padding:'0.4rem', borderRadius:7, border:`1px solid ${iconMode==='preset'?'var(--clr-accent)':'rgba(255,255,255,0.1)'}`, background:iconMode==='preset'?'rgba(0,229,255,0.1)':'rgba(255,255,255,0.04)', color:iconMode==='preset'?'var(--clr-accent)':'var(--clr-muted)', fontFamily:'inherit', fontSize:'0.75rem', fontWeight:600, cursor:'pointer' }}>Preset Icons</button>
-                  <button type="button" onClick={() => setIconMode('custom')} style={{ flex:1, padding:'0.4rem', borderRadius:7, border:`1px solid ${iconMode==='custom'?'var(--clr-accent)':'rgba(255,255,255,0.1)'}`, background:iconMode==='custom'?'rgba(0,229,255,0.1)':'rgba(255,255,255,0.04)', color:iconMode==='custom'?'var(--clr-accent)':'var(--clr-muted)', fontFamily:'inherit', fontSize:'0.75rem', fontWeight:600, cursor:'pointer' }}><LuImage size={12}/> Custom Image</button>
+                  <button type="button" onClick={() => setIconMode('preset')} style={{ flex:1, padding:'0.4rem', borderRadius:7, border:`1px solid ${iconMode==='preset'?'var(--clr-accent)':'rgba(255,255,255,0.1)'}`, background:iconMode==='preset'?'rgba(0,229,255,0.1)':'rgba(255,255,255,0.04)', color:iconMode==='preset'?'var(--clr-accent)':'var(--clr-muted)', fontFamily:'inherit', fontSize:'0.75rem', fontWeight:600, cursor:'pointer' }}>{tr('ct_icon_preset')}</button>
+                  <button type="button" onClick={() => setIconMode('custom')} style={{ flex:1, padding:'0.4rem', borderRadius:7, border:`1px solid ${iconMode==='custom'?'var(--clr-accent)':'rgba(255,255,255,0.1)'}`, background:iconMode==='custom'?'rgba(0,229,255,0.1)':'rgba(255,255,255,0.04)', color:iconMode==='custom'?'var(--clr-accent)':'var(--clr-muted)', fontFamily:'inherit', fontSize:'0.75rem', fontWeight:600, cursor:'pointer' }}><LuImage size={12}/> {tr('ct_icon_custom')}</button>
                 </div>
                 {iconMode === 'preset' ? (
                   <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:'0.4rem' }}>
@@ -6634,7 +6647,7 @@ function AdminCargoTypesSection() {
                   <div>
                     {form.icon_url && <img src={form.icon_url} alt="icon preview" style={{ width:56, height:56, borderRadius:8, objectFit:'cover', border:'1px solid rgba(255,255,255,0.1)', marginBottom:'0.4rem' }}/>}
                     <label style={{ display:'flex', alignItems:'center', gap:'0.5rem', padding:'0.5rem 0.75rem', borderRadius:8, border:'1px dashed rgba(255,255,255,0.2)', background:'rgba(255,255,255,0.03)', color:'var(--clr-muted)', cursor:'pointer', fontSize:'0.78rem' }}>
-                      <LuImage size={14}/> {form.icon_url ? 'Change image' : 'Upload image'}
+                      <LuImage size={14}/> {form.icon_url ? tr('ct_icon_change') : tr('ct_icon_upload')}
                       <input type="file" accept="image/*" style={{ display:'none' }} onChange={e => {
                         const file = e.target.files?.[0]; if (!file) return
                         const reader = new FileReader()
@@ -6650,7 +6663,7 @@ function AdminCargoTypesSection() {
                   style={{ width:38, height:22, borderRadius:99, border:'none', cursor:'pointer', background: form.requires_special_handling ? 'var(--clr-accent)' : 'rgba(255,255,255,0.12)', transition:'background 0.2s', flexShrink:0, position:'relative' }}>
                   <span style={{ position:'absolute', top:2, left: form.requires_special_handling ? 18 : 2, width:18, height:18, borderRadius:'50%', background: form.requires_special_handling ? '#080b14' : 'var(--clr-muted)', transition:'left 0.2s' }}/>
                 </button>
-                <span style={{ fontSize:'0.85rem', color:'var(--clr-text)' }}>Requires special handling</span>
+                <span style={{ fontSize:'0.85rem', color:'var(--clr-text)' }}>{tr('ct_toggle_special')}</span>
               </div>
               {modal === 'edit' && (
                 <div style={{ display:'flex', alignItems:'center', gap:'0.65rem' }}>
@@ -6658,12 +6671,12 @@ function AdminCargoTypesSection() {
                     style={{ width:38, height:22, borderRadius:99, border:'none', cursor:'pointer', background: form.is_active ? 'var(--clr-accent)' : 'rgba(255,255,255,0.12)', transition:'background 0.2s', flexShrink:0, position:'relative' }}>
                     <span style={{ position:'absolute', top:2, left: form.is_active ? 18 : 2, width:18, height:18, borderRadius:'50%', background: form.is_active ? '#080b14' : 'var(--clr-muted)', transition:'left 0.2s' }}/>
                   </button>
-                  <span style={{ fontSize:'0.85rem', color:'var(--clr-text)' }}>Active</span>
+                  <span style={{ fontSize:'0.85rem', color:'var(--clr-text)' }}>{tr('ct_toggle_active')}</span>
                 </div>
               )}
               <div style={{ display:'flex', gap:'0.6rem', marginTop:'0.25rem' }}>
-                <button type="button" className="btn-outline" style={{ flex:1 }} onClick={() => setModal(null)}>Cancel</button>
-                <button type="submit" className="btn-primary" style={{ flex:2 }} disabled={saving}>{saving ? <BtnSpinner text="Saving…" /> : modal === 'create' ? 'Create' : 'Save Changes'}</button>
+                <button type="button" className="btn-outline" style={{ flex:1 }} onClick={() => setModal(null)}>{tr('ct_btn_cancel')}</button>
+                <button type="submit" className="btn-primary" style={{ flex:2 }} disabled={saving}>{saving ? <BtnSpinner text={tr('ct_saving')} /> : modal === 'create' ? tr('ct_btn_create') : tr('ct_btn_save')}</button>
               </div>
             </form>
           </div>
@@ -6679,6 +6692,7 @@ function AdminCargoTypesSection() {
 interface PricingRule { id: number; vehicle_type: string; base_fare: number; per_km_rate: number; per_kg_rate: number; city_surcharge: number; min_distance_km: number | null; is_active: number; additional_fees: string | null }
 
 function AdminPricingRulesSection() {
+  const { t: tr } = useLanguage()
   const [items, setItems] = useState<PricingRule[]>([])
   const [loading, setLoading] = useState(false)
   const [modal, setModal] = useState<'create' | 'edit' | null>(null)
@@ -6694,7 +6708,7 @@ function AdminPricingRulesSection() {
   const load = async () => {
     setLoading(true)
     try { const { data } = await adminOrderApi.listPricingRules(); setItems(data.pricing_rules ?? []) }
-    catch { showToast('Failed to load') }
+    catch { showToast(tr('pr_load_fail')) }
     finally { setLoading(false) }
   }
 
@@ -6710,12 +6724,12 @@ function AdminPricingRulesSection() {
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!form.vehicle_type.trim()) { setFormErr('Vehicle type required'); return }
+    if (!form.vehicle_type.trim()) { setFormErr(tr('pr_err_vehicle')); return }
     setFormErr(''); setSaving(true)
     try {
       const parsedFees = fees.filter(f => f.name.trim() && f.value).map(f => ({ name:f.name.trim(), value:parseFloat(f.value), type:f.type }))
       const payload = { vehicle_type:form.vehicle_type.trim(), base_fare:parseFloat(form.base_fare), per_km_rate:parseFloat(form.per_km_rate), per_kg_rate:parseFloat(form.per_kg_rate)||0, min_distance_km:form.min_distance_km ? parseFloat(form.min_distance_km) : undefined, additional_fees: parsedFees.length ? parsedFees : undefined }
-      if (modal === 'create') { await adminOrderApi.createPricingRule(payload); showToast('Pricing rule created.') }
+      if (modal === 'create') { await adminOrderApi.createPricingRule(payload); showToast(tr('pr_created')) }
       else if (editTarget) { await adminOrderApi.updatePricingRule(editTarget.id, { ...payload, is_active:form.is_active }); showToast('Updated.') }
       setModal(null); load()
     } catch (err: any) { setFormErr(err.response?.data?.message ?? 'Failed') }
@@ -6728,7 +6742,7 @@ function AdminPricingRulesSection() {
   return (
     <div style={{ display:'flex', flexDirection:'column', gap:'1.25rem' }}>
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', flexWrap:'wrap', gap:'0.5rem' }}>
-        <h2 style={{ fontSize:'1rem', fontWeight:800, color:'var(--clr-text)', display:'flex', alignItems:'center', gap:'0.45rem' }}><LuSettings size={17}/> Pricing Rules</h2>
+        <h2 style={{ fontSize:'1rem', fontWeight:800, color:'var(--clr-text)', display:'flex', alignItems:'center', gap:'0.45rem' }}><LuSettings size={17}/> {tr('pr_title')}</h2>
         <div style={{ display:'flex', gap:'0.5rem' }}>
           <button onClick={load} style={{ display:'flex', alignItems:'center', gap:'0.35rem', padding:'0.3rem 0.7rem', borderRadius:8, border:'1px solid rgba(255,255,255,0.1)', background:'rgba(255,255,255,0.04)', color:'var(--clr-muted)', fontFamily:'inherit', fontSize:'0.72rem', fontWeight:600, cursor:'pointer' }}><LuRefreshCw size={12}/></button>
           <button onClick={openCreate} style={{ display:'flex', alignItems:'center', gap:'0.4rem', padding:'0.38rem 0.85rem', borderRadius:8, border:'none', background:'var(--clr-accent)', color:'#000', fontFamily:'inherit', fontSize:'0.8rem', fontWeight:700, cursor:'pointer' }}><LuPlus size={14}/> Add</button>
@@ -6736,17 +6750,17 @@ function AdminPricingRulesSection() {
       </div>
       {loading ? <LoadingSpinner /> : (
         <div className="glass-inner" style={{ overflow:'hidden' }}>
-          {items.length === 0 ? <p style={{ padding:'2rem', textAlign:'center', color:'var(--clr-muted)' }}>No rules.</p>
+          {items.length === 0 ? <p style={{ padding:'2rem', textAlign:'center', color:'var(--clr-muted)' }}>{tr('pr_empty')}</p>
           : items.map((p, i) => (
             <div key={p.id} style={{ display:'flex', alignItems:'center', gap:'0.75rem', padding:'0.75rem 1rem', borderBottom: i < items.length-1 ? '1px solid rgba(255,255,255,0.05)' : 'none' }}>
               <div style={{ flex:1, minWidth:0 }}>
                 <div style={{ display:'flex', alignItems:'center', gap:'0.4rem', flexWrap:'wrap', marginBottom:'0.15rem' }}>
                   <span style={{ fontWeight:700, fontSize:'0.875rem', color:'var(--clr-text)' }}>{p.vehicle_type}</span>
-                  {!p.is_active && <span className="badge badge-red" style={{ fontSize:'0.65rem' }}>Inactive</span>}
+                  {!p.is_active && <span className="badge badge-red" style={{ fontSize:'0.65rem' }}>{tr('pr_badge_inactive')}</span>}
                 </div>
                 <p style={{ fontSize:'0.73rem', color:'var(--clr-muted)' }}>Base: {p.base_fare} ETB · {p.per_km_rate} ETB/km · {p.per_kg_rate > 0 ? `${p.per_kg_rate} ETB/kg · ` : ''}{p.additional_fees && (typeof p.additional_fees === 'string' ? JSON.parse(p.additional_fees) : p.additional_fees).length > 0 ? `${(typeof p.additional_fees === 'string' ? JSON.parse(p.additional_fees) : p.additional_fees).length} fees` : 'No extra fees'}</p>
               </div>
-              <button onClick={() => openEdit(p)} style={{ padding:'0.28rem 0.55rem', borderRadius:7, border:'1px solid rgba(255,255,255,0.12)', background:'rgba(255,255,255,0.05)', color:'var(--clr-muted)', fontFamily:'inherit', fontSize:'0.7rem', cursor:'pointer', display:'flex', alignItems:'center', gap:'0.3rem' }}><LuPencil size={11}/> Edit</button>
+              <button onClick={() => openEdit(p)} style={{ padding:'0.28rem 0.55rem', borderRadius:7, border:'1px solid rgba(255,255,255,0.12)', background:'rgba(255,255,255,0.05)', color:'var(--clr-muted)', fontFamily:'inherit', fontSize:'0.7rem', cursor:'pointer', display:'flex', alignItems:'center', gap:'0.3rem' }}><LuPencil size={11}/> {tr('pr_btn_edit')}</button>
             </div>
           ))}
         </div>
@@ -6755,24 +6769,24 @@ function AdminPricingRulesSection() {
       {(modal === 'create' || modal === 'edit') && (
         <div className="modal-backdrop" onClick={e => { if (e.target === e.currentTarget) setModal(null) }}>
           <div className="glass modal-box" style={{ padding:'1.75rem', maxWidth:480, maxHeight:'88vh', overflowY:'auto' }}>
-            <h2 style={{ fontSize:'1rem', fontWeight:800, color:'var(--clr-text)', marginBottom:'1rem' }}>{modal === 'create' ? 'Add Pricing Rule' : 'Edit Pricing Rule'}</h2>
+            <h2 style={{ fontSize:'1rem', fontWeight:800, color:'var(--clr-text)', marginBottom:'1rem' }}>{modal === 'create' ? tr('pr_modal_create') : tr('pr_modal_edit')}</h2>
             <form onSubmit={handleSave} style={{ display:'flex', flexDirection:'column', gap:'0.75rem' }}>
               {formErr && <div className="alert alert-error"><LuTriangleAlert size={13}/> {formErr}</div>}
               {/* Vehicle Type dropdown */}
               <div>
-                <label style={labelStyle}>Vehicle Type *</label>
+                <label style={labelStyle}>{tr('pr_label_vehicle')}</label>
                 <VehicleTypeSelectFull value={form.vehicle_type} onChange={v => setForm(f => ({ ...f, vehicle_type: v }))} />
               </div>
               {/* Base fare + per km */}
               <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'0.65rem' }}>
-                <div><label style={labelStyle}>Base Fare (ETB) *</label><input style={inputStyle} type="number" min="0" step="0.01" value={form.base_fare} onChange={e => setForm(f => ({ ...f, base_fare:e.target.value }))} required/></div>
-                <div><label style={labelStyle}>Per km Rate (ETB) *</label><input style={inputStyle} type="number" min="0" step="0.01" value={form.per_km_rate} onChange={e => setForm(f => ({ ...f, per_km_rate:e.target.value }))} required/></div>
-                <div><label style={labelStyle}>Per kg Rate (ETB)</label><input style={inputStyle} type="number" min="0" step="0.0001" value={form.per_kg_rate} onChange={e => setForm(f => ({ ...f, per_kg_rate:e.target.value }))}/></div>
-                <div><label style={labelStyle}>Min Distance km</label><input style={inputStyle} type="number" min="0" step="0.1" value={form.min_distance_km} onChange={e => setForm(f => ({ ...f, min_distance_km:e.target.value }))}/></div>
+                <div><label style={labelStyle}>{tr('pr_label_base_fare')}</label><input style={inputStyle} type="number" min="0" step="0.01" value={form.base_fare} onChange={e => setForm(f => ({ ...f, base_fare:e.target.value }))} required/></div>
+                <div><label style={labelStyle}>{tr('pr_label_per_km')}</label><input style={inputStyle} type="number" min="0" step="0.01" value={form.per_km_rate} onChange={e => setForm(f => ({ ...f, per_km_rate:e.target.value }))} required/></div>
+                <div><label style={labelStyle}>{tr('pr_label_per_kg')}</label><input style={inputStyle} type="number" min="0" step="0.0001" value={form.per_kg_rate} onChange={e => setForm(f => ({ ...f, per_kg_rate:e.target.value }))}/></div>
+                <div><label style={labelStyle}>{tr('pr_label_min_dist')}</label><input style={inputStyle} type="number" min="0" step="0.1" value={form.min_distance_km} onChange={e => setForm(f => ({ ...f, min_distance_km:e.target.value }))}/></div>
               </div>
               {/* Additional fees manager */}
               <div>
-                <label style={labelStyle}>Additional Fees</label>
+                <label style={labelStyle}>{tr('pr_label_fees')}</label>
                 <div style={{ display:'flex', flexDirection:'column', gap:'0.4rem', marginBottom:'0.5rem' }}>
                   {fees.map((fee, idx) => (
                     <div key={idx} style={{ display:'flex', alignItems:'center', gap:'0.4rem', padding:'0.4rem 0.65rem', borderRadius:8, background:'rgba(255,255,255,0.04)', border:'1px solid rgba(255,255,255,0.08)' }}>
@@ -6799,12 +6813,12 @@ function AdminPricingRulesSection() {
                     style={{ width:38, height:22, borderRadius:99, border:'none', cursor:'pointer', background: form.is_active ? 'var(--clr-accent)' : 'rgba(255,255,255,0.12)', transition:'background 0.2s', flexShrink:0, position:'relative' }}>
                     <span style={{ position:'absolute', top:2, left: form.is_active ? 18 : 2, width:18, height:18, borderRadius:'50%', background: form.is_active ? '#080b14' : 'var(--clr-muted)', transition:'left 0.2s' }}/>
                   </button>
-                  <span style={{ fontSize:'0.85rem', color:'var(--clr-text)' }}>Active</span>
+                  <span style={{ fontSize:'0.85rem', color:'var(--clr-text)' }}>{tr('pr_toggle_active')}</span>
                 </div>
               )}
               <div style={{ display:'flex', gap:'0.6rem', marginTop:'0.25rem' }}>
-                <button type="button" className="btn-outline" style={{ flex:1 }} onClick={() => setModal(null)}>Cancel</button>
-                <button type="submit" className="btn-primary" style={{ flex:2 }} disabled={saving}>{saving ? <BtnSpinner text="Saving…" /> : modal === 'create' ? 'Create' : 'Save Changes'}</button>
+                <button type="button" className="btn-outline" style={{ flex:1 }} onClick={() => setModal(null)}>{tr('pr_btn_cancel')}</button>
+                <button type="submit" className="btn-primary" style={{ flex:2 }} disabled={saving}>{saving ? <BtnSpinner text={tr('pr_saving')} /> : modal === 'create' ? tr('pr_btn_create') : tr('pr_btn_save')}</button>
               </div>
             </form>
           </div>
@@ -6845,6 +6859,7 @@ interface DriverForAssign {
 }
 
 function AdminCarOwnersSection() {
+  const { t: tr } = useLanguage()
   const [vehicles, setVehicles] = useState<CarOwnerVehicleAdmin[]>([])
   const [drivers, setDrivers] = useState<DriverForAssign[]>([])
   const [loading, setLoading] = useState(true)
@@ -6872,7 +6887,7 @@ function AdminCarOwnersSection() {
       const [vr, dr] = await Promise.all([adminCarOwnerApi.listVehicles(), adminCarOwnerApi.listDriversForAssign()])
       setVehicles(vr.data.vehicles || [])
       setDrivers(dr.data.drivers || [])
-    } catch { setErr('Failed to load car owner vehicles.') }
+    } catch { setErr(tr('cov_load_fail')) }
     finally { setLoading(false) }
   }
 
@@ -6883,10 +6898,10 @@ function AdminCarOwnersSection() {
     setReviewSaving(true); setReviewErr('')
     try {
       await adminCarOwnerApi.reviewVehicle(String(reviewTarget.id), { action: reviewAction, admin_note: reviewNote.trim() || undefined })
-      showToast(`Vehicle ${reviewAction === 'APPROVED' ? 'approved' : 'rejected'}.`)
+      showToast(reviewAction === 'APPROVED' ? tr('cov_toast_approved') : tr('cov_toast_rejected'))
       setReviewTarget(null); setReviewNote('')
       await load()
-    } catch (e: any) { setReviewErr(e.response?.data?.message || 'Failed to update.') }
+    } catch (e: any) { setReviewErr(e.response?.data?.message || tr('cov_toast_update_fail')) }
     finally { setReviewSaving(false) }
   }
 
@@ -6895,10 +6910,10 @@ function AdminCarOwnersSection() {
     setAssignSaving(true); setAssignErr('')
     try {
       await adminCarOwnerApi.assignDriver(String(assignTarget.id), assignDriverId || null)
-      showToast(assignDriverId ? 'Driver assigned.' : 'Driver removed.')
+      showToast(assignDriverId ? tr('cov_toast_assigned') : tr('cov_toast_removed'))
       setAssignTarget(null); setAssignDriverId('')
       await load()
-    } catch (e: any) { setAssignErr(e.response?.data?.message || 'Failed to assign.') }
+    } catch (e: any) { setAssignErr(e.response?.data?.message || tr('cov_toast_assign_fail')) }
     finally { setAssignSaving(false) }
   }
 
@@ -6917,17 +6932,17 @@ function AdminCarOwnersSection() {
       )}
 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
-        <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--clr-muted)' }}>{vehicles.length} vehicle{vehicles.length !== 1 ? 's' : ''} registered</p>
+        <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--clr-muted)' }}>{vehicles.length} {vehicles.length !== 1 ? tr('cov_vehicles_pl') : tr('cov_vehicle_s')} {tr('cov_registered')}</p>
         <button onClick={load} style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, padding: '0.4rem 0.75rem', color: 'var(--clr-muted)', cursor: 'pointer', fontSize: '0.8rem', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
           <LuRefreshCw size={13}/> Refresh
         </button>
       </div>
 
-      {loading && <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--clr-muted)' }}><span className="spinner" style={{ marginRight: '0.5rem' }} />Loading…</div>}
+      {loading && <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--clr-muted)' }}><span className="spinner" style={{ marginRight: '0.5rem' }} />{tr('cov_loading')}</div>}
       {err && <div style={{ color: '#f87171', fontSize: '0.85rem', padding: '0.75rem', background: 'rgba(248,113,113,0.1)', borderRadius: 8 }}>{err}</div>}
 
       {!loading && !err && vehicles.length === 0 && (
-        <div style={{ padding: '3rem', textAlign: 'center', color: 'var(--clr-muted)', fontSize: '0.9rem' }}>No car owner vehicles registered yet.</div>
+        <div style={{ padding: '3rem', textAlign: 'center', color: 'var(--clr-muted)', fontSize: '0.9rem' }}>{tr('cov_none')}</div>
       )}
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
@@ -6943,30 +6958,30 @@ function AdminCarOwnersSection() {
                     <span style={{ padding: '0.2rem 0.6rem', borderRadius: 999, background: sc.bg, color: sc.color, fontSize: '0.73rem', fontWeight: 700 }}>{v.status}</span>
                   </div>
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem 1rem', marginBottom: '0.3rem' }}>
-                    {v.model && <span style={{ fontSize: '0.78rem', color: 'var(--clr-muted)' }}>Model: <strong style={{ color: 'var(--clr-text)' }}>{v.model}</strong></span>}
-                    {v.color && <span style={{ fontSize: '0.78rem', color: 'var(--clr-muted)' }}>Color: <strong style={{ color: 'var(--clr-text)' }}>{v.color}</strong></span>}
-                    {v.year && <span style={{ fontSize: '0.78rem', color: 'var(--clr-muted)' }}>Year: <strong style={{ color: 'var(--clr-text)' }}>{v.year}</strong></span>}
+                    {v.model && <span style={{ fontSize: '0.78rem', color: 'var(--clr-muted)' }}>{tr('cov_model')} <strong style={{ color: 'var(--clr-text)' }}>{v.model}</strong></span>}
+                    {v.color && <span style={{ fontSize: '0.78rem', color: 'var(--clr-muted)' }}>{tr('cov_color')} <strong style={{ color: 'var(--clr-text)' }}>{v.color}</strong></span>}
+                    {v.year && <span style={{ fontSize: '0.78rem', color: 'var(--clr-muted)' }}>{tr('cov_year')} <strong style={{ color: 'var(--clr-text)' }}>{v.year}</strong></span>}
                   </div>
                   <div style={{ fontSize: '0.8rem', color: 'var(--clr-muted)' }}>
-                    Owner: <strong style={{ color: 'var(--clr-text)' }}>{v.owner_name}</strong> · {v.owner_phone}
+                    {tr('cov_owner')} <strong style={{ color: 'var(--clr-text)' }}>{v.owner_name}</strong> · {v.owner_phone}
                   </div>
                   {v.assigned_driver_name && (
                     <div style={{ fontSize: '0.78rem', color: '#34d399', marginTop: '0.25rem' }}>
-                      Driver: <strong>{v.assigned_driver_name}</strong> · {v.assigned_driver_phone}
+                      {tr('cov_driver_label')} <strong>{v.assigned_driver_name}</strong> · {v.assigned_driver_phone}
                     </div>
                   )}
                   {!v.assigned_driver_name && v.status === 'APPROVED' && (
-                    <div style={{ fontSize: '0.75rem', color: 'var(--clr-muted)', marginTop: '0.25rem' }}>No driver assigned</div>
+                    <div style={{ fontSize: '0.75rem', color: 'var(--clr-muted)', marginTop: '0.25rem' }}>{tr('cov_no_driver')}</div>
                   )}
                   {v.admin_note && (
-                    <div style={{ fontSize: '0.75rem', color: 'var(--clr-muted)', marginTop: '0.25rem', fontStyle: 'italic' }}>Note: {v.admin_note}</div>
+                    <div style={{ fontSize: '0.75rem', color: 'var(--clr-muted)', marginTop: '0.25rem', fontStyle: 'italic' }}>{tr('cov_note')} {v.admin_note}</div>
                   )}
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', alignItems: 'flex-end' }}>
                   {v.status === 'PENDING' && (
                     <button onClick={() => { setReviewTarget(v); setReviewAction('APPROVED'); setReviewNote(''); setReviewErr('') }}
                       className="btn-primary" style={{ padding: '0.4rem 0.85rem', fontSize: '0.78rem' }}>
-                      Review
+                      {tr('cov_review_btn')}
                     </button>
                   )}
                   {v.status === 'APPROVED' && (
@@ -6977,17 +6992,17 @@ function AdminCarOwnersSection() {
                   )}
                   {v.status === 'APPROVED' && v.assigned_driver_id && (
                     <button onClick={async () => {
-                      if (!confirm('Remove driver from this vehicle?')) return
-                      try { await adminCarOwnerApi.assignDriver(String(v.id), null); showToast('Driver removed.'); load() } catch {}
+                      if (!confirm(tr('cov_confirm_remove'))) return
+                      try { await adminCarOwnerApi.assignDriver(String(v.id), null); showToast(tr('cov_toast_removed')); load() } catch {}
                     }}
                       style={{ background: 'rgba(248,113,113,0.1)', border: '1px solid rgba(248,113,113,0.25)', borderRadius: 8, padding: '0.4rem 0.85rem', color: '#f87171', cursor: 'pointer', fontFamily: 'inherit', fontSize: '0.78rem', fontWeight: 600 }}>
-                      Remove Driver
+                      {tr('cov_remove_driver')}
                     </button>
                   )}
                   {v.status === 'REJECTED' && (
                     <button onClick={() => { setReviewTarget(v); setReviewAction('APPROVED'); setReviewNote(''); setReviewErr('') }}
                       style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, padding: '0.4rem 0.85rem', color: 'var(--clr-muted)', cursor: 'pointer', fontFamily: 'inherit', fontSize: '0.78rem', fontWeight: 600 }}>
-                      Re-review
+                      {tr('cov_rereview_btn')}
                     </button>
                   )}
                 </div>
@@ -7001,23 +7016,23 @@ function AdminCarOwnersSection() {
       {reviewTarget && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', zIndex: 9999, display: 'grid', placeItems: 'center', padding: '1rem' }}>
           <div className="glass" style={{ width: 'min(420px,100%)', padding: '1.5rem' }}>
-            <p style={{ fontWeight: 700, fontSize: '1rem', color: 'var(--clr-text)', margin: '0 0 0.75rem' }}>Review Vehicle — {reviewTarget.plate_number}</p>
+            <p style={{ fontWeight: 700, fontSize: '1rem', color: 'var(--clr-text)', margin: '0 0 0.75rem' }}>{tr('cov_review_title')} — {reviewTarget.plate_number}</p>
             <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.85rem' }}>
               {(['APPROVED', 'REJECTED'] as const).map(a => (
                 <button key={a} onClick={() => setReviewAction(a)}
                   style={{ flex: 1, padding: '0.55rem', borderRadius: 9, border: `1.5px solid ${reviewAction === a ? (a === 'APPROVED' ? '#34d399' : '#f87171') : 'rgba(255,255,255,0.1)'}`, background: reviewAction === a ? (a === 'APPROVED' ? 'rgba(52,211,153,0.1)' : 'rgba(248,113,113,0.1)') : 'rgba(255,255,255,0.04)', color: reviewAction === a ? (a === 'APPROVED' ? '#34d399' : '#f87171') : 'var(--clr-muted)', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600, fontSize: '0.85rem' }}>
-                  {a === 'APPROVED' ? '✓ Approve' : '✗ Reject'}
+                  {a === 'APPROVED' ? tr('cov_approve_btn') : tr('cov_reject_btn')}
                 </button>
               ))}
             </div>
             <div className="input-wrap" style={{ marginBottom: '0.85rem' }}>
               <input type="text" id="rnote" placeholder=" " value={reviewNote} onChange={e => setReviewNote(e.target.value)} />
-              <label htmlFor="rnote">Admin Note (optional)</label>
+              <label htmlFor="rnote">{tr('cov_admin_note')}</label>
             </div>
             {reviewErr && <div style={{ color: '#f87171', fontSize: '0.8rem', marginBottom: '0.75rem' }}>{reviewErr}</div>}
             <div style={{ display: 'flex', gap: '0.75rem' }}>
-              <button onClick={() => setReviewTarget(null)} style={{ flex: 1, padding: '0.65rem', borderRadius: 9, border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.04)', color: 'var(--clr-muted)', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600 }}>Cancel</button>
-              <button onClick={handleReview} disabled={reviewSaving} className="btn-primary" style={{ flex: 2, padding: '0.65rem' }}>{reviewSaving ? 'Saving…' : 'Confirm'}</button>
+              <button onClick={() => setReviewTarget(null)} style={{ flex: 1, padding: '0.65rem', borderRadius: 9, border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.04)', color: 'var(--clr-muted)', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600 }}>{tr('cov_cancel')}</button>
+              <button onClick={handleReview} disabled={reviewSaving} className="btn-primary" style={{ flex: 2, padding: '0.65rem' }}>{reviewSaving ? tr('cov_saving') : tr('cov_confirm_btn')}</button>
             </div>
           </div>
         </div>
@@ -7027,20 +7042,20 @@ function AdminCarOwnersSection() {
       {assignTarget && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', zIndex: 9999, display: 'grid', placeItems: 'center', padding: '1rem' }}>
           <div className="glass" style={{ width: 'min(420px,100%)', padding: '1.5rem' }}>
-            <p style={{ fontWeight: 700, fontSize: '1rem', color: 'var(--clr-text)', margin: '0 0 0.75rem' }}>Assign Driver — {assignTarget.plate_number}</p>
+            <p style={{ fontWeight: 700, fontSize: '1rem', color: 'var(--clr-text)', margin: '0 0 0.75rem' }}>{tr('cov_assign_title')} — {assignTarget.plate_number}</p>
             <select value={assignDriverId} onChange={e => setAssignDriverId(e.target.value)}
               style={{ width: '100%', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 10, padding: '0.75rem 0.9rem', color: 'var(--clr-text)', fontSize: '0.875rem', fontFamily: 'inherit', marginBottom: '0.85rem', outline: 'none', cursor: 'pointer' }}>
-              <option value="">— No Driver (unassign) —</option>
+              <option value="">{tr('cov_no_driver_opt')}</option>
               {drivers.map(d => (
                 <option key={d.id} value={String(d.id)}>
-                  {d.first_name} {d.last_name || ''} · {d.phone_number}{d.has_assigned_car ? ` (has car: ${d.assigned_plate})` : ''}
+                  {d.first_name} {d.last_name || ''} · {d.phone_number}{d.has_assigned_car ? ` (${tr('cov_has_car')} ${d.assigned_plate})` : ''}
                 </option>
               ))}
             </select>
             {assignErr && <div style={{ color: '#f87171', fontSize: '0.8rem', marginBottom: '0.75rem' }}>{assignErr}</div>}
             <div style={{ display: 'flex', gap: '0.75rem' }}>
-              <button onClick={() => setAssignTarget(null)} style={{ flex: 1, padding: '0.65rem', borderRadius: 9, border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.04)', color: 'var(--clr-muted)', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600 }}>Cancel</button>
-              <button onClick={handleAssign} disabled={assignSaving} className="btn-primary" style={{ flex: 2, padding: '0.65rem' }}>{assignSaving ? 'Saving…' : 'Save'}</button>
+              <button onClick={() => setAssignTarget(null)} style={{ flex: 1, padding: '0.65rem', borderRadius: 9, border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.04)', color: 'var(--clr-muted)', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600 }}>{tr('cov_cancel')}</button>
+              <button onClick={handleAssign} disabled={assignSaving} className="btn-primary" style={{ flex: 2, padding: '0.65rem' }}>{assignSaving ? tr('cov_saving') : tr('cov_save_btn')}</button>
             </div>
           </div>
         </div>
