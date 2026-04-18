@@ -1,13 +1,17 @@
 """
 Admin routes. All endpoints require JWT + admin role.
 """
+import os
+import re
 from datetime import datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.core.config import settings
 from app.core.middleware import require_admin
 from app.db.database import get_db
 from app.db.models import ApiKey, ChatSession, Payment, Plan, Subscription, UsageDaily, User
@@ -251,3 +255,25 @@ def update_plan(
         plan.price_usd = body.price_usd
     db.commit()
     return {"id": plan.id, "name": plan.name, "request_limit": plan.request_limit, "price_usd": float(plan.price_usd)}
+
+
+# ── Receipt file serving ───────────────────────────────────────────────────────
+
+@router.get("/receipts/{filename}")
+def get_receipt(
+    filename: str,
+    _: User = Depends(require_admin),
+):
+    """Serve a receipt file to admin. filename must be UUID + safe extension only."""
+    # Sanitize: only allow uuid-style names with safe extensions — prevent path traversal
+    if not re.match(r'^[0-9a-f\-]{36}\.[a-z]{2,4}$', filename):
+        raise HTTPException(status_code=400, detail="Invalid filename")
+    file_path = os.path.join(settings.RECEIPT_UPLOAD_PATH, filename)
+    # Ensure we stay within the upload directory (defense in depth)
+    upload_dir = os.path.realpath(settings.RECEIPT_UPLOAD_PATH)
+    real_path = os.path.realpath(file_path)
+    if not real_path.startswith(upload_dir + os.sep):
+        raise HTTPException(status_code=400, detail="Invalid path")
+    if not os.path.exists(real_path):
+        raise HTTPException(status_code=404, detail="Receipt not found")
+    return FileResponse(real_path)

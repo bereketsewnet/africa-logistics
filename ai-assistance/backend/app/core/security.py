@@ -3,33 +3,31 @@ JWT creation/verification and password hashing utilities.
 """
 from datetime import datetime, timedelta
 
+import bcrypt
 from jose import JWTError, jwt
-from passlib.context import CryptContext
 
 from app.core.config import settings
-
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 
 # ── Passwords ─────────────────────────────────────────────────────────────────
 
 def hash_password(plain: str) -> str:
-    return pwd_context.hash(plain)
+    return bcrypt.hashpw(plain.encode(), bcrypt.gensalt()).decode()
 
 
 def verify_password(plain: str, hashed: str) -> bool:
-    return pwd_context.verify(plain, hashed)
+    return bcrypt.checkpw(plain.encode(), hashed.encode())
 
 
 # ── API Keys ──────────────────────────────────────────────────────────────────
 
 def hash_api_key(key: str) -> str:
     """Store a bcrypt hash of the raw API key — never store the raw key."""
-    return pwd_context.hash(key)
+    return bcrypt.hashpw(key.encode(), bcrypt.gensalt()).decode()
 
 
 def verify_api_key(raw: str, hashed: str) -> bool:
-    return pwd_context.verify(raw, hashed)
+    return bcrypt.checkpw(raw.encode(), hashed.encode())
 
 
 # ── JWT ───────────────────────────────────────────────────────────────────────

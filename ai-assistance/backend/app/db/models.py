@@ -49,7 +49,7 @@ class User(Base):
 
     api_keys      = relationship("ApiKey", back_populates="user", cascade="all, delete-orphan")
     subscriptions = relationship("Subscription", back_populates="user", cascade="all, delete-orphan")
-    payments      = relationship("Payment", back_populates="user", cascade="all, delete-orphan")
+    payments      = relationship("Payment", back_populates="user", foreign_keys="Payment.user_id", cascade="all, delete-orphan")
     chat_sessions = relationship("ChatSession", back_populates="user", cascade="all, delete-orphan")
 
 
@@ -105,9 +105,6 @@ class Payment(Base):
     user     = relationship("User", back_populates="payments", foreign_keys=[user_id])
     plan     = relationship("Plan", back_populates="payments")
     reviewer = relationship("User", foreign_keys=[reviewed_by])
-
-
-# ── Usage Daily ───────────────────────────────────────────────────────────────
 
 class UsageDaily(Base):
     __tablename__ = "usage_daily"

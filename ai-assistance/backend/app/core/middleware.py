@@ -67,9 +67,12 @@ def _get_plan_limit(user: User, db: Session) -> int:
         .scalars()
         .first()
     )
-    if not sub:
-        return 500  # default basic
-    return sub.plan.request_limit  # 0 = unlimited
+    if sub:
+        return sub.plan.request_limit  # 0 = unlimited
+    # No active subscription — fall back to the basic plan's limit from DB
+    from app.db.models import Plan
+    basic = db.execute(select(Plan).where(Plan.name == "basic")).scalars().first()
+    return basic.request_limit if basic else 500
 
 
 def _get_today_usage(api_key_id: int, db: Session) -> int:

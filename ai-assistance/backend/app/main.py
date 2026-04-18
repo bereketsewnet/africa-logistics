@@ -25,7 +25,14 @@ async def lifespan(app: FastAPI):
     logger.info("  CORS origins → %s", settings.CORS_ORIGINS)
     # Ensure upload directory exists
     os.makedirs(settings.RECEIPT_UPLOAD_PATH, exist_ok=True)
-    # Phase 3 — ChromaDB warm-up will go here
+    # Warm up RAG model and ChromaDB connection
+    try:
+        from app.services.rag.query import _get_collection, _get_model
+        _get_model()
+        _get_collection()
+        logger.info("  RAG          → model + ChromaDB collection loaded")
+    except Exception as exc:
+        logger.warning("  RAG warm-up failed (will retry on first request): %s", exc)
     yield
     logger.info("Bemnet AI Assistance API shutting down.")
 

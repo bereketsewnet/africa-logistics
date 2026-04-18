@@ -1,4 +1,5 @@
 from pydantic_settings import BaseSettings
+from pydantic import model_validator
 from typing import List
 
 
@@ -7,8 +8,8 @@ class Settings(BaseSettings):
     DATABASE_URL: str = "postgresql://bemnet:bemnet@localhost:5432/bemnet"
 
     # ── LLM ──────────────────────────────────────────────────────────────────
-    OPENAI_API_KEY: str = ""
-    OPENAI_MODEL: str = "gpt-4o-mini"
+    GEMINI_API_KEY: str = ""
+    GEMINI_MODEL: str = "gemini-2.0-flash"
 
     # ── Security ─────────────────────────────────────────────────────────────
     SECRET_KEY: str = "change-me-in-production"
@@ -39,6 +40,20 @@ class Settings(BaseSettings):
         "env_file": ".env",
         "env_file_encoding": "utf-8",
     }
+
+    @model_validator(mode="after")
+    def validate_security_settings(self):
+        weak_defaults = {
+            "change-me-in-production",
+            "change-me-to-a-random-64-char-hex-string",
+            "secret",
+            "password",
+        }
+        if self.SECRET_KEY in weak_defaults or len(self.SECRET_KEY) < 32:
+            raise ValueError(
+                "SECRET_KEY is weak. Use a random value with at least 32 characters."
+            )
+        return self
 
 
 settings = Settings()

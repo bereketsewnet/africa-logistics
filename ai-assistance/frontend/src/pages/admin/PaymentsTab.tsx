@@ -7,6 +7,17 @@ interface Payment {
   notes: string | null; created_at: string
 }
 
+function receiptFilename(path: string): string {
+  return path.split('/').pop() ?? path
+}
+
+async function openReceipt(path: string) {
+  const filename = receiptFilename(path)
+  const resp = await apiClient.get(`/admin/receipts/${encodeURIComponent(filename)}`, { responseType: 'blob' })
+  const url = URL.createObjectURL(resp.data)
+  window.open(url, '_blank', 'noopener,noreferrer')
+}
+
 export default function AdminPaymentsTab() {
   const [payments, setPayments] = useState<Payment[]>([])
   const [filter, setFilter] = useState('pending')
@@ -55,6 +66,13 @@ export default function AdminPaymentsTab() {
                   'bg-red-900 text-red-400'
                 }`}>{p.status}</span>
               </div>
+              {/* Receipt preview */}
+              <button
+                onClick={() => openReceipt(p.receipt_path)}
+                className="text-xs text-purple-400 hover:text-purple-300 underline mb-3"
+              >
+                📎 View Receipt
+              </button>
               {p.status === 'pending' && (
                 <div className="flex items-center gap-3 mt-2">
                   <input

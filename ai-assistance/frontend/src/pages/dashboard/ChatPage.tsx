@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { apiKeyClient } from '../../lib/apiClient'
+import { apiKeyClient, apiUrl } from '../../lib/apiClient'
 
 interface Message { role: 'user' | 'assistant'; content: string }
 interface Session { id: number; title: string; updated_at: string }
@@ -41,7 +41,7 @@ export default function ChatPage() {
 
     try {
       const response = await fetch(
-        `${import.meta.env.VITE_API_URL ?? 'http://localhost:8001'}/api/ask`,
+        apiUrl('/api/ask'),
         {
           method: 'POST',
           headers: {
