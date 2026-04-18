@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, type FormEvent, type ChangeEvent } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { useNavigate } from 'react-router-dom'
-import apiClient, { authApi, configApi, walletApi } from '../lib/apiClient'
+import apiClient, { authApi, assistantApi, configApi, walletApi } from '../lib/apiClient'
 import aiLogoSrc from '../assets/logo-ai-assistant.webp'
 import ShipperOrdersPage from './ShipperOrdersPage'
 import DriverJobsPage from './DriverJobsPage'
@@ -269,26 +269,14 @@ interface ChatMsg { id: number; from: 'user'|'bot'; text: string; ts: string }
 
 const BEMNET_GREET = "Hi! I'm **Bemnet**, your AI logistics assistant 👋\nHow can I help you today?"
 
-const SAMPLE_QA: { q: RegExp; a: string }[] = [
-  { q: /track|where.*order|order.*status/i,   a: "To track your order, go to **My Jobs** or **My Shipments** in the menu. You'll find real-time status updates there — including pickup, in-transit, and delivery confirmations." },
-  { q: /pay|wallet|fund|balance/i,             a: "You can manage your wallet under the **Wallet** section. Add funds, view transaction history, and download invoices all in one place." },
-  { q: /docum|verif|approv|kyc/i,              a: "Document verification is reviewed by our admin team within 24 hours. You can check your document status under **Account → Documents**." },
-  { q: /price|cost|fee|rate|charg/i,           a: "Pricing is calculated based on route distance, vehicle type, and cargo weight. You'll see the exact quote before confirming any shipment." },
-  { q: /driver|assign|pickup/i,                a: "Once your order is confirmed, a nearby verified driver will be assigned automatically. You'll receive a notification when assignment happens." },
-  { q: /cancel|refund/i,                       a: "Cancellations can be made before a driver is assigned. For refunds, our support team processes them within 3–5 business days." },
-  { q: /contact|email|phone|support/i,         a: "You can reach our support team via the **Help & Support** page in the menu. We're available 24/7 to assist you." },
-  { q: /register|sign.?up|account/i,           a: "Registration is quick! Just provide your phone number, verify it with the OTP, and complete your profile. Drivers additionally need to upload their vehicle documents." },
-  { q: /hello|hi|hey|good/i,                   a: "Hello! 😊 Great to hear from you. What can I help you with today — tracking, payments, or something else?" },
-  { q: /thank/i,                               a: "You're welcome! 🙌 Feel free to ask me anything else." },
-]
-
 function fmtTime(d: Date) { return d.toLocaleTimeString([], { hour:'2-digit', minute:'2-digit' }) }
 
-function BemnetChat({ aiEnabled }: { aiEnabled: boolean }) {
+function BemnetChat({ aiEnabled, userName, userRole }: { aiEnabled: boolean; userName: string; userRole: string }) {
   const [open, setOpen]     = useState(false)
   const [msgs, setMsgs]     = useState<ChatMsg[]>([])
   const [input, setInput]   = useState('')
   const [typing, setTyping] = useState(false)
+  const [sessionId, setSessionId] = useState<number | null>(null)
   const [mounted, setMounted] = useState(false)
   const bottomRef = useRef<HTMLDivElement>(null)
   const inputRef  = useRef<HTMLInputElement>(null)
@@ -314,29 +302,43 @@ function BemnetChat({ aiEnabled }: { aiEnabled: boolean }) {
     )
   }
 
-  function getBotReply(userMsg: string): string {
-    for (const { q, a } of SAMPLE_QA) {
-      if (q.test(userMsg)) return a
-    }
-    return "That's a great question! Our team is always improving Bemnet's knowledge base. For now, please visit the **Help & Support** page or contact our team directly — we'll get back to you ASAP. 🚀"
-  }
-
   // Only render if AI is enabled
   if (!aiEnabled) return null
 
-  function send() {
-    const text = input.trim()
+  async function sendMessage(rawText: string) {
+    const text = rawText.trim()
     if (!text) return
     const now = new Date()
     const userMsg: ChatMsg = { id: Date.now(), from:'user', text, ts: fmtTime(now) }
     setMsgs(prev => [...prev, userMsg])
     setInput('')
     setTyping(true)
-    setTimeout(() => {
-      setTyping(false)
-      const reply: ChatMsg = { id: Date.now()+1, from:'bot', text: getBotReply(text), ts: fmtTime(new Date()) }
+
+    try {
+      const { data } = await assistantApi.ask({
+        question: text,
+        ...(sessionId ? { session_id: sessionId } : {}),
+        user_name: userName,
+        user_role: userRole,
+      })
+
+      const nextSessionId = typeof data?.session_id === 'number' ? data.session_id : null
+      if (nextSessionId) setSessionId(nextSessionId)
+
+      const answer = String(data?.answer ?? '').trim() || 'I could not generate a response right now. Please try again.'
+      const reply: ChatMsg = { id: Date.now() + 1, from:'bot', text: answer, ts: fmtTime(new Date()) }
       setMsgs(prev => [...prev, reply])
-    }, 900 + Math.random()*600)
+    } catch (err: any) {
+      const message = err?.response?.data?.message || 'Bemnet is temporarily unavailable. Please try again in a moment.'
+      const reply: ChatMsg = { id: Date.now() + 1, from:'bot', text: message, ts: fmtTime(new Date()) }
+      setMsgs(prev => [...prev, reply])
+    } finally {
+      setTyping(false)
+    }
+  }
+
+  function send() {
+    void sendMessage(input)
   }
 
   return (
@@ -427,6 +429,11 @@ function BemnetChat({ aiEnabled }: { aiEnabled: boolean }) {
                     boxShadow: msg.from==='user' ? '0 4px 16px rgba(99,102,241,0.3)' : 'none',
                   }}>
                     {renderText(msg.text)}
+                    {msg.from === 'user' && (
+                      <div style={{ marginTop:'0.35rem', fontSize:'0.66rem', opacity:0.9, fontWeight:600 }}>
+                        Name: {userName} | Role: {userRole}
+                      </div>
+                    )}
                   </div>
                   <span style={{ fontSize:'0.65rem', color:'rgba(100,116,139,0.7)', padding:'0 0.2rem' }}>{msg.ts}</span>
                 </div>
@@ -448,7 +455,7 @@ function BemnetChat({ aiEnabled }: { aiEnabled: boolean }) {
           {/* Quick reply chips */}
           <div style={{ padding:'0 0.9rem 0.6rem', display:'flex', gap:'0.4rem', flexWrap:'wrap', flexShrink:0 }}>
             {['Track order','Wallet','Documents','Pricing'].map(q=>(
-              <button key={q} onClick={() => { setInput(q); setTimeout(()=>{ const trimmed=q.trim(); if(!trimmed)return; const now=new Date(); setMsgs(prev=>[...prev,{id:Date.now(),from:'user',text:trimmed,ts:fmtTime(now)}]); setInput(''); setTyping(true); setTimeout(()=>{setTyping(false);setMsgs(prev=>[...prev,{id:Date.now()+1,from:'bot',text:getBotReply(trimmed),ts:fmtTime(new Date())}])},900+Math.random()*600) },0) }}
+              <button key={q} onClick={() => { void sendMessage(q) }}
                 style={{ padding:'0.35rem 0.75rem', borderRadius:99, background:'rgba(99,102,241,0.12)', border:'1px solid rgba(99,102,241,0.25)', color:'#a5b4fc', fontSize:'0.73rem', fontWeight:600, cursor:'pointer', whiteSpace:'nowrap' }}>
                 {q}
               </button>
@@ -882,12 +889,14 @@ export default function DashboardPage() {
     configApi.getAiStatus().then(r => setChatAiEnabled(Boolean((r.data as any).ai_enabled))).catch(() => {})
   }, [])
 
+  const chatUserName = `${user?.first_name ?? ''} ${user?.last_name ?? ''}`.trim() || user?.phone_number || 'User'
+
   return (
     <div className="aurora-bg" style={{ minHeight: '100vh' }}>
       <div className="aurora-orb aurora-orb-1" />
 
       {/* ── Bemnet AI floating chat (shipper & driver only) ── */}
-      <BemnetChat aiEnabled={chatAiEnabled} />
+      <BemnetChat aiEnabled={chatAiEnabled} userName={chatUserName} userRole={roleLabel} />
 
       {/* ── MOBILE BOTTOM DOCK ── */}
       <div className="dash-dock-mobile">

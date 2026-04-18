@@ -4,7 +4,7 @@ import {
 } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { useNavigate } from 'react-router-dom'
-import apiClient, { authApi, adminOrderApi, configApi, adminCarOwnerApi } from '../lib/apiClient'
+import apiClient, { authApi, assistantApi, adminOrderApi, configApi, adminCarOwnerApi } from '../lib/apiClient'
 import LanguageToggle from '../components/LanguageToggle'
 import { useLanguage } from '../context/LanguageContext'
 import PhoneField from '../components/PhoneField'
@@ -15,6 +15,7 @@ import AdminWalletAdjustment from '../components/AdminWalletAdjustment'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import logoImg from '../assets/logo.webp'
+import aiLogoSrc from '../assets/logo-ai-assistant.webp'
 import AdminReportsSectionComponent from '../components/AdminReportsSection'
 import {
   LuTruck, LuUser, LuShield, LuPackage, LuPhone, LuMail,
@@ -7064,12 +7065,222 @@ function AdminCarOwnersSection() {
   )
 }
 
+interface AdminChatMsg { id: number; from: 'user' | 'bot'; text: string; ts: string }
+
+const ADMIN_BEMNET_GREET = "Hi! I'm **Bemnet**, your AI logistics assistant 👋\nHow can I help you today?"
+
+function adminFmtTime(d: Date) { return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }
+
+function AdminBemnetChat({ aiEnabled, userName, userRole }: { aiEnabled: boolean; userName: string; userRole: string }) {
+  const [open, setOpen] = useState(false)
+  const [msgs, setMsgs] = useState<AdminChatMsg[]>([])
+  const [input, setInput] = useState('')
+  const [typing, setTyping] = useState(false)
+  const [sessionId, setSessionId] = useState<number | null>(null)
+  const [mounted, setMounted] = useState(false)
+  const bottomRef = useRef<HTMLDivElement>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => { setTimeout(() => setMounted(true), 350) }, [])
+
+  useEffect(() => {
+    if (open && msgs.length === 0) {
+      setMsgs([{ id: 1, from: 'bot', text: ADMIN_BEMNET_GREET, ts: adminFmtTime(new Date()) }])
+    }
+    if (open) setTimeout(() => inputRef.current?.focus(), 80)
+  }, [open])
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [msgs, typing])
+
+  function renderText(text: string) {
+    return text.split(/\*\*(.+?)\*\*/g).map((part, i) =>
+      i % 2 === 1
+        ? <strong key={i} style={{ color: 'var(--clr-accent)', fontWeight: 700 }}>{part}</strong>
+        : part
+    )
+  }
+
+  if (!aiEnabled) return null
+
+  async function sendMessage(rawText: string) {
+    const text = rawText.trim()
+    if (!text) return
+    const now = new Date()
+    const userMsg: AdminChatMsg = { id: Date.now(), from: 'user', text, ts: adminFmtTime(now) }
+    setMsgs(prev => [...prev, userMsg])
+    setInput('')
+    setTyping(true)
+
+    try {
+      const { data } = await assistantApi.ask({
+        question: text,
+        ...(sessionId ? { session_id: sessionId } : {}),
+        user_name: userName,
+        user_role: userRole,
+      })
+
+      const nextSessionId = typeof data?.session_id === 'number' ? data.session_id : null
+      if (nextSessionId) setSessionId(nextSessionId)
+
+      const answer = String(data?.answer ?? '').trim() || 'I could not generate a response right now. Please try again.'
+      const reply: AdminChatMsg = { id: Date.now() + 1, from: 'bot', text: answer, ts: adminFmtTime(new Date()) }
+      setMsgs(prev => [...prev, reply])
+    } catch (err: any) {
+      const message = err?.response?.data?.message || 'Bemnet is temporarily unavailable. Please try again in a moment.'
+      const reply: AdminChatMsg = { id: Date.now() + 1, from: 'bot', text: message, ts: adminFmtTime(new Date()) }
+      setMsgs(prev => [...prev, reply])
+    } finally {
+      setTyping(false)
+    }
+  }
+
+  function send() {
+    void sendMessage(input)
+  }
+
+  return (
+    <>
+      {!open && (
+        <button
+          onClick={() => setOpen(true)}
+          title="Chat with Bemnet AI"
+          style={{
+            position: 'fixed', bottom: '1.25rem', right: '1.25rem', zIndex: 1200,
+            width: 58, height: 58, borderRadius: '50%', border: '2px solid rgba(0,229,255,0.35)', cursor: 'pointer', padding: 0,
+            background: 'rgba(8,11,20,0.85)',
+            boxShadow: '0 8px 32px rgba(0,0,0,0.6), 0 0 0 1px rgba(0,229,255,0.12)',
+            backdropFilter: 'blur(16px)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            animation: mounted ? 'fab-pop 0.5s cubic-bezier(0.34,1.56,0.64,1) both, fab-pulse 2.5s 1.5s ease-in-out infinite' : 'none',
+            transition: 'transform .18s',
+          }}
+        >
+          <img src={aiLogoSrc} alt="Bemnet AI" style={{ width: 38, height: 38, borderRadius: '50%', objectFit: 'cover' }} />
+          <span style={{ position: 'absolute', top: 2, right: 2, width: 14, height: 14, borderRadius: '50%', background: '#22c55e', border: '2px solid #080b14', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#fff' }} />
+          </span>
+        </button>
+      )}
+
+      {open && (
+        <div style={{
+          position: 'fixed', bottom: '1rem', right: '1.25rem', zIndex: 1200,
+          width: 'min(390px, calc(100vw - 2rem))',
+          height: 'min(580px, calc(100vh - 2rem))',
+          display: 'flex', flexDirection: 'column',
+          borderRadius: '1.5rem', overflow: 'hidden',
+          background: 'rgba(8,11,20,0.96)',
+          border: '1px solid rgba(99,102,241,0.3)',
+          boxShadow: '0 32px 80px rgba(0,0,0,0.7), 0 0 0 1px rgba(99,102,241,0.15), inset 0 1px 0 rgba(255,255,255,0.06)',
+          backdropFilter: 'blur(24px)',
+          animation: 'chat-open 0.35s cubic-bezier(0.34,1.56,0.64,1) both',
+        }}>
+          <div style={{
+            padding: '1rem 1.1rem 0.9rem', flexShrink: 0,
+            background: 'linear-gradient(135deg,rgba(99,102,241,0.18) 0%,rgba(139,92,246,0.12) 100%)',
+            borderBottom: '1px solid rgba(99,102,241,0.2)',
+            display: 'flex', alignItems: 'center', gap: '0.75rem',
+          }}>
+            <div style={{ position: 'relative', flexShrink: 0 }}>
+              <img src={aiLogoSrc} alt="Bemnet" style={{ width: 44, height: 44, borderRadius: '50%', objectFit: 'cover', border: '2px solid rgba(99,102,241,0.5)' }} />
+              <span style={{ position: 'absolute', bottom: 1, right: 1, width: 11, height: 11, borderRadius: '50%', background: '#22c55e', border: '2px solid rgba(8,11,20,0.96)' }} />
+            </div>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontWeight: 800, fontSize: '0.97rem', color: '#e2e8f0', letterSpacing: '-0.01em' }}>Bemnet</div>
+              <div style={{ fontSize: '0.72rem', color: '#22c55e', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#22c55e', display: 'inline-block' }} /> Online · AI Assistant
+              </div>
+            </div>
+            <button onClick={() => setOpen(false)} style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '50%', width: 32, height: 32, cursor: 'pointer', color: '#94a3b8', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, transition: 'all .15s' }}>
+              <LuX size={14} />
+            </button>
+          </div>
+
+          <div style={{ flex: 1, overflowY: 'auto', padding: '1rem 0.9rem', display: 'flex', flexDirection: 'column', gap: '0.75rem', scrollbarWidth: 'thin', scrollbarColor: 'rgba(99,102,241,0.3) transparent' }}>
+            {msgs.map(msg => (
+              <div key={msg.id} style={{ display: 'flex', alignItems: 'flex-end', gap: '0.5rem', flexDirection: msg.from === 'user' ? 'row-reverse' : 'row', animation: msg.from === 'user' ? 'msg-in-user 0.28s cubic-bezier(0.4,0,0.2,1) both' : 'msg-in-bot 0.28s cubic-bezier(0.4,0,0.2,1) both' }}>
+                {msg.from === 'bot' && (
+                  <img src={aiLogoSrc} alt="Bemnet" style={{ width: 28, height: 28, borderRadius: '50%', objectFit: 'cover', flexShrink: 0, border: '1.5px solid rgba(99,102,241,0.4)' }} />
+                )}
+                {msg.from === 'user' && (
+                  <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'linear-gradient(135deg,#6366f1,#8b5cf6)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    <LuUser size={13} color="#fff" />
+                  </div>
+                )}
+                <div style={{ maxWidth: '72%', display: 'flex', flexDirection: 'column', gap: '0.2rem', alignItems: msg.from === 'user' ? 'flex-end' : 'flex-start' }}>
+                  <div style={{
+                    padding: '0.6rem 0.9rem', borderRadius: msg.from === 'user' ? '1.1rem 1.1rem 0.25rem 1.1rem' : '1.1rem 1.1rem 1.1rem 0.25rem',
+                    background: msg.from === 'user' ? 'linear-gradient(135deg,#6366f1,#8b5cf6)' : 'rgba(255,255,255,0.06)',
+                    border: msg.from === 'user' ? 'none' : '1px solid rgba(255,255,255,0.08)',
+                    fontSize: '0.845rem', lineHeight: 1.6, color: msg.from === 'user' ? '#fff' : '#e2e8f0', fontWeight: 450,
+                    boxShadow: msg.from === 'user' ? '0 4px 16px rgba(99,102,241,0.3)' : 'none',
+                  }}>
+                    {renderText(msg.text)}
+                    {msg.from === 'user' && (
+                      <div style={{ marginTop: '0.35rem', fontSize: '0.66rem', opacity: 0.9, fontWeight: 600 }}>
+                        Name: {userName} | Role: {userRole}
+                      </div>
+                    )}
+                  </div>
+                  <span style={{ fontSize: '0.65rem', color: 'rgba(100,116,139,0.7)', padding: '0 0.2rem' }}>{msg.ts}</span>
+                </div>
+              </div>
+            ))}
+
+            {typing && (
+              <div style={{ display: 'flex', alignItems: 'flex-end', gap: '0.5rem' }}>
+                <img src={aiLogoSrc} alt="Bemnet" style={{ width: 28, height: 28, borderRadius: '50%', objectFit: 'cover', flexShrink: 0, border: '1.5px solid rgba(99,102,241,0.4)' }} />
+                <div style={{ padding: '0.7rem 1rem', borderRadius: '1.1rem 1.1rem 1.1rem 0.25rem', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.08)', display: 'flex', gap: '4px', alignItems: 'center' }}>
+                  {[0, 1, 2].map(i => <span key={i} style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--clr-accent)', display: 'inline-block', animation: `typing-dot 1.2s ${i * 0.2}s ease-in-out infinite` }} />)}
+                </div>
+              </div>
+            )}
+            <div ref={bottomRef} />
+          </div>
+
+          <div style={{ padding: '0 0.9rem 0.6rem', display: 'flex', gap: '0.4rem', flexWrap: 'wrap', flexShrink: 0 }}>
+            {['Pending orders', 'Wallet payouts', 'Driver status', 'System alerts'].map(q => (
+              <button key={q} onClick={() => { void sendMessage(q) }} style={{ padding: '0.35rem 0.75rem', borderRadius: 99, background: 'rgba(99,102,241,0.12)', border: '1px solid rgba(99,102,241,0.25)', color: '#a5b4fc', fontSize: '0.73rem', fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                {q}
+              </button>
+            ))}
+          </div>
+
+          <div style={{ padding: '0.75rem 0.9rem 0.9rem', flexShrink: 0, borderTop: '1px solid rgba(255,255,255,0.06)', background: 'rgba(255,255,255,0.015)', display: 'flex', gap: '0.6rem', alignItems: 'center' }}>
+            <input
+              ref={inputRef}
+              value={input}
+              onChange={e => setInput(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send() } }}
+              placeholder="Message Bemnet…"
+              style={{ flex: 1, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(99,102,241,0.25)', borderRadius: '0.85rem', padding: '0.65rem 1rem', color: '#e2e8f0', fontSize: '0.875rem', fontFamily: 'inherit', outline: 'none', transition: 'border-color .2s, box-shadow .2s' }}
+              onFocus={e => { e.target.style.borderColor = 'rgba(99,102,241,0.6)'; e.target.style.boxShadow = '0 0 0 3px rgba(99,102,241,0.15)' }}
+              onBlur={e => { e.target.style.borderColor = 'rgba(99,102,241,0.25)'; e.target.style.boxShadow = 'none' }}
+            />
+            <button
+              onClick={send}
+              disabled={!input.trim()}
+              style={{ width: 42, height: 42, borderRadius: '0.75rem', border: 'none', cursor: input.trim() ? 'pointer' : 'not-allowed', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: input.trim() ? 'linear-gradient(135deg,#6366f1,#8b5cf6)' : 'rgba(99,102,241,0.2)', transition: 'all .2s', boxShadow: input.trim() ? '0 4px 14px rgba(99,102,241,0.38)' : 'none' }}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={input.trim() ? '#fff' : 'rgba(99,102,241,0.5)'} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="22" y1="2" x2="11" y2="13" /><polygon points="22 2 15 22 11 13 2 9 22 2" />
+              </svg>
+            </button>
+          </div>
+        </div>
+      )}
+    </>
+  )
+}
+
 // ─── Main Admin Dashboard ─────────────────────────────────────────────────────
 
 export default function AdminDashboardPage() {
   const { user, logout } = useAuth()
   const navigate = useNavigate()
   const { t: tr } = useLanguage()
+  const [chatAiEnabled, setChatAiEnabled] = useState(false)
 
   const [section, setSection]       = useState<AdminSection>('overview')
   const [orderJumpFilter, setOrderJumpFilter] = useState<{driverId?: string, statusFilter?: string}|null>(null)
@@ -7081,6 +7292,10 @@ export default function AdminDashboardPage() {
   const [usersLoading, setUsersLoading] = useState(false)
   const [toastMsg, setToastMsg]     = useState('')
   const [pendingCounts, setPendingCounts] = useState({ orders: 0, guestOrders: 0, payments: 0, withdrawals: 0 })
+
+  useEffect(() => {
+    configApi.getAiStatus().then(r => setChatAiEnabled(Boolean((r.data as any).ai_enabled))).catch(() => {})
+  }, [])
 
   const togglePin = () => setPinned(v => { const next = !v; localStorage.setItem('admin-sidebar-pinned', String(next)); return next })
   const showToast = (msg: string) => { setToastMsg(msg); setTimeout(() => setToastMsg(''), 3000) }
@@ -7160,6 +7375,8 @@ export default function AdminDashboardPage() {
   const staffUsers = users.filter(u => ![2, 3].includes(u.role_id))
 
   const can = (perm: string) => user?.role_id === 1 || myPermissions.includes(perm)
+  const chatUserName = `${user?.first_name ?? ''} ${user?.last_name ?? ''}`.trim() || user?.phone_number || 'User'
+  const chatUserRole = user?.role_name || 'Admin'
   const canOpenReports = user?.role_id === 1 || can('orders.manage') || can('dispatch.manage') || can('payments.approve') || can('wallet.manage')
   // Finance-only view: user has finance permissions but NOT order management
   const financeOnly = !can('orders.manage') && (can('payments.approve') || can('wallet.manage'))
@@ -7420,6 +7637,8 @@ export default function AdminDashboardPage() {
           {toastMsg}
         </div>
       )}
+
+      <AdminBemnetChat aiEnabled={chatAiEnabled} userName={chatUserName} userRole={chatUserRole} />
     </div>
   )
 }

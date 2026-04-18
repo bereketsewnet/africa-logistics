@@ -30,6 +30,13 @@ import {
   deactivatePushSubscription,
 } from '../services/push.service.js'
 
+interface AssistantAskBody {
+  question?: string
+  session_id?: number
+  user_name?: string
+  user_role?: string
+}
+
 // ─── Request Body Types ───────────────────────────────────────────────────────
 
 interface UpdateThemeBody {
@@ -146,6 +153,85 @@ export async function getProfileHandler(
       order_updates: 1,
       promotions: 0,
     },
+  })
+}
+
+/**
+ * POST /api/profile/assistant/ask
+ * Proxies authenticated admin/shipper/driver questions to the AI assistance service.
+ * Credentials are read from admin settings and never exposed to the browser.
+ */
+export async function askAssistantHandler(
+  request: FastifyRequest<{ Body: AssistantAskBody }>,
+  reply: FastifyReply
+) {
+  const caller = request.user as { role_id: number }
+  if (![1, 2, 3].includes(caller.role_id)) {
+    return reply.status(403).send({ success: false, message: 'AI assistant is available for admin, shippers, and drivers only.' })
+  }
+
+  const question = String(request.body?.question ?? '').trim()
+  if (!question) {
+    return reply.status(400).send({ success: false, message: 'Question is required.' })
+  }
+
+  const userName = String(request.body?.user_name ?? '').trim()
+  const userRole = String(request.body?.user_role ?? '').trim()
+  const identityLines: string[] = []
+  if (userName) identityLines.push(`Name: ${userName}`)
+  if (userRole) identityLines.push(`Role: ${userRole}`)
+  const contextualQuestion = identityLines.length > 0
+    ? `User identity:\n${identityLines.join('\n')}\n\nUser message:\n${question}`
+    : question
+
+  const db = request.server.db
+  const [rows] = await db.query<any[]>(
+    'SELECT ai_enabled, customer_id, api_key FROM ai_assistance_settings WHERE id = 1 LIMIT 1'
+  )
+  const settings = rows[0]
+
+  if (!settings?.ai_enabled) {
+    return reply.status(503).send({ success: false, message: 'AI assistant is currently disabled.' })
+  }
+  if (!settings?.api_key || !settings?.customer_id) {
+    return reply.status(500).send({ success: false, message: 'AI assistant is not configured yet.' })
+  }
+
+  const upstreamBase = (process.env.AI_ASSISTANCE_BASE_URL || 'http://127.0.0.1:8001').replace(/\/$/, '')
+  const payload: { question: string; session_id?: number } = { question: contextualQuestion }
+  if (typeof request.body?.session_id === 'number' && Number.isFinite(request.body.session_id)) {
+    payload.session_id = request.body.session_id
+  }
+
+  let upstreamRes: Response
+  try {
+    upstreamRes = await fetch(`${upstreamBase}/api/ask`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${settings.api_key}`,
+        'X-Customer-Id': String(settings.customer_id),
+      },
+      body: JSON.stringify(payload),
+      signal: AbortSignal.timeout(45000),
+    })
+  } catch {
+    return reply.status(502).send({ success: false, message: 'Could not reach AI service.' })
+  }
+
+  const sessionIdHeader = upstreamRes.headers.get('x-session-id')
+  const text = await upstreamRes.text()
+
+  if (!upstreamRes.ok) {
+    const reason = text?.trim() || 'Upstream AI request failed.'
+    return reply.status(upstreamRes.status >= 400 && upstreamRes.status < 600 ? upstreamRes.status : 502)
+      .send({ success: false, message: reason })
+  }
+
+  return reply.send({
+    success: true,
+    answer: text,
+    session_id: sessionIdHeader ? Number(sessionIdHeader) || null : null,
   })
 }
 

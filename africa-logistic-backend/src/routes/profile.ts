@@ -8,6 +8,7 @@
 import { FastifyInstance } from 'fastify'
 import {
   getProfileHandler,
+  askAssistantHandler,
   updateThemeHandler,
   getNotificationPrefsHandler,
   updateNotificationPrefsHandler,
@@ -58,6 +59,25 @@ export default async function profileRoutes(fastify: FastifyInstance) {
    * Returns current notification preferences (or defaults).
    */
   fastify.get('/notifications', getNotificationPrefsHandler)
+
+  /**
+   * POST /api/profile/assistant/ask
+   * Authenticated AI assistant endpoint for shipper/driver floating chat.
+   */
+  fastify.post('/assistant/ask', {
+    schema: {
+      body: {
+        type: 'object',
+        required: ['question'],
+        properties: {
+          question: { type: 'string', minLength: 1, maxLength: 5000 },
+          session_id: { type: 'number' },
+          user_name: { type: 'string', minLength: 1, maxLength: 120 },
+          user_role: { type: 'string', minLength: 1, maxLength: 80 },
+        },
+      },
+    },
+  }, askAssistantHandler)
 
   /**
    * PUT /api/profile/notifications
@@ -168,7 +188,7 @@ export default async function profileRoutes(fastify: FastifyInstance) {
   fastify.get('/driver/order-payments', async (request, reply) => {
     const user = (request as any).user
     if (user?.role_id !== 3) return reply.status(403).send({ success: false, message: 'Drivers only' })
-    const [rows] = await (request as any).server.db.query<any[]>(
+    const [rowsRaw] = await (request as any).server.db.query(
       `SELECT odp.*,
               o.reference_code, o.pickup_address, o.delivery_address,
               CONCAT(a.first_name, ' ', IFNULL(a.last_name,'')) AS admin_name
@@ -180,6 +200,7 @@ export default async function profileRoutes(fastify: FastifyInstance) {
        LIMIT 100`,
       [user.id]
     )
+    const rows = rowsRaw as any[]
     return reply.send({ success: true, payments: rows })
   })
 }

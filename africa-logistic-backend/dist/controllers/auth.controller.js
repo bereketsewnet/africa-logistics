@@ -78,9 +78,9 @@ export async function verifyOtpHandler(request, reply) {
             .header('Retry-After', String(lock.retryAfterSeconds))
             .send({ success: false, message: 'Too many failed OTP attempts. Please try again later.' });
     }
-    // Validate role_id — only 2 (Shipper) or 3 (Driver) allowed for self-registration
-    if (![2, 3].includes(role_id)) {
-        return reply.status(400).send({ success: false, message: 'Invalid role_id. Use 2 (Shipper) or 3 (Driver).' });
+    // Validate role_id — only 2 (Shipper), 3 (Driver), 6 (CarOwner) allowed for self-registration
+    if (![2, 3, 6].includes(role_id)) {
+        return reply.status(400).send({ success: false, message: 'Invalid role_id. Use 2 (Shipper), 3 (Driver), or 6 (CarOwner).' });
     }
     // Verify the OTP submitted by the user
     const isValid = verifyOtp(phone_number, otp);
@@ -108,7 +108,7 @@ export async function verifyOtpHandler(request, reply) {
         firstName: first_name,
         lastName: last_name,
     });
-    notifyAdminsOfEvent(request.server.db, 'New Account Registration', `${first_name} ${last_name}`.trim() + ` registered as ${role_id === 3 ? 'Driver' : 'Shipper'}.`, '/admin').catch(() => { });
+    notifyAdminsOfEvent(request.server.db, 'New Account Registration', `${first_name} ${last_name}`.trim() + ` registered as ${role_id === 3 ? 'Driver' : role_id === 6 ? 'Car Owner' : 'Shipper'}.`, '/admin').catch(() => { });
     // Sign and return a JWT token
     const token = request.server.jwt.sign({ id: userId, phone_number, role_id }, { expiresIn: process.env.JWT_EXPIRES_IN || '1d' });
     return reply.status(201).send({

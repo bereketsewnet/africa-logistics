@@ -621,7 +621,37 @@ export default fp(async function dbPlugin(fastify) {
       INSERT IGNORE INTO system_config (config_key, config_value) VALUES
         ('maintenance_mode',    '0'),
         ('maintenance_message', 'The platform is currently under maintenance. We will be back shortly.'),
-        ('app_version',         '1.0.0')
+        ('app_version',         '1.0.0'),
+        ('withdrawal_commission_rate', '15')
+    `);
+        // ─── Withdrawal Requests ──────────────────────────────────────────────────
+        await conn.query(`
+      CREATE TABLE IF NOT EXISTS withdrawal_requests (
+        id                        CHAR(36)      NOT NULL PRIMARY KEY,
+        user_id                   CHAR(36)      NOT NULL,
+        role_id                   INT           NOT NULL,
+        amount_requested          DECIMAL(14,2) NOT NULL,
+        amount_approved           DECIMAL(14,2) NULL,
+        bank_details              JSON          NOT NULL,
+        notes                     TEXT          NULL,
+        proof_image_url           VARCHAR(500)  NULL,
+        status                    ENUM('PENDING','APPROVED','REJECTED') DEFAULT 'PENDING',
+        admin_note                TEXT          NULL,
+        admin_image_url           VARCHAR(500)  NULL,
+        commission_rate           DECIMAL(5,2)  NULL,
+        commission_amount         DECIMAL(14,2) NULL,
+        transaction_id            CHAR(36)      NULL,
+        commission_transaction_id CHAR(36)      NULL,
+        reviewed_by               CHAR(36)      NULL,
+        reviewed_at               TIMESTAMP     NULL,
+        created_at                TIMESTAMP     DEFAULT CURRENT_TIMESTAMP,
+        INDEX idx_wr_user   (user_id),
+        INDEX idx_wr_status (status),
+        INDEX idx_wr_created (created_at),
+        CONSTRAINT wr_fk_user        FOREIGN KEY (user_id)    REFERENCES users(id) ON DELETE CASCADE,
+        CONSTRAINT wr_fk_reviewed_by FOREIGN KEY (reviewed_by) REFERENCES users(id) ON DELETE SET NULL,
+        CONSTRAINT wr_fk_transaction FOREIGN KEY (transaction_id) REFERENCES wallet_transactions(id) ON DELETE SET NULL
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     `);
         // 9.4 — RBAC permission model (role → permission matrix)
         await conn.query(`
@@ -719,6 +749,69 @@ export default fp(async function dbPlugin(fastify) {
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     `);
         await conn.query(`INSERT IGNORE INTO ai_assistance_settings (id) VALUES (1)`);
+        // ─── Car Owner Role (6) ──────────────────────────────────────────────────
+        await conn.query(`
+      INSERT IGNORE INTO roles (id, role_name, description) VALUES
+        (6, 'CarOwner', 'Car owner who registers vehicles for driver assignment')
+    `).catch(() => { });
+        // ─── Car Owner Vehicles ──────────────────────────────────────────────────
+        await conn.query(`
+      CREATE TABLE IF NOT EXISTS car_owner_vehicles (
+        id                  CHAR(36)     NOT NULL PRIMARY KEY,
+        owner_id            CHAR(36)     NOT NULL,
+        plate_number        VARCHAR(30)  NOT NULL UNIQUE,
+        vehicle_type        VARCHAR(60)  NOT NULL,
+        model               VARCHAR(100) NULL,
+        color               VARCHAR(60)  NULL,
+        year                SMALLINT     NULL,
+        max_capacity_kg     DECIMAL(10,2) NULL,
+        description         VARCHAR(500) NULL,
+        vehicle_photo_url   VARCHAR(255) NULL,
+        libre_url           VARCHAR(255) NULL,
+        assigned_driver_id  CHAR(36)     NULL,
+        status              ENUM('PENDING','APPROVED','REJECTED') NOT NULL DEFAULT 'PENDING',
+        admin_note          TEXT         NULL,
+        reviewed_by         CHAR(36)     NULL,
+        reviewed_at         TIMESTAMP    NULL,
+        created_at          TIMESTAMP    DEFAULT CURRENT_TIMESTAMP,
+        updated_at          TIMESTAMP    DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        INDEX idx_cov_owner  (owner_id),
+        INDEX idx_cov_driver (assigned_driver_id),
+        CONSTRAINT cov_fk_owner  FOREIGN KEY (owner_id)           REFERENCES users(id) ON DELETE CASCADE,
+        CONSTRAINT cov_fk_driver FOREIGN KEY (assigned_driver_id) REFERENCES users(id) ON DELETE SET NULL,
+        CONSTRAINT cov_fk_admin  FOREIGN KEY (reviewed_by)        REFERENCES users(id) ON DELETE SET NULL
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    `);
+        // ─── Order Driver Payments ───────────────────────────────────────────────
+        await conn.query(`
+      CREATE TABLE IF NOT EXISTS order_driver_payments (
+        id                  CHAR(36)      NOT NULL PRIMARY KEY,
+        order_id            CHAR(36)      NOT NULL,
+        driver_id           CHAR(36)      NOT NULL,
+        admin_id            CHAR(36)      NOT NULL,
+        payment_type        ENUM('WALLET','BANK_TRANSFER') NOT NULL,
+        gross_amount        DECIMAL(14,2) NOT NULL,
+        commission_type     ENUM('PERCENT','FIXED','NONE') NOT NULL DEFAULT 'NONE',
+        commission_value    DECIMAL(14,2) NOT NULL DEFAULT 0,
+        commission_amount   DECIMAL(14,2) NOT NULL DEFAULT 0,
+        net_amount          DECIMAL(14,2) NOT NULL,
+        receipt_url         VARCHAR(512)  NULL,
+        note                TEXT          NULL,
+        driver_tx_id        CHAR(36)      NULL,
+        admin_debit_tx_id   CHAR(36)      NULL,
+        created_at          TIMESTAMP     DEFAULT CURRENT_TIMESTAMP,
+        INDEX idx_odp_order  (order_id),
+        INDEX idx_odp_driver (driver_id),
+        CONSTRAINT odp_fk_order  FOREIGN KEY (order_id)  REFERENCES orders(id) ON DELETE CASCADE,
+        CONSTRAINT odp_fk_driver FOREIGN KEY (driver_id) REFERENCES users(id)  ON DELETE CASCADE,
+        CONSTRAINT odp_fk_admin  FOREIGN KEY (admin_id)  REFERENCES users(id)  ON DELETE CASCADE
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    `);
+        // Add driver_payout_status column to orders if missing
+        const [dpsRows] = await conn.query(`SELECT 1 FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='orders' AND COLUMN_NAME='driver_payout_status'`);
+        if (dpsRows.length === 0) {
+            await conn.query(`ALTER TABLE orders ADD COLUMN driver_payout_status ENUM('PENDING','WALLET_PAID','BANK_TRANSFERRED') NOT NULL DEFAULT 'PENDING'`);
+        }
         conn.release(); // Return the connection back to the pool
     }
     catch (err) {

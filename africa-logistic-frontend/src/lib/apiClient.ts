@@ -427,6 +427,12 @@ export const walletApi = {
     apiClient.get('/profile/driver/order-payments'),
 }
 
+// ─── AI Assistant API (authenticated shipper/driver) ───────────────────────
+export const assistantApi = {
+  ask: (data: { question: string; session_id?: number; user_name?: string; user_role?: string }) =>
+    apiClient.post('/profile/assistant/ask', data),
+}
+
 // ─── Public Config API (no auth required) ────────────────────────────────────
 export const configApi = {
   getVehicleTypes: () =>
