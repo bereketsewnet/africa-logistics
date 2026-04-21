@@ -30,3 +30,13 @@ africa-logistics-api.lula.com.et {
 afri-logistics-api.lula.com.et {
     redir https://africa-logistics-api.lula.com.et{uri} 308
 }
+
+# ─── Bemnet AI Assistant — Frontend ───────────────────────────────────────────
+bemnet-ai-assitant.lula.com.et {
+    reverse_proxy ai_assistance_frontend:3000
+}
+
+# ─── Bemnet AI Assistant — Backend API ────────────────────────────────────────
+bemnet-ai-assitant-api.lula.com.et {
+    reverse_proxy ai_assistance_backend:8001
+}

@@ -29,6 +29,7 @@ services:
 
   backend:
     build: ./backend
+    container_name: ai_assistance_backend
     restart: unless-stopped
     ports:
       - "8001:8001"
@@ -51,9 +52,13 @@ services:
         condition: service_healthy
       chroma:
         condition: service_healthy
+    networks:
+      - default
+      - africa_net
 
   frontend:
     build: ./frontend
+    container_name: ai_assistance_frontend
     restart: unless-stopped
     ports:
       - "3001:3000"
@@ -66,8 +71,17 @@ services:
     depends_on:
       backend:
         condition: service_healthy
+    networks:
+      - default
+      - africa_net
 
 volumes:
   pg_data:
   chroma_data:
   receipts:
+
+networks:
+  default:
+  africa_net:
+    external: true
+    name: africalogistics_africa_net
