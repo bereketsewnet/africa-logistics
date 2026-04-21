@@ -10,6 +10,7 @@ import logoImg from '../assets/logo.webp'
 import {
   LuTruck, LuEye, LuEyeOff, LuTriangleAlert, LuPackage, LuSmartphone,
   LuArrowRight, LuCheck, LuCar,
+  LuSun, LuMoon,
 } from 'react-icons/lu'
 import { SiTelegram } from 'react-icons/si'
 import LanguageToggle from '../components/LanguageToggle'
@@ -134,6 +135,19 @@ export default function RegisterPage() {
   const [error,   setError]   = useState('')
   const [loading, setLoading] = useState(false)
 
+  const [regTheme, setRegTheme] = useState<'LIGHT' | 'DARK'>(() =>
+    (localStorage.getItem('login-theme') as 'LIGHT' | 'DARK' | null) ?? 'LIGHT'
+  )
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', regTheme.toLowerCase())
+  }, [])
+  const toggleRegTheme = () => {
+    const next: 'LIGHT' | 'DARK' = regTheme === 'LIGHT' ? 'DARK' : 'LIGHT'
+    setRegTheme(next)
+    localStorage.setItem('login-theme', next)
+    document.documentElement.setAttribute('data-theme', next.toLowerCase())
+  }
+
   const { remaining, start: startTimer } = useCountdown(120)
 
   const strength = getStrength(password)
@@ -194,7 +208,15 @@ export default function RegisterPage() {
         <div className="glass page-enter" style={{ width: '100%', maxWidth: 460, padding: '2.5rem 2rem' }}>
 
           {/* Language toggle */}
-          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '0.6rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '0.5rem', marginBottom: '0.6rem' }}>
+            <button
+              type="button"
+              onClick={toggleRegTheme}
+              title={regTheme === 'LIGHT' ? 'Switch to dark mode' : 'Switch to light mode'}
+              style={{ background: 'var(--adm-foot-btn-bg)', border: '1px solid var(--adm-foot-btn-brd)', borderRadius: 8, padding: '0.4rem 0.55rem', color: 'var(--clr-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', lineHeight: 1 }}
+            >
+              {regTheme === 'LIGHT' ? <LuMoon size={15} /> : <LuSun size={15} />}
+            </button>
             <LanguageToggle />
           </div>
 

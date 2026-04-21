@@ -351,7 +351,7 @@ function BemnetChat({ aiEnabled, userName, userRole }: { aiEnabled: boolean; use
           style={{
             position:'fixed', bottom:'5rem', right:'1.25rem', zIndex:1200,
             width:58, height:58, borderRadius:'50%', border:'2px solid rgba(0,229,255,0.35)', cursor:'pointer', padding:0,
-            background:'rgba(8,11,20,0.85)',
+            background:'var(--chat-fab-bg)',
             boxShadow:'0 8px 32px rgba(0,0,0,0.6), 0 0 0 1px rgba(0,229,255,0.12)',
             backdropFilter:'blur(16px)',
             display:'flex', alignItems:'center', justifyContent:'center',
@@ -361,7 +361,7 @@ function BemnetChat({ aiEnabled, userName, userRole }: { aiEnabled: boolean; use
         >
           <img src={aiLogoSrc} alt="Bemnet AI" style={{ width:38, height:38, borderRadius:'50%', objectFit:'cover' }}/>
           {/* Notification badge */}
-          <span style={{ position:'absolute', top:2, right:2, width:14, height:14, borderRadius:'50%', background:'#22c55e', border:'2px solid #080b14', display:'flex', alignItems:'center', justifyContent:'center' }}>
+          <span style={{ position:'absolute', top:2, right:2, width:14, height:14, borderRadius:'50%', background:'#22c55e', border:'2px solid var(--chat-dot-brd)', display:'flex', alignItems:'center', justifyContent:'center' }}>
             <span style={{ width:6, height:6, borderRadius:'50%', background:'#fff' }}/>
           </span>
         </button>
@@ -375,7 +375,7 @@ function BemnetChat({ aiEnabled, userName, userRole }: { aiEnabled: boolean; use
           height:'min(580px, calc(100vh - 2rem))',
           display:'flex', flexDirection:'column',
           borderRadius:'1.5rem', overflow:'hidden',
-          background:'rgba(8,11,20,0.96)',
+          background:'var(--chat-panel-bg)',
           border:'1px solid rgba(99,102,241,0.3)',
           boxShadow:'0 32px 80px rgba(0,0,0,0.7), 0 0 0 1px rgba(99,102,241,0.15), inset 0 1px 0 rgba(255,255,255,0.06)',
           backdropFilter:'blur(24px)',
@@ -392,16 +392,16 @@ function BemnetChat({ aiEnabled, userName, userRole }: { aiEnabled: boolean; use
             {/* Avatar with online ring */}
             <div style={{ position:'relative', flexShrink:0 }}>
               <img src={aiLogoSrc} alt="Bemnet" style={{ width:44, height:44, borderRadius:'50%', objectFit:'cover', border:'2px solid rgba(99,102,241,0.5)' }}/>
-              <span style={{ position:'absolute', bottom:1, right:1, width:11, height:11, borderRadius:'50%', background:'#22c55e', border:'2px solid rgba(8,11,20,0.96)' }}/>
+              <span style={{ position:'absolute', bottom:1, right:1, width:11, height:11, borderRadius:'50%', background:'#22c55e', border:'2px solid var(--chat-dot-brd)' }}/>
             </div>
             <div style={{ flex:1 }}>
-              <div style={{ fontWeight:800, fontSize:'0.97rem', color:'#e2e8f0', letterSpacing:'-0.01em' }}>Bemnet</div>
+              <div style={{ fontWeight:800, fontSize:'0.97rem', color:'var(--clr-text)', letterSpacing:'-0.01em' }}>Bemnet</div>
               <div style={{ fontSize:'0.72rem', color:'#22c55e', fontWeight:600, display:'flex', alignItems:'center', gap:'0.3rem' }}>
                 <span style={{ width:6, height:6, borderRadius:'50%', background:'#22c55e', display:'inline-block' }}/> Online · AI Assistant
               </div>
             </div>
             {/* Close */}
-            <button onClick={() => setOpen(false)} style={{ background:'rgba(255,255,255,0.06)', border:'1px solid rgba(255,255,255,0.1)', borderRadius:'50%', width:32, height:32, cursor:'pointer', color:'#94a3b8', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, transition:'all .15s' }}>
+            <button onClick={() => setOpen(false)} style={{ background:'var(--chat-close-bg)', border:'1px solid var(--adm-foot-btn-brd)', borderRadius:'50%', width:32, height:32, cursor:'pointer', color:'var(--clr-muted)', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, transition:'all .15s' }}>
               <LuX size={14}/>
             </button>
           </div>
@@ -423,9 +423,9 @@ function BemnetChat({ aiEnabled, userName, userRole }: { aiEnabled: boolean; use
                 <div style={{ maxWidth:'72%', display:'flex', flexDirection:'column', gap:'0.2rem', alignItems: msg.from==='user' ? 'flex-end' : 'flex-start' }}>
                   <div style={{
                     padding:'0.6rem 0.9rem', borderRadius: msg.from==='user' ? '1.1rem 1.1rem 0.25rem 1.1rem' : '1.1rem 1.1rem 1.1rem 0.25rem',
-                    background: msg.from==='user' ? 'linear-gradient(135deg,#6366f1,#8b5cf6)' : 'rgba(255,255,255,0.06)',
-                    border: msg.from==='user' ? 'none' : '1px solid rgba(255,255,255,0.08)',
-                    fontSize:'0.845rem', lineHeight:1.6, color: msg.from==='user' ? '#fff' : '#e2e8f0', fontWeight:450,
+                    background: msg.from==='user' ? 'linear-gradient(135deg,#6366f1,#8b5cf6)' : 'var(--chat-bot-bg)',
+                    border: msg.from==='user' ? 'none' : '1px solid var(--chat-bot-brd)',
+                    fontSize:'0.845rem', lineHeight:1.6, color: msg.from==='user' ? '#fff' : 'var(--chat-msg-color)', fontWeight:450,
                     boxShadow: msg.from==='user' ? '0 4px 16px rgba(99,102,241,0.3)' : 'none',
                   }}>
                     {renderText(msg.text)}
@@ -444,7 +444,7 @@ function BemnetChat({ aiEnabled, userName, userRole }: { aiEnabled: boolean; use
             {typing && (
               <div style={{ display:'flex', alignItems:'flex-end', gap:'0.5rem' }}>
                 <img src={aiLogoSrc} alt="Bemnet" style={{ width:28, height:28, borderRadius:'50%', objectFit:'cover', flexShrink:0, border:'1.5px solid rgba(99,102,241,0.4)' }}/>
-                <div style={{ padding:'0.7rem 1rem', borderRadius:'1.1rem 1.1rem 1.1rem 0.25rem', background:'rgba(255,255,255,0.06)', border:'1px solid rgba(255,255,255,0.08)', display:'flex', gap:'4px', alignItems:'center' }}>
+                <div style={{ padding:'0.7rem 1rem', borderRadius:'1.1rem 1.1rem 1.1rem 0.25rem', background:'var(--chat-bot-bg)', border:'1px solid var(--chat-bot-brd)', display:'flex', gap:'4px', alignItems:'center' }}>
                   {[0,1,2].map(i=><span key={i} style={{ width:7, height:7, borderRadius:'50%', background:'var(--clr-accent)', display:'inline-block', animation:`typing-dot 1.2s ${i*0.2}s ease-in-out infinite` }}/>)}
                 </div>
               </div>
@@ -463,14 +463,14 @@ function BemnetChat({ aiEnabled, userName, userRole }: { aiEnabled: boolean; use
           </div>
 
           {/* Input bar */}
-          <div style={{ padding:'0.75rem 0.9rem 0.9rem', flexShrink:0, borderTop:'1px solid rgba(255,255,255,0.06)', background:'rgba(255,255,255,0.015)', display:'flex', gap:'0.6rem', alignItems:'center' }}>
+          <div style={{ padding:'0.75rem 0.9rem 0.9rem', flexShrink:0, borderTop:'1px solid var(--adm-foot-btn-brd)', background:'var(--chat-footer-bg)', display:'flex', gap:'0.6rem', alignItems:'center' }}>
             <input
               ref={inputRef}
               value={input}
               onChange={e => setInput(e.target.value)}
               onKeyDown={e => { if (e.key==='Enter' && !e.shiftKey) { e.preventDefault(); send() } }}
               placeholder="Message Bemnet…"
-              style={{ flex:1, background:'rgba(255,255,255,0.05)', border:'1px solid rgba(99,102,241,0.25)', borderRadius:'0.85rem', padding:'0.65rem 1rem', color:'#e2e8f0', fontSize:'0.875rem', fontFamily:'inherit', outline:'none', transition:'border-color .2s, box-shadow .2s' }}
+              style={{ flex:1, background:'var(--chat-input-bg)', border:'1px solid rgba(99,102,241,0.25)', borderRadius:'0.85rem', padding:'0.65rem 1rem', color:'var(--chat-msg-color)', fontSize:'0.875rem', fontFamily:'inherit', outline:'none', transition:'border-color .2s, box-shadow .2s' }}
               onFocus={e => { e.target.style.borderColor='rgba(99,102,241,0.6)'; e.target.style.boxShadow='0 0 0 3px rgba(99,102,241,0.15)' }}
               onBlur={e => { e.target.style.borderColor='rgba(99,102,241,0.25)'; e.target.style.boxShadow='none' }}
             />
@@ -500,7 +500,7 @@ export default function DashboardPage() {
   const [activeTab, setActiveTab] = useState<Tab>('profile')
 
   // ── Theme preference ───────────────────────────────────────────────────────
-  const [themeVal,   setThemeVal]   = useState<'LIGHT' | 'DARK' | 'SYSTEM'>('SYSTEM')
+  const [themeVal,   setThemeVal]   = useState<'LIGHT' | 'DARK' | 'SYSTEM'>('LIGHT')
   const [themeLoading, setThemeLoading] = useState(false)
   const [themeMsg,   setThemeMsg]   = useState('')
 
@@ -511,7 +511,7 @@ export default function DashboardPage() {
 
   // Load theme from user object (already fetched on login via /auth/me)
   useEffect(() => {
-    const saved = (user?.theme_preference ?? 'SYSTEM') as 'LIGHT' | 'DARK' | 'SYSTEM'
+    const saved = (user?.theme_preference ?? 'LIGHT') as 'LIGHT' | 'DARK' | 'SYSTEM'
     setThemeVal(saved)
     applyTheme(saved)
   }, [user?.id])

@@ -14,15 +14,14 @@ interface ProtectedRouteProps {
 // ── Animated cargo-truck splash screen ───────────────────────────────────────
 function SplashLoader() {
   return (
-    <div style={{
+    <div className="splash-bg" style={{
       position: 'fixed', inset: 0, zIndex: 9999,
       display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-      background: 'radial-gradient(ellipse at 30% 40%, #0d1535 0%, #080b14 60%)',
       overflow: 'hidden',
     }}>
       {/* Background aurora glows */}
-      <div style={{ position:'absolute', width:'70vmax', height:'70vmax', top:'-25vmax', left:'-20vmax', borderRadius:'50%', background:'radial-gradient(ellipse,rgba(124,58,237,0.22) 0%,transparent 70%)', filter:'blur(60px)', pointerEvents:'none' }}/>
-      <div style={{ position:'absolute', width:'55vmax', height:'55vmax', bottom:'-20vmax', right:'-15vmax', borderRadius:'50%', background:'radial-gradient(ellipse,rgba(0,229,255,0.15) 0%,transparent 70%)', filter:'blur(60px)', pointerEvents:'none' }}/>
+      <div className="splash-aurora-1" style={{ position:'absolute', width:'70vmax', height:'70vmax', top:'-25vmax', left:'-20vmax', borderRadius:'50%', filter:'blur(60px)', pointerEvents:'none' }}/>
+      <div className="splash-aurora-2" style={{ position:'absolute', width:'55vmax', height:'55vmax', bottom:'-20vmax', right:'-15vmax', borderRadius:'50%', filter:'blur(60px)', pointerEvents:'none' }}/>
 
       {/* Main stage */}
       <div style={{ position:'relative', width:340, maxWidth:'90vw', userSelect:'none' }}>
@@ -30,7 +29,7 @@ function SplashLoader() {
         {/* Title */}
         <div style={{ textAlign:'center', marginBottom:'2rem', animation:'splash-title-in 0.7s 0.1s cubic-bezier(0.4,0,0.2,1) both' }}>
           <img src={logoImg} alt="Africa Logistics" style={{ height:40, objectFit:'contain', marginBottom:'0.75rem' }} onError={e => { (e.target as HTMLImageElement).style.display='none' }}/>
-          <p style={{ fontSize:'0.78rem', letterSpacing:'0.18em', textTransform:'uppercase', color:'rgba(0,229,255,0.6)', fontWeight:600, margin:0 }}>Logistics Platform</p>
+          <p className="splash-subtitle" style={{ fontSize:'0.78rem', letterSpacing:'0.18em', textTransform:'uppercase', fontWeight:600, margin:0 }}>Logistics Platform</p>
         </div>
 
         {/* Road scene */}
@@ -126,13 +125,13 @@ function SplashLoader() {
         </div>
 
         {/* Progress bar */}
-        <div style={{ background:'rgba(255,255,255,0.06)', borderRadius:99, height:3, overflow:'hidden', marginBottom:'1.25rem' }}>
+        <div className="splash-progress-track" style={{ borderRadius:99, height:3, overflow:'hidden', marginBottom:'1.25rem' }}>
           <div style={{ height:'100%', borderRadius:99, background:'linear-gradient(90deg,#7c3aed,#00e5ff)', animation:'progress-fill 1.8s cubic-bezier(0.4,0,0.2,1) infinite' }}/>
         </div>
 
         {/* Loading text with dots */}
         <div style={{ textAlign:'center', display:'flex', alignItems:'center', justifyContent:'center', gap:'0.5rem' }}>
-          <span style={{ fontSize:'0.8rem', fontWeight:600, color:'rgba(148,163,184,0.8)', letterSpacing:'0.05em' }}>Loading</span>
+          <span className="splash-loading-text">Loading</span>
           <div style={{ display:'flex', gap:3 }}>
             {[0,1,2].map(i=>(
               <span key={i} style={{ display:'inline-block', width:5, height:5, borderRadius:'50%', background:'var(--clr-accent)', animation:`dot-bounce 1.2s ${i*0.2}s ease-in-out infinite` }}/>

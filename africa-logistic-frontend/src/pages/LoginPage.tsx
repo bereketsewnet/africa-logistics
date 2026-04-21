@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import type { FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
@@ -10,6 +10,7 @@ import logoImg from '../assets/logo.webp'
 import {
   LuEye, LuEyeOff, LuTriangleAlert,
   LuLogIn, LuPhone, LuMail,
+  LuSun, LuMoon,
 } from 'react-icons/lu'
 import { SiTelegram } from 'react-icons/si'
 import LanguageToggle from '../components/LanguageToggle'
@@ -28,6 +29,19 @@ export default function LoginPage() {
   const [showPw,    setShowPw]    = useState(false)
   const [error,     setError]     = useState('')
   const [loading,   setLoading]   = useState(false)
+
+  const [loginTheme, setLoginTheme] = useState<'LIGHT' | 'DARK'>(() =>
+    (localStorage.getItem('login-theme') as 'LIGHT' | 'DARK' | null) ?? 'LIGHT'
+  )
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', loginTheme.toLowerCase())
+  }, [])
+  const toggleLoginTheme = () => {
+    const next: 'LIGHT' | 'DARK' = loginTheme === 'LIGHT' ? 'DARK' : 'LIGHT'
+    setLoginTheme(next)
+    localStorage.setItem('login-theme', next)
+    document.documentElement.setAttribute('data-theme', next.toLowerCase())
+  }
 
   const demoAccounts = [
     { label: 'Admin', phone: '+251911000001', password: 'Admin1234' },
@@ -80,7 +94,15 @@ export default function LoginPage() {
         <div className="glass page-enter" style={{ width: '100%', maxWidth: 440, padding: '1.6rem 1.45rem', maxHeight: '92vh', overflowY: 'auto' }}>
 
           {/* Language toggle — top right */}
-          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '0.6rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '0.5rem', marginBottom: '0.6rem' }}>
+            <button
+              type="button"
+              onClick={toggleLoginTheme}
+              title={loginTheme === 'LIGHT' ? 'Switch to dark mode' : 'Switch to light mode'}
+              style={{ background: 'var(--adm-foot-btn-bg)', border: '1px solid var(--adm-foot-btn-brd)', borderRadius: 8, padding: '0.4rem 0.55rem', color: 'var(--clr-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', lineHeight: 1 }}
+            >
+              {loginTheme === 'LIGHT' ? <LuMoon size={15} /> : <LuSun size={15} />}
+            </button>
             <LanguageToggle />
           </div>
 
@@ -98,9 +120,9 @@ export default function LoginPage() {
 
           {/* Mode switcher */}
           <div style={{
-            display: 'flex', gap: '0.5rem', background: 'rgba(255,255,255,0.04)',
+            display: 'flex', gap: '0.5rem', background: 'var(--adm-tab-bg)',
             borderRadius: 12, padding: '0.25rem', marginBottom: '0.9rem',
-            border: '1px solid rgba(255,255,255,0.07)',
+            border: '1px solid var(--adm-brand-brd)',
           }}>
             {(['phone', 'email'] as LoginMode[]).map(m => (
               <button

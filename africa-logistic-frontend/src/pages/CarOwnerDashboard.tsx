@@ -7,6 +7,7 @@ import LanguageToggle from '../components/LanguageToggle'
 import {
   LuCar, LuPlus, LuLogOut, LuUser, LuClipboardList, LuCheck,
   LuTriangleAlert, LuRefreshCw, LuTrash2, LuX, LuClock,
+  LuSun, LuMoon,
 } from 'react-icons/lu'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -57,6 +58,19 @@ export default function CarOwnerDashboard() {
   const [loading, setLoading] = useState(true)
   const [err, setErr] = useState('')
   const [vehicleTypes, setVehicleTypes] = useState<string[]>([])
+
+  // ── Theme ────────────────────────────────────────────────────────────────
+  const [carTheme, setCarTheme] = useState<'LIGHT' | 'DARK'>(() =>
+    (localStorage.getItem('car-theme') as 'LIGHT' | 'DARK' | null) ?? 'LIGHT'
+  )
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', carTheme.toLowerCase())
+  }, [])
+  const handleCarTheme = (t: 'LIGHT' | 'DARK') => {
+    setCarTheme(t)
+    localStorage.setItem('car-theme', t)
+    document.documentElement.setAttribute('data-theme', t.toLowerCase())
+  }
 
   // register form
   const [showForm, setShowForm] = useState(false)
@@ -169,8 +183,15 @@ export default function CarOwnerDashboard() {
               <div style={{ display: 'flex', gap: '0.5rem' }}>
                 <LanguageToggle compact />
                 <button
+                  onClick={() => handleCarTheme(carTheme === 'LIGHT' ? 'DARK' : 'LIGHT')}
+                  title={carTheme === 'LIGHT' ? 'Switch to dark mode' : 'Switch to light mode'}
+                  style={{ background: 'var(--adm-foot-btn-bg)', border: '1px solid var(--adm-foot-btn-brd)', borderRadius: 8, padding: '0.45rem 0.65rem', color: 'var(--clr-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+                >
+                  {carTheme === 'LIGHT' ? <LuMoon size={15} /> : <LuSun size={15} />}
+                </button>
+                <button
                   onClick={loadVehicles}
-                  style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, padding: '0.45rem 0.65rem', color: 'var(--clr-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+                  style={{ background: 'var(--adm-foot-btn-bg)', border: '1px solid var(--adm-foot-btn-brd)', borderRadius: 8, padding: '0.45rem 0.65rem', color: 'var(--clr-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
                   title="Refresh"
                 >
                   <LuRefreshCw size={15} />
@@ -253,7 +274,7 @@ export default function CarOwnerDashboard() {
 
                 <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.25rem' }}>
                   <button type="button" onClick={() => { setShowForm(false); setFormErr('') }}
-                    style={{ flex: 1, padding: '0.75rem', borderRadius: 10, border: '1px solid rgba(255,255,255,0.12)', background: 'rgba(255,255,255,0.05)', color: 'var(--clr-muted)', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600, fontSize: '0.875rem' }}>
+                    style={{ flex: 1, padding: '0.75rem', borderRadius: 10, border: '1px solid var(--adm-foot-btn-brd)', background: 'var(--adm-foot-btn-bg)', color: 'var(--clr-muted)', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600, fontSize: '0.875rem' }}>
                     Cancel
                   </button>
                   <button type="submit" className="btn-primary" disabled={submitting} style={{ flex: 2, padding: '0.75rem' }}>
@@ -298,7 +319,7 @@ export default function CarOwnerDashboard() {
                     <div style={{ flex: 1, minWidth: 160 }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '0.35rem' }}>
                         <span style={{ fontWeight: 700, fontSize: '0.95rem', color: 'var(--clr-text)' }}>{v.plate_number}</span>
-                        <span style={{ fontSize: '0.78rem', color: 'var(--clr-muted)', background: 'rgba(255,255,255,0.06)', padding: '0.1rem 0.5rem', borderRadius: 6 }}>{v.vehicle_type}</span>
+                        <span style={{ fontSize: '0.78rem', color: 'var(--clr-muted)', background: 'var(--adm-tab-bg)', padding: '0.1rem 0.5rem', borderRadius: 6 }}>{v.vehicle_type}</span>
                         <StatusBadge status={v.status} />
                       </div>
                       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem 1.25rem' }}>
@@ -317,7 +338,7 @@ export default function CarOwnerDashboard() {
                           {v.assigned_driver_phone && <p style={{ margin: 0, fontSize: '0.72rem', color: 'var(--clr-muted)' }}>{v.assigned_driver_phone}</p>}
                         </div>
                       ) : (
-                        <span style={{ fontSize: '0.75rem', color: 'var(--clr-muted)', background: 'rgba(255,255,255,0.05)', padding: '0.2rem 0.55rem', borderRadius: 6 }}>No driver yet</span>
+                        <span style={{ fontSize: '0.75rem', color: 'var(--clr-muted)', background: 'var(--adm-tab-bg)', padding: '0.2rem 0.55rem', borderRadius: 6 }}>No driver yet</span>
                       )}
                       {v.status === 'PENDING' && (
                         <button
@@ -373,7 +394,7 @@ export default function CarOwnerDashboard() {
             <p style={{ color: 'var(--clr-muted)', fontSize: '0.85rem', margin: '0 0 1.25rem', lineHeight: 1.6 }}>This will permanently remove the vehicle registration. This action cannot be undone.</p>
             <div style={{ display: 'flex', gap: '0.75rem' }}>
               <button onClick={() => setDeletingId(null)}
-                style={{ flex: 1, padding: '0.7rem', borderRadius: 10, border: '1px solid rgba(255,255,255,0.12)', background: 'rgba(255,255,255,0.05)', color: 'var(--clr-muted)', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600, fontSize: '0.875rem' }}>
+                style={{ flex: 1, padding: '0.7rem', borderRadius: 10, border: '1px solid var(--adm-foot-btn-brd)', background: 'var(--adm-foot-btn-bg)', color: 'var(--clr-muted)', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600, fontSize: '0.875rem' }}>
                 Cancel
               </button>
               <button onClick={() => handleDelete(deletingId!)} disabled={deleteLoading}

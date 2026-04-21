@@ -21,6 +21,30 @@
   --radius:        16px;
   --blur:          18px;
   --transition:    0.25s cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* Admin panel — theme-sensitive surface tokens */
+  --adm-nav-lbl:        rgba(255,255,255,0.28);
+  --adm-nav-hr:         rgba(255,255,255,0.10);
+  --adm-nav-active-bg:  rgba(0,229,255,0.10);
+  --adm-nav-active-brd: rgba(0,229,255,0.18);
+  --adm-foot-btn-bg:    rgba(255,255,255,0.04);
+  --adm-foot-btn-brd:   rgba(255,255,255,0.09);
+  --adm-brand-brd:      rgba(255,255,255,0.06);
+  --adm-tab-bg:         rgba(255,255,255,0.04);
+  --adm-menu-btn-brd:   rgba(255,255,255,0.12);
+  --adm-toast-bg:       rgba(0,229,255,0.12);
+  --adm-toast-brd:      rgba(0,229,255,0.25);
+
+  /* Floating chat widget */
+  --chat-fab-bg:      rgba(8,11,20,0.85);
+  --chat-panel-bg:    rgba(8,11,20,0.96);
+  --chat-dot-brd:     rgba(8,11,20,0.96);
+  --chat-bot-bg:      rgba(255,255,255,0.06);
+  --chat-bot-brd:     rgba(255,255,255,0.08);
+  --chat-close-bg:    rgba(255,255,255,0.06);
+  --chat-footer-bg:   rgba(255,255,255,0.015);
+  --chat-input-bg:    rgba(255,255,255,0.05);
+  --chat-msg-color:   #e2e8f0;
 }
 
 /* ── Base Reset ── */
@@ -945,6 +969,30 @@ html, body, #root {
   --clr-muted:   #64748b;
   --clr-danger:  #dc2626;
   --clr-warning: #d97706;
+
+  /* Admin panel light-mode overrides */
+  --adm-nav-lbl:        rgba(0,0,0,0.38);
+  --adm-nav-hr:         rgba(0,0,0,0.09);
+  --adm-nav-active-bg:  rgba(2,132,199,0.10);
+  --adm-nav-active-brd: rgba(2,132,199,0.22);
+  --adm-foot-btn-bg:    rgba(0,0,0,0.04);
+  --adm-foot-btn-brd:   rgba(0,0,0,0.10);
+  --adm-brand-brd:      rgba(0,0,0,0.08);
+  --adm-tab-bg:         rgba(0,0,0,0.05);
+  --adm-menu-btn-brd:   rgba(0,0,0,0.14);
+  --adm-toast-bg:       rgba(2,132,199,0.10);
+  --adm-toast-brd:      rgba(2,132,199,0.22);
+
+  /* Floating chat widget light overrides */
+  --chat-fab-bg:      rgba(255,255,255,0.95);
+  --chat-panel-bg:    rgba(248,250,255,0.98);
+  --chat-dot-brd:     rgba(248,250,255,0.98);
+  --chat-bot-bg:      rgba(0,0,0,0.04);
+  --chat-bot-brd:     rgba(0,0,0,0.07);
+  --chat-close-bg:    rgba(0,0,0,0.05);
+  --chat-footer-bg:   rgba(0,0,0,0.02);
+  --chat-input-bg:    rgba(255,255,255,0.90);
+  --chat-msg-color:   var(--clr-text);
 }
 
 [data-theme="light"] body,
@@ -1054,6 +1102,35 @@ html, body, #root {
   border-right-color: rgba(0, 0, 0, 0.08);
 }
 
+/* Dock light mode */
+[data-theme="light"] .dash-dock-desktop {
+  background: rgba(255,255,255,0.92);
+  border-color: rgba(0,0,0,0.10);
+  box-shadow: 0 8px 48px rgba(0,0,0,0.10), inset 0 1px 0 rgba(255,255,255,0.95);
+}
+[data-theme="light"] .dock-divider {
+  background: rgba(0,0,0,0.08);
+}
+[data-theme="light"] .dock-btn:hover:not(.dock-btn-soon) {
+  background: rgba(0,0,0,0.06);
+  color: var(--clr-text);
+}
+[data-theme="light"] .dock-btn-active {
+  color: var(--clr-accent) !important;
+  background: rgba(2,132,199,0.12) !important;
+  outline: 1px solid rgba(2,132,199,0.22);
+  box-shadow: 0 0 14px rgba(2,132,199,0.08);
+}
+[data-theme="light"] .dock-toggle-btn {
+  border-color: rgba(0,0,0,0.12) !important;
+  background: rgba(0,0,0,0.04) !important;
+}
+[data-theme="light"] .dash-dock-mobile {
+  background: rgba(255,255,255,0.94);
+  border-color: rgba(0,0,0,0.09);
+  box-shadow: 0 8px 40px rgba(0,0,0,0.10), inset 0 1px 0 rgba(255,255,255,0.95);
+}
+
 /* System auto using prefers-color-scheme — applies light when user OS is light */
 @media (prefers-color-scheme: light) {
   [data-theme="system"] {
@@ -1120,6 +1197,52 @@ select option {
 /* ══════════════════════════════════════════════
    SPLASH / LOADING SCREEN
    ══════════════════════════════════════════════ */
+
+/* Theme-aware splash background */
+.splash-bg {
+  background: radial-gradient(ellipse at 30% 40%, #0d1535 0%, #080b14 60%);
+}
+[data-theme="light"] .splash-bg {
+  background: radial-gradient(ellipse at 30% 40%, #dde8ff 0%, #edf2ff 60%);
+}
+
+.splash-aurora-1 {
+  background: radial-gradient(ellipse, rgba(124,58,237,0.22) 0%, transparent 70%);
+}
+[data-theme="light"] .splash-aurora-1 {
+  background: radial-gradient(ellipse, rgba(99,102,241,0.10) 0%, transparent 70%);
+}
+
+.splash-aurora-2 {
+  background: radial-gradient(ellipse, rgba(0,229,255,0.15) 0%, transparent 70%);
+}
+[data-theme="light"] .splash-aurora-2 {
+  background: radial-gradient(ellipse, rgba(2,132,199,0.10) 0%, transparent 70%);
+}
+
+.splash-subtitle {
+  color: rgba(0,229,255,0.7);
+}
+[data-theme="light"] .splash-subtitle {
+  color: rgba(2,132,199,0.8);
+}
+
+.splash-progress-track {
+  background: rgba(255,255,255,0.06);
+}
+[data-theme="light"] .splash-progress-track {
+  background: rgba(0,0,0,0.09);
+}
+
+.splash-loading-text {
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  color: rgba(148,163,184,0.85);
+}
+[data-theme="light"] .splash-loading-text {
+  color: rgba(51,65,85,0.8);
+}
 
 @keyframes truck-drive {
   0%   { transform: translateX(-120px); opacity: 0; }

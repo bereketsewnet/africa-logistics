@@ -30,6 +30,7 @@ import {
   LuMapPin, LuMessageSquare, LuSend, LuNavigation, LuBell,
   LuGlobe, LuWrench, LuBike, LuKey, LuLayoutDashboard, LuLink, LuToggleLeft, LuToggleRight,
   LuWallet, LuLandmark, LuReceipt,
+  LuSun, LuMoon,
 } from 'react-icons/lu'
 
 // ─── Upload URL helper ───────────────────────────────────────────────────────
@@ -2651,7 +2652,7 @@ function StaffManagementSection({ allUsers, loading, onToggleActive, onRefresh }
 
 // ─── Profile section (embedded, no aurora-bg wrapper) ────────────────────────
 
-function ProfileSection() {
+function ProfileSection({ adminTheme, onThemeChange }: { adminTheme: 'LIGHT' | 'DARK'; onThemeChange: (t: 'LIGHT' | 'DARK') => void }) {
   const { t: tr } = useLanguage()
   const { user, updateUser, refreshUser } = useAuth()
   const [activeTab, setActiveTab] = useState<ProfileTab>('profile')
@@ -2795,9 +2796,9 @@ function ProfileSection() {
       </div>
 
       {/* Tab bar */}
-      <div style={{ display: 'flex', gap: '0.4rem', background: 'rgba(255,255,255,0.04)', borderRadius: 12, padding: '0.3rem' }}>
+      <div style={{ display: 'flex', gap: '0.4rem', background: 'var(--adm-tab-bg)', borderRadius: 12, padding: '0.3rem' }}>
         {tabs.map(t => (
-          <button key={t.id} onClick={() => setActiveTab(t.id)} style={{ flex: 1, padding: '0.5rem', border: 'none', borderRadius: 9, background: activeTab === t.id ? 'rgba(0,229,255,0.12)' : 'transparent', color: activeTab === t.id ? 'var(--clr-accent)' : 'var(--clr-muted)', fontFamily: 'inherit', fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer', transition: 'all 0.18s', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.35rem', outline: activeTab === t.id ? '1px solid rgba(0,229,255,0.2)' : 'none' }}>
+          <button key={t.id} onClick={() => setActiveTab(t.id)} style={{ flex: 1, padding: '0.5rem', border: 'none', borderRadius: 9, background: activeTab === t.id ? 'var(--adm-nav-active-bg)' : 'transparent', color: activeTab === t.id ? 'var(--clr-accent)' : 'var(--clr-muted)', fontFamily: 'inherit', fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer', transition: 'all 0.18s', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.35rem', outline: activeTab === t.id ? '1px solid var(--adm-nav-active-brd)' : 'none' }}>
             <span>{t.icon}</span>{t.label}
           </button>
         ))}
@@ -2825,6 +2826,24 @@ function ProfileSection() {
             </div>
             <button type="submit" className="btn-primary" disabled={nameLoading}>{nameLoading ? <BtnSpinner text={tr('prf_name_saving')} /> : tr('prf_name_save')}</button>
           </form>
+          <Divider />
+          {/* Display Theme */}
+          <div>
+            <h2 style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--clr-text)', display:'flex', alignItems:'center', gap:'0.4rem', marginBottom: '0.75rem' }}>
+              {adminTheme === 'LIGHT' ? <LuSun size={15}/> : <LuMoon size={15}/>} Display Theme
+            </h2>
+            <div style={{ display: 'flex', gap: '0.5rem' }}>
+              {(['LIGHT', 'DARK'] as const).map(val => {
+                const active = adminTheme === val
+                return (
+                  <button key={val} onClick={() => onThemeChange(val)} style={{ flex: 1, padding: '0.62rem 0.5rem', border: 'none', borderRadius: 10, outline: active ? '1px solid var(--adm-nav-active-brd)' : '1px solid var(--adm-foot-btn-brd)', background: active ? 'var(--adm-nav-active-bg)' : 'transparent', color: active ? 'var(--clr-accent)' : 'var(--clr-muted)', fontFamily: 'inherit', fontSize: '0.85rem', fontWeight: 700, cursor: 'pointer', transition: 'all 0.18s', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem' }}>
+                    {val === 'LIGHT' ? <LuSun size={14}/> : <LuMoon size={14}/>}
+                    {val === 'LIGHT' ? 'Light' : 'Dark'}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
         </div>
       )}
 
@@ -7149,7 +7168,7 @@ function AdminBemnetChat({ aiEnabled, userName, userRole }: { aiEnabled: boolean
           style={{
             position: 'fixed', bottom: '1.25rem', right: '1.25rem', zIndex: 1200,
             width: 58, height: 58, borderRadius: '50%', border: '2px solid rgba(0,229,255,0.35)', cursor: 'pointer', padding: 0,
-            background: 'rgba(8,11,20,0.85)',
+            background: 'var(--chat-fab-bg)',
             boxShadow: '0 8px 32px rgba(0,0,0,0.6), 0 0 0 1px rgba(0,229,255,0.12)',
             backdropFilter: 'blur(16px)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -7158,7 +7177,7 @@ function AdminBemnetChat({ aiEnabled, userName, userRole }: { aiEnabled: boolean
           }}
         >
           <img src={aiLogoSrc} alt="Bemnet AI" style={{ width: 38, height: 38, borderRadius: '50%', objectFit: 'cover' }} />
-          <span style={{ position: 'absolute', top: 2, right: 2, width: 14, height: 14, borderRadius: '50%', background: '#22c55e', border: '2px solid #080b14', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <span style={{ position: 'absolute', top: 2, right: 2, width: 14, height: 14, borderRadius: '50%', background: '#22c55e', border: '2px solid var(--chat-dot-brd)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#fff' }} />
           </span>
         </button>
@@ -7171,7 +7190,7 @@ function AdminBemnetChat({ aiEnabled, userName, userRole }: { aiEnabled: boolean
           height: 'min(580px, calc(100vh - 2rem))',
           display: 'flex', flexDirection: 'column',
           borderRadius: '1.5rem', overflow: 'hidden',
-          background: 'rgba(8,11,20,0.96)',
+          background: 'var(--chat-panel-bg)',
           border: '1px solid rgba(99,102,241,0.3)',
           boxShadow: '0 32px 80px rgba(0,0,0,0.7), 0 0 0 1px rgba(99,102,241,0.15), inset 0 1px 0 rgba(255,255,255,0.06)',
           backdropFilter: 'blur(24px)',
@@ -7185,15 +7204,15 @@ function AdminBemnetChat({ aiEnabled, userName, userRole }: { aiEnabled: boolean
           }}>
             <div style={{ position: 'relative', flexShrink: 0 }}>
               <img src={aiLogoSrc} alt="Bemnet" style={{ width: 44, height: 44, borderRadius: '50%', objectFit: 'cover', border: '2px solid rgba(99,102,241,0.5)' }} />
-              <span style={{ position: 'absolute', bottom: 1, right: 1, width: 11, height: 11, borderRadius: '50%', background: '#22c55e', border: '2px solid rgba(8,11,20,0.96)' }} />
+              <span style={{ position: 'absolute', bottom: 1, right: 1, width: 11, height: 11, borderRadius: '50%', background: '#22c55e', border: '2px solid var(--chat-dot-brd)' }} />
             </div>
             <div style={{ flex: 1 }}>
-              <div style={{ fontWeight: 800, fontSize: '0.97rem', color: '#e2e8f0', letterSpacing: '-0.01em' }}>Bemnet</div>
+              <div style={{ fontWeight: 800, fontSize: '0.97rem', color: 'var(--clr-text)', letterSpacing: '-0.01em' }}>Bemnet</div>
               <div style={{ fontSize: '0.72rem', color: '#22c55e', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
                 <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#22c55e', display: 'inline-block' }} /> Online · AI Assistant
               </div>
             </div>
-            <button onClick={() => setOpen(false)} style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '50%', width: 32, height: 32, cursor: 'pointer', color: '#94a3b8', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, transition: 'all .15s' }}>
+            <button onClick={() => setOpen(false)} style={{ background: 'var(--chat-close-bg)', border: '1px solid var(--adm-foot-btn-brd)', borderRadius: '50%', width: 32, height: 32, cursor: 'pointer', color: 'var(--clr-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, transition: 'all .15s' }}>
               <LuX size={14} />
             </button>
           </div>
@@ -7212,9 +7231,9 @@ function AdminBemnetChat({ aiEnabled, userName, userRole }: { aiEnabled: boolean
                 <div style={{ maxWidth: '72%', display: 'flex', flexDirection: 'column', gap: '0.2rem', alignItems: msg.from === 'user' ? 'flex-end' : 'flex-start' }}>
                   <div style={{
                     padding: '0.6rem 0.9rem', borderRadius: msg.from === 'user' ? '1.1rem 1.1rem 0.25rem 1.1rem' : '1.1rem 1.1rem 1.1rem 0.25rem',
-                    background: msg.from === 'user' ? 'linear-gradient(135deg,#6366f1,#8b5cf6)' : 'rgba(255,255,255,0.06)',
-                    border: msg.from === 'user' ? 'none' : '1px solid rgba(255,255,255,0.08)',
-                    fontSize: '0.845rem', lineHeight: 1.6, color: msg.from === 'user' ? '#fff' : '#e2e8f0', fontWeight: 450,
+                    background: msg.from === 'bot' ? 'var(--chat-bot-bg)' : 'linear-gradient(135deg,#6366f1,#8b5cf6)',
+                    border: msg.from === 'bot' ? '1px solid var(--chat-bot-brd)' : 'none',
+                    fontSize: '0.845rem', lineHeight: 1.6, color: msg.from === 'user' ? '#fff' : 'var(--chat-msg-color)', fontWeight: 450,
                     boxShadow: msg.from === 'user' ? '0 4px 16px rgba(99,102,241,0.3)' : 'none',
                   }}>
                     {renderText(msg.text)}
@@ -7232,7 +7251,7 @@ function AdminBemnetChat({ aiEnabled, userName, userRole }: { aiEnabled: boolean
             {typing && (
               <div style={{ display: 'flex', alignItems: 'flex-end', gap: '0.5rem' }}>
                 <img src={aiLogoSrc} alt="Bemnet" style={{ width: 28, height: 28, borderRadius: '50%', objectFit: 'cover', flexShrink: 0, border: '1.5px solid rgba(99,102,241,0.4)' }} />
-                <div style={{ padding: '0.7rem 1rem', borderRadius: '1.1rem 1.1rem 1.1rem 0.25rem', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.08)', display: 'flex', gap: '4px', alignItems: 'center' }}>
+                <div style={{ padding: '0.7rem 1rem', borderRadius: '1.1rem 1.1rem 1.1rem 0.25rem', background: 'var(--chat-bot-bg)', border: '1px solid var(--chat-bot-brd)', display: 'flex', gap: '4px', alignItems: 'center' }}>
                   {[0, 1, 2].map(i => <span key={i} style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--clr-accent)', display: 'inline-block', animation: `typing-dot 1.2s ${i * 0.2}s ease-in-out infinite` }} />)}
                 </div>
               </div>
@@ -7248,14 +7267,14 @@ function AdminBemnetChat({ aiEnabled, userName, userRole }: { aiEnabled: boolean
             ))}
           </div>
 
-          <div style={{ padding: '0.75rem 0.9rem 0.9rem', flexShrink: 0, borderTop: '1px solid rgba(255,255,255,0.06)', background: 'rgba(255,255,255,0.015)', display: 'flex', gap: '0.6rem', alignItems: 'center' }}>
+          <div style={{ padding: '0.75rem 0.9rem 0.9rem', flexShrink: 0, borderTop: '1px solid var(--adm-foot-btn-brd)', background: 'var(--chat-footer-bg)', display: 'flex', gap: '0.6rem', alignItems: 'center' }}>
             <input
               ref={inputRef}
               value={input}
               onChange={e => setInput(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send() } }}
               placeholder="Message Bemnet…"
-              style={{ flex: 1, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(99,102,241,0.25)', borderRadius: '0.85rem', padding: '0.65rem 1rem', color: '#e2e8f0', fontSize: '0.875rem', fontFamily: 'inherit', outline: 'none', transition: 'border-color .2s, box-shadow .2s' }}
+              style={{ flex: 1, background: 'var(--chat-input-bg)', border: '1px solid rgba(99,102,241,0.25)', borderRadius: '0.85rem', padding: '0.65rem 1rem', color: 'var(--chat-msg-color)', fontSize: '0.875rem', fontFamily: 'inherit', outline: 'none', transition: 'border-color .2s, box-shadow .2s' }}
               onFocus={e => { e.target.style.borderColor = 'rgba(99,102,241,0.6)'; e.target.style.boxShadow = '0 0 0 3px rgba(99,102,241,0.15)' }}
               onBlur={e => { e.target.style.borderColor = 'rgba(99,102,241,0.25)'; e.target.style.boxShadow = 'none' }}
             />
@@ -7281,6 +7300,18 @@ export default function AdminDashboardPage() {
   const navigate = useNavigate()
   const { t: tr } = useLanguage()
   const [chatAiEnabled, setChatAiEnabled] = useState(false)
+
+  const [adminTheme, setAdminTheme] = useState<'LIGHT' | 'DARK'>(() =>
+    (localStorage.getItem('admin-theme') as 'LIGHT' | 'DARK' | null) ?? 'LIGHT'
+  )
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', adminTheme.toLowerCase())
+  }, [adminTheme])
+  const handleAdminThemeChange = (t: 'LIGHT' | 'DARK') => {
+    setAdminTheme(t)
+    localStorage.setItem('admin-theme', t)
+    document.documentElement.setAttribute('data-theme', t.toLowerCase())
+  }
 
   const [section, setSection]       = useState<AdminSection>('overview')
   const [orderJumpFilter, setOrderJumpFilter] = useState<{driverId?: string, statusFilter?: string}|null>(null)
@@ -7448,8 +7479,8 @@ export default function AdminDashboardPage() {
     <div style={{ display: 'flex', height: '100vh', overflow: 'hidden', background: 'var(--clr-bg)', position: 'relative' }}>
       {/* Aurora background */}
       <div style={{ position: 'fixed', inset: 0, pointerEvents: 'none', zIndex: 0, overflow: 'hidden' }}>
-        <div style={{ position: 'absolute', borderRadius: '50%', filter: 'blur(80px)', opacity: 0.3, width: '70vmax', height: '70vmax', top: '-25vmax', left: '-20vmax', background: 'radial-gradient(ellipse,#7c3aed 0%,#4f46e5 40%,transparent 70%)' }} />
-        <div style={{ position: 'absolute', borderRadius: '50%', filter: 'blur(80px)', opacity: 0.25, width: '60vmax', height: '60vmax', bottom: '-20vmax', right: '-15vmax', background: 'radial-gradient(ellipse,#00e5ff 0%,#0ea5e9 40%,transparent 70%)' }} />
+        <div style={{ position: 'absolute', borderRadius: '50%', filter: 'blur(80px)', opacity: adminTheme === 'LIGHT' ? 0.06 : 0.3, width: '70vmax', height: '70vmax', top: '-25vmax', left: '-20vmax', background: 'radial-gradient(ellipse,#7c3aed 0%,#4f46e5 40%,transparent 70%)' }} />
+        <div style={{ position: 'absolute', borderRadius: '50%', filter: 'blur(80px)', opacity: adminTheme === 'LIGHT' ? 0.05 : 0.25, width: '60vmax', height: '60vmax', bottom: '-20vmax', right: '-15vmax', background: 'radial-gradient(ellipse,#00e5ff 0%,#0ea5e9 40%,transparent 70%)' }} />
       </div>
 
       {/* Mobile overlay (only when NOT pinned) */}
@@ -7473,7 +7504,7 @@ export default function AdminDashboardPage() {
         transition: 'transform 0.25s cubic-bezier(0.4,0,0.2,1)',
       }}>
         {/* Brand */}
-        <div style={{ padding: '1.25rem 1.1rem 0.9rem', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+        <div style={{ padding: '1.25rem 1.1rem 0.9rem', borderBottom: '1px solid var(--adm-brand-brd)' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.55rem' }}>
             <img src={logoImg} alt="Africa Logistics" style={{ height: 36, width: 'auto', objectFit: 'contain', borderRadius: 6, flexShrink: 0 }} />
             <div style={{ flex: 1 }} />
@@ -7545,14 +7576,14 @@ export default function AdminDashboardPage() {
               <div key={group.label} style={{ marginBottom: '0.1rem' }}>
                 {/* Section divider */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', padding: '0.55rem 0.5rem 0.18rem 0.3rem' }}>
-                  <div style={{ width: 14, height: 1, background: 'rgba(255,255,255,0.1)', flexShrink: 0 }} />
-                  <span style={{ fontSize: '0.57rem', fontWeight: 700, letterSpacing: '0.1em', color: 'rgba(255,255,255,0.28)', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>{group.label}</span>
-                  <div style={{ flex: 1, height: 1, background: 'rgba(255,255,255,0.1)' }} />
+                  <div style={{ width: 14, height: 1, background: 'var(--adm-nav-hr)', flexShrink: 0 }} />
+                  <span style={{ fontSize: '0.57rem', fontWeight: 700, letterSpacing: '0.1em', color: 'var(--adm-nav-lbl)', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>{group.label}</span>
+                  <div style={{ flex: 1, height: 1, background: 'var(--adm-nav-hr)' }} />
                 </div>
                 {/* Items */}
                 {group.items.map(item => (
                   <button key={item.id} onClick={() => { setSection(item.id); if (!pinned) setSidebarOpen(false) }}
-                    style={{ display: 'flex', alignItems: 'center', gap: '0.55rem', padding: '0.52rem 0.6rem 0.52rem 0.85rem', borderRadius: 9, border: 'none', background: section === item.id ? 'rgba(0,229,255,0.10)' : 'transparent', color: section === item.id ? 'var(--clr-accent)' : 'var(--clr-muted)', fontFamily: 'inherit', fontSize: '0.83rem', fontWeight: 600, cursor: 'pointer', textAlign: 'left', transition: 'all 0.18s', outline: section === item.id ? '1px solid rgba(0,229,255,0.18)' : 'none', width: '100%' }}>
+                    style={{ display: 'flex', alignItems: 'center', gap: '0.55rem', padding: '0.52rem 0.6rem 0.52rem 0.85rem', borderRadius: 9, border: 'none', background: section === item.id ? 'var(--adm-nav-active-bg)' : 'transparent', color: section === item.id ? 'var(--clr-accent)' : 'var(--clr-muted)', fontFamily: 'inherit', fontSize: '0.83rem', fontWeight: 600, cursor: 'pointer', textAlign: 'left', transition: 'all 0.18s', outline: section === item.id ? '1px solid var(--adm-nav-active-brd)' : 'none', width: '100%' }}>
                     <span style={{ width: 17, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>{item.icon}</span>
                     <span style={{ flex: 1 }}>{item.label}</span>
                     {item.count !== undefined && item.count > 0 && (
@@ -7576,7 +7607,7 @@ export default function AdminDashboardPage() {
               <p style={{ fontSize: '0.65rem', color: 'var(--clr-muted)' }}>{tr('sb_role_label')}</p>
             </div>
           </div>
-          <button onClick={() => { logout(); navigate('/login') }} style={{ width: '100%', padding: '0.42rem', borderRadius: 8, border: '1px solid rgba(255,255,255,0.09)', background: 'rgba(255,255,255,0.04)', color: 'var(--clr-muted)', fontFamily: 'inherit', fontSize: '0.75rem', fontWeight: 600, cursor: 'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:'0.35rem' }}><LuLogOut size={13}/> {tr('sb_sign_out')}</button>
+          <button onClick={() => { logout(); navigate('/login') }} style={{ width: '100%', padding: '0.42rem', borderRadius: 8, border: '1px solid var(--adm-foot-btn-brd)', background: 'var(--adm-foot-btn-bg)', color: 'var(--clr-muted)', fontFamily: 'inherit', fontSize: '0.75rem', fontWeight: 600, cursor: 'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:'0.35rem' }}><LuLogOut size={13}/> {tr('sb_sign_out')}</button>
           <div style={{ width:'100%', marginTop:'0.45rem', display:'flex', justifyContent:'center' }}>
             <LanguageToggle compact />
           </div>
@@ -7587,7 +7618,7 @@ export default function AdminDashboardPage() {
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', height: '100vh', overflowY: 'auto', position: 'relative', zIndex: 1 }}>
         {/* Top bar */}
         <header style={{ position: 'sticky', top: 0, zIndex: 30, background: 'rgba(8,11,20,0.88)', backdropFilter: 'blur(16px)', borderBottom: '1px solid rgba(255,255,255,0.07)', padding: '0.7rem 1.1rem', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-          <button onClick={() => setSidebarOpen(v => !v)} style={{ background: 'none', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 8, padding: '0.38rem 0.5rem', color: 'var(--clr-muted)', cursor: 'pointer', lineHeight: 1, flexShrink: 0, display:'flex', alignItems:'center' }}>
+          <button onClick={() => setSidebarOpen(v => !v)} style={{ background: 'none', border: '1px solid var(--adm-menu-btn-brd)', borderRadius: 8, padding: '0.38rem 0.5rem', color: 'var(--clr-muted)', cursor: 'pointer', lineHeight: 1, flexShrink: 0, display:'flex', alignItems:'center' }}>
             {sidebarOpen && !pinned ? <LuX size={17}/> : <LuMenu size={17}/>}
           </button>
           <div style={{ flex: 1 }}>
@@ -7624,7 +7655,7 @@ export default function AdminDashboardPage() {
           {section === 'reports'         && <AdminReportsSection allowedTabs={reportTabsForRole} />}
           {section === 'contact-info'     && <AdminContactInfoSection />}
           {section === 'ai-settings'      && <AdminAiSettingsSection />}
-          {section === 'profile'        && <ProfileSection />}
+          {section === 'profile'        && <ProfileSection adminTheme={adminTheme} onThemeChange={handleAdminThemeChange} />}
             {section === 'payments'       && <AdminPaymentReview />}
             {section === 'wallet-adjustment' && <AdminWalletAdjustment />}
             {section === 'notif-settings'   && <AdminNotifSettings />}
@@ -7633,7 +7664,7 @@ export default function AdminDashboardPage() {
 
       {/* Toast */}
       {toastMsg && (
-        <div style={{ position: 'fixed', bottom: '1.25rem', right: '1.25rem', zIndex: 100, background: 'rgba(0,229,255,0.12)', border: '1px solid rgba(0,229,255,0.25)', color: 'var(--clr-text)', padding: '0.65rem 1.1rem', borderRadius: 12, fontSize: '0.85rem', fontWeight: 600, backdropFilter: 'blur(12px)', boxShadow: '0 8px 32px rgba(0,0,0,0.4)', animation: 'slide-in-right 0.2s ease both' }}>
+        <div style={{ position: 'fixed', bottom: '1.25rem', right: '1.25rem', zIndex: 100, background: 'var(--adm-toast-bg)', border: '1px solid var(--adm-toast-brd)', color: 'var(--clr-text)', padding: '0.65rem 1.1rem', borderRadius: 12, fontSize: '0.85rem', fontWeight: 600, backdropFilter: 'blur(12px)', boxShadow: '0 8px 32px rgba(0,0,0,0.4)', animation: 'slide-in-right 0.2s ease both' }}>
           {toastMsg}
         </div>
       )}
