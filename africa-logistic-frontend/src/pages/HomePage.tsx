@@ -4,7 +4,7 @@ import {
   Truck, Package, Globe2, Shield, BarChart3, Clock,
   ArrowRight, ChevronRight, MapPin, Phone, Mail, Send,
   Menu, X, Star, CheckCircle2, Warehouse, Route,
-  Users, Zap, FileText, Headphones,
+  Users, Zap, FileText, Headphones, Sun, Moon,
 } from 'lucide-react'
 import logoImg from '../assets/logo.webp'
 import { configApi } from '../lib/apiClient'
@@ -203,6 +203,19 @@ function Navbar() {
 
   const close = useCallback(() => setOpen(false), [])
 
+  const [theme, setTheme] = useState<'LIGHT'|'DARK'>(() =>
+    (localStorage.getItem('login-theme') as 'LIGHT'|'DARK'|null) ?? 'LIGHT'
+  )
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme.toLowerCase())
+  }, [])
+  const toggleTheme = useCallback(() => {
+    const next: 'LIGHT'|'DARK' = theme === 'LIGHT' ? 'DARK' : 'LIGHT'
+    setTheme(next)
+    localStorage.setItem('login-theme', next)
+    document.documentElement.setAttribute('data-theme', next.toLowerCase())
+  }, [theme])
+
   const links = [
     { label: 'Home', href: '#hero', id: 'hero' },
     { label: 'Services', href: '#services', id: 'services' },
@@ -236,6 +249,9 @@ function Navbar() {
           </div>
 
           <div className="hp-nav-actions">
+            <button onClick={toggleTheme} className="hp-theme-toggle" aria-label="Toggle theme">
+              {theme === 'LIGHT' ? <Moon size={16} /> : <Sun size={16} />}
+            </button>
             <Link to="/login" className="hp-nav-ghost">Log in</Link>
             <Link to="/register" className="hp-nav-cta">Get Started</Link>
           </div>
@@ -250,6 +266,10 @@ function Navbar() {
         <div className="hp-mobile-menu">
           {links.map(l => <a key={l.id} href={l.href} onClick={close}>{l.label}</a>)}
           <hr />
+          <button onClick={toggleTheme} className="hp-mobile-theme-toggle">
+            {theme === 'LIGHT' ? <Moon size={15} /> : <Sun size={15} />}
+            {theme === 'LIGHT' ? 'Switch to Dark Mode' : 'Switch to Light Mode'}
+          </button>
           <Link to="/login" className="hp-nav-ghost" onClick={close} style={{ padding: '12px 8px' }}>Log in</Link>
           <Link to="/register" className="hp-mobile-cta" onClick={close}>Get Started</Link>
         </div>
