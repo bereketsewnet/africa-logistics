@@ -10,6 +10,9 @@ import logoImg from '../assets/logo.webp'
 import { configApi } from '../lib/apiClient'
 import './HomePage.css'
 
+import { useLanguage } from '../context/LanguageContext'
+import LanguageToggle from '../components/LanguageToggle'
+
 /* ─── Types ─── */
 interface ContactInfo {
   phone1?: string; phone2?: string
@@ -20,47 +23,8 @@ interface ContactInfo {
   instagram_url?: string; x_url?: string; linkedin_url?: string
 }
 
-/* ─── Static data ─── */
-const SERVICES = [
-  { icon: Truck,     title: 'Freight Transport',    color: '#22d3ee', bg: 'rgba(34,211,238,.1)',  border: 'rgba(34,211,238,.15)',  desc: 'Reliable road freight across Africa with real-time GPS tracking and automated dispatch.' },
-  { icon: Globe2,    title: 'Cross-Border Shipping', color: '#a78bfa', bg: 'rgba(167,139,250,.1)', border: 'rgba(167,139,250,.15)', desc: 'Seamless customs clearance, HS code management, and cross-border documentation.' },
-  { icon: Package,   title: 'Last-Mile Delivery',    color: '#34d399', bg: 'rgba(52,211,153,.1)',  border: 'rgba(52,211,153,.15)',  desc: 'Fast, verified last-mile delivery with OTP confirmation at pickup and dropoff.' },
-  { icon: Warehouse, title: 'Warehousing',           color: '#fbbf24', bg: 'rgba(251,191,36,.1)',  border: 'rgba(251,191,36,.15)',  desc: 'Secure warehousing and inventory management at strategic African locations.' },
-  { icon: Route,     title: 'Route Optimization',   color: '#f87171', bg: 'rgba(248,113,113,.1)', border: 'rgba(248,113,113,.15)', desc: 'AI-powered route planning to minimize cost and delivery time across regions.' },
-  { icon: FileText,  title: 'Digital Documentation', color: '#818cf8', bg: 'rgba(129,140,248,.1)', border: 'rgba(129,140,248,.15)', desc: 'Automated invoicing, BOL generation, and digital proof of delivery.' },
-]
 
-const STATS = [
-  { icon: Package,   value: 5000, suffix: '+', label: 'Deliveries Completed' },
-  { icon: Globe2,    value: 15,   suffix: '+', label: 'Countries Covered' },
-  { icon: Clock,     value: 99,   suffix: '%', label: 'On-Time Rate' },
-  { icon: Headphones, value: 24,  suffix: '/7', label: 'Support Available' },
-]
-
-const WHY_US = [
-  { icon: Shield,     title: 'Fully Insured',       desc: 'Every shipment is insured end-to-end for your complete peace of mind.' },
-  { icon: Clock,      title: 'Real-Time Tracking',  desc: 'Track your cargo live on the map — from pickup all the way to delivery.' },
-  { icon: BarChart3,  title: 'Transparent Pricing', desc: 'Instant quotes with no hidden fees. Pay exactly what you see.' },
-  { icon: Headphones, title: 'Dedicated Support',   desc: '24/7 customer support with a dedicated account manager for every client.' },
-]
-
-const TESTIMONIALS = [
-  { quote: 'Africa Logistics transformed our supply chain. Deliveries that took weeks now arrive in days.', author: 'Yohannes T.', role: 'Operations Manager, Addis Coffee Export', stars: 5 },
-  { quote: 'The cross-border documentation feature saved us countless hours of manual customs work.', author: 'Amara K.', role: 'Logistics Director, Nairobi Trading Co.', stars: 5 },
-  { quote: 'Best freight platform in East Africa. The real-time tracking gives us complete visibility.', author: 'Samuel M.', role: 'CEO, Kampala Distributors', stars: 5 },
-]
-
-const FOOTER_LINKS = [
-  { title: 'Services', items: [{ label: 'Freight Transport', href: '#services' }, { label: 'Cross-Border', href: '#services' }, { label: 'Last-Mile', href: '#services' }, { label: 'Warehousing', href: '#services' }] },
-  { title: 'Company',  items: [{ label: 'About Us', href: '#about' }, { label: 'Contact', href: '#contact' }, { label: 'Careers', href: '#' }, { label: 'Blog', href: '#' }] },
-  { title: 'Legal',    items: [{ label: 'Privacy Policy', href: '#' }, { label: 'Terms of Service', href: '#' }, { label: 'Insurance', href: '#' }] },
-]
-
-const MARQUEE_ITEMS = [
-  '5,000+ Deliveries', '15+ Countries', '99% On-Time Rate',
-  '500+ Verified Drivers', '24/7 Support', '4.9★ Rating',
-  'Addis · Nairobi · Kampala', 'Real-Time GPS Tracking',
-]
+/* ─── Components ─── */
 
 /* ─── Hooks ─── */
 function useReveal(threshold = 0.1) {
@@ -182,6 +146,7 @@ function Navbar() {
   const [scrolled, setScrolled] = useState(false)
   const [open, setOpen] = useState(false)
   const [active, setActive] = useState('hero')
+  const { t } = useLanguage()
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 40)
@@ -217,10 +182,10 @@ function Navbar() {
   }, [theme])
 
   const links = [
-    { label: 'Home', href: '#hero', id: 'hero' },
-    { label: 'Services', href: '#services', id: 'services' },
-    { label: 'About', href: '#about', id: 'about' },
-    { label: 'Contact', href: '#contact', id: 'contact' },
+    { label: t('hp_menu_home') || 'Home', href: '#hero', id: 'hero' },
+    { label: t('hp_menu_services') || 'Services', href: '#services', id: 'services' },
+    { label: t('hp_menu_about') || 'About', href: '#about', id: 'about' },
+    { label: t('hp_menu_contact') || 'Contact', href: '#contact', id: 'contact' },
   ]
 
   return (
@@ -236,7 +201,7 @@ function Navbar() {
                   Logistics
                 </span>
               </div>
-              <span className="hp-logo-sub">Moving Africa Forward</span>
+              <span className="hp-logo-sub">{t('hp_moving_africa')}</span>
             </div>
           </a>
 
@@ -249,11 +214,12 @@ function Navbar() {
           </div>
 
           <div className="hp-nav-actions">
+            <LanguageToggle compact />
             <button onClick={toggleTheme} className="hp-theme-toggle" aria-label="Toggle theme">
               {theme === 'LIGHT' ? <Moon size={16} /> : <Sun size={16} />}
             </button>
-            <Link to="/login" className="hp-nav-ghost">Log in</Link>
-            <Link to="/register" className="hp-nav-cta">Get Started</Link>
+            <Link to="/login" className="hp-nav-ghost">{t('hp_login')}</Link>
+            <Link to="/register" className="hp-nav-cta">{t('hp_get_started')}</Link>
           </div>
 
           <button className="hp-mobile-btn" onClick={() => setOpen(o => !o)} aria-label="Toggle menu">
@@ -266,12 +232,15 @@ function Navbar() {
         <div className="hp-mobile-menu">
           {links.map(l => <a key={l.id} href={l.href} onClick={close}>{l.label}</a>)}
           <hr />
+          <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', margin: '0.5rem 1rem' }}>
+            <LanguageToggle compact />
+          </div>
           <button onClick={toggleTheme} className="hp-mobile-theme-toggle">
             {theme === 'LIGHT' ? <Moon size={15} /> : <Sun size={15} />}
             {theme === 'LIGHT' ? 'Switch to Dark Mode' : 'Switch to Light Mode'}
           </button>
-          <Link to="/login" className="hp-nav-ghost" onClick={close} style={{ padding: '12px 8px' }}>Log in</Link>
-          <Link to="/register" className="hp-mobile-cta" onClick={close}>Get Started</Link>
+          <Link to="/login" className="hp-nav-ghost" onClick={close} style={{ padding: '12px 8px' }}>{t('hp_login')}</Link>
+          <Link to="/register" className="hp-mobile-cta" onClick={close}>{t('hp_get_started')}</Link>
         </div>
       )}
     </>
@@ -282,6 +251,7 @@ function Navbar() {
    Hero
    ═══════════════════════════════════════════════ */
 function Hero() {
+  const { t } = useLanguage()
   const glow1Ref = useRef<HTMLDivElement>(null)
   const progressRef = useRef<HTMLDivElement>(null)
 
@@ -326,28 +296,27 @@ function Hero() {
         {/* Badge */}
         <div className="hp-hero-badge">
           <span className="hp-live-dot" />
-          Trusted Logistics Across Africa
+          {t('hp_hero_badge') || 'Trusted Logistics Across Africa'}
         </div>
 
         {/* Heading */}
         <h1>
-          Moving Africa<br />
-          <span className="hp-gradient-text">Forward</span>
+          {t('hp_hero_title_1') || 'Moving Africa'}<br />
+          <span className="hp-gradient-text">{t('hp_hero_title_2') || 'Forward'}</span>
         </h1>
 
         {/* Subtitle */}
         <p className="sub">
-          End-to-end logistics for Africa — freight, cross-border shipping, last-mile delivery,
-          and real-time tracking. All in one platform.
+          {t('hp_hero_sub') || 'End-to-end logistics for Africa — freight, cross-border shipping, last-mile delivery, and real-time tracking. All in one platform.'}
         </p>
 
         {/* CTAs */}
         <div className="hp-hero-ctas">
           <Link to="/register" className="hp-btn-cta1">
-            Ship Now <ArrowRight />
+            {t('hp_hero_ship_now') || 'Ship Now'} <ArrowRight />
           </Link>
           <a href="#services" className="hp-btn-cta2">
-            Our Services <ChevronRight />
+            {t('hp_hero_our_services') || 'Our Services'} <ChevronRight />
           </a>
         </div>
 
@@ -413,6 +382,12 @@ function Hero() {
    Marquee
    ═══════════════════════════════════════════════ */
 function Marquee() {
+  const { t } = useLanguage()
+  const MARQUEE_ITEMS = [
+    t('mq_1') || '5,000+ Deliveries', t('mq_2') || '15+ Countries', t('mq_3') || '99% On-Time Rate',
+    t('mq_4') || '500+ Verified Drivers', t('mq_5') || '24/7 Support', t('mq_6') || '4.9★ Rating',
+    t('mq_7') || 'Addis · Nairobi · Kampala', t('mq_8') || 'Real-Time GPS Tracking',
+  ]
   const items = [...MARQUEE_ITEMS, ...MARQUEE_ITEMS]
   return (
     <div className="hp-marquee">
@@ -432,6 +407,13 @@ function Marquee() {
    Stats
    ═══════════════════════════════════════════════ */
 function StatsBar() {
+  const { t } = useLanguage()
+  const STATS = [
+    { icon: Package,   value: 5000, suffix: '+', label: t('stat_deliveries') || 'Deliveries Completed' },
+    { icon: Globe2,    value: 15,   suffix: '+', label: t('stat_countries') || 'Countries Covered' },
+    { icon: Clock,     value: 99,   suffix: '%', label: t('stat_ontime') || 'On-Time Rate' },
+    { icon: Headphones, value: 24,  suffix: '/7', label: t('stat_support') || 'Support Available' },
+  ]
   return (
     <section className="hp-stats">
       <div className="hp-container">
@@ -459,17 +441,26 @@ function StatsBar() {
    Services
    ═══════════════════════════════════════════════ */
 function Services() {
+  const { t } = useLanguage()
+  const SERVICES = [
+    { icon: Truck,     title: t('srv_freight') || 'Freight Transport',    color: '#22d3ee', bg: 'rgba(34,211,238,.1)',  border: 'rgba(34,211,238,.15)',  desc: t('srv_freight_desc') || 'Reliable road freight across Africa with real-time GPS tracking and automated dispatch.' },
+    { icon: Globe2,    title: t('srv_cross') || 'Cross-Border Shipping', color: '#a78bfa', bg: 'rgba(167,139,250,.1)', border: 'rgba(167,139,250,.15)', desc: t('srv_cross_desc') || 'Seamless customs clearance, HS code management, and cross-border documentation.' },
+    { icon: Package,   title: t('srv_last_mile') || 'Last-Mile Delivery',    color: '#34d399', bg: 'rgba(52,211,153,.1)',  border: 'rgba(52,211,153,.15)',  desc: t('srv_last_mile_desc') || 'Fast, verified last-mile delivery with OTP confirmation at pickup and dropoff.' },
+    { icon: Warehouse, title: t('srv_warehousing') || 'Warehousing',           color: '#fbbf24', bg: 'rgba(251,191,36,.1)',  border: 'rgba(251,191,36,.15)',  desc: t('srv_warehousing_desc') || 'Secure warehousing and inventory management at strategic African locations.' },
+    { icon: Route,     title: t('srv_route') || 'Route Optimization',   color: '#f87171', bg: 'rgba(248,113,113,.1)', border: 'rgba(248,113,113,.15)', desc: t('srv_route_desc') || 'AI-powered route planning to minimize cost and delivery time across regions.' },
+    { icon: FileText,  title: t('srv_digital') || 'Digital Documentation', color: '#818cf8', bg: 'rgba(129,140,248,.1)', border: 'rgba(129,140,248,.15)', desc: t('srv_digital_desc') || 'Automated invoicing, BOL generation, and digital proof of delivery.' },
+  ]
   return (
     <section id="services" className="hp-section">
       <div className="hp-container">
         <Reveal className="hp-section-head">
-          <div className="hp-badge"><Truck /> Our Services</div>
+          <div className="hp-badge"><Truck /> {t('hp_srv_badge') || 'Our Services'}</div>
           <h2 className="hp-section-title">
-            Complete logistics<br />
-            <span className="hp-gradient-text">solutions for Africa</span>
+            {t('hp_srv_title_1') || 'Complete logistics'}<br />
+            <span className="hp-gradient-text">{t('hp_srv_title_2') || 'solutions for Africa'}</span>
           </h2>
           <p className="hp-section-sub">
-            From freight forwarding to last-mile delivery — everything you need to move goods across the continent.
+            {t('hp_srv_sub') || 'From freight forwarding to last-mile delivery — everything you need to move goods across the continent.'}
           </p>
         </Reveal>
 
@@ -512,28 +503,32 @@ function Services() {
    About
    ═══════════════════════════════════════════════ */
 function About() {
+  const { t } = useLanguage()
+
   return (
     <section id="about" className="hp-section alt">
       <div className="hp-container">
         <div className="hp-about-grid">
           <Reveal dir="left">
             <div className="hp-about-text">
-              <div className="hp-badge"><Users /> About Us</div>
+              <div className="hp-badge"><Users /> {t('about_us_badge') || 'About Us'}</div>
               <h2 className="hp-about-title">
-                Built for Africa,<br />
-                <span className="hp-gradient-text">by Africa</span>
+                {t('about_us_title1') || 'Built for Africa,'}<br />
+                <span className="hp-gradient-text">{t('about_us_title2') || 'by Africa'}</span>
               </h2>
               <p>
-                Africa Logistics is a technology-driven logistics platform connecting shippers with
-                reliable carriers across the continent. We combine cutting-edge technology with deep
-                local expertise to solve Africa's toughest logistics challenges.
+                {t('about_us_p1') || "Africa Logistics is a technology-driven logistics platform connecting shippers with reliable carriers across the continent. We combine cutting-edge technology with deep local expertise to solve Africa's toughest logistics challenges."}
               </p>
               <p>
-                Our mission is to make logistics seamless, transparent, and affordable for every
-                business in Africa — from small traders to large enterprises.
+                {t('about_us_p2') || 'Our mission is to make logistics seamless, transparent, and affordable for every business in Africa — from small traders to large enterprises.'}
               </p>
               <div className="hp-checklist">
-                {['Real-Time GPS Tracking', 'Verified Drivers', 'Cross-Border Expertise', 'Digital Payments'].map(item => (
+                {[
+                  t('about_chk1') || 'Real-Time GPS Tracking', 
+                  t('about_chk2') || 'Verified Drivers', 
+                  t('about_chk3') || 'Cross-Border Expertise', 
+                  t('about_chk4') || 'Digital Payments'
+                ].map(item => (
                   <div key={item} className="hp-check-item">
                     <CheckCircle2 /> {item}
                   </div>
@@ -572,14 +567,21 @@ function About() {
    Why Choose Us
    ═══════════════════════════════════════════════ */
 function WhyUs() {
+  const { t } = useLanguage()
+  const WHY_US = [
+    { icon: Shield,     title: t('why_insured') || 'Fully Insured',       desc: t('why_insured_desc') || 'Every shipment is insured end-to-end for your complete peace of mind.' },
+    { icon: Clock,      title: t('why_tracking') || 'Real-Time Tracking',  desc: t('why_tracking_desc') || 'Track your cargo live on the map — from pickup all the way to delivery.' },
+    { icon: BarChart3,  title: t('why_pricing') || 'Transparent Pricing', desc: t('why_pricing_desc') || 'Instant quotes with no hidden fees. Pay exactly what you see.' },
+    { icon: Headphones, title: t('why_support') || 'Dedicated Support',   desc: t('why_support_desc') || '24/7 customer support with a dedicated account manager for every client.' },
+  ]
   return (
     <section className="hp-section">
       <div className="hp-container">
         <Reveal className="hp-section-head">
-          <div className="hp-badge"><Zap /> Why Choose Us</div>
+          <div className="hp-badge"><Zap /> {t('why_us_badge') || 'Why Choose Us'}</div>
           <h2 className="hp-section-title">
-            The advantage of<br />
-            <span className="hp-gradient-text">Africa Logistics</span>
+            {t('advantage_of') || 'The advantage of'}<br />
+            <span className="hp-gradient-text">{t('africa_logistics_grad') || 'Africa Logistics'}</span>
           </h2>
         </Reveal>
         <div className="hp-why-grid">
@@ -604,12 +606,18 @@ function WhyUs() {
    Testimonials
    ═══════════════════════════════════════════════ */
 function Testimonials() {
+  const { t } = useLanguage()
+  const TESTIMONIALS = [
+    { quote: t('test_1') || 'Africa Logistics transformed our supply chain. Deliveries that took weeks now arrive in days.', author: 'Yohannes T.', role: t('test_1_role') || 'Operations Manager, Addis Coffee Export', stars: 5 },
+    { quote: t('test_2') || 'The cross-border documentation feature saved us countless hours of manual customs work.', author: 'Amara K.', role: t('test_2_role') || 'Logistics Director, Nairobi Trading Co.', stars: 5 },
+    { quote: t('test_3') || 'Best freight platform in East Africa. The real-time tracking gives us complete visibility.', author: 'Samuel M.', role: t('test_3_role') || 'CEO, Kampala Distributors', stars: 5 },
+  ]
   return (
     <section className="hp-section alt">
       <div className="hp-container">
         <Reveal className="hp-section-head">
-          <div className="hp-badge">Testimonials</div>
-          <h2 className="hp-section-title">What our clients say</h2>
+          <div className="hp-badge">{t('testi_badge') || 'Testimonials'}</div>
+          <h2 className="hp-section-title">{t('what_clients_say') || 'What our clients say'}</h2>
         </Reveal>
         <div className="hp-testi-grid">
           {TESTIMONIALS.map((t, i) => (
@@ -636,6 +644,7 @@ function Testimonials() {
    Contact
    ═══════════════════════════════════════════════ */
 function Contact() {
+  const { t } = useLanguage()
   const [info, setInfo] = useState<ContactInfo>({})
   const [loading, setLoading] = useState(true)
 
@@ -692,13 +701,13 @@ function Contact() {
     <section id="contact" className="hp-section">
       <div className="hp-container">
         <Reveal className="hp-section-head">
-          <div className="hp-badge"><Send /> Contact Us</div>
+          <div className="hp-badge"><Send /> {t('contact_us_badge') || 'Contact Us'}</div>
           <h2 className="hp-section-title">
-            Get in touch<br />
-            <span className="hp-gradient-text">with our team</span>
+            {t('get_in_touch') || 'Get in touch'}<br />
+            <span className="hp-gradient-text">{t('with_our_team') || 'with our team'}</span>
           </h2>
           <p className="hp-section-sub">
-            Have a question or need a quote? Reach out through any of the channels below.
+            {t('contact_sub') || 'Have a question or need a quote? Reach out through any of the channels below.'}
           </p>
         </Reveal>
 
@@ -753,6 +762,12 @@ function Contact() {
    Footer
    ═══════════════════════════════════════════════ */
 function Footer() {
+  const { t } = useLanguage()
+  const FOOTER_LINKS = [
+    { title: t('ft_services') || 'Services', items: [{ label: t('srv_freight') || 'Freight Transport', href: '#services' }, { label: t('srv_cross') || 'Cross-Border', href: '#services' }, { label: t('srv_last_mile') || 'Last-Mile', href: '#services' }, { label: t('srv_warehousing') || 'Warehousing', href: '#services' }] },
+    { title: t('ft_company') || 'Company',  items: [{ label: t('hp_menu_about') || 'About Us', href: '#about' }, { label: t('hp_menu_contact') || 'Contact', href: '#contact' }, { label: t('ft_careers') || 'Careers', href: '#' }, { label: t('ft_blog') || 'Blog', href: '#' }] },
+    { title: t('ft_legal') || 'Legal',    items: [{ label: t('ft_privacy') || 'Privacy Policy', href: '#' }, { label: t('ft_terms') || 'Terms of Service', href: '#' }, { label: t('ft_insurance') || 'Insurance', href: '#' }] },
+  ]
   return (
     <footer className="hp-footer">
       <div className="hp-container">

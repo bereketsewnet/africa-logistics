@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom'
 import { carOwnerApi, configApi } from '../lib/apiClient'
 import logoImg from '../assets/logo.webp'
 import LanguageToggle from '../components/LanguageToggle'
+import { useLanguage } from '../context/LanguageContext'
 import {
   LuCar, LuPlus, LuLogOut, LuUser, LuClipboardList, LuCheck,
   LuTriangleAlert, LuRefreshCw, LuTrash2, LuX, LuClock,
@@ -53,6 +54,7 @@ function StatusBadge({ status }: { status: CarOwnerVehicle['status'] }) {
 export default function CarOwnerDashboard() {
   const { user, logout } = useAuth()
   const navigate = useNavigate()
+  const { t } = useLanguage()
 
   const [vehicles, setVehicles] = useState<CarOwnerVehicle[]>([])
   const [loading, setLoading] = useState(true)
@@ -154,7 +156,7 @@ export default function CarOwnerDashboard() {
     navigate('/login')
   }
 
-  const fullName = [user?.first_name, user?.last_name].filter(Boolean).join(' ') || 'Car Owner'
+  const fullName = [user?.first_name, user?.last_name].filter(Boolean).join(' ') || t('car_owner_badge')
 
   return (
     <div className="aurora-bg">
@@ -175,7 +177,7 @@ export default function CarOwnerDashboard() {
                     background: 'rgba(0,229,255,0.12)', color: 'var(--clr-accent)',
                     fontSize: '0.72rem', fontWeight: 700,
                   }}>
-                    <LuCar size={11}/> Car Owner
+                    <LuCar size={11}/> {t('car_owner_badge')}
                   </span>
                   <span style={{ fontSize: '0.78rem', color: 'var(--clr-muted)' }}>{user?.email || user?.phone_number}</span>
                 </div>
@@ -200,7 +202,7 @@ export default function CarOwnerDashboard() {
                   onClick={handleLogout}
                   style={{ background: 'rgba(248,113,113,0.1)', border: '1px solid rgba(248,113,113,0.25)', borderRadius: 8, padding: '0.45rem 0.75rem', color: '#f87171', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.8rem', fontWeight: 600 }}
                 >
-                  <LuLogOut size={14}/> Logout
+                  <LuLogOut size={14}/> {t('sidebar_logout') || 'Logout'}
                 </button>
               </div>
             </div>
@@ -213,19 +215,19 @@ export default function CarOwnerDashboard() {
               className="btn-primary"
               style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', padding: '0.75rem' }}
             >
-              <LuPlus size={16}/> Register a Vehicle
+              <LuPlus size={16}/> {t('register_vehicle_btn')}
             </button>
           ) : (
             <div className="glass" style={{ padding: '1.2rem' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-                <p style={{ fontWeight: 700, fontSize: '0.95rem', color: 'var(--clr-text)', margin: 0 }}>Register New Vehicle</p>
+                <p style={{ fontWeight: 700, fontSize: '0.95rem', color: 'var(--clr-text)', margin: 0 }}>{t('register_new_vehicle')}</p>
                 <button onClick={() => { setShowForm(false); setFormErr('') }} style={{ background: 'none', border: 'none', color: 'var(--clr-muted)', cursor: 'pointer', padding: '0.2rem' }}><LuX size={16}/></button>
               </div>
               <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
                   <div className="input-wrap">
                     <input id="plate" type="text" placeholder=" " value={fPlate} onChange={e => setFPlate(e.target.value)} required />
-                    <label htmlFor="plate">Plate Number *</label>
+                    <label htmlFor="plate">{t('co_plate_number')}</label>
                   </div>
                   <div className="input-wrap">
                     <select id="vtype" value={fType} onChange={e => setFType(e.target.value)} required
@@ -233,32 +235,32 @@ export default function CarOwnerDashboard() {
                       {vehicleTypes.length === 0 && <option value="">Loading...</option>}
                       {vehicleTypes.map(t => <option key={t} value={t}>{t}</option>)}
                     </select>
-                    <label htmlFor="vtype" style={{ top: '0.45rem', fontSize: '0.7rem', pointerEvents: 'none', position: 'absolute', left: '0.9rem', color: 'var(--clr-muted)' }}>Vehicle Type *</label>
+                    <label htmlFor="vtype" style={{ top: '0.45rem', fontSize: '0.7rem', pointerEvents: 'none', position: 'absolute', left: '0.9rem', color: 'var(--clr-muted)' }}>{t('vehicle_type')}</label>
                   </div>
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
                   <div className="input-wrap">
                     <input id="model" type="text" placeholder=" " value={fModel} onChange={e => setFModel(e.target.value)} />
-                    <label htmlFor="model">Model</label>
+                    <label htmlFor="model">{t('vehicle_model')}</label>
                   </div>
                   <div className="input-wrap">
                     <input id="color" type="text" placeholder=" " value={fColor} onChange={e => setFColor(e.target.value)} />
-                    <label htmlFor="color">Color</label>
+                    <label htmlFor="color">{t('vehicle_color')}</label>
                   </div>
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
                   <div className="input-wrap">
                     <input id="year" type="number" placeholder=" " value={fYear} onChange={e => setFYear(e.target.value)} min={1980} max={new Date().getFullYear() + 1} />
-                    <label htmlFor="year">Year</label>
+                    <label htmlFor="year">{t('vehicle_year')}</label>
                   </div>
                   <div className="input-wrap">
                     <input id="capacity" type="number" placeholder=" " value={fCapacity} onChange={e => setFCapacity(e.target.value)} min={0} step={0.1} />
-                    <label htmlFor="capacity">Max Capacity (kg)</label>
+                    <label htmlFor="capacity">{t('max_capacity_kg')}</label>
                   </div>
                 </div>
                 <div className="input-wrap">
                   <input id="desc" type="text" placeholder=" " value={fDesc} onChange={e => setFDesc(e.target.value)} />
-                  <label htmlFor="desc">Description</label>
+                  <label htmlFor="desc">{t('description')}</label>
                 </div>
 
                 {formErr && (
@@ -275,10 +277,10 @@ export default function CarOwnerDashboard() {
                 <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.25rem' }}>
                   <button type="button" onClick={() => { setShowForm(false); setFormErr('') }}
                     style={{ flex: 1, padding: '0.75rem', borderRadius: 10, border: '1px solid var(--adm-foot-btn-brd)', background: 'var(--adm-foot-btn-bg)', color: 'var(--clr-muted)', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600, fontSize: '0.875rem' }}>
-                    Cancel
+                    {t('cancel')}
                   </button>
                   <button type="submit" className="btn-primary" disabled={submitting} style={{ flex: 2, padding: '0.75rem' }}>
-                    {submitting ? 'Submitting…' : 'Submit for Approval'}
+                    {submitting ? t('co_submitting') : t('submit_approval')}
                   </button>
                 </div>
               </form>
@@ -289,7 +291,7 @@ export default function CarOwnerDashboard() {
           <div className="glass" style={{ padding: '1.1rem 1.2rem' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.9rem' }}>
               <LuClipboardList size={16} style={{ color: 'var(--clr-accent)' }} />
-              <p style={{ fontWeight: 700, fontSize: '0.95rem', color: 'var(--clr-text)', margin: 0 }}>My Vehicles</p>
+              <p style={{ fontWeight: 700, fontSize: '0.95rem', color: 'var(--clr-text)', margin: 0 }}>{t('my_vehicles')}</p>
               <span style={{ marginLeft: 'auto', fontSize: '0.78rem', color: 'var(--clr-muted)' }}>{vehicles.length} vehicle{vehicles.length !== 1 ? 's' : ''}</span>
             </div>
 
@@ -307,8 +309,8 @@ export default function CarOwnerDashboard() {
             {!loading && !err && vehicles.length === 0 && (
               <div style={{ textAlign: 'center', padding: '2.5rem 1rem' }}>
                 <LuCar size={40} style={{ color: 'rgba(255,255,255,0.12)', marginBottom: '0.75rem' }} />
-                <p style={{ color: 'var(--clr-muted)', fontSize: '0.9rem', margin: 0 }}>No vehicles registered yet.</p>
-                <p style={{ color: 'rgba(148,163,184,0.6)', fontSize: '0.8rem', marginTop: '0.4rem' }}>Click "Register a Vehicle" to get started.</p>
+                <p style={{ color: 'var(--clr-muted)', fontSize: '0.9rem', margin: 0 }}>{t('no_vehicles')}</p>
+                <p style={{ color: 'rgba(148,163,184,0.6)', fontSize: '0.8rem', marginTop: '0.4rem' }}>{t('no_vehicles_sub')}</p>
               </div>
             )}
 
@@ -333,19 +335,19 @@ export default function CarOwnerDashboard() {
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.4rem', minWidth: 120 }}>
                       {v.assigned_driver_name ? (
                         <div style={{ textAlign: 'right' }}>
-                          <p style={{ margin: 0, fontSize: '0.72rem', color: 'var(--clr-muted)' }}>Assigned Driver</p>
+                          <p style={{ margin: 0, fontSize: '0.72rem', color: 'var(--clr-muted)' }}>{t('assigned_driver')}</p>
                           <p style={{ margin: 0, fontSize: '0.82rem', color: '#34d399', fontWeight: 600 }}>{v.assigned_driver_name}</p>
                           {v.assigned_driver_phone && <p style={{ margin: 0, fontSize: '0.72rem', color: 'var(--clr-muted)' }}>{v.assigned_driver_phone}</p>}
                         </div>
                       ) : (
-                        <span style={{ fontSize: '0.75rem', color: 'var(--clr-muted)', background: 'var(--adm-tab-bg)', padding: '0.2rem 0.55rem', borderRadius: 6 }}>No driver yet</span>
+                        <span style={{ fontSize: '0.75rem', color: 'var(--clr-muted)', background: 'var(--adm-tab-bg)', padding: '0.2rem 0.55rem', borderRadius: 6 }}>{t('no_driver_yet')}</span>
                       )}
                       {v.status === 'PENDING' && (
                         <button
                           onClick={() => setDeletingId(v.id)}
                           style={{ background: 'rgba(248,113,113,0.1)', border: '1px solid rgba(248,113,113,0.25)', borderRadius: 7, padding: '0.3rem 0.6rem', color: '#f87171', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.75rem', fontWeight: 600 }}
                         >
-                          <LuTrash2 size={12}/> Delete
+                          <LuTrash2 size={12}/> {t('delete_btn')}
                         </button>
                       )}
                     </div>
@@ -373,7 +375,7 @@ export default function CarOwnerDashboard() {
             <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem' }}>
               <LuUser size={16} style={{ color: 'var(--clr-accent)', flexShrink: 0, marginTop: 2 }}/>
               <div>
-                <p style={{ fontWeight: 600, fontSize: '0.88rem', color: 'var(--clr-text)', margin: '0 0 0.3rem' }}>How it works</p>
+                <p style={{ fontWeight: 600, fontSize: '0.88rem', color: 'var(--clr-text)', margin: '0 0 0.3rem' }}>{t('how_it_works')}</p>
                 <ol style={{ margin: 0, paddingLeft: '1.1rem', color: 'var(--clr-muted)', fontSize: '0.8rem', lineHeight: 1.7 }}>
                   <li>Register your vehicle with plate number and type.</li>
                   <li>Admin reviews and approves or rejects your vehicle.</li>
@@ -390,16 +392,16 @@ export default function CarOwnerDashboard() {
       {deletingId !== null && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', zIndex: 9999, display: 'grid', placeItems: 'center', padding: '1rem' }}>
           <div className="glass" style={{ width: 'min(380px,100%)', padding: '1.5rem' }}>
-            <p style={{ fontWeight: 700, fontSize: '1rem', color: 'var(--clr-text)', margin: '0 0 0.5rem' }}>Delete vehicle?</p>
+            <p style={{ fontWeight: 700, fontSize: '1rem', color: 'var(--clr-text)', margin: '0 0 0.5rem' }}>{t('delete_vehicle')}</p>
             <p style={{ color: 'var(--clr-muted)', fontSize: '0.85rem', margin: '0 0 1.25rem', lineHeight: 1.6 }}>This will permanently remove the vehicle registration. This action cannot be undone.</p>
             <div style={{ display: 'flex', gap: '0.75rem' }}>
               <button onClick={() => setDeletingId(null)}
                 style={{ flex: 1, padding: '0.7rem', borderRadius: 10, border: '1px solid var(--adm-foot-btn-brd)', background: 'var(--adm-foot-btn-bg)', color: 'var(--clr-muted)', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600, fontSize: '0.875rem' }}>
-                Cancel
+                {t('cancel')}
               </button>
               <button onClick={() => handleDelete(deletingId!)} disabled={deleteLoading}
                 style={{ flex: 1, padding: '0.7rem', borderRadius: 10, border: 'none', background: 'rgba(248,113,113,0.2)', color: '#f87171', cursor: deleteLoading ? 'not-allowed' : 'pointer', fontFamily: 'inherit', fontWeight: 700, fontSize: '0.875rem' }}>
-                {deleteLoading ? 'Deleting…' : 'Delete'}
+                {deleteLoading ? t('co_deleting') : t('delete_btn')}
               </button>
             </div>
           </div>
