@@ -259,7 +259,7 @@ function RoleBadge({ roleId, roleName }: { roleId: number; roleName: string }) {
 }
 function VerifiedBadge() {
   return (
-    <span style={{ display:'inline-flex', alignItems:'center', gap:'0.2rem', background:'rgba(74,222,128,0.12)', border:'1px solid rgba(74,222,128,0.3)', color:'#4ade80', borderRadius:99, padding:'0.15rem 0.5rem', fontSize:'0.65rem', fontWeight:700 }}>
+    <span style={{ display:'inline-flex', alignItems:'center', gap:'0.2rem', background:'rgba(74,222,128,0.12)', border:'1px solid rgba(74,222,128,0.3)', color:'var(--kpi-green)', borderRadius:99, padding:'0.15rem 0.5rem', fontSize:'0.65rem', fontWeight:700 }}>
       <LuBadgeCheck size={10}/> Verified
     </span>
   )
@@ -290,7 +290,7 @@ function CustomSelect({ value, onChange, options }: {
         <div style={{ position:'absolute', top:'calc(100% + 4px)', left:0, right:0, background:'#080b16', border:'1px solid rgba(255,255,255,0.16)', borderRadius:10, overflow:'hidden', boxShadow:'0 8px 32px rgba(0,0,0,0.7)', zIndex:9999 }}>
           {options.map(opt => (
             <button key={opt.id} type="button" onClick={() => { onChange(opt.id); setOpen(false) }}
-              style={{ display:'block', width:'100%', padding:'0.7rem 0.85rem', border:'none', borderBottom:'1px solid rgba(255,255,255,0.06)', WebkitAppearance:'none', appearance:'none', background: opt.id === value ? 'rgba(0,229,255,0.12)' : '#080b16', color: opt.id === value ? '#00e5ff' : '#cbd5e1', fontFamily:'inherit', fontSize:'0.85rem', fontWeight:600, cursor:'pointer', textAlign:'left', transition:'background 0.12s' }}
+              style={{ display:'block', width:'100%', padding:'0.7rem 0.85rem', border:'none', borderBottom:'1px solid rgba(255,255,255,0.06)', WebkitAppearance:'none', appearance:'none', background: opt.id === value ? 'rgba(0,229,255,0.12)' : '#080b16', color: opt.id === value ? 'var(--kpi-cyan)' : '#cbd5e1', fontFamily:'inherit', fontSize:'0.85rem', fontWeight:600, cursor:'pointer', textAlign:'left', transition:'background 0.12s' }}
               onMouseEnter={e => { if (opt.id !== value) (e.currentTarget as HTMLButtonElement).style.background = 'rgba(255,255,255,0.07)' }}
               onMouseLeave={e => { if (opt.id !== value) (e.currentTarget as HTMLButtonElement).style.background = '#080b16' }}
             >{opt.label}</button>
@@ -360,7 +360,7 @@ function AdminNotifSettings() {
           <LuBell size={17}/> {tr('ns_title')}
         </h2>
         {saving && <span style={{ fontSize:'0.72rem', color:'var(--clr-muted)' }}>{tr('ns_saving')}</span>}
-        {msg && !saving && <span style={{ fontSize:'0.72rem', color: msg === 'Saved.' ? '#4ade80' : '#f87171' }}>{msg}</span>}
+        {msg && !saving && <span style={{ fontSize:'0.72rem', color: msg === 'Saved.' ? 'var(--kpi-green)' : '#f87171' }}>{msg}</span>}
       </div>
 
       <p style={{ fontSize:'0.8rem', color:'var(--clr-muted)', marginTop:'-0.75rem' }}>
@@ -672,11 +672,11 @@ function AdminCountriesSection() {
         <>
           {active.length > 0 && (
             <>
-              <p style={{ fontSize: '0.7rem', fontWeight: 700, color: '#4ade80', textTransform: 'uppercase', letterSpacing: '0.07em' }}>{tr('co_active_header')} — {active.length} {active.length === 1 ? tr('co_country') : tr('co_countries')}</p>
+              <p style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--kpi-green)', textTransform: 'uppercase', letterSpacing: '0.07em' }}>{tr('co_active_header')} — {active.length} {active.length === 1 ? tr('co_country') : tr('co_countries')}</p>
               <div className="glass-inner" style={{ overflow: 'hidden' }}>
                 {active.map((c, i) => (
                   <div key={c.id} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.75rem 1rem', borderBottom: i < active.length - 1 ? '1px solid rgba(255,255,255,0.05)' : 'none' }}>
-                    <div style={{ width: 34, height: 34, borderRadius: 8, background: 'rgba(74,222,128,0.08)', border: '1px solid rgba(74,222,128,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color: '#4ade80', fontWeight: 800, fontSize: '0.75rem' }}>{c.iso_code.toUpperCase()}</div>
+                    <div style={{ width: 34, height: 34, borderRadius: 8, background: 'rgba(74,222,128,0.08)', border: '1px solid rgba(74,222,128,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color: 'var(--kpi-green)', fontWeight: 800, fontSize: '0.75rem' }}>{c.iso_code.toUpperCase()}</div>
                     <div style={{ flex: 1 }}>
                       <span style={{ fontWeight: 700, fontSize: '0.875rem', color: 'var(--clr-text)' }}>{c.name}</span>
                       <span className="badge badge-cyan" style={{ fontSize: '0.62rem', marginLeft: '0.4rem' }}>{tr('co_badge_active')}</span>
@@ -775,7 +775,7 @@ function AdminMaintenanceSection() {
           <div className="glass-inner" style={{ padding: '1rem' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
               <div style={{ flex: 1 }}>
-                <p style={{ fontWeight: 700, fontSize: '0.9rem', color: config.maintenance_mode ? '#fb923c' : 'var(--clr-text)' }}>
+                <p style={{ fontWeight: 700, fontSize: '0.9rem', color: config.maintenance_mode ? 'var(--kpi-orange)' : 'var(--clr-text)' }}>
                   {config.maintenance_mode ? tr('mn_mode_on') : tr('mn_mode_off')}
                 </p>
                 <p style={{ fontSize: '0.75rem', color: 'var(--clr-muted)', marginTop: '0.2rem' }}>
@@ -783,7 +783,7 @@ function AdminMaintenanceSection() {
                 </p>
               </div>
               <button onClick={() => setConfig(c => ({ ...c, maintenance_mode: !c.maintenance_mode }))}
-                style={{ flexShrink: 0, width: 48, height: 26, borderRadius: 13, border: 'none', cursor: 'pointer', background: config.maintenance_mode ? '#fb923c' : 'rgba(255,255,255,0.12)', position: 'relative', transition: 'background 0.2s' }}>
+                style={{ flexShrink: 0, width: 48, height: 26, borderRadius: 13, border: 'none', cursor: 'pointer', background: config.maintenance_mode ? 'var(--kpi-orange)' : 'rgba(255,255,255,0.12)', position: 'relative', transition: 'background 0.2s' }}>
                 <span style={{ position: 'absolute', top: 4, left: config.maintenance_mode ? 24 : 4, width: 18, height: 18, borderRadius: '50%', background: config.maintenance_mode ? '#000' : 'rgba(255,255,255,0.5)', transition: 'left 0.18s', boxShadow: '0 1px 3px rgba(0,0,0,0.4)' }}/>
               </button>
             </div>
@@ -1727,7 +1727,7 @@ function AdminSecurityEventsSection() {
 
   const COLOUR: Record<string, string> = {
     ADMIN_ACCESS_DENIED_ROLE:       '#f87171',
-    ADMIN_ACCESS_DENIED_PERMISSION: '#fb923c',
+    ADMIN_ACCESS_DENIED_PERMISSION: 'var(--kpi-orange)',
     OTP_LIMIT_REACHED:              '#facc15',
     OTP_LOCKED:                     '#f87171',
   }
@@ -1895,8 +1895,8 @@ function PieChart({ slices, size = 110 }: { slices: { value: number; color: stri
   })
   return (
     <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ filter: 'drop-shadow(0 4px 16px rgba(0,0,0,0.4))' }}>
-      {paths.map((p, i) => <path key={i} d={p.d} fill={p.color} opacity={0.9} stroke="rgba(8,11,20,0.8)" strokeWidth={1.5}/>)}
-      <circle cx={cx} cy={cy} r={r * 0.52} fill="rgba(8,11,20,0.88)"/>
+      {paths.map((p, i) => <path key={i} d={p.d} fill={p.color} opacity={0.9} stroke="var(--clr-bg)" strokeWidth={1.5}/>)}
+      <circle cx={cx} cy={cy} r={r * 0.52} fill="var(--clr-bg)"/>
     </svg>
   )
 }
@@ -1959,15 +1959,15 @@ function KpiCard({
       className="glass"
       style={{
         padding: '1rem 1.1rem', borderRadius: '1rem', cursor: onClick ? 'pointer' : 'default',
-        border: `1px solid ${color}22`, background: `linear-gradient(135deg,${color}08 0%,rgba(8,11,20,0.5) 100%)`,
+        border: `1px solid color-mix(in srgb, ${color} 13%, transparent)`, background: `linear-gradient(135deg,color-mix(in srgb, ${color} 6%, transparent) 0%,var(--clr-surface) 100%)`,
         display: 'flex', flexDirection: 'column', gap: '0.4rem', position: 'relative', overflow: 'hidden',
         transition: 'transform .18s, box-shadow .18s',
       }}
-      onMouseEnter={e => { if (onClick) { (e.currentTarget as HTMLElement).style.transform = 'translateY(-3px)'; (e.currentTarget as HTMLElement).style.boxShadow = `0 12px 32px ${color}22` } }}
+      onMouseEnter={e => { if (onClick) { (e.currentTarget as HTMLElement).style.transform = 'translateY(-3px)'; (e.currentTarget as HTMLElement).style.boxShadow = `0 12px 32px color-mix(in srgb, ${color} 15%, transparent)` } }}
       onMouseLeave={e => { (e.currentTarget as HTMLElement).style.transform = ''; (e.currentTarget as HTMLElement).style.boxShadow = '' }}
     >
       {/* Glow orb */}
-      <div style={{ position: 'absolute', top: -20, right: -20, width: 80, height: 80, borderRadius: '50%', background: `radial-gradient(circle,${color}20 0%,transparent 70%)`, pointerEvents: 'none' }}/>
+      <div style={{ position: 'absolute', top: -20, right: -20, width: 80, height: 80, borderRadius: '50%', background: `radial-gradient(circle,color-mix(in srgb, ${color} 12%, transparent) 0%,transparent 70%)`, pointerEvents: 'none' }}/>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
         <div style={{ width: 32, height: 32, borderRadius: '8px', background: `${color}18`, border: `1px solid ${color}30`, display: 'flex', alignItems: 'center', justifyContent: 'center', color }}>
           {icon}
@@ -1992,12 +1992,12 @@ function fmtMoney(n: number) {
 }
 
 const ORDER_STATUS_META: Record<string, { color: string; label: string }> = {
-  PENDING:          { color: '#fbbf24', label: 'Pending'     },
+  PENDING:          { color: 'var(--kpi-gold)', label: 'Pending'     },
   CONFIRMED:        { color: '#60a5fa', label: 'Confirmed'   },
-  ASSIGNED:         { color: '#a78bfa', label: 'Assigned'    },
-  PICKED_UP:        { color: '#38bdf8', label: 'Picked Up'   },
+  ASSIGNED:         { color: 'var(--kpi-purple)', label: 'Assigned'    },
+  PICKED_UP:        { color: 'var(--kpi-sky)', label: 'Picked Up'   },
   IN_TRANSIT:       { color: '#34d399', label: 'In Transit'  },
-  DELIVERED:        { color: '#4ade80', label: 'Delivered'   },
+  DELIVERED:        { color: 'var(--kpi-green)', label: 'Delivered'   },
   COMPLETED:        { color: '#86efac', label: 'Completed'   },
   CANCELLED:        { color: '#f87171', label: 'Cancelled'   },
   FAILED:           { color: '#fca5a5', label: 'Failed'      },
@@ -2049,9 +2049,9 @@ function OverviewSection({
 
   /* Pie data — user roles */
   const rolePie = [
-    { label: 'Drivers',  value: drivers.length,  color: '#00e5ff' },
-    { label: 'Shippers', value: shippers.length, color: '#a78bfa' },
-    { label: 'Staff',    value: users.filter(u => [1,4,5].includes(u.role_id)).length, color: '#fbbf24' },
+    { label: 'Drivers',  value: drivers.length,  color: 'var(--kpi-cyan)' },
+    { label: 'Shippers', value: shippers.length, color: 'var(--kpi-purple)' },
+    { label: 'Staff',    value: users.filter(u => [1,4,5].includes(u.role_id)).length, color: 'var(--kpi-gold)' },
   ]
 
   /* Revenue */
@@ -2072,18 +2072,18 @@ function OverviewSection({
           </div>
           <div style={{ display: 'flex', gap: '0.45rem', flexWrap: 'wrap' }}>
             <button onClick={() => onNav('reports')} style={{ display:'flex', alignItems:'center', gap:'0.35rem', padding:'0.42rem 0.85rem', borderRadius:'0.6rem', border:'1px solid rgba(0,229,255,0.2)', background:'rgba(0,229,255,0.06)', color:'var(--clr-accent)', fontFamily:'inherit', fontSize:'0.75rem', fontWeight:700, cursor:'pointer' }}><LuChartBar size={13}/> {tr('ov_fin_btn_report')}</button>
-            <button onClick={() => onNav('payments')} style={{ display:'flex', alignItems:'center', gap:'0.35rem', padding:'0.42rem 0.85rem', borderRadius:'0.6rem', border:'1px solid rgba(167,139,250,0.2)', background:'rgba(167,139,250,0.06)', color:'#a78bfa', fontFamily:'inherit', fontSize:'0.75rem', fontWeight:700, cursor:'pointer' }}><LuFileText size={13}/> {tr('ov_fin_btn_reviews')}</button>
+            <button onClick={() => onNav('payments')} style={{ display:'flex', alignItems:'center', gap:'0.35rem', padding:'0.42rem 0.85rem', borderRadius:'0.6rem', border:'1px solid rgba(167,139,250,0.2)', background:'rgba(167,139,250,0.06)', color:'var(--kpi-purple)', fontFamily:'inherit', fontSize:'0.75rem', fontWeight:700, cursor:'pointer' }}><LuFileText size={13}/> {tr('ov_fin_btn_reviews')}</button>
           </div>
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(180px,1fr))', gap: '0.75rem' }}>
           {[
-            { label: tr('ov_fin_kpi_wallet'),      value: fmtMoney(walletBalance),        sub: tr('ov_fin_sub_all_wallets'), color: '#00e5ff', icon: <LuHistory size={15}/> },
-            { label: tr('ov_fin_kpi_deposits'),    value: fmtMoney(totalDeposits),        sub: tr('ov_fin_sub_approved'),   color: '#a78bfa', icon: <LuFileText size={15}/> },
-            { label: tr('ov_fin_kpi_pending_amt'), value: fmtMoney(pendingPayAmt),        sub: tr('ov_fin_sub_awaiting'),   color: '#fbbf24', icon: <LuTriangleAlert size={15}/> },
-            { label: tr('ov_fin_kpi_pending_req'), value: pendingPaymentCount.toString(), sub: tr('ov_fin_sub_queue'),      color: '#4ade80', icon: <LuCircleCheck size={15}/> },
+            { label: tr('ov_fin_kpi_wallet'),      value: fmtMoney(walletBalance),        sub: tr('ov_fin_sub_all_wallets'), color: 'var(--kpi-cyan)', icon: <LuHistory size={15}/> },
+            { label: tr('ov_fin_kpi_deposits'),    value: fmtMoney(totalDeposits),        sub: tr('ov_fin_sub_approved'),   color: 'var(--kpi-purple)', icon: <LuFileText size={15}/> },
+            { label: tr('ov_fin_kpi_pending_amt'), value: fmtMoney(pendingPayAmt),        sub: tr('ov_fin_sub_awaiting'),   color: 'var(--kpi-gold)', icon: <LuTriangleAlert size={15}/> },
+            { label: tr('ov_fin_kpi_pending_req'), value: pendingPaymentCount.toString(), sub: tr('ov_fin_sub_queue'),      color: 'var(--kpi-green)', icon: <LuCircleCheck size={15}/> },
           ].map(c => (
-            <div key={c.label} className="glass" style={{ padding: '0.9rem 1.05rem', borderRadius: '1rem', border: `1px solid ${c.color}1a`, background: `linear-gradient(135deg,${c.color}07,rgba(8,11,20,0.5))`, display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+            <div key={c.label} className="glass" style={{ padding: '0.9rem 1.05rem', borderRadius: '1rem', border: `1px solid color-mix(in srgb, ${c.color} 10%, transparent)`, background: `linear-gradient(135deg,color-mix(in srgb, ${c.color} 4%, transparent),var(--clr-surface))`,  display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: c.color }}>
                 {c.icon}
                 <span style={{ fontSize: '0.65rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em' }}>{c.label}</span>
@@ -2119,33 +2119,33 @@ function OverviewSection({
         </div>
         <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
           <button onClick={() => onNav('orders')}   style={{ display:'flex', alignItems:'center', gap:'0.35rem', padding:'0.45rem 0.9rem', borderRadius:'0.6rem', border:'1px solid rgba(0,229,255,0.2)', background:'rgba(0,229,255,0.06)', color:'var(--clr-accent)',   fontFamily:'inherit', fontSize:'0.75rem', fontWeight:700, cursor:'pointer' }}><LuListOrdered size={13}/> {tr('ov_btn_orders')}</button>
-          <button onClick={() => onNav('drivers')}  style={{ display:'flex', alignItems:'center', gap:'0.35rem', padding:'0.45rem 0.9rem', borderRadius:'0.6rem', border:'1px solid rgba(167,139,250,0.2)', background:'rgba(167,139,250,0.06)', color:'#a78bfa', fontFamily:'inherit', fontSize:'0.75rem', fontWeight:700, cursor:'pointer' }}><LuTruck size={13}/> {tr('ov_btn_drivers')}</button>
-          <button onClick={() => onNav('payments')} style={{ display:'flex', alignItems:'center', gap:'0.35rem', padding:'0.45rem 0.9rem', borderRadius:'0.6rem', border:'1px solid rgba(74,222,128,0.2)',  background:'rgba(74,222,128,0.06)',  color:'#4ade80', fontFamily:'inherit', fontSize:'0.75rem', fontWeight:700, cursor:'pointer' }}><LuFileText size={13}/> {tr('ov_btn_payments')}</button>
+          <button onClick={() => onNav('drivers')}  style={{ display:'flex', alignItems:'center', gap:'0.35rem', padding:'0.45rem 0.9rem', borderRadius:'0.6rem', border:'1px solid rgba(167,139,250,0.2)', background:'rgba(167,139,250,0.06)', color:'var(--kpi-purple)', fontFamily:'inherit', fontSize:'0.75rem', fontWeight:700, cursor:'pointer' }}><LuTruck size={13}/> {tr('ov_btn_drivers')}</button>
+          <button onClick={() => onNav('payments')} style={{ display:'flex', alignItems:'center', gap:'0.35rem', padding:'0.45rem 0.9rem', borderRadius:'0.6rem', border:'1px solid rgba(74,222,128,0.2)',  background:'rgba(74,222,128,0.06)',  color:'var(--kpi-green)', fontFamily:'inherit', fontSize:'0.75rem', fontWeight:700, cursor:'pointer' }}><LuFileText size={13}/> {tr('ov_btn_payments')}</button>
         </div>
       </div>
 
       {/* ── KPI Hero Row ── */}
       {stats ? (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(150px,1fr))', gap: '0.75rem' }}>
-          <KpiCard icon={<LuUsers size={15}/>}       label={tr('ov_kpi_total_users')} value={stats.total_users} color="#00e5ff" trend={last7} trendLabel={`${stats.new_today} ${tr('ov_kpi_joined_today')}`} onClick={() => onNav('shippers')}/>
-          <KpiCard icon={<LuTruck size={15}/>}       label={tr('ov_kpi_drivers')} value={stats.total_drivers} color="#a78bfa" sub={`${verifiedDrivers.length} ${tr('ov_kpi_verified')}`} onClick={() => onNav('drivers')}/>
-          <KpiCard icon={<LuPackage size={15}/>}     label={tr('ov_kpi_shippers')} value={stats.total_shippers} color="#38bdf8"  onClick={() => onNav('shippers')}/>
-          <KpiCard icon={<LuListOrdered size={15}/>} label={tr('ov_kpi_orders')} value={orderStats?.total_orders ?? 0} color="#4ade80" onClick={() => onNav('orders')}/>
-          <KpiCard icon={<LuCircleCheck size={15}/>} label={tr('ov_kpi_active')} value={activeUsers.length} color="#fbbf24" sub={`of ${stats.total_users} accounts`}/>
-          <KpiCard icon={<LuStar size={15}/>}        label={tr('ov_kpi_new_today')} value={stats.new_today} color="#fb923c"  />
+          <KpiCard icon={<LuUsers size={15}/>}       label={tr('ov_kpi_total_users')} value={stats.total_users} color="var(--kpi-cyan)" trend={last7} trendLabel={`${stats.new_today} ${tr('ov_kpi_joined_today')}`} onClick={() => onNav('shippers')}/>
+          <KpiCard icon={<LuTruck size={15}/>}       label={tr('ov_kpi_drivers')} value={stats.total_drivers} color="var(--kpi-purple)" sub={`${verifiedDrivers.length} ${tr('ov_kpi_verified')}`} onClick={() => onNav('drivers')}/>
+          <KpiCard icon={<LuPackage size={15}/>}     label={tr('ov_kpi_shippers')} value={stats.total_shippers} color="var(--kpi-sky)"  onClick={() => onNav('shippers')}/>
+          <KpiCard icon={<LuListOrdered size={15}/>} label={tr('ov_kpi_orders')} value={orderStats?.total_orders ?? 0} color="var(--kpi-green)" onClick={() => onNav('orders')}/>
+          <KpiCard icon={<LuCircleCheck size={15}/>} label={tr('ov_kpi_active')} value={activeUsers.length} color="var(--kpi-gold)" sub={`of ${stats.total_users} accounts`}/>
+          <KpiCard icon={<LuStar size={15}/>}        label={tr('ov_kpi_new_today')} value={stats.new_today} color="var(--kpi-orange)"  />
         </div>
       ) : <LoadingSpinner />}
 
       {/* ── Revenue + Finance Row ── */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(180px,1fr))', gap: '0.75rem' }}>
         {[
-          { label: tr('ov_rev_total_revenue'), value: fmtMoney(totalRevenue),  sub: tr('ov_rev_sub_delivered'), color: '#4ade80', icon: <LuChartBar size={15}/> },
-          { label: tr('ov_rev_wallet'),          value: fmtMoney(walletBalance), sub: tr('ov_rev_sub_wallets'),   color: '#00e5ff', icon: <LuHistory size={15}/> },
-          { label: tr('ov_rev_deposits'),         value: fmtMoney(totalDeposits), sub: tr('ov_rev_sub_approved'),  color: '#a78bfa', icon: <LuFileText size={15}/> },
-          { label: tr('ov_rev_pending_pay'),      value: fmtMoney(pendingPayAmt), sub: tr('ov_rev_sub_awaiting'),  color: '#fbbf24', icon: <LuTriangleAlert size={15}/> },
+          { label: tr('ov_rev_total_revenue'), value: fmtMoney(totalRevenue),  sub: tr('ov_rev_sub_delivered'), color: 'var(--kpi-green)', icon: <LuChartBar size={15}/> },
+          { label: tr('ov_rev_wallet'),          value: fmtMoney(walletBalance), sub: tr('ov_rev_sub_wallets'),   color: 'var(--kpi-cyan)', icon: <LuHistory size={15}/> },
+          { label: tr('ov_rev_deposits'),         value: fmtMoney(totalDeposits), sub: tr('ov_rev_sub_approved'),  color: 'var(--kpi-purple)', icon: <LuFileText size={15}/> },
+          { label: tr('ov_rev_pending_pay'),      value: fmtMoney(pendingPayAmt), sub: tr('ov_rev_sub_awaiting'),  color: 'var(--kpi-gold)', icon: <LuTriangleAlert size={15}/> },
         ].map(c => (
-          <div key={c.label} className="glass" style={{ padding: '0.9rem 1.1rem', borderRadius: '1rem', border: `1px solid ${c.color}1a`, background: `linear-gradient(135deg,${c.color}07,rgba(8,11,20,0.5))`, display: 'flex', flexDirection: 'column', gap: '0.25rem', position: 'relative', overflow: 'hidden' }}>
-            <div style={{ position: 'absolute', top: -16, right: -16, width: 64, height: 64, borderRadius: '50%', background: `radial-gradient(circle,${c.color}18,transparent 70%)`, pointerEvents: 'none' }}/>
+          <div key={c.label} className="glass" style={{ padding: '0.9rem 1.1rem', borderRadius: '1rem', border: `1px solid color-mix(in srgb, ${c.color} 10%, transparent)`, background: `linear-gradient(135deg,color-mix(in srgb, ${c.color} 4%, transparent),var(--clr-surface))`,  display: 'flex', flexDirection: 'column', gap: '0.25rem', position: 'relative', overflow: 'hidden' }}>
+            <div style={{ position: 'absolute', top: -16, right: -16, width: 64, height: 64, borderRadius: '50%', background: `radial-gradient(circle,color-mix(in srgb, ${c.color} 9%, transparent),transparent 70%)`, pointerEvents: 'none' }}/>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: c.color }}>
               {c.icon}
               <span style={{ fontSize: '0.65rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em' }}>{c.label}</span>
@@ -2177,7 +2177,7 @@ function OverviewSection({
         {/* User role pie */}
         <div className="glass" style={{ padding: '1.1rem 1.25rem', borderRadius: '1rem' }}>
           <div style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--clr-text)', display: 'flex', alignItems: 'center', gap: '0.4rem', marginBottom: '1rem' }}>
-            <LuUsers size={14} color="#a78bfa"/> User Distribution
+            <LuUsers size={14} color="var(--kpi-purple)"/> User Distribution
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem', flexWrap: 'wrap' }}>
             <PieChart slices={rolePie} size={110}/>
@@ -2190,9 +2190,9 @@ function OverviewSection({
                 </div>
               ))}
               <div style={{ marginTop: '0.25rem', paddingTop: '0.45rem', borderTop: '1px solid rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
-                <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#4ade80', flexShrink: 0, boxShadow: '0 0 6px #4ade8088' }}/>
+                <div style={{ width: 10, height: 10, borderRadius: '50%', background: 'var(--kpi-green)', flexShrink: 0, boxShadow: '0 0 6px #4ade8088' }}/>
                 <span style={{ fontSize: '0.75rem', color: 'var(--clr-muted)', fontWeight: 600 }}>Active</span>
-                <span style={{ fontSize: '0.78rem', fontWeight: 800, color: '#4ade80', marginLeft: 'auto' }}>{activeUsers.length}</span>
+                <span style={{ fontSize: '0.78rem', fontWeight: 800, color: 'var(--kpi-green)', marginLeft: 'auto' }}>{activeUsers.length}</span>
               </div>
             </div>
           </div>
@@ -2201,13 +2201,13 @@ function OverviewSection({
         {/* Driver verification status */}
         <div className="glass" style={{ padding: '1.1rem 1.25rem', borderRadius: '1rem' }}>
           <div style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--clr-text)', display: 'flex', alignItems: 'center', gap: '0.4rem', marginBottom: '1rem' }}>
-            <LuBadgeCheck size={14} color="#4ade80"/> Driver Verification
+            <LuBadgeCheck size={14} color="var(--kpi-green)"/> Driver Verification
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
             {[
-              { label: tr('ov_drv_verified'),   value: verifiedDrivers.length,   total: drivers.length, color: '#4ade80' },
-              { label: tr('ov_drv_pending'),    value: unverifiedDrivers.length, total: drivers.length, color: '#fbbf24' },
-              { label: tr('ov_drv_active_now'), value: activeUsers.filter(u => u.role_id === 3).length, total: drivers.length, color: '#00e5ff' },
+              { label: tr('ov_drv_verified'),   value: verifiedDrivers.length,   total: drivers.length, color: 'var(--kpi-green)' },
+              { label: tr('ov_drv_pending'),    value: unverifiedDrivers.length, total: drivers.length, color: 'var(--kpi-gold)' },
+              { label: tr('ov_drv_active_now'), value: activeUsers.filter(u => u.role_id === 3).length, total: drivers.length, color: 'var(--kpi-cyan)' },
             ].map(row => (
               <div key={row.label}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.3rem' }}>
@@ -2220,7 +2220,7 @@ function OverviewSection({
               </div>
             ))}
             {pendingVerif.length > 0 && (
-              <button onClick={() => onNav('verify-drivers')} style={{ marginTop: '0.35rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem', padding: '0.5rem', borderRadius: '0.6rem', border: '1px solid rgba(251,191,36,0.3)', background: 'rgba(251,191,36,0.06)', color: '#fbbf24', fontFamily: 'inherit', fontSize: '0.75rem', fontWeight: 700, cursor: 'pointer' }}>
+              <button onClick={() => onNav('verify-drivers')} style={{ marginTop: '0.35rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem', padding: '0.5rem', borderRadius: '0.6rem', border: '1px solid rgba(251,191,36,0.3)', background: 'rgba(251,191,36,0.06)', color: 'var(--kpi-gold)', fontFamily: 'inherit', fontSize: '0.75rem', fontWeight: 700, cursor: 'pointer' }}>
                 <LuTriangleAlert size={13}/> {pendingVerif.length} {tr('ov_drv_awaiting')}
               </button>
             )}
@@ -2232,7 +2232,7 @@ function OverviewSection({
       <div className="glass" style={{ padding: '1.1rem 1.25rem', borderRadius: '1rem' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.5rem' }}>
           <div style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--clr-text)', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-            <LuStar size={14} color="#fb923c"/> Registrations — Last 7 Days
+            <LuStar size={14} color="var(--kpi-orange)"/> Registrations — Last 7 Days
           </div>
           <span style={{ fontSize: '0.68rem', color: 'var(--clr-muted)' }}>total: {last7.reduce((a, b) => a + b, 0)} {tr('ov_reg_new_users')}</span>
         </div>
@@ -2243,7 +2243,7 @@ function OverviewSection({
             const label = new Date(Date.now() - (6 - i) * 86400000).toLocaleDateString('en-US', { weekday: 'short' })
             return (
               <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.2rem' }}>
-                <div style={{ fontSize: '0.62rem', fontWeight: 700, color: v > 0 ? '#fb923c' : 'var(--clr-muted)' }}>{v || ''}</div>
+                <div style={{ fontSize: '0.62rem', fontWeight: 700, color: v > 0 ? 'var(--kpi-orange)' : 'var(--clr-muted)' }}>{v || ''}</div>
                 <div style={{ width: '100%', height: h, borderRadius: '4px 4px 2px 2px', background: v > 0 ? 'linear-gradient(180deg,#fb923c,#f97316)' : 'rgba(255,255,255,0.05)', boxShadow: v > 0 ? '0 0 8px #fb923c44' : 'none', animation: 'progress-fill 0.8s ease both', animationDelay: `${i * 80}ms`, transformOrigin: 'bottom' }}/>
                 <div style={{ fontSize: '0.6rem', color: 'var(--clr-muted)' }}>{label}</div>
               </div>
@@ -2281,12 +2281,12 @@ function OverviewSection({
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
 
           {/* Pending actions card */}
-          <div className="glass" style={{ padding: '1rem 1.1rem', borderRadius: '1rem', border: '1px solid rgba(251,191,36,0.15)', background: 'linear-gradient(135deg,rgba(251,191,36,0.05),rgba(8,11,20,0.5))' }}>
-            <div style={{ fontSize: '0.72rem', fontWeight: 800, color: '#fbbf24', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}><LuTriangleAlert size={13}/> Action Required</div>
+          <div className="glass" style={{ padding: '1rem 1.1rem', borderRadius: '1rem', border: '1px solid rgba(251,191,36,0.15)', background: 'linear-gradient(135deg,rgba(251,191,36,0.05),var(--clr-surface))' }}>
+            <div style={{ fontSize: '0.72rem', fontWeight: 800, color: 'var(--kpi-gold)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}><LuTriangleAlert size={13}/> Action Required</div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.55rem' }}>
               {[
-                { label: tr('ov_action_drv_verif'), value: pendingVerif.length, nav: 'verify-drivers' as AdminSection, color: '#fbbf24' },
-                { label: tr('ov_action_pay_review'),      value: '—',                  nav: 'payments'       as AdminSection, color: '#fb923c' },
+                { label: tr('ov_action_drv_verif'), value: pendingVerif.length, nav: 'verify-drivers' as AdminSection, color: 'var(--kpi-gold)' },
+                { label: tr('ov_action_pay_review'),      value: '—',                  nav: 'payments'       as AdminSection, color: 'var(--kpi-orange)' },
                 { label: tr('ov_action_unverified'),      value: users.filter(u => !u.is_phone_verified).length, nav: 'shippers' as AdminSection, color: '#f87171' },
               ].map(row => (
                 <div key={row.label} onClick={() => onNav(row.nav)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.5rem 0.75rem', borderRadius: '0.6rem', background: 'rgba(255,255,255,0.03)', border: `1px solid ${row.color}1a`, cursor: 'pointer', transition: 'background .15s' }}
@@ -2302,10 +2302,10 @@ function OverviewSection({
           {/* Quick nav tiles */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.55rem' }}>
             {([
-              { id: 'orders'        as AdminSection, icon: <LuListOrdered size={18}/>, label: tr('ov_btn_orders'),       color: '#4ade80' },
-              { id: 'live-drivers'  as AdminSection, icon: <LuMapPin size={18}/>,      label: tr('ov_quick_live_map'),   color: '#00e5ff' },
-              { id: 'payments'      as AdminSection, icon: <LuFileText size={18}/>,    label: tr('ov_btn_payments'),     color: '#a78bfa' },
-              { id: 'reports'       as AdminSection, icon: <LuChartBar size={18}/>,    label: tr('ov_quick_reports'),    color: '#fb923c' },
+              { id: 'orders'        as AdminSection, icon: <LuListOrdered size={18}/>, label: tr('ov_btn_orders'),       color: 'var(--kpi-green)' },
+              { id: 'live-drivers'  as AdminSection, icon: <LuMapPin size={18}/>,      label: tr('ov_quick_live_map'),   color: 'var(--kpi-cyan)' },
+              { id: 'payments'      as AdminSection, icon: <LuFileText size={18}/>,    label: tr('ov_btn_payments'),     color: 'var(--kpi-purple)' },
+              { id: 'reports'       as AdminSection, icon: <LuChartBar size={18}/>,    label: tr('ov_quick_reports'),    color: 'var(--kpi-orange)' },
             ] as const).map(tile => (
               <button key={tile.id} onClick={() => onNav(tile.id as AdminSection)} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '0.4rem', padding: '0.85rem 0.5rem', borderRadius: '0.85rem', border: `1px solid ${tile.color}20`, background: `${tile.color}07`, color: tile.color, fontFamily: 'inherit', fontSize: '0.73rem', fontWeight: 700, cursor: 'pointer', transition: 'all .18s' }}
                 onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = `${tile.color}14`; (e.currentTarget as HTMLElement).style.transform = 'translateY(-2px)' }}
@@ -2375,7 +2375,7 @@ function CustomerSection({ allUsers, loading, onToggleActive, onRefresh }: {
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.3rem', flexShrink: 0 }} onClick={e => e.stopPropagation()}>
                 <span style={{ fontSize: '0.68rem', color: 'var(--clr-muted)' }}>{new Date(u.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</span>
-                <button onClick={() => handleToggle(u)} style={{ padding: '0.28rem 0.65rem', borderRadius: 7, border: '1px solid', borderColor: u.is_active ? 'rgba(239,68,68,0.35)' : 'rgba(74,222,128,0.35)', background: u.is_active ? 'rgba(239,68,68,0.08)' : 'rgba(74,222,128,0.08)', color: u.is_active ? '#fca5a5' : '#4ade80', fontFamily: 'inherit', fontSize: '0.7rem', fontWeight: 600, cursor: 'pointer' }}>
+                <button onClick={() => handleToggle(u)} style={{ padding: '0.28rem 0.65rem', borderRadius: 7, border: '1px solid', borderColor: u.is_active ? 'rgba(239,68,68,0.35)' : 'rgba(74,222,128,0.35)', background: u.is_active ? 'rgba(239,68,68,0.08)' : 'rgba(74,222,128,0.08)', color: u.is_active ? '#fca5a5' : 'var(--kpi-green)', fontFamily: 'inherit', fontSize: '0.7rem', fontWeight: 600, cursor: 'pointer' }}>
                   {u.is_active ? tr('usr_suspend_btn') : tr('usr_activate_btn')}
                 </button>
               </div>
@@ -2405,9 +2405,9 @@ function CustomerSection({ allUsers, loading, onToggleActive, onRefresh }: {
               {[
                 { label: tr('usr_phone'),          value: selected.phone_number },
                 { label: tr('usr_email'),          value: selected.email || '—' },
-                { label: tr('usr_phone_verified'), value: selected.is_phone_verified ? tr('usr_yes') : tr('usr_no'), clr: selected.is_phone_verified ? '#4ade80' : '#fca5a5' },
-                { label: tr('usr_email_verified'), value: selected.is_email_verified ? tr('usr_yes') : tr('usr_no'), clr: selected.is_email_verified ? '#4ade80' : '#fca5a5' },
-                { label: tr('usr_status'),         value: selected.is_active ? tr('usr_active_val') : tr('usr_suspended_val'), clr: selected.is_active ? '#4ade80' : '#fca5a5' },
+                { label: tr('usr_phone_verified'), value: selected.is_phone_verified ? tr('usr_yes') : tr('usr_no'), clr: selected.is_phone_verified ? 'var(--kpi-green)' : '#fca5a5' },
+                { label: tr('usr_email_verified'), value: selected.is_email_verified ? tr('usr_yes') : tr('usr_no'), clr: selected.is_email_verified ? 'var(--kpi-green)' : '#fca5a5' },
+                { label: tr('usr_status'),         value: selected.is_active ? tr('usr_active_val') : tr('usr_suspended_val'), clr: selected.is_active ? 'var(--kpi-green)' : '#fca5a5' },
                 { label: tr('usr_registered'),     value: new Date(selected.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) },
               ].map(r => (
                 <div key={r.label}>
@@ -2416,7 +2416,7 @@ function CustomerSection({ allUsers, loading, onToggleActive, onRefresh }: {
                 </div>
               ))}
             </div>
-            <button onClick={() => handleToggle(selected)} style={{ width: '100%', padding: '0.6rem', borderRadius: 10, border: '1px solid', borderColor: selected.is_active ? 'rgba(239,68,68,0.35)' : 'rgba(74,222,128,0.35)', background: selected.is_active ? 'rgba(239,68,68,0.1)' : 'rgba(74,222,128,0.1)', color: selected.is_active ? '#fca5a5' : '#4ade80', fontFamily: 'inherit', fontSize: '0.85rem', fontWeight: 700, cursor: 'pointer' }}>
+            <button onClick={() => handleToggle(selected)} style={{ width: '100%', padding: '0.6rem', borderRadius: 10, border: '1px solid', borderColor: selected.is_active ? 'rgba(239,68,68,0.35)' : 'rgba(74,222,128,0.35)', background: selected.is_active ? 'rgba(239,68,68,0.1)' : 'rgba(74,222,128,0.1)', color: selected.is_active ? '#fca5a5' : 'var(--kpi-green)', fontFamily: 'inherit', fontSize: '0.85rem', fontWeight: 700, cursor: 'pointer' }}>
               {selected.is_active ? tr('usr_suspend_user') : tr('usr_activate_user')}
             </button>
           </div>
@@ -2535,7 +2535,7 @@ function StaffManagementSection({ allUsers, loading, onToggleActive, onRefresh }
                 <button onClick={() => openEdit(u)} style={{ padding: '0.28rem 0.55rem', borderRadius: 7, border: '1px solid rgba(255,255,255,0.12)', background: 'rgba(255,255,255,0.05)', color: 'var(--clr-muted)', fontFamily: 'inherit', fontSize: '0.7rem', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
                   <LuPencil size={11}/> {tr('stf_edit_btn')}
                 </button>
-                <button onClick={() => onToggleActive(u)} style={{ padding: '0.28rem 0.65rem', borderRadius: 7, border: '1px solid', borderColor: u.is_active ? 'rgba(239,68,68,0.35)' : 'rgba(74,222,128,0.35)', background: u.is_active ? 'rgba(239,68,68,0.08)' : 'rgba(74,222,128,0.08)', color: u.is_active ? '#fca5a5' : '#4ade80', fontFamily: 'inherit', fontSize: '0.7rem', fontWeight: 600, cursor: 'pointer' }}>
+                <button onClick={() => onToggleActive(u)} style={{ padding: '0.28rem 0.65rem', borderRadius: 7, border: '1px solid', borderColor: u.is_active ? 'rgba(239,68,68,0.35)' : 'rgba(74,222,128,0.35)', background: u.is_active ? 'rgba(239,68,68,0.08)' : 'rgba(74,222,128,0.08)', color: u.is_active ? '#fca5a5' : 'var(--kpi-green)', fontFamily: 'inherit', fontSize: '0.7rem', fontWeight: 600, cursor: 'pointer' }}>
                   {u.is_active ? tr('stf_suspend_btn') : tr('stf_activate_btn')}
                 </button>
               </div>
@@ -2788,7 +2788,7 @@ function ProfileSection({ adminTheme, onThemeChange }: { adminTheme: 'LIGHT' | '
               <span className="badge badge-cyan">{roleLabel}</span>
             </div>
             <p style={{ color: 'var(--clr-muted)', fontSize: '0.82rem', marginTop: '0.15rem' }}>{user?.phone_number}</p>
-            {user?.email && <p style={{ color: 'var(--clr-muted)', fontSize: '0.76rem', marginTop: '0.1rem' }}>{user.email} {user.is_email_verified ? <span style={{ color: '#4ade80', fontSize: '0.7rem', display:'inline-flex', alignItems:'center', gap:'0.2rem' }}><LuCircleCheck size={11}/></span> : <span style={{ color: '#fbbf24', fontSize: '0.7rem' }}>{tr('prf_email_pending')}</span>}</p>}
+            {user?.email && <p style={{ color: 'var(--clr-muted)', fontSize: '0.76rem', marginTop: '0.1rem' }}>{user.email} {user.is_email_verified ? <span style={{ color: 'var(--kpi-green)', fontSize: '0.7rem', display:'inline-flex', alignItems:'center', gap:'0.2rem' }}><LuCircleCheck size={11}/></span> : <span style={{ color: 'var(--kpi-gold)', fontSize: '0.7rem' }}>{tr('prf_email_pending')}</span>}</p>}
             {photoError && <p style={{ color: '#fca5a5', fontSize: '0.75rem', marginTop: '0.25rem' }}>{photoError}</p>}
             {photoUrl && <button className="btn-outline" style={{ marginTop: '0.4rem', fontSize: '0.71rem', padding: '0.25rem 0.65rem', display:'flex', alignItems:'center', gap:'0.3rem' }} onClick={handleDeletePhoto} disabled={photoLoading}><LuTrash2 size={11}/> {tr('prf_photo_remove')}</button>}
           </div>
@@ -2993,7 +2993,7 @@ function AdminDriversSection({ allUsers, loading: usersLoading, onToggleActive, 
     } catch { toast(tr('drv_del_rating_fail')) }
   }
 
-  const stColor: Record<string, string> = { AVAILABLE:'#4ade80', ON_JOB:'#60a5fa', OFFLINE:'#94a3b8', SUSPENDED:'#fca5a5' }
+  const stColor: Record<string, string> = { AVAILABLE:'var(--kpi-green)', ON_JOB:'#60a5fa', OFFLINE:'#94a3b8', SUSPENDED:'#fca5a5' }
   const stLabel: Record<string, string> = { AVAILABLE: tr('drv_st_available'), ON_JOB: tr('drv_st_on_job'), OFFLINE: tr('drv_st_offline'), SUSPENDED: tr('drv_st_suspended') }
 
   return (
@@ -3079,9 +3079,9 @@ function AdminDriversSection({ allUsers, loading: usersLoading, onToggleActive, 
               {[
                 { label: tr('drv_phone'),          value: selectedUser.phone_number },
                 { label: tr('drv_email'),          value: selectedUser.email || '—' },
-                { label: tr('drv_phone_verified'), value: selectedUser.is_phone_verified ? '✓ Yes':'✗ No', clr: selectedUser.is_phone_verified ? '#4ade80':'#fca5a5' },
-                { label: tr('drv_email_verified'), value: selectedUser.is_email_verified  ? '✓ Yes':'✗ No', clr: selectedUser.is_email_verified  ? '#4ade80':'#fca5a5' },
-                { label: tr('drv_account'),        value: selectedUser.is_active ? tr('drv_active') : tr('drv_st_suspended'), clr: selectedUser.is_active ? '#4ade80':'#fca5a5' },
+                { label: tr('drv_phone_verified'), value: selectedUser.is_phone_verified ? '✓ Yes':'✗ No', clr: selectedUser.is_phone_verified ? 'var(--kpi-green)':'#fca5a5' },
+                { label: tr('drv_email_verified'), value: selectedUser.is_email_verified  ? '✓ Yes':'✗ No', clr: selectedUser.is_email_verified  ? 'var(--kpi-green)':'#fca5a5' },
+                { label: tr('drv_account'),        value: selectedUser.is_active ? tr('drv_active') : tr('drv_st_suspended'), clr: selectedUser.is_active ? 'var(--kpi-green)':'#fca5a5' },
                 { label: tr('drv_registered'),     value: new Date(selectedUser.created_at).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}) },
               ].map(r => (
                 <div key={r.label}>
@@ -3099,9 +3099,9 @@ function AdminDriversSection({ allUsers, loading: usersLoading, onToggleActive, 
                   <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:'0.5rem' }}>
                     {[
                       { label: tr('drv_assigned'),   value: detail.trip_stats.total_assigned, clr:'#60a5fa', internalFilter: 'ASSIGNED_ANY' },
-                      { label: tr('drv_completed'),  value: detail.trip_stats.completed, clr:'#4ade80', internalFilter: 'COMPLETED' },
+                      { label: tr('drv_completed'),  value: detail.trip_stats.completed, clr:'var(--kpi-green)', internalFilter: 'COMPLETED' },
                       { label: tr('drv_cancelled'),  value: detail.trip_stats.cancelled, clr:'#fca5a5', internalFilter: 'CANCELLED' },
-                      { label: tr('drv_active_now'), value: detail.trip_stats.active_now, clr:'#fbbf24', internalFilter: 'ACTIVE_NOW' },
+                      { label: tr('drv_active_now'), value: detail.trip_stats.active_now, clr:'var(--kpi-gold)', internalFilter: 'ACTIVE_NOW' },
                     ].map(s => (
                       <div key={s.label} onClick={() => onViewOrders(selectedUser!.id, s.internalFilter)} className="glass-inner" style={{ padding:'0.65rem 0.5rem', textAlign:'center', border:`1px solid ${s.clr}22`, cursor:'pointer', transition:'background 0.15s' }} onMouseEnter={e=>(e.currentTarget.style.background='rgba(255,255,255,0.06)')} onMouseLeave={e=>(e.currentTarget.style.background='')}>
                         <p style={{ fontSize:'1.3rem', fontWeight:800, color:s.clr, lineHeight:1 }}>{Number(s.value) || 0}</p>
@@ -3125,9 +3125,9 @@ function AdminDriversSection({ allUsers, loading: usersLoading, onToggleActive, 
                         ].map(s => (
                           <div key={s.label} className="glass-inner" style={{ padding:'0.65rem 0.5rem', textAlign:'center' }}>
                             <div style={{ display:'flex', justifyContent:'center', gap:'1px', marginBottom:'0.2rem' }}>
-                              {[1,2,3,4,5].map(n => <LuStar key={n} size={11} fill={s.value != null && n<=Math.round(Number(s.value))?'#fbbf24':'none'} stroke={s.value != null && n<=Math.round(Number(s.value))?'#fbbf24':'rgba(255,255,255,0.2)'}/>)}
+                              {[1,2,3,4,5].map(n => <LuStar key={n} size={11} fill={s.value != null && n<=Math.round(Number(s.value))?'var(--kpi-gold)':'none'} stroke={s.value != null && n<=Math.round(Number(s.value))?'var(--kpi-gold)':'rgba(255,255,255,0.2)'}/>)}
                             </div>
-                            <p style={{ fontSize:'1rem', fontWeight:800, color:'#fbbf24', lineHeight:1 }}>{s.value != null ? Number(s.value).toFixed(1) : '—'}</p>
+                            <p style={{ fontSize:'1rem', fontWeight:800, color:'var(--kpi-gold)', lineHeight:1 }}>{s.value != null ? Number(s.value).toFixed(1) : '—'}</p>
                             <p style={{ fontSize:'0.62rem', color:'var(--clr-muted)', marginTop:'0.2rem' }}>{s.label}</p>
                           </div>
                         ))}
@@ -3144,7 +3144,7 @@ function AdminDriversSection({ allUsers, loading: usersLoading, onToggleActive, 
                               <div style={{ flex:1, minWidth:0 }}>
                                 <div style={{ display:'flex', alignItems:'center', gap:'0.4rem', flexWrap:'wrap', marginBottom:'0.2rem' }}>
                                   <div style={{ display:'flex', gap:'1px' }}>
-                                    {[1,2,3,4,5].map(n => <LuStar key={n} size={11} fill={n<=r.stars?'#fbbf24':'none'} stroke={n<=r.stars?'#fbbf24':'rgba(255,255,255,0.25)'}/>)}
+                                    {[1,2,3,4,5].map(n => <LuStar key={n} size={11} fill={n<=r.stars?'var(--kpi-gold)':'none'} stroke={n<=r.stars?'var(--kpi-gold)':'rgba(255,255,255,0.25)'}/>)}
                                   </div>
                                   <span style={{ fontSize:'0.72rem', color:'var(--clr-text)', fontWeight:600 }}>{r.shipper_first_name} {r.shipper_last_name}</span>
                                   <span style={{ fontSize:'0.67rem', color:'var(--clr-muted)' }}>{new Date(r.created_at).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})}</span>
@@ -3180,7 +3180,7 @@ function AdminDriversSection({ allUsers, loading: usersLoading, onToggleActive, 
                   </div>
                   {/* Suspend/Activate */}
                   <button onClick={() => handleToggle(selectedUser)}
-                    style={{ width:'100%', padding:'0.6rem', borderRadius:10, border:'1px solid', borderColor: selectedUser.is_active ? 'rgba(239,68,68,0.35)':'rgba(74,222,128,0.35)', background: selectedUser.is_active ? 'rgba(239,68,68,0.08)':'rgba(74,222,128,0.08)', color: selectedUser.is_active ? '#fca5a5':'#4ade80', fontFamily:'inherit', fontSize:'0.85rem', fontWeight:700, cursor:'pointer' }}>
+                    style={{ width:'100%', padding:'0.6rem', borderRadius:10, border:'1px solid', borderColor: selectedUser.is_active ? 'rgba(239,68,68,0.35)':'rgba(74,222,128,0.35)', background: selectedUser.is_active ? 'rgba(239,68,68,0.08)':'rgba(74,222,128,0.08)', color: selectedUser.is_active ? '#fca5a5':'var(--kpi-green)', fontFamily:'inherit', fontSize:'0.85rem', fontWeight:700, cursor:'pointer' }}>
                     {selectedUser.is_active ? tr('drv_suspend_btn') : tr('drv_activate_btn')}
                   </button>
                 </div>
@@ -3304,7 +3304,7 @@ function DriverVerificationSection() {
   }
 
   const statusColor = (s: string | null) =>
-    s === 'APPROVED' ? '#4ade80' : s === 'REJECTED' ? '#fca5a5' : s === 'PENDING' ? '#fbbf24' : 'var(--clr-muted)'
+    s === 'APPROVED' ? 'var(--kpi-green)' : s === 'REJECTED' ? '#fca5a5' : s === 'PENDING' ? 'var(--kpi-gold)' : 'var(--clr-muted)'
 
   const StatusBadge = ({ s, label }: { s: string | null; label?: string }) => (
     <span style={{ fontSize:'0.68rem', fontWeight:700, color: statusColor(s), background:`${statusColor(s)}18`, border:`1px solid ${statusColor(s)}44`, borderRadius:99, padding:'0.15rem 0.5rem', whiteSpace:'nowrap' }}>
@@ -3356,7 +3356,7 @@ function DriverVerificationSection() {
                   <div style={{ flex:1, minWidth:0 }}>
                     <div style={{ display:'flex', alignItems:'center', gap:'0.4rem', flexWrap:'wrap' }}>
                       <span style={{ fontWeight:700, fontSize:'0.875rem', color:'var(--clr-text)' }}>{fullName}</span>
-                      {d.is_verified === 1 && <span style={{ color:'#4ade80', display:'flex', alignItems:'center', gap:'0.2rem', fontSize:'0.72rem', fontWeight:700 }}><LuBadgeCheck size={12}/> {tr('vdr_verified_badge')}</span>}
+                      {d.is_verified === 1 && <span style={{ color:'var(--kpi-green)', display:'flex', alignItems:'center', gap:'0.2rem', fontSize:'0.72rem', fontWeight:700 }}><LuBadgeCheck size={12}/> {tr('vdr_verified_badge')}</span>}
                     </div>
                     <p style={{ fontSize:'0.73rem', color:'var(--clr-muted)' }}>{d.phone_number}</p>
                     <div style={{ display:'flex', gap:'0.35rem', flexWrap:'wrap', marginTop:'0.3rem' }}>
@@ -3418,7 +3418,7 @@ function DriverVerificationSection() {
                             {url && (
                               <div style={{ display:'flex', gap:'0.4rem', flexShrink:0 }}>
                                 <button onClick={() => reviewDoc(d.user_id, docKey, 'APPROVED')} disabled={!!actionLoading || status === 'APPROVED'}
-                                  style={{ padding:'0.3rem 0.65rem', borderRadius:7, border:'1px solid rgba(74,222,128,0.35)', background:'rgba(74,222,128,0.08)', color:'#4ade80', fontFamily:'inherit', fontSize:'0.72rem', fontWeight:600, cursor: status === 'APPROVED' ? 'not-allowed' : 'pointer', opacity: status === 'APPROVED' ? 0.5 : 1 }}>
+                                  style={{ padding:'0.3rem 0.65rem', borderRadius:7, border:'1px solid rgba(74,222,128,0.35)', background:'rgba(74,222,128,0.08)', color:'var(--kpi-green)', fontFamily:'inherit', fontSize:'0.72rem', fontWeight:600, cursor: status === 'APPROVED' ? 'not-allowed' : 'pointer', opacity: status === 'APPROVED' ? 0.5 : 1 }}>
                                   {actionLoading === `${aKey}-APPROVED` ? '…' : tr('vdr_approve_btn')}
                                 </button>
                                 <button onClick={() => { setRejectModal({ type:'doc', driverId: d.user_id, docType: docKey }); setRejectReason('') }} disabled={!!actionLoading || status === 'REJECTED'}
@@ -3457,7 +3457,7 @@ function DriverVerificationSection() {
                     {d.is_verified !== 1 && (
                       <div style={{ display:'flex', gap:'0.5rem', borderTop:'1px solid rgba(255,255,255,0.06)', paddingTop:'0.85rem' }}>
                         <button onClick={() => verifyDriver(d.user_id)} disabled={!!actionLoading}
-                          style={{ flex:1, padding:'0.55rem', borderRadius:10, border:'1px solid rgba(74,222,128,0.35)', background:'rgba(74,222,128,0.10)', color:'#4ade80', fontFamily:'inherit', fontSize:'0.82rem', fontWeight:700, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:'0.4rem' }}>
+                          style={{ flex:1, padding:'0.55rem', borderRadius:10, border:'1px solid rgba(74,222,128,0.35)', background:'rgba(74,222,128,0.10)', color:'var(--kpi-green)', fontFamily:'inherit', fontSize:'0.82rem', fontWeight:700, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:'0.4rem' }}>
                           {actionLoading === `verify-${d.user_id}` ? <><span className="spinner"/>…</> : <><LuShieldCheck size={14}/> {tr('vdr_fully_verify')}</>}
                         </button>
                         <button onClick={() => { setRejectModal({ type:'driver', driverId: d.user_id }); setRejectReason('') }} disabled={!!actionLoading}
@@ -3477,7 +3477,7 @@ function DriverVerificationSection() {
                         <div style={{ borderTop:'1px solid rgba(255,255,255,0.06)', paddingTop:'0.85rem', display:'flex', flexDirection:'column', gap:'0.75rem' }}>
                           <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', flexWrap:'wrap', gap:'0.4rem' }}>
                             <p style={{ fontWeight:700, fontSize:'0.82rem', color:'var(--clr-text)', display:'flex', alignItems:'center', gap:'0.4rem' }}>
-                              <LuStar size={14} color="#fbbf24"/> {tr('vdr_ratings_title')}
+                              <LuStar size={14} color="var(--kpi-gold)"/> {tr('vdr_ratings_title')}
                             </p>
                             <button onClick={async () => { setDriverRatings(prev => { const n = {...prev}; delete n[d.user_id]; return n }); await loadDriverRatings(d.user_id) }}
                               style={{ padding:'0.2rem 0.5rem', borderRadius:6, border:'1px solid rgba(255,255,255,0.1)', background:'rgba(255,255,255,0.04)', color:'var(--clr-muted)', fontFamily:'inherit', fontSize:'0.68rem', fontWeight:600, cursor:'pointer', display:'flex', alignItems:'center', gap:'0.25rem' }}>
@@ -3492,10 +3492,10 @@ function DriverVerificationSection() {
                               <div style={{ display:'flex', gap:'0.65rem', flexWrap:'wrap' }}>
                                 {summary.combined_rating != null && (
                                   <div style={{ padding:'0.5rem 0.75rem', borderRadius:9, background:'rgba(251,191,36,0.08)', border:'1px solid rgba(251,191,36,0.2)', display:'flex', alignItems:'center', gap:'0.4rem' }}>
-                                    <span style={{ fontSize:'1.1rem', fontWeight:800, color:'#fbbf24' }}>{Number(summary.combined_rating).toFixed(1)}</span>
+                                    <span style={{ fontSize:'1.1rem', fontWeight:800, color:'var(--kpi-gold)' }}>{Number(summary.combined_rating).toFixed(1)}</span>
                                     <div style={{ display:'flex', flexDirection:'column', gap:'0.1rem' }}>
                                       <div style={{ display:'flex', gap:'1px' }}>
-                                        {[1,2,3,4,5].map(n => <LuStar key={n} size={11} fill={n<=Math.round(summary.combined_rating)?'#fbbf24':'none'} stroke={n<=Math.round(summary.combined_rating)?'#fbbf24':'rgba(255,255,255,0.3)'}/>)}
+                                        {[1,2,3,4,5].map(n => <LuStar key={n} size={11} fill={n<=Math.round(summary.combined_rating)?'var(--kpi-gold)':'none'} stroke={n<=Math.round(summary.combined_rating)?'var(--kpi-gold)':'rgba(255,255,255,0.3)'}/>)}
                                       </div>
                                       <span style={{ fontSize:'0.6rem', color:'var(--clr-muted)' }}>{tr('vdr_rating_combined')}</span>
                                     </div>
@@ -3525,7 +3525,7 @@ function DriverVerificationSection() {
                                       <div style={{ flex:1, minWidth:0 }}>
                                         <div style={{ display:'flex', alignItems:'center', gap:'0.4rem', flexWrap:'wrap', marginBottom:'0.2rem' }}>
                                           <div style={{ display:'flex', gap:'1px' }}>
-                                            {[1,2,3,4,5].map(n => <LuStar key={n} size={11} fill={n<=r.stars?'#fbbf24':'none'} stroke={n<=r.stars?'#fbbf24':'rgba(255,255,255,0.3)'}/>)}
+                                            {[1,2,3,4,5].map(n => <LuStar key={n} size={11} fill={n<=r.stars?'var(--kpi-gold)':'none'} stroke={n<=r.stars?'var(--kpi-gold)':'rgba(255,255,255,0.3)'}/>)}
                                           </div>
                                           <span style={{ fontSize:'0.7rem', color:'var(--clr-muted)' }}>{r.shipper_first_name} {r.shipper_last_name}</span>
                                           <span style={{ fontSize:'0.67rem', color:'var(--clr-muted)' }}>{new Date(r.created_at).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})}</span>
@@ -3871,7 +3871,7 @@ function VehicleManagementSection() {
             {submissions.map(v => {
               const imgUrl = absUrl(v.vehicle_photo_url)
               const submitterName = v.submitter_first_name ? `${v.submitter_first_name} ${v.submitter_last_name ?? ''}`.trim() : 'Unknown'
-              const sColor = v.driver_submission_status === 'APPROVED' ? '#4ade80' : v.driver_submission_status === 'REJECTED' ? '#fca5a5' : '#fbbf24'
+              const sColor = v.driver_submission_status === 'APPROVED' ? 'var(--kpi-green)' : v.driver_submission_status === 'REJECTED' ? '#fca5a5' : 'var(--kpi-gold)'
               return (
                 <div key={v.id} className="glass-inner" style={{ padding:'0.9rem 1rem', display:'flex', alignItems:'flex-start', gap:'0.75rem', flexWrap:'wrap' }}>
                   <div style={{ width:52, height:52, borderRadius:10, flexShrink:0, background:'rgba(255,255,255,0.06)', border:'1px solid rgba(255,255,255,0.10)', display:'flex', alignItems:'center', justifyContent:'center', overflow:'hidden', marginTop:2, cursor: imgUrl ? 'pointer' : 'default' }}
@@ -3891,7 +3891,7 @@ function VehicleManagementSection() {
                   {v.driver_submission_status === 'PENDING' && (
                     <div style={{ display:'flex', gap:'0.4rem', flexShrink:0 }}>
                       <button onClick={() => handleReviewSubmission(v.id, 'APPROVED', v.submitted_by_driver_id ?? undefined)} disabled={!!actionLoading}
-                        style={{ padding:'0.3rem 0.65rem', borderRadius:7, border:'1px solid rgba(74,222,128,0.35)', background:'rgba(74,222,128,0.08)', color:'#4ade80', fontFamily:'inherit', fontSize:'0.72rem', fontWeight:600, cursor:'pointer', display:'flex', alignItems:'center', gap:'0.25rem' }}>
+                        style={{ padding:'0.3rem 0.65rem', borderRadius:7, border:'1px solid rgba(74,222,128,0.35)', background:'rgba(74,222,128,0.08)', color:'var(--kpi-green)', fontFamily:'inherit', fontSize:'0.72rem', fontWeight:600, cursor:'pointer', display:'flex', alignItems:'center', gap:'0.25rem' }}>
                         {actionLoading === `review-${v.id}-APPROVED` ? <span className="spinner"/> : null}{tr('veh_approve_btn')}
                       </button>
                       <button onClick={() => handleReviewSubmission(v.id, 'REJECTED')} disabled={!!actionLoading}
@@ -4042,7 +4042,7 @@ function VehicleManagementSection() {
             <div style={{ position:'absolute', bottom:'1.25rem', left:'50%', transform:'translateX(-50%)', display:'flex', gap:'0.4rem' }}>
               {lightbox.urls.map((_, i) => (
                 <div key={i} onClick={e => { e.stopPropagation(); setLightbox(lb => lb ? { ...lb, index: i } : null) }}
-                  style={{ width: i === lightbox.index ? 20 : 8, height:8, borderRadius:99, background: i === lightbox.index ? '#00e5ff' : 'rgba(255,255,255,0.3)', cursor:'pointer', transition:'all 0.2s' }}/>
+                  style={{ width: i === lightbox.index ? 20 : 8, height:8, borderRadius:99, background: i === lightbox.index ? 'var(--kpi-cyan)' : 'rgba(255,255,255,0.3)', cursor:'pointer', transition:'all 0.2s' }}/>
               ))}
             </div>
           )}
@@ -4199,7 +4199,7 @@ function AdminMapPicker({ pickupLat, pickupLng, pickupAddress, deliveryLat, deli
 
   return (
     <div style={{ display:'flex', flexDirection:'column', gap:'0.5rem' }}>
-      <AdminLocationSearch label="Pickup" dotColor="#4ade80" value={pickupAddress} countryCode={selectedCountryCode}
+      <AdminLocationSearch label="Pickup" dotColor="var(--kpi-green)" value={pickupAddress} countryCode={selectedCountryCode}
         onSelect={(lat, lng, addr, cCode) => { onChange('pickup_lat', lat); onChange('pickup_lng', lng); onChange('pickup_address', addr); onChange('pickup_country_code', cCode ?? ''); setMode('delivery') }}
         onClear={() => { onChange('pickup_lat',''); onChange('pickup_lng',''); onChange('pickup_address',''); onChange('pickup_country_code','') }}/>
       <AdminLocationSearch label="Delivery" dotColor="#f87171" value={deliveryAddress} countryCode={selectedCountryCode}
@@ -4210,8 +4210,8 @@ function AdminMapPicker({ pickupLat, pickupLng, pickupAddress, deliveryLat, deli
       <div style={{ display:'flex', gap:'0.4rem', background:'rgba(255,255,255,0.04)', borderRadius:10, padding:'0.25rem' }}>
         {(['pickup','delivery'] as const).map(m => (
           <button key={m} type="button" onClick={() => setMode(m)}
-            style={{ flex:1, padding:'0.38rem', border:'none', borderRadius:8, background: mode===m ? (m==='pickup' ? 'rgba(74,222,128,0.15)' : 'rgba(248,113,113,0.15)') : 'transparent', color: mode===m ? (m==='pickup' ? '#4ade80' : '#f87171') : 'var(--clr-muted)', fontFamily:'inherit', fontSize:'0.73rem', fontWeight:700, cursor:'pointer', transition:'all 0.15s', outline: mode===m ? `1px solid ${m==='pickup' ? 'rgba(74,222,128,0.3)' : 'rgba(248,113,113,0.3)'}` : 'none', display:'flex', alignItems:'center', justifyContent:'center', gap:'0.3rem' }}>
-            <span style={{ width:8, height:8, borderRadius:'50%', background: mode===m ? (m==='pickup' ? '#4ade80' : '#f87171') : 'rgba(255,255,255,0.3)', flexShrink:0 }}/>
+            style={{ flex:1, padding:'0.38rem', border:'none', borderRadius:8, background: mode===m ? (m==='pickup' ? 'rgba(74,222,128,0.15)' : 'rgba(248,113,113,0.15)') : 'transparent', color: mode===m ? (m==='pickup' ? 'var(--kpi-green)' : '#f87171') : 'var(--clr-muted)', fontFamily:'inherit', fontSize:'0.73rem', fontWeight:700, cursor:'pointer', transition:'all 0.15s', outline: mode===m ? `1px solid ${m==='pickup' ? 'rgba(74,222,128,0.3)' : 'rgba(248,113,113,0.3)'}` : 'none', display:'flex', alignItems:'center', justifyContent:'center', gap:'0.3rem' }}>
+            <span style={{ width:8, height:8, borderRadius:'50%', background: mode===m ? (m==='pickup' ? 'var(--kpi-green)' : '#f87171') : 'rgba(255,255,255,0.3)', flexShrink:0 }}/>
             Pin {m === 'pickup' ? 'Pickup' : 'Delivery'} {m==='pickup' && hasPickup && <LuCircleCheck size={10}/>}{m==='delivery' && hasDelivery && <LuCircleCheck size={10}/>}
           </button>
         ))}
@@ -4268,8 +4268,8 @@ interface AdminDriver { user_id: string; first_name: string; last_name: string; 
 interface AdminVehicle { id: string; plate_number: string; vehicle_type: string; driver_id?: string | null }
 
 const ORDER_STATUS_COLOR: Record<string, string> = {
-  PENDING: '#fbbf24', ASSIGNED: '#60a5fa', EN_ROUTE: '#a78bfa',
-  AT_PICKUP: '#fb923c', IN_TRANSIT: '#34d399', DELIVERED: '#4ade80', CANCELLED: '#f87171',
+  PENDING: 'var(--kpi-gold)', ASSIGNED: '#60a5fa', EN_ROUTE: 'var(--kpi-purple)',
+  AT_PICKUP: 'var(--kpi-orange)', IN_TRANSIT: '#34d399', DELIVERED: 'var(--kpi-green)', CANCELLED: '#f87171',
 }
 const ORDER_STATUS_LABEL: Record<string, string> = {
   PENDING: 'Pending', ASSIGNED: 'Assigned', EN_ROUTE: 'En Route',
@@ -4883,7 +4883,7 @@ function AdminOrdersSection({ initialDriverFilter, initialStatusFilter }: { init
                     {suggestedDrivers.map(d => (
                       <div key={d.user_id} onClick={() => setSelDriver(d.user_id)}
                         style={{ display:'flex', alignItems:'center', gap:'0.65rem', padding:'0.55rem 0.75rem', borderRadius:9, border:`1px solid ${selDriver === d.user_id ? 'var(--clr-accent)' : 'rgba(255,255,255,0.1)'}`, background: selDriver === d.user_id ? 'rgba(0,229,255,0.08)' : 'rgba(255,255,255,0.03)', cursor:'pointer', transition:'all 0.15s' }}>
-                        <div style={{ width:8, height:8, borderRadius:'50%', background:'#4ade80', flexShrink:0 }}/>
+                        <div style={{ width:8, height:8, borderRadius:'50%', background:'var(--kpi-green)', flexShrink:0 }}/>
                         <div style={{ flex:1 }}>
                           <p style={{ fontSize:'0.82rem', fontWeight:700, color:'var(--clr-text)', margin:0 }}>{d.first_name} {d.last_name}</p>
                           <p style={{ fontSize:'0.7rem', color:'var(--clr-muted)', margin:0 }}>{d.phone_number}{d.vehicle_type ? ` · ${d.vehicle_type}` : ''}</p>
@@ -5028,7 +5028,7 @@ function AdminOrdersSection({ initialDriverFilter, initialStatusFilter }: { init
                     <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'0.35rem' }}>
                       <p style={{ fontSize:'0.7rem', color:'var(--clr-muted)', fontWeight:600, margin:0 }}>{tr('aord_pricing')}</p>
                       <button onClick={() => { setPriceAdjustMode(m => !m); setPriceAdjustVal(String(detailOrder.final_price ?? detailOrder.estimated_price ?? '')); setPriceAdjustNotes('') }}
-                        style={{ display:'flex', alignItems:'center', gap:'0.25rem', padding:'0.2rem 0.5rem', borderRadius:7, border:'1px solid rgba(251,191,36,0.3)', background:'rgba(251,191,36,0.06)', color:'#fbbf24', fontFamily:'inherit', fontSize:'0.68rem', fontWeight:700, cursor:'pointer' }}>
+                        style={{ display:'flex', alignItems:'center', gap:'0.25rem', padding:'0.2rem 0.5rem', borderRadius:7, border:'1px solid rgba(251,191,36,0.3)', background:'rgba(251,191,36,0.06)', color:'var(--kpi-gold)', fontFamily:'inherit', fontSize:'0.68rem', fontWeight:700, cursor:'pointer' }}>
                         <LuPencil size={10}/> {tr('aord_adjust')}
                       </button>
                     </div>
@@ -5044,7 +5044,7 @@ function AdminOrdersSection({ initialDriverFilter, initialStatusFilter }: { init
                     )}
                     {priceAdjustMode && (
                       <div style={{ marginTop:'0.75rem', paddingTop:'0.75rem', borderTop:'1px solid rgba(255,255,255,0.07)', display:'flex', flexDirection:'column', gap:'0.5rem' }}>
-                        <p style={{ fontSize:'0.72rem', color:'#fbbf24', fontWeight:600, margin:0 }}>{tr('aord_set_final_price')}</p>
+                        <p style={{ fontSize:'0.72rem', color:'var(--kpi-gold)', fontWeight:600, margin:0 }}>{tr('aord_set_final_price')}</p>
                         <input type="number" min={0} value={priceAdjustVal} onChange={e => setPriceAdjustVal(e.target.value)}
                           placeholder="e.g. 4500" style={{ padding:'0.5rem 0.7rem', borderRadius:8, border:'1px solid rgba(255,255,255,0.15)', background:'rgba(255,255,255,0.05)', color:'var(--clr-text)', fontFamily:'inherit', fontSize:'0.85rem', outline:'none', width:'100%', boxSizing:'border-box' }}/>
                         <input type="text" value={priceAdjustNotes} onChange={e => setPriceAdjustNotes(e.target.value)}
@@ -5158,19 +5158,19 @@ function AdminOrdersSection({ initialDriverFilter, initialStatusFilter }: { init
                           <LuWallet size={13} style={{ color:'var(--clr-accent)' }}/>
                           <span style={{ fontSize:'0.8rem', fontWeight:700, color:'var(--clr-text)' }}>{tr('aord_driver_payout')}</span>
                           {detailOrder.driver_payout_status === 'WALLET_PAID' && (
-                            <span style={{ fontSize:'0.65rem', fontWeight:700, color:'#4ade80', background:'rgba(74,222,128,0.1)', border:'1px solid rgba(74,222,128,0.3)', borderRadius:99, padding:'0.1rem 0.45rem' }}>{tr('aord_wallet_paid')}</span>
+                            <span style={{ fontSize:'0.65rem', fontWeight:700, color:'var(--kpi-green)', background:'rgba(74,222,128,0.1)', border:'1px solid rgba(74,222,128,0.3)', borderRadius:99, padding:'0.1rem 0.45rem' }}>{tr('aord_wallet_paid')}</span>
                           )}
                           {detailOrder.driver_payout_status === 'BANK_TRANSFERRED' && (
                             <span style={{ fontSize:'0.65rem', fontWeight:700, color:'#60a5fa', background:'rgba(96,165,250,0.1)', border:'1px solid rgba(96,165,250,0.3)', borderRadius:99, padding:'0.1rem 0.45rem' }}>{tr('aord_bank_transferred')}</span>
                           )}
                           {(!detailOrder.driver_payout_status || detailOrder.driver_payout_status === 'PENDING') && (
-                            <span style={{ fontSize:'0.65rem', fontWeight:700, color:'#fbbf24', background:'rgba(251,191,36,0.1)', border:'1px solid rgba(251,191,36,0.3)', borderRadius:99, padding:'0.1rem 0.45rem' }}>{tr('aord_pending_payout')}</span>
+                            <span style={{ fontSize:'0.65rem', fontWeight:700, color:'var(--kpi-gold)', background:'rgba(251,191,36,0.1)', border:'1px solid rgba(251,191,36,0.3)', borderRadius:99, padding:'0.1rem 0.45rem' }}>{tr('aord_pending_payout')}</span>
                           )}
                         </div>
                         <div style={{ display:'flex', gap:'0.4rem' }}>
                           {detailOrder.driver_payout_status !== 'WALLET_PAID' && (
                             <button onClick={() => { setPdGross(String(detailOrder.final_price ?? detailOrder.estimated_price ?? '')); setPdCommType('NONE'); setPdCommValue(''); setPdNote(''); setPdErr(''); setPayDriverOpen(true) }}
-                              style={{ display:'flex', alignItems:'center', gap:'0.3rem', padding:'0.4rem 0.75rem', borderRadius:8, border:'1px solid rgba(74,222,128,0.3)', background:'rgba(74,222,128,0.07)', color:'#4ade80', fontFamily:'inherit', fontSize:'0.75rem', fontWeight:700, cursor:'pointer' }}>
+                              style={{ display:'flex', alignItems:'center', gap:'0.3rem', padding:'0.4rem 0.75rem', borderRadius:8, border:'1px solid rgba(74,222,128,0.3)', background:'rgba(74,222,128,0.07)', color:'var(--kpi-green)', fontFamily:'inherit', fontSize:'0.75rem', fontWeight:700, cursor:'pointer' }}>
                               <LuWallet size={12}/> Pay to Wallet
                             </button>
                           )}
@@ -5187,8 +5187,8 @@ function AdminOrdersSection({ initialDriverFilter, initialStatusFilter }: { init
                             <div key={p.id} style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', padding:'0.45rem 0.65rem', background:'rgba(255,255,255,0.03)', borderRadius:7, border:'1px solid rgba(255,255,255,0.07)', fontSize:'0.75rem' }}>
                               <div style={{ display:'flex', flexDirection:'column', gap:'0.15rem' }}>
                                 <div style={{ display:'flex', alignItems:'center', gap:'0.35rem' }}>
-                                  {p.payment_type === 'WALLET' ? <LuWallet size={11} style={{ color:'#4ade80' }}/> : <LuLandmark size={11} style={{ color:'#60a5fa' }}/>}
-                                  <span style={{ color: p.payment_type === 'WALLET' ? '#4ade80' : '#60a5fa', fontWeight:700 }}>{p.payment_type === 'WALLET' ? 'Wallet' : 'Bank Transfer'}</span>
+                                  {p.payment_type === 'WALLET' ? <LuWallet size={11} style={{ color:'var(--kpi-green)' }}/> : <LuLandmark size={11} style={{ color:'#60a5fa' }}/>}
+                                  <span style={{ color: p.payment_type === 'WALLET' ? 'var(--kpi-green)' : '#60a5fa', fontWeight:700 }}>{p.payment_type === 'WALLET' ? 'Wallet' : 'Bank Transfer'}</span>
                                   {p.commission_type !== 'NONE' && p.commission_amount > 0 && (
                                     <span style={{ color:'var(--clr-muted)', fontSize:'0.68rem' }}>· {p.commission_type === 'PERCENT' ? `${p.commission_value}% comm` : `${Number(p.commission_value).toLocaleString()} fixed`}</span>
                                   )}
@@ -5239,7 +5239,7 @@ function AdminOrdersSection({ initialDriverFilter, initialStatusFilter }: { init
                             {m.message}
                           </div>
                           <span style={{ fontSize:'0.6rem', marginTop:'0.15rem', fontWeight:600,
-                            color: m.sender_role === 'Admin' ? '#00e5ff' : m.sender_role === 'Shipper' ? '#f59e0b' : '#a78bfa' }}>
+                            color: m.sender_role === 'Admin' ? 'var(--kpi-cyan)' : m.sender_role === 'Shipper' ? '#f59e0b' : 'var(--kpi-purple)' }}>
                             {m.sender_name ?? `${(m as any).sender_first_name ?? ''} ${(m as any).sender_last_name ?? ''}`.trim()} · {m.sender_role ?? 'User'}
                           </span>
                         </div>
@@ -5271,7 +5271,7 @@ function AdminOrdersSection({ initialDriverFilter, initialStatusFilter }: { init
           <div className="glass modal-box" style={{ padding:'1.75rem', maxWidth:480, maxHeight:'90vh', overflowY:'auto' }}>
             <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'1.1rem' }}>
               <h2 style={{ fontSize:'1rem', fontWeight:800, color:'var(--clr-text)', display:'flex', alignItems:'center', gap:'0.45rem' }}>
-                <LuWallet size={16} style={{ color:'#4ade80' }}/> {tr('aord_pay_driver_title')}
+                <LuWallet size={16} style={{ color:'var(--kpi-green)' }}/> {tr('aord_pay_driver_title')}
               </h2>
               <button onClick={() => setPayDriverOpen(false)} style={{ background:'none', border:'none', cursor:'pointer', color:'var(--clr-muted)' }}><LuX size={18}/></button>
             </div>
@@ -5313,7 +5313,7 @@ function AdminOrdersSection({ initialDriverFilter, initialStatusFilter }: { init
                         const cv = parseFloat(pdCommValue) || 0
                         const comm = pdCommType === 'PERCENT' ? gross * cv / 100 : cv
                         const net = gross - comm
-                        return <>Commission: <strong style={{ color:'#fbbf24' }}>{comm.toLocaleString(undefined, { maximumFractionDigits: 2 })} {detailOrder.currency || 'ETB'}</strong> · Net to driver: <strong style={{ color:'#4ade80' }}>{net.toLocaleString(undefined, { maximumFractionDigits: 2 })} {detailOrder.currency || 'ETB'}</strong></>
+                        return <>Commission: <strong style={{ color:'var(--kpi-gold)' }}>{comm.toLocaleString(undefined, { maximumFractionDigits: 2 })} {detailOrder.currency || 'ETB'}</strong> · Net to driver: <strong style={{ color:'var(--kpi-green)' }}>{net.toLocaleString(undefined, { maximumFractionDigits: 2 })} {detailOrder.currency || 'ETB'}</strong></>
                       })()}
                     </div>
                   )}
@@ -5321,7 +5321,7 @@ function AdminOrdersSection({ initialDriverFilter, initialStatusFilter }: { init
               )}
               {pdCommType === 'NONE' && pdGross && (
                 <div style={{ fontSize:'0.72rem', color:'var(--clr-muted)' }}>
-                  Net to driver: <strong style={{ color:'#4ade80' }}>{(parseFloat(pdGross) || 0).toLocaleString(undefined, { maximumFractionDigits: 2 })} {detailOrder.currency || 'ETB'}</strong>
+                  Net to driver: <strong style={{ color:'var(--kpi-green)' }}>{(parseFloat(pdGross) || 0).toLocaleString(undefined, { maximumFractionDigits: 2 })} {detailOrder.currency || 'ETB'}</strong>
                 </div>
               )}
               <div>
@@ -5764,7 +5764,7 @@ function AdminLiveDriversSection() {
 
   /** Driver-status colour for map icons (overrides vehicle type) */
   const driverStatusColor: Record<string, string> = {
-    AVAILABLE: '#4ade80',   // green
+    AVAILABLE: 'var(--kpi-green)',   // green
     ON_JOB:    '#f97316',   // orange
     OFFLINE:   '#94a3b8',   // grey
     SUSPENDED: '#f87171',   // red
@@ -5776,7 +5776,7 @@ function AdminLiveDriversSection() {
   }
   function makeDriverIcon(d: LiveDriver) {
     const status = (d as any).driver_status as string | undefined
-    const bg = driverStatusColor[status ?? ''] ?? '#00e5ff'
+    const bg = driverStatusColor[status ?? ''] ?? 'var(--kpi-cyan)'
     const emoji = vehicleEmoji[d.vehicle_type ?? ''] ?? '🚚'
     return L.divIcon({
       className: '',
@@ -5828,14 +5828,14 @@ function AdminLiveDriversSection() {
                 {mapDrivers.filter(d => d.pickup_lat && d.delivery_lat).map(d => (
                   <Polyline key={`route-${d.driver_id}`}
                     positions={[[Number(d.pickup_lat), Number(d.pickup_lng)], [Number(d.delivery_lat), Number(d.delivery_lng)]]}
-                    pathOptions={{ color: driverStatusColor[(d as any).driver_status ?? ''] ?? '#00e5ff', weight: 2, opacity: 0.35, dashArray: '6 4' }}
+                    pathOptions={{ color: driverStatusColor[(d as any).driver_status ?? ''] ?? 'var(--kpi-cyan)', weight: 2, opacity: 0.35, dashArray: '6 4' }}
                   />
                 ))}
                 {/* Driver → delivery remaining line */}
                 {mapDrivers.filter(d => d.delivery_lat && d.status === 'IN_TRANSIT').map(d => (
                   <Polyline key={`remaining-${d.driver_id}`}
                     positions={[[Number(d.lat), Number(d.lng)], [Number(d.delivery_lat), Number(d.delivery_lng)]]}
-                    pathOptions={{ color: '#00e5ff', weight: 2.5, opacity: 0.75 }}
+                    pathOptions={{ color: 'var(--kpi-cyan)', weight: 2.5, opacity: 0.75 }}
                   />
                 ))}
               </MapContainer>
@@ -5983,7 +5983,7 @@ function AdminLiveDriversSection() {
                           {m.message}
                         </div>
                         <span style={{ fontSize:'0.6rem', marginTop:'0.12rem', fontWeight:600,
-                          color: m.sender_role === 'Admin' ? '#00e5ff' : m.sender_role === 'Shipper' ? '#f59e0b' : '#a78bfa' }}>
+                          color: m.sender_role === 'Admin' ? 'var(--kpi-cyan)' : m.sender_role === 'Shipper' ? '#f59e0b' : 'var(--kpi-purple)' }}>
                           {m.sender_name ?? `${(m as any).sender_first_name ?? ''} ${(m as any).sender_last_name ?? ''}`.trim()} · {m.sender_role ?? 'User'}
                         </span>
                       </div>
@@ -6938,7 +6938,7 @@ function AdminCarOwnersSection() {
   }
 
   const statusColors: Record<string, { bg: string; color: string }> = {
-    PENDING:  { bg: 'rgba(251,191,36,0.15)',  color: '#fbbf24' },
+    PENDING:  { bg: 'rgba(251,191,36,0.15)',  color: 'var(--kpi-gold)' },
     APPROVED: { bg: 'rgba(52,211,153,0.15)',  color: '#34d399' },
     REJECTED: { bg: 'rgba(248,113,113,0.15)', color: '#f87171' },
   }
@@ -7491,13 +7491,13 @@ export default function AdminDashboardPage() {
       {/* Sidebar */}
       <aside style={pinned ? {
         position: 'relative', top: 'auto', left: 'auto', height: 'auto', width: 216,
-        background: 'rgba(8,11,20,0.94)', backdropFilter: 'blur(20px)',
+        background: 'var(--clr-bg)', backdropFilter: 'blur(20px)',
         borderRight: '1px solid rgba(255,255,255,0.07)',
         display: 'flex', flexDirection: 'column', zIndex: 10, flexShrink: 0,
         minHeight: '100vh',
       } : {
         position: 'fixed', top: 0, left: 0, height: '100vh', width: 216,
-        background: 'rgba(8,11,20,0.94)', backdropFilter: 'blur(20px)',
+        background: 'var(--clr-bg)', backdropFilter: 'blur(20px)',
         borderRight: '1px solid rgba(255,255,255,0.07)',
         display: 'flex', flexDirection: 'column', zIndex: 40,
         transform: sidebarOpen ? 'translateX(0)' : 'translateX(-100%)',
@@ -7587,7 +7587,7 @@ export default function AdminDashboardPage() {
                     <span style={{ width: 17, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>{item.icon}</span>
                     <span style={{ flex: 1 }}>{item.label}</span>
                     {item.count !== undefined && item.count > 0 && (
-                      <span style={{ background: 'rgba(251,191,36,0.15)', color: '#fbbf24', borderRadius: 99, padding: '0.05rem 0.42rem', fontSize: '0.67rem', fontWeight: 700 }}>{item.count}</span>
+                      <span style={{ background: 'rgba(251,191,36,0.15)', color: 'var(--kpi-gold)', borderRadius: 99, padding: '0.05rem 0.42rem', fontSize: '0.67rem', fontWeight: 700 }}>{item.count}</span>
                     )}
                   </button>
                 ))}
@@ -7617,7 +7617,7 @@ export default function AdminDashboardPage() {
       {/* Main content */}
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', height: '100vh', overflowY: 'auto', position: 'relative', zIndex: 1 }}>
         {/* Top bar */}
-        <header style={{ position: 'sticky', top: 0, zIndex: 30, background: 'rgba(8,11,20,0.88)', backdropFilter: 'blur(16px)', borderBottom: '1px solid rgba(255,255,255,0.07)', padding: '0.7rem 1.1rem', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+        <header style={{ position: 'sticky', top: 0, zIndex: 30, background: 'var(--clr-bg)', backdropFilter: 'blur(16px)', borderBottom: '1px solid rgba(255,255,255,0.07)', padding: '0.7rem 1.1rem', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
           <button onClick={() => setSidebarOpen(v => !v)} style={{ background: 'none', border: '1px solid var(--adm-menu-btn-brd)', borderRadius: 8, padding: '0.38rem 0.5rem', color: 'var(--clr-muted)', cursor: 'pointer', lineHeight: 1, flexShrink: 0, display:'flex', alignItems:'center' }}>
             {sidebarOpen && !pinned ? <LuX size={17}/> : <LuMenu size={17}/>}
           </button>

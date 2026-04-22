@@ -1331,3 +1331,41 @@ select option {
   70%  { transform: scale(1.12); }
   100% { transform: scale(1); opacity: 1; }
 }
+
+/* Admin Dashboard KPI Colors (Dynamically adapts to light/dark) */
+:root, [data-theme="dark"] {
+  --kpi-cyan: #00e5ff;
+  --kpi-purple: #a78bfa;
+  --kpi-sky: #38bdf8;
+  --kpi-green: #4ade80;
+  --kpi-gold: #fbbf24;
+  --kpi-orange: #fb923c;
+}
+
+[data-theme="light"] {
+  --kpi-cyan: #0284c7;
+  --kpi-purple: #7c3aed;
+  --kpi-sky: #2563eb;
+  --kpi-green: #16a34a;
+  --kpi-gold: #d97706;
+  --kpi-orange: #ea580c;
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    --kpi-cyan: #0284c7;
+    --kpi-purple: #7c3aed;
+    --kpi-sky: #2563eb;
+    --kpi-green: #16a34a;
+    --kpi-gold: #d97706;
+    --kpi-orange: #ea580c;
+  }
+  [data-theme="system"] {
+    --kpi-cyan: #0284c7;
+    --kpi-purple: #7c3aed;
+    --kpi-sky: #2563eb;
+    --kpi-green: #16a34a;
+    --kpi-gold: #d97706;
+    --kpi-orange: #ea580c;
+  }
+}
