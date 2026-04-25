@@ -11,8 +11,8 @@
   --clr-bg:        #080b14;
   --clr-surface:   rgba(255, 255, 255, 0.04);
   --clr-border:    rgba(255, 255, 255, 0.10);
-  --clr-accent:    #00e5ff;
-  --clr-accent2:   #7c3aed;
+  --clr-accent:    #61941f;
+  --clr-accent2:   #3e6113;
   --clr-neon:      #39ff14;
   --clr-text:      #e2e8f0;
   --clr-muted:     #64748b;
@@ -25,15 +25,15 @@
   /* Admin panel — theme-sensitive surface tokens */
   --adm-nav-lbl:        rgba(255,255,255,0.28);
   --adm-nav-hr:         rgba(255,255,255,0.10);
-  --adm-nav-active-bg:  rgba(0,229,255,0.10);
-  --adm-nav-active-brd: rgba(0,229,255,0.18);
+  --adm-nav-active-bg:  rgba(97, 148, 31,0.10);
+  --adm-nav-active-brd: rgba(97, 148, 31,0.18);
   --adm-foot-btn-bg:    rgba(255,255,255,0.04);
   --adm-foot-btn-brd:   rgba(255,255,255,0.09);
   --adm-brand-brd:      rgba(255,255,255,0.06);
   --adm-tab-bg:         rgba(255,255,255,0.04);
   --adm-menu-btn-brd:   rgba(255,255,255,0.12);
-  --adm-toast-bg:       rgba(0,229,255,0.12);
-  --adm-toast-brd:      rgba(0,229,255,0.25);
+  --adm-toast-bg:       rgba(97, 148, 31,0.12);
+  --adm-toast-brd:      rgba(97, 148, 31,0.25);
 
   /* Floating chat widget */
   --chat-fab-bg:      rgba(8,11,20,0.85);
@@ -86,7 +86,7 @@ html, body, #root {
   height: 70vmax;
   top: -25vmax;
   left: -20vmax;
-  background: radial-gradient(ellipse at center, #7c3aed 0%, #4f46e5 40%, transparent 70%);
+  background: radial-gradient(ellipse at center, #3e6113 0%, #283e0c 40%, transparent 70%);
   animation-duration: 16s;
 }
 
@@ -95,7 +95,7 @@ html, body, #root {
   height: 60vmax;
   bottom: -20vmax;
   right: -15vmax;
-  background: radial-gradient(ellipse at center, #00e5ff 0%, #0ea5e9 40%, transparent 70%);
+  background: radial-gradient(ellipse at center, #61941f 0%, #71ad25 40%, transparent 70%);
   animation-duration: 12s;
   animation-delay: -5s;
 }
@@ -166,7 +166,7 @@ html, body, #root {
 }
 .glass:hover {
   box-shadow:
-    0 0 0 1px rgba(0,229,255,0.15),
+    0 0 0 1px rgba(97, 148, 31,0.15),
     0 24px 64px rgba(0, 0, 0, 0.65),
     inset 0 1px 0 rgba(255,255,255,0.10);
 }
@@ -203,8 +203,8 @@ html, body, #root {
 .input-wrap input:focus,
 .input-wrap select:focus {
   border-color: var(--clr-accent);
-  background: rgba(0, 229, 255, 0.04);
-  box-shadow: 0 0 0 3px rgba(0, 229, 255, 0.12);
+  background: rgba(97, 148, 31, 0.04);
+  box-shadow: 0 0 0 3px rgba(97, 148, 31, 0.12);
 }
 
 .input-wrap input.has-error,
@@ -277,7 +277,7 @@ html, body, #root {
 
 .otp-box:focus {
   border-color: var(--clr-accent);
-  box-shadow: 0 0 0 3px rgba(0, 229, 255, 0.18), 0 0 16px rgba(0,229,255,0.2);
+  box-shadow: 0 0 0 3px rgba(97, 148, 31, 0.18), 0 0 16px rgba(97, 148, 31,0.2);
   transform: scale(1.05);
 }
 
@@ -299,7 +299,7 @@ html, body, #root {
   letter-spacing: 0.03em;
   cursor: pointer;
   overflow: hidden;
-  background: linear-gradient(135deg, var(--clr-accent2) 0%, #4f46e5 50%, var(--clr-accent) 100%);
+  background: linear-gradient(135deg, var(--clr-accent2) 0%, #283e0c 50%, var(--clr-accent) 100%);
   background-size: 200% 200%;
   color: #fff;
   transition: all var(--transition);
@@ -308,7 +308,7 @@ html, body, #root {
 
 .btn-primary:hover:not(:disabled) {
   transform: translateY(-1px);
-  box-shadow: 0 8px 32px rgba(0, 229, 255, 0.30);
+  box-shadow: 0 8px 32px rgba(97, 148, 31, 0.30);
 }
 
 .btn-primary:active:not(:disabled) {
@@ -435,8 +435,8 @@ html, body, #root {
 }
 
 .alert-info {
-  background: rgba(0, 229, 255, 0.08);
-  border: 1px solid rgba(0, 229, 255, 0.20);
+  background: rgba(97, 148, 31, 0.08);
+  border: 1px solid rgba(97, 148, 31, 0.20);
   color: #67e8f9;
 }
 
@@ -490,7 +490,7 @@ html, body, #root {
 .step-dot.active {
   width: 24px;
   background: var(--clr-accent);
-  box-shadow: 0 0 8px rgba(0,229,255,0.6);
+  box-shadow: 0 0 8px rgba(97, 148, 31,0.6);
 }
 .step-dot.done {
   background: var(--clr-accent2);
@@ -596,13 +596,13 @@ html, body, #root {
   letter-spacing: 0.04em;
 }
 .badge-cyan {
-  background: rgba(0,229,255,0.12);
-  border: 1px solid rgba(0,229,255,0.25);
+  background: rgba(97, 148, 31,0.12);
+  border: 1px solid rgba(97, 148, 31,0.25);
   color: var(--clr-accent);
 }
 .badge-purple {
-  background: rgba(124,58,237,0.12);
-  border: 1px solid rgba(124,58,237,0.30);
+  background: rgba(62,97,19,0.12);
+  border: 1px solid rgba(62,97,19,0.30);
   color: #a78bfa;
 }
 .badge-red {
@@ -629,7 +629,7 @@ html, body, #root {
 
 /* ── Logo glow ── */
 .logo-glow {
-  filter: drop-shadow(0 0 18px rgba(0,229,255,0.45));
+  filter: drop-shadow(0 0 18px rgba(97, 148, 31,0.45));
 }
 
 /* ── scrollbar ── */
@@ -666,8 +666,8 @@ html, body, #root {
 
 .phone-field-wrap .PhoneInput:focus-within {
   border-color: var(--clr-accent);
-  background: rgba(0,229,255,0.04);
-  box-shadow: 0 0 0 3px rgba(0,229,255,0.12);
+  background: rgba(97, 148, 31,0.04);
+  box-shadow: 0 0 0 3px rgba(97, 148, 31,0.12);
 }
 
 .phone-field-wrap .PhoneInputCountry {
@@ -792,7 +792,7 @@ html, body, #root {
   flex-shrink: 0;
   overflow: hidden;
   background: linear-gradient(135deg, var(--clr-accent2), var(--clr-accent));
-  border: 2px solid rgba(0,229,255,0.28);
+  border: 2px solid rgba(97, 148, 31,0.28);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -837,9 +837,9 @@ html, body, #root {
 }
 .dock-btn-active {
   color: var(--clr-accent) !important;
-  background: rgba(0,229,255,0.10) !important;
-  outline: 1px solid rgba(0,229,255,0.20);
-  box-shadow: 0 0 14px rgba(0,229,255,0.08);
+  background: rgba(97, 148, 31,0.10) !important;
+  outline: 1px solid rgba(97, 148, 31,0.20);
+  box-shadow: 0 0 14px rgba(97, 148, 31,0.08);
 }
 .dock-btn-soon { opacity: 0.38; cursor: default; }
 
@@ -962,8 +962,8 @@ html, body, #root {
   --clr-bg:      #f0f4f8;
   --clr-surface: rgba(255, 255, 255, 0.75);
   --clr-border:  rgba(0, 0, 0, 0.10);
-  --clr-accent:  #0284c7;
-  --clr-accent2: #7c3aed;
+  --clr-accent:  #61941f;
+  --clr-accent2: #3e6113;
   --clr-neon:    #16a34a;
   --clr-text:    #0f172a;
   --clr-muted:   #64748b;
@@ -1137,8 +1137,8 @@ html, body, #root {
     --clr-bg:      #f0f4f8;
     --clr-surface: rgba(255, 255, 255, 0.75);
     --clr-border:  rgba(0, 0, 0, 0.10);
-    --clr-accent:  #0284c7;
-    --clr-accent2: #7c3aed;
+    --clr-accent:  #61941f;
+    --clr-accent2: #3e6113;
     --clr-neon:    #16a34a;
     --clr-text:    #0f172a;
     --clr-muted:   #64748b;
@@ -1207,21 +1207,21 @@ select option {
 }
 
 .splash-aurora-1 {
-  background: radial-gradient(ellipse, rgba(124,58,237,0.22) 0%, transparent 70%);
+  background: radial-gradient(ellipse, rgba(62,97,19,0.22) 0%, transparent 70%);
 }
 [data-theme="light"] .splash-aurora-1 {
   background: radial-gradient(ellipse, rgba(99,102,241,0.10) 0%, transparent 70%);
 }
 
 .splash-aurora-2 {
-  background: radial-gradient(ellipse, rgba(0,229,255,0.15) 0%, transparent 70%);
+  background: radial-gradient(ellipse, rgba(97, 148, 31,0.15) 0%, transparent 70%);
 }
 [data-theme="light"] .splash-aurora-2 {
   background: radial-gradient(ellipse, rgba(2,132,199,0.10) 0%, transparent 70%);
 }
 
 .splash-subtitle {
-  color: rgba(0,229,255,0.7);
+  color: rgba(97, 148, 31,0.7);
 }
 [data-theme="light"] .splash-subtitle {
   color: rgba(2,132,199,0.8);
@@ -1322,8 +1322,8 @@ select option {
 }
 
 @keyframes fab-pulse {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(0,229,255,0.4), 0 8px 32px rgba(0,0,0,0.6); }
-  50%       { box-shadow: 0 0 0 10px rgba(0,229,255,0), 0 8px 32px rgba(0,0,0,0.6); }
+  0%, 100% { box-shadow: 0 0 0 0 rgba(97, 148, 31,0.4), 0 8px 32px rgba(0,0,0,0.6); }
+  50%       { box-shadow: 0 0 0 10px rgba(97, 148, 31,0), 0 8px 32px rgba(0,0,0,0.6); }
 }
 
 @keyframes fab-pop {
@@ -1334,7 +1334,7 @@ select option {
 
 /* Admin Dashboard KPI Colors (Dynamically adapts to light/dark) */
 :root, [data-theme="dark"] {
-  --kpi-cyan: #00e5ff;
+  --kpi-cyan: #61941f;
   --kpi-purple: #a78bfa;
   --kpi-sky: #38bdf8;
   --kpi-green: #4ade80;
@@ -1343,8 +1343,8 @@ select option {
 }
 
 [data-theme="light"] {
-  --kpi-cyan: #0284c7;
-  --kpi-purple: #7c3aed;
+  --kpi-cyan: #61941f;
+  --kpi-purple: #3e6113;
   --kpi-sky: #2563eb;
   --kpi-green: #16a34a;
   --kpi-gold: #d97706;
@@ -1353,16 +1353,16 @@ select option {
 
 @media (prefers-color-scheme: light) {
   :root {
-    --kpi-cyan: #0284c7;
-    --kpi-purple: #7c3aed;
+    --kpi-cyan: #61941f;
+    --kpi-purple: #3e6113;
     --kpi-sky: #2563eb;
     --kpi-green: #16a34a;
     --kpi-gold: #d97706;
     --kpi-orange: #ea580c;
   }
   [data-theme="system"] {
-    --kpi-cyan: #0284c7;
-    --kpi-purple: #7c3aed;
+    --kpi-cyan: #61941f;
+    --kpi-purple: #3e6113;
     --kpi-sky: #2563eb;
     --kpi-green: #16a34a;
     --kpi-gold: #d97706;

@@ -618,7 +618,7 @@ function PlaceOrderWizard({ cargoTypes, onDone, onClose }: WizardProps) {
             <div style={{ display:'flex', gap:'0.65rem', flexWrap:'wrap' }}>
               {/* Image 1 */}
               <label style={{ cursor:'pointer', position:'relative' }}>
-                <div style={{ width:90, height:72, borderRadius:9, border:`1px dashed ${img1Preview?'rgba(0,229,255,0.4)':'rgba(255,255,255,0.2)'}`, background: img1Preview ? 'transparent' : 'rgba(255,255,255,0.03)', display:'flex', alignItems:'center', justifyContent:'center', overflow:'hidden' }}>
+                <div style={{ width:90, height:72, borderRadius:9, border:`1px dashed ${img1Preview?'rgba(97, 148, 31,0.4)':'rgba(255,255,255,0.2)'}`, background: img1Preview ? 'transparent' : 'rgba(255,255,255,0.03)', display:'flex', alignItems:'center', justifyContent:'center', overflow:'hidden' }}>
                   {img1Preview ? (
                     <img src={img1Preview} alt="img1" style={{ width:'100%', height:'100%', objectFit:'cover' }}/>
                   ) : (
@@ -637,7 +637,7 @@ function PlaceOrderWizard({ cargoTypes, onDone, onClose }: WizardProps) {
               {/* Image 2 */}
               {(img1Preview || img2Preview) && (
                 <label style={{ cursor:'pointer', position:'relative' }}>
-                  <div style={{ width:90, height:72, borderRadius:9, border:`1px dashed ${img2Preview?'rgba(0,229,255,0.4)':'rgba(255,255,255,0.2)'}`, background: img2Preview ? 'transparent' : 'rgba(255,255,255,0.03)', display:'flex', alignItems:'center', justifyContent:'center', overflow:'hidden' }}>
+                  <div style={{ width:90, height:72, borderRadius:9, border:`1px dashed ${img2Preview?'rgba(97, 148, 31,0.4)':'rgba(255,255,255,0.2)'}`, background: img2Preview ? 'transparent' : 'rgba(255,255,255,0.03)', display:'flex', alignItems:'center', justifyContent:'center', overflow:'hidden' }}>
                     {img2Preview ? (
                       <img src={img2Preview} alt="img2" style={{ width:'100%', height:'100%', objectFit:'cover' }}/>
                     ) : (
@@ -900,7 +900,7 @@ function LiveTrackTab({ orderId, token }: { orderId: string; token: string }) {
 
       {hasLoc && (
         <a href={`https://www.google.com/maps?q=${loc!.lat},${loc!.lng}`} target="_blank" rel="noopener noreferrer"
-          style={{ display:'flex', alignItems:'center', gap:'0.5rem', padding:'0.65rem 1rem', borderRadius:10, border:'1px solid rgba(0,229,255,0.2)', background:'rgba(0,229,255,0.05)', color:'var(--clr-accent)', textDecoration:'none', fontSize:'0.82rem', fontWeight:700 }}>
+          style={{ display:'flex', alignItems:'center', gap:'0.5rem', padding:'0.65rem 1rem', borderRadius:10, border:'1px solid rgba(97, 148, 31,0.2)', background:'rgba(97, 148, 31,0.05)', color:'var(--clr-accent)', textDecoration:'none', fontSize:'0.82rem', fontWeight:700 }}>
           <LuMapPin size={14}/> {tr('track_open_maps')}
         </a>
       )}
@@ -1237,7 +1237,7 @@ function OrderDetailModal({ order, onClose, onCancelled }: { order: Order; onClo
           {/* Tabs */}
           <div style={{ display:'flex', gap:'0.25rem', background:'rgba(255,255,255,0.04)', borderRadius:10, padding:'0.25rem', marginBottom:'1rem' }}>
             {([...(isCrossBorder ? ['info','history','chat','track','docs'] as const : ['info','history','chat','track'] as const)]).map(t => (
-              <button key={t} onClick={() => setTab(t)} style={{ flex:1, padding:'0.4rem 0.25rem', border:'none', borderRadius:8, background: tab === t ? 'rgba(0,229,255,0.12)' : 'transparent', color: tab === t ? 'var(--clr-accent)' : 'var(--clr-muted)', fontFamily:'inherit', fontSize:'0.72rem', fontWeight:700, cursor:'pointer', transition:'all 0.15s', outline: tab === t ? '1px solid rgba(0,229,255,0.2)' : 'none', textTransform:'capitalize', position:'relative' }}>
+              <button key={t} onClick={() => setTab(t)} style={{ flex:1, padding:'0.4rem 0.25rem', border:'none', borderRadius:8, background: tab === t ? 'rgba(97, 148, 31,0.12)' : 'transparent', color: tab === t ? 'var(--clr-accent)' : 'var(--clr-muted)', fontFamily:'inherit', fontSize:'0.72rem', fontWeight:700, cursor:'pointer', transition:'all 0.15s', outline: tab === t ? '1px solid rgba(97, 148, 31,0.2)' : 'none', textTransform:'capitalize', position:'relative' }}>
                 {t === 'history' ? tr('odm_tab_timeline') : t === 'chat' ? (
                   <>{unreadChat && tab !== 'chat' && <span style={{ position:'absolute', top:2, right:2, width:7, height:7, borderRadius:'50%', background:'#f87171', boxShadow:'0 0 4px #f87171' }}/>}{tr('odm_tab_chat')}</>
                 ) : t === 'track' ? tr('odm_tab_track') : t === 'docs' ? tr('odm_tab_docs') : tr('odm_tab_details')}
@@ -1284,7 +1284,7 @@ function OrderDetailModal({ order, onClose, onCancelled }: { order: Order; onClo
               {/* Driver info */}
               {order.driver_first_name && (
                 <div className="glass-inner" style={{ padding:'0.85rem 1rem', display:'flex', alignItems:'center', gap:'0.75rem' }}>
-                  <div style={{ width:36, height:36, borderRadius:'50%', background:'rgba(0,229,255,0.1)', border:'1px solid rgba(0,229,255,0.2)', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+                  <div style={{ width:36, height:36, borderRadius:'50%', background:'rgba(97, 148, 31,0.1)', border:'1px solid rgba(97, 148, 31,0.2)', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
                     <LuTruck size={16} color="var(--clr-accent)"/>
                   </div>
                   <div>
@@ -1302,7 +1302,7 @@ function OrderDetailModal({ order, onClose, onCancelled }: { order: Order; onClo
               {/* Invoice */}
               {deliveredOrCompleted && (
                 <button type="button" onClick={handleDownloadInvoice} disabled={invoiceDling}
-                  style={{ display:'flex', alignItems:'center', gap:'0.5rem', padding:'0.7rem 1rem', borderRadius:10, border:'1px solid rgba(0,229,255,0.2)', background:'rgba(0,229,255,0.05)', color: invoiceDling ? 'var(--clr-muted)' : 'var(--clr-accent)', fontFamily:'inherit', fontSize:'0.82rem', fontWeight:700, cursor: invoiceDling ? 'wait' : 'pointer', width:'100%', justifyContent:'center' }}>
+                  style={{ display:'flex', alignItems:'center', gap:'0.5rem', padding:'0.7rem 1rem', borderRadius:10, border:'1px solid rgba(97, 148, 31,0.2)', background:'rgba(97, 148, 31,0.05)', color: invoiceDling ? 'var(--clr-muted)' : 'var(--clr-accent)', fontFamily:'inherit', fontSize:'0.82rem', fontWeight:700, cursor: invoiceDling ? 'wait' : 'pointer', width:'100%', justifyContent:'center' }}>
                   {invoiceDling ? <><Spinner/> {tr('odm_generating')}</> : <><LuFileText size={15}/> {tr('odm_download_inv')}</>}
                 </button>
               )}
@@ -1359,7 +1359,7 @@ function OrderDetailModal({ order, onClose, onCancelled }: { order: Order; onClo
                     <div style={{ display:'flex', gap:'0.4rem', flexWrap:'wrap', marginBottom:'0.5rem' }}>
                       {[50, 100, 200, 500].map((v) => (
                         <button key={v} type="button" onClick={() => setTipAmount(String(v))}
-                          style={{ padding:'0.3rem 0.55rem', borderRadius:7, border:'1px solid rgba(0,229,255,0.18)', background:'rgba(0,229,255,0.06)', color:'var(--clr-accent)', cursor:'pointer', fontSize:'0.72rem', fontWeight:700 }}>
+                          style={{ padding:'0.3rem 0.55rem', borderRadius:7, border:'1px solid rgba(97, 148, 31,0.18)', background:'rgba(97, 148, 31,0.06)', color:'var(--clr-accent)', cursor:'pointer', fontSize:'0.72rem', fontWeight:700 }}>
                           {v} ETB
                         </button>
                       ))}
@@ -1377,7 +1377,7 @@ function OrderDetailModal({ order, onClose, onCancelled }: { order: Order; onClo
                         type="button"
                         onClick={submitTip}
                         disabled={tipBusy}
-                        style={{ padding:'0.5rem 0.8rem', border:'none', borderRadius:8, background:'linear-gradient(135deg,#7c3aed,#0ea5e9)', color:'#fff', fontWeight:700, cursor: tipBusy ? 'not-allowed' : 'pointer', fontSize:'0.78rem' }}
+                        style={{ padding:'0.5rem 0.8rem', border:'none', borderRadius:8, background:'linear-gradient(135deg,#3e6113,#71ad25)', color:'#fff', fontWeight:700, cursor: tipBusy ? 'not-allowed' : 'pointer', fontSize:'0.78rem' }}
                         className="hover-lift"
                       >
                         {tipBusy ? tr('odm_adding') : tr('odm_add_tip')}
@@ -1452,9 +1452,9 @@ function OrderDetailModal({ order, onClose, onCancelled }: { order: Order; onClo
                 ) : messages.map(m => {
                   const role = m.sender_role ?? (m.sender_role_id === 1 ? 'Admin' : m.sender_role_id === 2 ? 'Shipper' : 'Driver')
                   const isMe = m.sender_role_id === 2
-                  const roleColor = role === 'Admin' ? '#00e5ff' : role === 'Shipper' ? '#f59e0b' : '#a78bfa'
-                  const roleBg = role === 'Admin' ? 'rgba(0,229,255,0.12)' : role === 'Shipper' ? 'rgba(245,158,11,0.09)' : 'rgba(167,139,250,0.1)'
-                  const roleBorder = role === 'Admin' ? '1px solid rgba(0,229,255,0.2)' : role === 'Shipper' ? '1px solid rgba(245,158,11,0.2)' : '1px solid rgba(167,139,250,0.2)'
+                  const roleColor = role === 'Admin' ? '#61941f' : role === 'Shipper' ? '#f59e0b' : '#a78bfa'
+                  const roleBg = role === 'Admin' ? 'rgba(97, 148, 31,0.12)' : role === 'Shipper' ? 'rgba(245,158,11,0.09)' : 'rgba(167,139,250,0.1)'
+                  const roleBorder = role === 'Admin' ? '1px solid rgba(97, 148, 31,0.2)' : role === 'Shipper' ? '1px solid rgba(245,158,11,0.2)' : '1px solid rgba(167,139,250,0.2)'
                   const displayName = m.sender_name ?? `${m.sender_first_name} ${m.sender_last_name}`.trim()
                   return (
                     <div key={m.id} style={{ display:'flex', flexDirection:'column', alignItems: isMe ? 'flex-end' : 'flex-start' }}>
@@ -1722,7 +1722,7 @@ export default function ShipperOrdersPage() {
           {/* Tabs */}
           <div style={{ display:'flex', gap:'0.25rem', background:'rgba(255,255,255,0.04)', borderRadius:10, padding:'0.25rem', marginTop:'1rem' }}>
             {(['orders','place'] as PageTab[]).map(t => (
-              <button key={t} onClick={() => { setPageTab(t); if (t === 'place') setShowWizard(true) }} style={{ flex:1, padding:'0.45rem', border:'none', borderRadius:8, background: pageTab === t ? 'rgba(0,229,255,0.12)' : 'transparent', color: pageTab === t ? 'var(--clr-accent)' : 'var(--clr-muted)', fontFamily:'inherit', fontSize:'0.78rem', fontWeight:700, cursor:'pointer', transition:'all 0.15s', outline: pageTab === t ? '1px solid rgba(0,229,255,0.2)' : 'none' }}>
+              <button key={t} onClick={() => { setPageTab(t); if (t === 'place') setShowWizard(true) }} style={{ flex:1, padding:'0.45rem', border:'none', borderRadius:8, background: pageTab === t ? 'rgba(97, 148, 31,0.12)' : 'transparent', color: pageTab === t ? 'var(--clr-accent)' : 'var(--clr-muted)', fontFamily:'inherit', fontSize:'0.78rem', fontWeight:700, cursor:'pointer', transition:'all 0.15s', outline: pageTab === t ? '1px solid rgba(97, 148, 31,0.2)' : 'none' }}>
                 {t === 'orders' ? tr('ship_my_orders') : tr('ship_place_new')}
               </button>
             ))}
@@ -1862,7 +1862,7 @@ export default function ShipperOrdersPage() {
 
       {/* ── Toast ── */}
       {toast && (
-        <div style={{ position:'fixed', bottom:'5.5rem', right:'1.25rem', zIndex:200, background:'rgba(0,229,255,0.12)', border:'1px solid rgba(0,229,255,0.25)', color:'var(--clr-text)', padding:'0.65rem 1.1rem', borderRadius:12, fontSize:'0.85rem', fontWeight:600, backdropFilter:'blur(12px)' }}>
+        <div style={{ position:'fixed', bottom:'5.5rem', right:'1.25rem', zIndex:200, background:'rgba(97, 148, 31,0.12)', border:'1px solid rgba(97, 148, 31,0.25)', color:'var(--clr-text)', padding:'0.65rem 1.1rem', borderRadius:12, fontSize:'0.85rem', fontWeight:600, backdropFilter:'blur(12px)' }}>
           {toast}
         </div>
       )}

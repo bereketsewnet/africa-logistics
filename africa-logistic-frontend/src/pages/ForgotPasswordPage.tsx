@@ -26,7 +26,7 @@ function getStrength(pw: string): { score: number; labelKey: string; color: stri
     { labelKey: 'pw_weak',        color: '#f59e0b' },
     { labelKey: 'pw_fair',        color: '#eab308' },
     { labelKey: 'pw_good',        color: '#22c55e' },
-    { labelKey: 'pw_strong',      color: '#00e5ff' },
+    { labelKey: 'pw_strong',      color: '#61941f' },
     { labelKey: 'pw_very_strong', color: '#39ff14' },
   ]
   return { score: s, ...levels[s] }
@@ -103,7 +103,7 @@ function ModeSwitcher({ mode, onChange }: { mode: ResetMode; onChange: (m: Reset
             border: 'none', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 600,
             display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem',
             transition: 'all 0.2s',
-            background: mode === m ? 'linear-gradient(135deg,#7c3aed,#0ea5e9)' : 'transparent',
+            background: mode === m ? 'linear-gradient(135deg,#3e6113,#71ad25)' : 'transparent',
             color: mode === m ? '#fff' : 'var(--clr-muted)',
             fontFamily: 'inherit',
           }}
@@ -446,10 +446,10 @@ export default function ForgotPasswordPage() {
                 <div key="em2" className="step-enter" style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:'1.25rem', textAlign:'center' }}>
                   <div style={{
                     width: 64, height: 64, borderRadius: '50%',
-                    background: 'rgba(0,229,255,0.1)', border: '2px solid rgba(0,229,255,0.3)',
+                    background: 'rgba(97, 148, 31,0.1)', border: '2px solid rgba(97, 148, 31,0.3)',
                     display:'flex', alignItems:'center', justifyContent:'center',
                   }}>
-                    <LuMail size={28} color="#00e5ff" />
+                    <LuMail size={28} color="#61941f" />
                   </div>
                   <div>
                     <h2 style={{ fontSize:'1.1rem', fontWeight:700, color:'var(--clr-text)', marginBottom:'0.5rem' }}>

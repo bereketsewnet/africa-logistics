@@ -197,7 +197,7 @@ function Navbar() {
             <div>
               <div className="hp-logo-name">
                 Africa{' '}
-                <span style={{ background: 'linear-gradient(90deg,#22d3ee,#60a5fa)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+                <span style={{ background: 'linear-gradient(90deg,#71ad25,#3e6113)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
                   Logistics
                 </span>
               </div>
@@ -443,8 +443,8 @@ function StatsBar() {
 function Services() {
   const { t } = useLanguage()
   const SERVICES = [
-    { icon: Truck,     title: t('srv_freight') || 'Freight Transport',    color: '#22d3ee', bg: 'rgba(34,211,238,.1)',  border: 'rgba(34,211,238,.15)',  desc: t('srv_freight_desc') || 'Reliable road freight across Africa with real-time GPS tracking and automated dispatch.' },
-    { icon: Globe2,    title: t('srv_cross') || 'Cross-Border Shipping', color: '#a78bfa', bg: 'rgba(167,139,250,.1)', border: 'rgba(167,139,250,.15)', desc: t('srv_cross_desc') || 'Seamless customs clearance, HS code management, and cross-border documentation.' },
+    { icon: Truck,     title: t('srv_freight') || 'Freight Transport',    color: '#71ad25', bg: 'rgba(113,173,37,.1)',  border: 'rgba(113,173,37,.15)',  desc: t('srv_freight_desc') || 'Reliable road freight across Africa with real-time GPS tracking and automated dispatch.' },
+    { icon: Globe2,    title: t('srv_cross') || 'Cross-Border Shipping', color: '#8fc94a', bg: 'rgba(143,201,74,.1)', border: 'rgba(143,201,74,.15)', desc: t('srv_cross_desc') || 'Seamless customs clearance, HS code management, and cross-border documentation.' },
     { icon: Package,   title: t('srv_last_mile') || 'Last-Mile Delivery',    color: '#34d399', bg: 'rgba(52,211,153,.1)',  border: 'rgba(52,211,153,.15)',  desc: t('srv_last_mile_desc') || 'Fast, verified last-mile delivery with OTP confirmation at pickup and dropoff.' },
     { icon: Warehouse, title: t('srv_warehousing') || 'Warehousing',           color: '#fbbf24', bg: 'rgba(251,191,36,.1)',  border: 'rgba(251,191,36,.15)',  desc: t('srv_warehousing_desc') || 'Secure warehousing and inventory management at strategic African locations.' },
     { icon: Route,     title: t('srv_route') || 'Route Optimization',   color: '#f87171', bg: 'rgba(248,113,113,.1)', border: 'rgba(248,113,113,.15)', desc: t('srv_route_desc') || 'AI-powered route planning to minimize cost and delivery time across regions.' },
@@ -667,22 +667,22 @@ function Contact() {
 
   const cards = [
     {
-      icon: Phone, color: '#22d3ee', bg: 'rgba(34,211,238,.1)', border: 'rgba(34,211,238,.15)',
+      icon: Phone, color: '#71ad25', bg: 'rgba(113,173,37,.1)', border: 'rgba(113,173,37,.15)',
       title: 'Call Us',
       content: (
         <>
-          {info.phone1 && <a href={`tel:${info.phone1}`} style={{ color: '#22d3ee' }}>{info.phone1}</a>}
+          {info.phone1 && <a href={`tel:${info.phone1}`} style={{ color: '#71ad25' }}>{info.phone1}</a>}
           {info.phone2 && <a href={`tel:${info.phone2}`}>{info.phone2}</a>}
           {!info.phone1 && !info.phone2 && <span style={{ color: 'var(--text-3)' }}>No phone available</span>}
         </>
       ),
     },
     {
-      icon: Mail, color: '#a78bfa', bg: 'rgba(167,139,250,.1)', border: 'rgba(167,139,250,.15)',
+      icon: Mail, color: '#8fc94a', bg: 'rgba(143,201,74,.1)', border: 'rgba(143,201,74,.15)',
       title: 'Email Us',
       content: (
         <>
-          {info.email1 && <a href={`mailto:${info.email1}`} style={{ color: '#a78bfa' }}>{info.email1}</a>}
+          {info.email1 && <a href={`mailto:${info.email1}`} style={{ color: '#8fc94a' }}>{info.email1}</a>}
           {info.email2 && <a href={`mailto:${info.email2}`}>{info.email2}</a>}
           {!info.email1 && !info.email2 && <span style={{ color: 'var(--text-3)' }}>No email available</span>}
         </>
@@ -713,7 +713,7 @@ function Contact() {
 
         {loading ? (
           <div style={{ textAlign: 'center', padding: '56px 0' }}>
-            <div style={{ display: 'inline-block', width: 32, height: 32, border: '2px solid rgba(34,211,238,.25)', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin-loader 1s linear infinite' }} />
+            <div style={{ display: 'inline-block', width: 32, height: 32, border: '2px solid rgba(113,173,37,.25)', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin-loader 1s linear infinite' }} />
           </div>
         ) : (
           <>
@@ -777,7 +777,7 @@ function Footer() {
               <div className="hp-logo-icon"><img src={logoImg} alt="Africa Logistics logo" /></div>
               <div className="hp-logo-name">
                 Africa{' '}
-                <span style={{ background: 'linear-gradient(90deg,#22d3ee,#60a5fa)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+                <span style={{ background: 'linear-gradient(90deg,#71ad25,#3e6113)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
                   Logistics
                 </span>
               </div>

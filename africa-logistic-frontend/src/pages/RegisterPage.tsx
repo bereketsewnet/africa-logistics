@@ -29,7 +29,7 @@ function getStrength(pw: string): { score: number; labelKey: string; color: stri
     { labelKey: 'pw_weak',       color: '#f59e0b' },
     { labelKey: 'pw_fair',       color: '#eab308' },
     { labelKey: 'pw_good',       color: '#22c55e' },
-    { labelKey: 'pw_strong',     color: '#00e5ff' },
+    { labelKey: 'pw_strong',     color: '#61941f' },
     { labelKey: 'pw_very_strong', color: '#39ff14' },
   ]
   return { score: s, ...levels[s] }
@@ -329,14 +329,14 @@ export default function RegisterPage() {
                         padding: '0.75rem',
                         borderRadius: 12,
                         border: `1.5px solid ${roleId === r.id ? 'var(--clr-accent)' : 'rgba(255,255,255,0.12)'}`,
-                        background: roleId === r.id ? 'rgba(0,229,255,0.08)' : 'rgba(255,255,255,0.04)',
+                        background: roleId === r.id ? 'rgba(97, 148, 31,0.08)' : 'rgba(255,255,255,0.04)',
                         color: roleId === r.id ? 'var(--clr-accent)' : 'var(--clr-muted)',
                         fontFamily: 'inherit',
                         fontSize: '0.875rem',
                         fontWeight: 600,
                         cursor: 'pointer',
                         transition: 'all 0.2s',
-                        boxShadow: roleId === r.id ? '0 0 12px rgba(0,229,255,0.15)' : 'none',
+                        boxShadow: roleId === r.id ? '0 0 12px rgba(97, 148, 31,0.15)' : 'none',
                       }}
                       onClick={() => setRoleId(r.id as 2 | 3 | 6)}>
                       <span style={{display:'flex',alignItems:'center',gap:'0.4rem'}}>{r.icon} {tr(r.key)}</span>

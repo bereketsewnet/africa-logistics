@@ -290,7 +290,7 @@ function CustomSelect({ value, onChange, options }: {
         <div style={{ position:'absolute', top:'calc(100% + 4px)', left:0, right:0, background:'#080b16', border:'1px solid rgba(255,255,255,0.16)', borderRadius:10, overflow:'hidden', boxShadow:'0 8px 32px rgba(0,0,0,0.7)', zIndex:9999 }}>
           {options.map(opt => (
             <button key={opt.id} type="button" onClick={() => { onChange(opt.id); setOpen(false) }}
-              style={{ display:'block', width:'100%', padding:'0.7rem 0.85rem', border:'none', borderBottom:'1px solid rgba(255,255,255,0.06)', WebkitAppearance:'none', appearance:'none', background: opt.id === value ? 'rgba(0,229,255,0.12)' : '#080b16', color: opt.id === value ? 'var(--kpi-cyan)' : '#cbd5e1', fontFamily:'inherit', fontSize:'0.85rem', fontWeight:600, cursor:'pointer', textAlign:'left', transition:'background 0.12s' }}
+              style={{ display:'block', width:'100%', padding:'0.7rem 0.85rem', border:'none', borderBottom:'1px solid rgba(255,255,255,0.06)', WebkitAppearance:'none', appearance:'none', background: opt.id === value ? 'rgba(97, 148, 31,0.12)' : '#080b16', color: opt.id === value ? 'var(--kpi-cyan)' : '#cbd5e1', fontFamily:'inherit', fontSize:'0.85rem', fontWeight:600, cursor:'pointer', textAlign:'left', transition:'background 0.12s' }}
               onMouseEnter={e => { if (opt.id !== value) (e.currentTarget as HTMLButtonElement).style.background = 'rgba(255,255,255,0.07)' }}
               onMouseLeave={e => { if (opt.id !== value) (e.currentTarget as HTMLButtonElement).style.background = '#080b16' }}
             >{opt.label}</button>
@@ -526,7 +526,7 @@ function AdminVehicleTypesSection() {
           {items.length === 0 ? <p style={{ padding: '2rem', textAlign: 'center', color: 'var(--clr-muted)' }}>{tr('vt_empty')}</p>
             : items.map((v, i) => (
               <div key={v.id} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.75rem 1rem', borderBottom: i < items.length - 1 ? '1px solid rgba(255,255,255,0.05)' : 'none' }}>
-                <div style={{ width: 36, height: 36, borderRadius: 8, background: 'rgba(0,229,255,0.08)', border: '1px solid rgba(0,229,255,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color: 'var(--clr-accent)' }}>
+                <div style={{ width: 36, height: 36, borderRadius: 8, background: 'rgba(97, 148, 31,0.08)', border: '1px solid rgba(97, 148, 31,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color: 'var(--clr-accent)' }}>
                   <VehicleTypeIcon icon={v.icon} iconUrl={v.icon_url} size={18}/>
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
@@ -556,14 +556,14 @@ function AdminVehicleTypesSection() {
               <div>
                 <label style={labelStyle}>{tr('vt_label_icon')}</label>
                 <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.6rem' }}>
-                  <button type="button" onClick={() => setIconMode('preset')} style={{ flex: 1, padding: '0.4rem', borderRadius: 7, border: `1px solid ${iconMode === 'preset' ? 'var(--clr-accent)' : 'rgba(255,255,255,0.1)'}`, background: iconMode === 'preset' ? 'rgba(0,229,255,0.1)' : 'rgba(255,255,255,0.04)', color: iconMode === 'preset' ? 'var(--clr-accent)' : 'var(--clr-muted)', fontFamily: 'inherit', fontSize: '0.75rem', fontWeight: 600, cursor: 'pointer' }}>{tr('vt_icon_preset')}</button>
-                  <button type="button" onClick={() => setIconMode('custom')} style={{ flex: 1, padding: '0.4rem', borderRadius: 7, border: `1px solid ${iconMode === 'custom' ? 'var(--clr-accent)' : 'rgba(255,255,255,0.1)'}`, background: iconMode === 'custom' ? 'rgba(0,229,255,0.1)' : 'rgba(255,255,255,0.04)', color: iconMode === 'custom' ? 'var(--clr-accent)' : 'var(--clr-muted)', fontFamily: 'inherit', fontSize: '0.75rem', fontWeight: 600, cursor: 'pointer' }}><LuImage size={12}/> {tr('vt_icon_custom')}</button>
+                  <button type="button" onClick={() => setIconMode('preset')} style={{ flex: 1, padding: '0.4rem', borderRadius: 7, border: `1px solid ${iconMode === 'preset' ? 'var(--clr-accent)' : 'rgba(255,255,255,0.1)'}`, background: iconMode === 'preset' ? 'rgba(97, 148, 31,0.1)' : 'rgba(255,255,255,0.04)', color: iconMode === 'preset' ? 'var(--clr-accent)' : 'var(--clr-muted)', fontFamily: 'inherit', fontSize: '0.75rem', fontWeight: 600, cursor: 'pointer' }}>{tr('vt_icon_preset')}</button>
+                  <button type="button" onClick={() => setIconMode('custom')} style={{ flex: 1, padding: '0.4rem', borderRadius: 7, border: `1px solid ${iconMode === 'custom' ? 'var(--clr-accent)' : 'rgba(255,255,255,0.1)'}`, background: iconMode === 'custom' ? 'rgba(97, 148, 31,0.1)' : 'rgba(255,255,255,0.04)', color: iconMode === 'custom' ? 'var(--clr-accent)' : 'var(--clr-muted)', fontFamily: 'inherit', fontSize: '0.75rem', fontWeight: 600, cursor: 'pointer' }}><LuImage size={12}/> {tr('vt_icon_custom')}</button>
                 </div>
                 {iconMode === 'preset' ? (
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5,1fr)', gap: '0.4rem' }}>
                     {VT_PRESET_ICONS.map(p => (
                       <button key={p.name} type="button" onClick={() => setForm(f => ({ ...f, icon: p.name }))}
-                        style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.2rem', padding: '0.5rem 0.25rem', borderRadius: 8, border: `1px solid ${form.icon === p.name ? 'var(--clr-accent)' : 'rgba(255,255,255,0.08)'}`, background: form.icon === p.name ? 'rgba(0,229,255,0.12)' : 'rgba(255,255,255,0.03)', color: form.icon === p.name ? 'var(--clr-accent)' : 'var(--clr-muted)', cursor: 'pointer', fontFamily: 'inherit', fontSize: '0.6rem', fontWeight: 600 }}>
+                        style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.2rem', padding: '0.5rem 0.25rem', borderRadius: 8, border: `1px solid ${form.icon === p.name ? 'var(--clr-accent)' : 'rgba(255,255,255,0.08)'}`, background: form.icon === p.name ? 'rgba(97, 148, 31,0.12)' : 'rgba(255,255,255,0.03)', color: form.icon === p.name ? 'var(--clr-accent)' : 'var(--clr-muted)', cursor: 'pointer', fontFamily: 'inherit', fontSize: '0.6rem', fontWeight: 600 }}>
                         {p.icon}
                         <span style={{ lineHeight: 1.1, textAlign: 'center' }}>{p.label}</span>
                       </button>
@@ -603,7 +603,7 @@ function AdminVehicleTypesSection() {
           </div>
         </div>
       )}
-      {toast && <div style={{ position: 'fixed', bottom: '1.25rem', right: '1.25rem', zIndex: 200, background: 'rgba(0,229,255,0.12)', border: '1px solid rgba(0,229,255,0.25)', color: 'var(--clr-text)', padding: '0.65rem 1.1rem', borderRadius: 12, fontSize: '0.85rem', fontWeight: 600, backdropFilter: 'blur(12px)' }}>{toast}</div>}
+      {toast && <div style={{ position: 'fixed', bottom: '1.25rem', right: '1.25rem', zIndex: 200, background: 'rgba(97, 148, 31,0.12)', border: '1px solid rgba(97, 148, 31,0.25)', color: 'var(--clr-text)', padding: '0.65rem 1.1rem', borderRadius: 12, fontSize: '0.85rem', fontWeight: 600, backdropFilter: 'blur(12px)' }}>{toast}</div>}
     </div>
   )
 }
@@ -731,7 +731,7 @@ function AdminCountriesSection() {
           </div>
         </div>
       )}
-      {toast && <div style={{ position: 'fixed', bottom: '1.25rem', right: '1.25rem', zIndex: 200, background: 'rgba(0,229,255,0.12)', border: '1px solid rgba(0,229,255,0.25)', color: 'var(--clr-text)', padding: '0.65rem 1.1rem', borderRadius: 12, fontSize: '0.85rem', fontWeight: 600, backdropFilter: 'blur(12px)' }}>{toast}</div>}
+      {toast && <div style={{ position: 'fixed', bottom: '1.25rem', right: '1.25rem', zIndex: 200, background: 'rgba(97, 148, 31,0.12)', border: '1px solid rgba(97, 148, 31,0.25)', color: 'var(--clr-text)', padding: '0.65rem 1.1rem', borderRadius: 12, fontSize: '0.85rem', fontWeight: 600, backdropFilter: 'blur(12px)' }}>{toast}</div>}
     </div>
   )
 }
@@ -806,7 +806,7 @@ function AdminMaintenanceSection() {
           </button>
         </div>
       )}
-      {toast && <div style={{ position: 'fixed', bottom: '1.25rem', right: '1.25rem', zIndex: 200, background: 'rgba(0,229,255,0.12)', border: '1px solid rgba(0,229,255,0.25)', color: 'var(--clr-text)', padding: '0.65rem 1.1rem', borderRadius: 12, fontSize: '0.85rem', fontWeight: 600, backdropFilter: 'blur(12px)' }}>{toast}</div>}
+      {toast && <div style={{ position: 'fixed', bottom: '1.25rem', right: '1.25rem', zIndex: 200, background: 'rgba(97, 148, 31,0.12)', border: '1px solid rgba(97, 148, 31,0.25)', color: 'var(--clr-text)', padding: '0.65rem 1.1rem', borderRadius: 12, fontSize: '0.85rem', fontWeight: 600, backdropFilter: 'blur(12px)' }}>{toast}</div>}
     </div>
   )
 }
@@ -956,7 +956,7 @@ function AdminRoleManagementSection({ onPermissionsSaved }: { onPermissionsSaved
               const on = !!matrix[role.id]?.[p.permission_key]
               return (
                 <button key={`${role.id}-${p.permission_key}`} type="button" onClick={() => toggle(role.id, p.permission_key)} disabled={role.id === 1 || !isSuperAdmin}
-                  style={{ padding: '0.55rem 0.65rem', borderRadius: 9, border: `1px solid ${on ? 'rgba(0,229,255,0.35)' : 'rgba(255,255,255,0.1)'}`, background: on ? 'rgba(0,229,255,0.1)' : 'rgba(255,255,255,0.03)', color: on ? 'var(--clr-accent)' : 'var(--clr-muted)', fontFamily: 'inherit', fontSize: '0.74rem', textAlign: 'left', cursor: (role.id === 1 || !isSuperAdmin) ? 'not-allowed' : 'pointer', opacity: (role.id === 1 || !isSuperAdmin) ? 0.7 : 1 }}>
+                  style={{ padding: '0.55rem 0.65rem', borderRadius: 9, border: `1px solid ${on ? 'rgba(97, 148, 31,0.35)' : 'rgba(255,255,255,0.1)'}`, background: on ? 'rgba(97, 148, 31,0.1)' : 'rgba(255,255,255,0.03)', color: on ? 'var(--clr-accent)' : 'var(--clr-muted)', fontFamily: 'inherit', fontSize: '0.74rem', textAlign: 'left', cursor: (role.id === 1 || !isSuperAdmin) ? 'not-allowed' : 'pointer', opacity: (role.id === 1 || !isSuperAdmin) ? 0.7 : 1 }}>
                   <p style={{ fontWeight: 700, marginBottom: '0.1rem' }}>{p.label}</p>
                   {p.description && <p style={{ fontSize: '0.68rem', lineHeight: 1.45 }}>{p.description}</p>}
                 </button>
@@ -997,7 +997,7 @@ function AdminRoleManagementSection({ onPermissionsSaved }: { onPermissionsSaved
         </div>
       )}
 
-      {toast && <div style={{ position:'fixed', bottom:'1.25rem', right:'1.25rem', zIndex:200, background:'rgba(0,229,255,0.12)', border:'1px solid rgba(0,229,255,0.25)', color:'var(--clr-text)', padding:'0.65rem 1.1rem', borderRadius:12, fontSize:'0.85rem', fontWeight:600, backdropFilter:'blur(12px)' }}>{toast}</div>}
+      {toast && <div style={{ position:'fixed', bottom:'1.25rem', right:'1.25rem', zIndex:200, background:'rgba(97, 148, 31,0.12)', border:'1px solid rgba(97, 148, 31,0.25)', color:'var(--clr-text)', padding:'0.65rem 1.1rem', borderRadius:12, fontSize:'0.85rem', fontWeight:600, backdropFilter:'blur(12px)' }}>{toast}</div>}
     </div>
   )
 }
@@ -1213,7 +1213,7 @@ function AdminCrossBorderSection() {
                         style={{
                           borderBottom: i < orders.length - 1 ? '1px solid rgba(255,255,255,0.05)' : 'none',
                           cursor: 'pointer',
-                          background: selectedOrderId === ord.id ? 'rgba(0,229,255,0.06)' : 'transparent',
+                          background: selectedOrderId === ord.id ? 'rgba(97, 148, 31,0.06)' : 'transparent',
                         }}
                       >
                         <td style={{ padding: '0.55rem 0.75rem', color: 'var(--clr-accent)', fontWeight: 700 }}>
@@ -1414,7 +1414,7 @@ function AdminCrossBorderSection() {
       )}
 
       {toast && (
-        <div style={{ position: 'fixed', bottom: '1.25rem', right: '1.25rem', zIndex: 200, background: 'rgba(0,229,255,0.12)', border: '1px solid rgba(0,229,255,0.25)', color: 'var(--clr-text)', padding: '0.65rem 1.1rem', borderRadius: 12, fontSize: '0.85rem', fontWeight: 600, backdropFilter: 'blur(12px)' }}>
+        <div style={{ position: 'fixed', bottom: '1.25rem', right: '1.25rem', zIndex: 200, background: 'rgba(97, 148, 31,0.12)', border: '1px solid rgba(97, 148, 31,0.25)', color: 'var(--clr-text)', padding: '0.65rem 1.1rem', borderRadius: 12, fontSize: '0.85rem', fontWeight: 600, backdropFilter: 'blur(12px)' }}>
           {toast}
         </div>
       )}
@@ -1543,7 +1543,7 @@ function AdminContactInfoSection() {
       )}
 
       {toast && (
-        <div style={{ position: 'fixed', bottom: '1.25rem', right: '1.25rem', zIndex: 200, background: 'rgba(0,229,255,0.12)', border: '1px solid rgba(0,229,255,0.25)', color: 'var(--clr-text)', padding: '0.65rem 1.1rem', borderRadius: 12, fontSize: '0.85rem', fontWeight: 600, backdropFilter: 'blur(12px)' }}>
+        <div style={{ position: 'fixed', bottom: '1.25rem', right: '1.25rem', zIndex: 200, background: 'rgba(97, 148, 31,0.12)', border: '1px solid rgba(97, 148, 31,0.25)', color: 'var(--clr-text)', padding: '0.65rem 1.1rem', borderRadius: 12, fontSize: '0.85rem', fontWeight: 600, backdropFilter: 'blur(12px)' }}>
           {toast}
         </div>
       )}
@@ -1668,7 +1668,7 @@ function AdminAiSettingsSection() {
       )}
 
       {toast && (
-        <div style={{ position: 'fixed', bottom: '1.25rem', right: '1.25rem', zIndex: 200, background: 'rgba(0,229,255,0.12)', border: '1px solid rgba(0,229,255,0.25)', color: 'var(--clr-text)', padding: '0.65rem 1.1rem', borderRadius: 12, fontSize: '0.85rem', fontWeight: 600, backdropFilter: 'blur(12px)' }}>
+        <div style={{ position: 'fixed', bottom: '1.25rem', right: '1.25rem', zIndex: 200, background: 'rgba(97, 148, 31,0.12)', border: '1px solid rgba(97, 148, 31,0.25)', color: 'var(--clr-text)', padding: '0.65rem 1.1rem', borderRadius: 12, fontSize: '0.85rem', fontWeight: 600, backdropFilter: 'blur(12px)' }}>
           {toast}
         </div>
       )}
@@ -1817,7 +1817,7 @@ function AdminSecurityEventsSection() {
         </>
       )}
 
-      {toast && <div style={{ position:'fixed', bottom:'1.25rem', right:'1.25rem', zIndex:200, background:'rgba(0,229,255,0.12)', border:'1px solid rgba(0,229,255,0.25)', color:'var(--clr-text)', padding:'0.65rem 1.1rem', borderRadius:12, fontSize:'0.85rem', fontWeight:600, backdropFilter:'blur(12px)' }}>{toast}</div>}
+      {toast && <div style={{ position:'fixed', bottom:'1.25rem', right:'1.25rem', zIndex:200, background:'rgba(97, 148, 31,0.12)', border:'1px solid rgba(97, 148, 31,0.25)', color:'var(--clr-text)', padding:'0.65rem 1.1rem', borderRadius:12, fontSize:'0.85rem', fontWeight:600, backdropFilter:'blur(12px)' }}>{toast}</div>}
     </div>
   )
 }
@@ -1827,7 +1827,7 @@ function AdminSecurityEventsSection() {
 function AdminSettingsHub({ onNav }: { onNav: (s: AdminSection) => void }) {
   const { t: tr } = useLanguage()
   const tiles: { id: AdminSection; icon: React.ReactNode; label: string; desc: string; accent: string }[] = [
-    { id: 'cargo-types',    icon: <LuBox size={22}/>,      label: tr('sb_st_cargo'),   desc: tr('sh_desc_cargo'),         accent: 'rgba(0,229,255,0.12)' },
+    { id: 'cargo-types',    icon: <LuBox size={22}/>,      label: tr('sb_st_cargo'),   desc: tr('sh_desc_cargo'),         accent: 'rgba(97, 148, 31,0.12)' },
     { id: 'pricing-rules',  icon: <LuSettings size={22}/>, label: tr('sb_st_pricing'), desc: tr('sh_desc_pricing'),   accent: 'rgba(139,92,246,0.12)' },
     { id: 'vehicle-types',  icon: <LuTruck size={22}/>,    label: tr('sb_st_vehicles'), desc: tr('sh_desc_vehicles'), accent: 'rgba(251,146,60,0.12)' },
     { id: 'countries',      icon: <LuGlobe size={22}/>,    label: tr('sb_st_countries'), desc: tr('sh_desc_countries'),   accent: 'rgba(74,222,128,0.12)' },
@@ -1845,7 +1845,7 @@ function AdminSettingsHub({ onNav }: { onNav: (s: AdminSection) => void }) {
         {tiles.map(t => (
           <button key={t.id} onClick={() => onNav(t.id)}
             style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem', padding: '1.1rem', borderRadius: 14, border: '1px solid rgba(255,255,255,0.09)', background: t.accent, cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit', color: 'var(--clr-text)', transition: 'border-color 0.18s' }}
-            onMouseEnter={e => (e.currentTarget.style.borderColor = 'rgba(0,229,255,0.3)')}
+            onMouseEnter={e => (e.currentTarget.style.borderColor = 'rgba(97, 148, 31,0.3)')}
             onMouseLeave={e => (e.currentTarget.style.borderColor = 'rgba(255,255,255,0.09)')}>
             <span style={{ color: 'var(--clr-accent)' }}>{t.icon}</span>
             <div>
@@ -2071,7 +2071,7 @@ function OverviewSection({
             <p style={{ fontSize: '0.76rem', color: 'var(--clr-muted)', margin: '0.2rem 0 0' }}>{tr('ov_fin_subtitle')}</p>
           </div>
           <div style={{ display: 'flex', gap: '0.45rem', flexWrap: 'wrap' }}>
-            <button onClick={() => onNav('reports')} style={{ display:'flex', alignItems:'center', gap:'0.35rem', padding:'0.42rem 0.85rem', borderRadius:'0.6rem', border:'1px solid rgba(0,229,255,0.2)', background:'rgba(0,229,255,0.06)', color:'var(--clr-accent)', fontFamily:'inherit', fontSize:'0.75rem', fontWeight:700, cursor:'pointer' }}><LuChartBar size={13}/> {tr('ov_fin_btn_report')}</button>
+            <button onClick={() => onNav('reports')} style={{ display:'flex', alignItems:'center', gap:'0.35rem', padding:'0.42rem 0.85rem', borderRadius:'0.6rem', border:'1px solid rgba(97, 148, 31,0.2)', background:'rgba(97, 148, 31,0.06)', color:'var(--clr-accent)', fontFamily:'inherit', fontSize:'0.75rem', fontWeight:700, cursor:'pointer' }}><LuChartBar size={13}/> {tr('ov_fin_btn_report')}</button>
             <button onClick={() => onNav('payments')} style={{ display:'flex', alignItems:'center', gap:'0.35rem', padding:'0.42rem 0.85rem', borderRadius:'0.6rem', border:'1px solid rgba(167,139,250,0.2)', background:'rgba(167,139,250,0.06)', color:'var(--kpi-purple)', fontFamily:'inherit', fontSize:'0.75rem', fontWeight:700, cursor:'pointer' }}><LuFileText size={13}/> {tr('ov_fin_btn_reviews')}</button>
           </div>
         </div>
@@ -2118,7 +2118,7 @@ function OverviewSection({
           </p>
         </div>
         <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-          <button onClick={() => onNav('orders')}   style={{ display:'flex', alignItems:'center', gap:'0.35rem', padding:'0.45rem 0.9rem', borderRadius:'0.6rem', border:'1px solid rgba(0,229,255,0.2)', background:'rgba(0,229,255,0.06)', color:'var(--clr-accent)',   fontFamily:'inherit', fontSize:'0.75rem', fontWeight:700, cursor:'pointer' }}><LuListOrdered size={13}/> {tr('ov_btn_orders')}</button>
+          <button onClick={() => onNav('orders')}   style={{ display:'flex', alignItems:'center', gap:'0.35rem', padding:'0.45rem 0.9rem', borderRadius:'0.6rem', border:'1px solid rgba(97, 148, 31,0.2)', background:'rgba(97, 148, 31,0.06)', color:'var(--clr-accent)',   fontFamily:'inherit', fontSize:'0.75rem', fontWeight:700, cursor:'pointer' }}><LuListOrdered size={13}/> {tr('ov_btn_orders')}</button>
           <button onClick={() => onNav('drivers')}  style={{ display:'flex', alignItems:'center', gap:'0.35rem', padding:'0.45rem 0.9rem', borderRadius:'0.6rem', border:'1px solid rgba(167,139,250,0.2)', background:'rgba(167,139,250,0.06)', color:'var(--kpi-purple)', fontFamily:'inherit', fontSize:'0.75rem', fontWeight:700, cursor:'pointer' }}><LuTruck size={13}/> {tr('ov_btn_drivers')}</button>
           <button onClick={() => onNav('payments')} style={{ display:'flex', alignItems:'center', gap:'0.35rem', padding:'0.45rem 0.9rem', borderRadius:'0.6rem', border:'1px solid rgba(74,222,128,0.2)',  background:'rgba(74,222,128,0.06)',  color:'var(--kpi-green)', fontFamily:'inherit', fontSize:'0.75rem', fontWeight:700, cursor:'pointer' }}><LuFileText size={13}/> {tr('ov_btn_payments')}</button>
         </div>
@@ -2774,7 +2774,7 @@ function ProfileSection({ adminTheme, onThemeChange }: { adminTheme: 'LIGHT' | '
       <div className="glass" style={{ padding: '1.5rem' }}>
         <div style={{ display: 'flex', alignItems: 'flex-start', gap: '1rem' }}>
           <div style={{ position: 'relative', flexShrink: 0 }}>
-            <div style={{ width: 72, height: 72, borderRadius: '50%', background: photoUrl ? 'transparent' : 'linear-gradient(135deg,var(--clr-accent2),var(--clr-accent))', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.9rem', overflow: 'hidden', border: '2.5px solid rgba(0,229,255,0.3)', boxShadow: '0 0 20px rgba(0,229,255,0.2)' }}>
+            <div style={{ width: 72, height: 72, borderRadius: '50%', background: photoUrl ? 'transparent' : 'linear-gradient(135deg,var(--clr-accent2),var(--clr-accent))', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.9rem', overflow: 'hidden', border: '2.5px solid rgba(97, 148, 31,0.3)', boxShadow: '0 0 20px rgba(97, 148, 31,0.2)' }}>
               {photoUrl ? <img src={photoUrl} alt="Profile" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : roleIcon}
             </div>
             <button {...{title: tr('prf_photo_title')}} onClick={() => photoInput.current?.click()} disabled={photoLoading} style={{ position: 'absolute', bottom: 0, right: 0, width: 24, height: 24, borderRadius: '50%', background: 'var(--clr-accent)', border: '2px solid rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: '0.68rem' }}>
@@ -3332,7 +3332,7 @@ function DriverVerificationSection() {
       {/* Filter tabs */}
       <div style={{ display:'flex', gap:'0.4rem', background:'rgba(255,255,255,0.04)', borderRadius:12, padding:'0.3rem' }}>
         {filters.map(f => (
-          <button key={f.id} onClick={() => setFilter(f.id)} style={{ flex:1, padding:'0.45rem', border:'none', borderRadius:9, background: filter===f.id ? 'rgba(0,229,255,0.12)' : 'transparent', color: filter===f.id ? 'var(--clr-accent)' : 'var(--clr-muted)', fontFamily:'inherit', fontSize:'0.78rem', fontWeight:600, cursor:'pointer', transition:'all 0.18s', outline: filter===f.id ? '1px solid rgba(0,229,255,0.2)' : 'none' }}>
+          <button key={f.id} onClick={() => setFilter(f.id)} style={{ flex:1, padding:'0.45rem', border:'none', borderRadius:9, background: filter===f.id ? 'rgba(97, 148, 31,0.12)' : 'transparent', color: filter===f.id ? 'var(--clr-accent)' : 'var(--clr-muted)', fontFamily:'inherit', fontSize:'0.78rem', fontWeight:600, cursor:'pointer', transition:'all 0.18s', outline: filter===f.id ? '1px solid rgba(97, 148, 31,0.2)' : 'none' }}>
             {f.label}
           </button>
         ))}
@@ -3350,7 +3350,7 @@ function DriverVerificationSection() {
               <div key={d.user_id} className="glass-inner" style={{ overflow:'hidden' }}>
                 {/* Card header */}
                 <div style={{ display:'flex', alignItems:'center', gap:'0.75rem', padding:'0.85rem 1rem', cursor:'pointer' }} onClick={() => handleExpand(d.user_id)}>
-                  <div style={{ width:38, height:38, borderRadius:'50%', flexShrink:0, background:'linear-gradient(135deg,var(--clr-accent2),var(--clr-accent))', display:'flex', alignItems:'center', justifyContent:'center', overflow:'hidden', border:'2px solid rgba(0,229,255,0.2)' }}>
+                  <div style={{ width:38, height:38, borderRadius:'50%', flexShrink:0, background:'linear-gradient(135deg,var(--clr-accent2),var(--clr-accent))', display:'flex', alignItems:'center', justifyContent:'center', overflow:'hidden', border:'2px solid rgba(97, 148, 31,0.2)' }}>
                     {d.profile_photo_url ? <img src={absUrl(d.profile_photo_url)!} alt="" style={{ width:'100%', height:'100%', objectFit:'cover' }}/> : <LuTruck size={16} color="#fff"/>}
                   </div>
                   <div style={{ flex:1, minWidth:0 }}>
@@ -3584,7 +3584,7 @@ function DriverVerificationSection() {
 
       {/* Toast */}
       {toastMsg && (
-        <div style={{ position:'fixed', bottom:'1.25rem', right:'1.25rem', zIndex:200, background:'rgba(0,229,255,0.12)', border:'1px solid rgba(0,229,255,0.25)', color:'var(--clr-text)', padding:'0.65rem 1.1rem', borderRadius:12, fontSize:'0.85rem', fontWeight:600, backdropFilter:'blur(12px)' }}>
+        <div style={{ position:'fixed', bottom:'1.25rem', right:'1.25rem', zIndex:200, background:'rgba(97, 148, 31,0.12)', border:'1px solid rgba(97, 148, 31,0.25)', color:'var(--clr-text)', padding:'0.65rem 1.1rem', borderRadius:12, fontSize:'0.85rem', fontWeight:600, backdropFilter:'blur(12px)' }}>
           {toastMsg}
         </div>
       )}
@@ -3794,7 +3794,7 @@ function VehicleManagementSection() {
       {/* Tabs */}
       <div style={{ display:'flex', gap:'0.4rem', background:'rgba(255,255,255,0.04)', borderRadius:12, padding:'0.3rem' }}>
         {(['fleet','submissions'] as const).map(tab => (
-          <button key={tab} onClick={() => setVehicleTab(tab)} style={{ flex:1, padding:'0.45rem', border:'none', borderRadius:9, background: vehicleTab===tab ? 'rgba(0,229,255,0.12)' : 'transparent', color: vehicleTab===tab ? 'var(--clr-accent)' : 'var(--clr-muted)', fontFamily:'inherit', fontSize:'0.78rem', fontWeight:600, cursor:'pointer', transition:'all 0.18s', outline: vehicleTab===tab ? '1px solid rgba(0,229,255,0.2)' : 'none' }}>
+          <button key={tab} onClick={() => setVehicleTab(tab)} style={{ flex:1, padding:'0.45rem', border:'none', borderRadius:9, background: vehicleTab===tab ? 'rgba(97, 148, 31,0.12)' : 'transparent', color: vehicleTab===tab ? 'var(--clr-accent)' : 'var(--clr-muted)', fontFamily:'inherit', fontSize:'0.78rem', fontWeight:600, cursor:'pointer', transition:'all 0.18s', outline: vehicleTab===tab ? '1px solid rgba(97, 148, 31,0.2)' : 'none' }}>
             {tab === 'fleet' ? tr('veh_tab_fleet') : `${tr('veh_tab_submissions')}${submissions.length > 0 ? ` (${submissions.length})` : ''}`}
           </button>
         ))}
@@ -3841,7 +3841,7 @@ function VehicleManagementSection() {
                   </div>
                   <div style={{ display:'flex', gap:'0.35rem', flexShrink:0 }}>
                     <button title="Assign driver" onClick={() => openAssign(v)}
-                      style={{ padding:'0.28rem 0.5rem', borderRadius:7, border:'1px solid rgba(0,229,255,0.25)', background:'rgba(0,229,255,0.07)', color:'var(--clr-accent)', fontFamily:'inherit', fontSize:'0.72rem', cursor:'pointer', display:'flex', alignItems:'center', gap:'0.25rem' }}>
+                      style={{ padding:'0.28rem 0.5rem', borderRadius:7, border:'1px solid rgba(97, 148, 31,0.25)', background:'rgba(97, 148, 31,0.07)', color:'var(--clr-accent)', fontFamily:'inherit', fontSize:'0.72rem', cursor:'pointer', display:'flex', alignItems:'center', gap:'0.25rem' }}>
                       <LuUser size={12}/> Driver
                     </button>
                     <button title="Edit" onClick={() => openEdit(v)}
@@ -4051,7 +4051,7 @@ function VehicleManagementSection() {
 
       {/* Toast */}
       {toastMsg && (
-        <div style={{ position:'fixed', bottom:'1.25rem', right:'1.25rem', zIndex:200, background:'rgba(0,229,255,0.12)', border:'1px solid rgba(0,229,255,0.25)', color:'var(--clr-text)', padding:'0.65rem 1.1rem', borderRadius:12, fontSize:'0.85rem', fontWeight:600, backdropFilter:'blur(12px)' }}>
+        <div style={{ position:'fixed', bottom:'1.25rem', right:'1.25rem', zIndex:200, background:'rgba(97, 148, 31,0.12)', border:'1px solid rgba(97, 148, 31,0.25)', color:'var(--clr-text)', padding:'0.65rem 1.1rem', borderRadius:12, fontSize:'0.85rem', fontWeight:600, backdropFilter:'blur(12px)' }}>
           {toastMsg}
         </div>
       )}
@@ -4766,7 +4766,7 @@ function AdminOrdersSection({ initialDriverFilter, initialStatusFilter }: { init
               <p style={{ fontSize:'0.68rem', color:'var(--clr-muted)', marginTop:'0.4rem', fontWeight:600 }}>{ORDER_STATUS_LABEL[status] ?? status}</p>
             </div>
           ))}
-          <div className="glass-inner" style={{ flex:1, minWidth:120, padding:'0.75rem 0.85rem', textAlign:'center', display:'flex', flexDirection:'column', justifyContent:'center', border:'1px solid rgba(0,229,255,0.15)' }}>
+          <div className="glass-inner" style={{ flex:1, minWidth:120, padding:'0.75rem 0.85rem', textAlign:'center', display:'flex', flexDirection:'column', justifyContent:'center', border:'1px solid rgba(97, 148, 31,0.15)' }}>
             <p style={{ fontSize:'1.3rem', fontWeight:800, color:'var(--clr-accent)', lineHeight:1 }}>{Number(stats.total_revenue).toLocaleString()}</p>
             <p style={{ fontSize:'0.68rem', color:'var(--clr-muted)', marginTop:'0.4rem', fontWeight:600 }}>{tr('aord_revenue')}</p>
           </div>
@@ -4787,7 +4787,7 @@ function AdminOrdersSection({ initialDriverFilter, initialStatusFilter }: { init
       </div>
 
       {driverFilter && (
-        <div style={{ padding:'0.75rem 1rem', background:'rgba(0,229,255,0.06)', borderRadius:8, margin:'0 1px', border:'1px solid rgba(0,229,255,0.1)', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+        <div style={{ padding:'0.75rem 1rem', background:'rgba(97, 148, 31,0.06)', borderRadius:8, margin:'0 1px', border:'1px solid rgba(97, 148, 31,0.1)', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
           <span style={{ fontSize:'0.78rem', color:'var(--clr-accent)', fontWeight:600 }}>{tr('aord_viewing_driver')}</span>
           <button onClick={() => { setDriverFilter(''); setPage(1); setSearch(''); setStatusFilter(''); }} style={{ background:'none', border:'none', color:'var(--clr-accent)', cursor:'pointer', fontSize:'0.75rem', display:'flex', alignItems:'center', gap:'0.3rem' }}><LuX size={14}/> {tr('aord_view_all')}</button>
         </div>
@@ -4882,13 +4882,13 @@ function AdminOrdersSection({ initialDriverFilter, initialStatusFilter }: { init
                   <div style={{ display:'flex', flexDirection:'column', gap:'0.4rem', maxHeight:220, overflowY:'auto' }}>
                     {suggestedDrivers.map(d => (
                       <div key={d.user_id} onClick={() => setSelDriver(d.user_id)}
-                        style={{ display:'flex', alignItems:'center', gap:'0.65rem', padding:'0.55rem 0.75rem', borderRadius:9, border:`1px solid ${selDriver === d.user_id ? 'var(--clr-accent)' : 'rgba(255,255,255,0.1)'}`, background: selDriver === d.user_id ? 'rgba(0,229,255,0.08)' : 'rgba(255,255,255,0.03)', cursor:'pointer', transition:'all 0.15s' }}>
+                        style={{ display:'flex', alignItems:'center', gap:'0.65rem', padding:'0.55rem 0.75rem', borderRadius:9, border:`1px solid ${selDriver === d.user_id ? 'var(--clr-accent)' : 'rgba(255,255,255,0.1)'}`, background: selDriver === d.user_id ? 'rgba(97, 148, 31,0.08)' : 'rgba(255,255,255,0.03)', cursor:'pointer', transition:'all 0.15s' }}>
                         <div style={{ width:8, height:8, borderRadius:'50%', background:'var(--kpi-green)', flexShrink:0 }}/>
                         <div style={{ flex:1 }}>
                           <p style={{ fontSize:'0.82rem', fontWeight:700, color:'var(--clr-text)', margin:0 }}>{d.first_name} {d.last_name}</p>
                           <p style={{ fontSize:'0.7rem', color:'var(--clr-muted)', margin:0 }}>{d.phone_number}{d.vehicle_type ? ` · ${d.vehicle_type}` : ''}</p>
                         </div>
-                        <span style={{ fontSize:'0.72rem', fontWeight:700, color:'var(--clr-accent)', background:'rgba(0,229,255,0.1)', borderRadius:99, padding:'0.15rem 0.5rem', whiteSpace:'nowrap' }}>
+                        <span style={{ fontSize:'0.72rem', fontWeight:700, color:'var(--clr-accent)', background:'rgba(97, 148, 31,0.1)', borderRadius:99, padding:'0.15rem 0.5rem', whiteSpace:'nowrap' }}>
                           {Number(d.distance_km).toFixed(1)} km
                         </span>
                       </div>
@@ -5010,7 +5010,7 @@ function AdminOrdersSection({ initialDriverFilter, initialStatusFilter }: { init
                         placeholder="Special instructions"
                         style={{ width:'100%', padding:'0.55rem 0.7rem', borderRadius:8, border:'1px solid rgba(255,255,255,0.12)', background:'rgba(255,255,255,0.05)', color:'var(--clr-text)', fontFamily:'inherit', fontSize:'0.8rem', outline:'none', resize:'vertical', boxSizing:'border-box' }}/>
                       <button onClick={submitDetailsOverride} disabled={detailsOverrideSaving}
-                        style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:'0.3rem', padding:'0.45rem 0.9rem', borderRadius:8, border:'1px solid rgba(0,229,255,0.3)', background:'rgba(0,229,255,0.08)', color:'var(--clr-accent)', fontFamily:'inherit', fontSize:'0.78rem', fontWeight:700, cursor:'pointer', opacity: detailsOverrideSaving ? 0.6 : 1 }}>
+                        style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:'0.3rem', padding:'0.45rem 0.9rem', borderRadius:8, border:'1px solid rgba(97, 148, 31,0.3)', background:'rgba(97, 148, 31,0.08)', color:'var(--clr-accent)', fontFamily:'inherit', fontSize:'0.78rem', fontWeight:700, cursor:'pointer', opacity: detailsOverrideSaving ? 0.6 : 1 }}>
                         {detailsOverrideSaving ? tr('aord_saving') : tr('aord_save_overrides')}
                       </button>
                     </div>
@@ -5070,7 +5070,7 @@ function AdminOrdersSection({ initialDriverFilter, initialStatusFilter }: { init
                         placeholder="Reason / internal note (optional)"
                         style={{ padding:'0.5rem 0.65rem', borderRadius:8, border:'1px solid rgba(255,255,255,0.12)', background:'rgba(255,255,255,0.05)', color:'var(--clr-text)', fontFamily:'inherit', fontSize:'0.8rem', outline:'none' }}/>
                       <button onClick={submitStatusOverride} disabled={statusOverrideSaving || !statusOverride}
-                        style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:'0.3rem', padding:'0.45rem 0.9rem', borderRadius:8, border:'1px solid rgba(0,229,255,0.3)', background:'rgba(0,229,255,0.08)', color:'var(--clr-accent)', fontFamily:'inherit', fontSize:'0.78rem', fontWeight:700, cursor:'pointer', opacity: statusOverrideSaving ? 0.6 : 1 }}>
+                        style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:'0.3rem', padding:'0.45rem 0.9rem', borderRadius:8, border:'1px solid rgba(97, 148, 31,0.3)', background:'rgba(97, 148, 31,0.08)', color:'var(--clr-accent)', fontFamily:'inherit', fontSize:'0.78rem', fontWeight:700, cursor:'pointer', opacity: statusOverrideSaving ? 0.6 : 1 }}>
                         {statusOverrideSaving ? tr('aord_saving') : tr('aord_apply_status')}
                       </button>
                     </div>
@@ -5093,11 +5093,11 @@ function AdminOrdersSection({ initialDriverFilter, initialStatusFilter }: { init
                     <div className="glass-inner" style={{ padding:'0.75rem 1rem' }}>
                       <p style={{ fontSize:'0.7rem', color:'var(--clr-muted)', fontWeight:600, marginBottom:'0.5rem' }}>{tr('aord_order_otps')}</p>
                       <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'0.5rem' }}>
-                        <div style={{ textAlign:'center', padding:'0.5rem', background:'rgba(0,229,255,0.06)', borderRadius:8, border:'1px solid rgba(0,229,255,0.12)' }}>
+                        <div style={{ textAlign:'center', padding:'0.5rem', background:'rgba(97, 148, 31,0.06)', borderRadius:8, border:'1px solid rgba(97, 148, 31,0.12)' }}>
                           <p style={{ fontSize:'0.65rem', color:'var(--clr-muted)', fontWeight:600, marginBottom:'0.15rem' }}>{tr('aord_pickup_otp')}</p>
                           <p style={{ fontSize:'1.2rem', fontWeight:900, color:'var(--clr-accent)', letterSpacing:3 }}>{detailOrder.pickup_otp ?? '—'}</p>
                         </div>
-                        <div style={{ textAlign:'center', padding:'0.5rem', background:'rgba(0,229,255,0.06)', borderRadius:8, border:'1px solid rgba(0,229,255,0.12)' }}>
+                        <div style={{ textAlign:'center', padding:'0.5rem', background:'rgba(97, 148, 31,0.06)', borderRadius:8, border:'1px solid rgba(97, 148, 31,0.12)' }}>
                           <p style={{ fontSize:'0.65rem', color:'var(--clr-muted)', fontWeight:600, marginBottom:'0.15rem' }}>{tr('aord_delivery_otp')}</p>
                           <p style={{ fontSize:'1.2rem', fontWeight:900, color:'var(--clr-accent)', letterSpacing:3 }}>{detailOrder.delivery_otp ?? '—'}</p>
                         </div>
@@ -5234,8 +5234,8 @@ function AdminOrdersSection({ initialDriverFilter, initialStatusFilter }: { init
                       ) : detailMessages.map(m => (
                         <div key={m.id} style={{ display:'flex', flexDirection:'column', alignItems: m.sender_role === 'Admin' ? 'flex-end' : 'flex-start' }}>
                           <div style={{ maxWidth:'85%', padding:'0.4rem 0.7rem', borderRadius:10, fontSize:'0.8rem', color:'var(--clr-text)',
-                            background: m.sender_role === 'Admin' ? 'rgba(0,229,255,0.12)' : m.sender_role === 'Shipper' ? 'rgba(245,158,11,0.09)' : 'rgba(167,139,250,0.1)',
-                            border: `1px solid ${m.sender_role === 'Admin' ? 'rgba(0,229,255,0.22)' : m.sender_role === 'Shipper' ? 'rgba(245,158,11,0.22)' : 'rgba(167,139,250,0.22)'}` }}>
+                            background: m.sender_role === 'Admin' ? 'rgba(97, 148, 31,0.12)' : m.sender_role === 'Shipper' ? 'rgba(245,158,11,0.09)' : 'rgba(167,139,250,0.1)',
+                            border: `1px solid ${m.sender_role === 'Admin' ? 'rgba(97, 148, 31,0.22)' : m.sender_role === 'Shipper' ? 'rgba(245,158,11,0.22)' : 'rgba(167,139,250,0.22)'}` }}>
                             {m.message}
                           </div>
                           <span style={{ fontSize:'0.6rem', marginTop:'0.15rem', fontWeight:600,
@@ -5292,7 +5292,7 @@ function AdminOrdersSection({ initialDriverFilter, initialStatusFilter }: { init
                     <button key={t} onClick={() => { setPdCommType(t); if (t === 'NONE') setPdCommValue('') }}
                       style={{ flex:1, padding:'0.45rem', borderRadius:8, border:'1px solid', cursor:'pointer', fontFamily:'inherit', fontSize:'0.75rem', fontWeight:700,
                         borderColor: pdCommType === t ? 'var(--clr-accent)' : 'rgba(255,255,255,0.12)',
-                        background: pdCommType === t ? 'rgba(0,229,255,0.1)' : 'rgba(255,255,255,0.04)',
+                        background: pdCommType === t ? 'rgba(97, 148, 31,0.1)' : 'rgba(255,255,255,0.04)',
                         color: pdCommType === t ? 'var(--clr-accent)' : 'var(--clr-muted)' }}>
                       {t === 'NONE' ? tr('aord_no_cut') : t === 'PERCENT' ? tr('aord_percent') : tr('aord_fixed')}
                     </button>
@@ -5628,8 +5628,8 @@ function AdminOrdersSection({ initialDriverFilter, initialStatusFilter }: { init
                 {/* Show uploaded media summary */}
                 {(coCargoImage || coPaymentReceipt) && (
                   <div style={{ display:'flex', gap:'0.65rem' }}>
-                    {coCargoImage && <div style={{ flex:1, padding:'0.5rem 0.75rem', borderRadius:8, background:'rgba(0,229,255,0.06)', border:'1px solid rgba(0,229,255,0.15)', fontSize:'0.75rem', color:'var(--clr-accent)', display:'flex', alignItems:'center', gap:'0.4rem' }}><LuImage size={13}/> {tr('aord_cargo_img_attached')}</div>}
-                    {coPaymentReceipt && <div style={{ flex:1, padding:'0.5rem 0.75rem', borderRadius:8, background:'rgba(0,229,255,0.06)', border:'1px solid rgba(0,229,255,0.15)', fontSize:'0.75rem', color:'var(--clr-accent)', display:'flex', alignItems:'center', gap:'0.4rem' }}><LuFileText size={13}/> {tr('aord_receipt_attached')}</div>}
+                    {coCargoImage && <div style={{ flex:1, padding:'0.5rem 0.75rem', borderRadius:8, background:'rgba(97, 148, 31,0.06)', border:'1px solid rgba(97, 148, 31,0.15)', fontSize:'0.75rem', color:'var(--clr-accent)', display:'flex', alignItems:'center', gap:'0.4rem' }}><LuImage size={13}/> {tr('aord_cargo_img_attached')}</div>}
+                    {coPaymentReceipt && <div style={{ flex:1, padding:'0.5rem 0.75rem', borderRadius:8, background:'rgba(97, 148, 31,0.06)', border:'1px solid rgba(97, 148, 31,0.15)', fontSize:'0.75rem', color:'var(--clr-accent)', display:'flex', alignItems:'center', gap:'0.4rem' }}><LuFileText size={13}/> {tr('aord_receipt_attached')}</div>}
                   </div>
                 )}
                 <div style={{ display:'flex', gap:'0.5rem' }}>
@@ -5644,7 +5644,7 @@ function AdminOrdersSection({ initialDriverFilter, initialStatusFilter }: { init
         </div>
       )}
 
-      {toast && <div style={{ position:'fixed', bottom:'1.25rem', right:'1.25rem', zIndex:200, background:'rgba(0,229,255,0.12)', border:'1px solid rgba(0,229,255,0.25)', color:'var(--clr-text)', padding:'0.65rem 1.1rem', borderRadius:12, fontSize:'0.85rem', fontWeight:600, backdropFilter:'blur(12px)' }}>{toast}</div>}
+      {toast && <div style={{ position:'fixed', bottom:'1.25rem', right:'1.25rem', zIndex:200, background:'rgba(97, 148, 31,0.12)', border:'1px solid rgba(97, 148, 31,0.25)', color:'var(--clr-text)', padding:'0.65rem 1.1rem', borderRadius:12, fontSize:'0.85rem', fontWeight:600, backdropFilter:'blur(12px)' }}>{toast}</div>}
     </div>
   )
 }
@@ -5847,7 +5847,7 @@ function AdminLiveDriversSection() {
                 <p style={{ padding:'1.5rem', textAlign:'center', color:'var(--clr-muted)', fontSize:'0.85rem' }}>{tr('alv_no_drivers')}</p>
               ) : drivers.map((d, i) => (
                 <div key={d.driver_id} onClick={() => openDriver(d)}
-                  style={{ display:'flex', alignItems:'center', gap:'0.75rem', padding:'0.8rem 1rem', borderBottom: i < drivers.length-1 ? '1px solid rgba(255,255,255,0.05)' : 'none', cursor:'pointer', background: selected?.driver_id === d.driver_id ? 'rgba(0,229,255,0.06)' : 'transparent', transition:'background 0.15s' }}>
+                  style={{ display:'flex', alignItems:'center', gap:'0.75rem', padding:'0.8rem 1rem', borderBottom: i < drivers.length-1 ? '1px solid rgba(255,255,255,0.05)' : 'none', cursor:'pointer', background: selected?.driver_id === d.driver_id ? 'rgba(97, 148, 31,0.06)' : 'transparent', transition:'background 0.15s' }}>
                   <div style={{ width:36, height:36, borderRadius:'50%', overflow:'hidden', flexShrink:0, background: driverStatusColor[(d as any).driver_status ?? ''] ?? 'linear-gradient(135deg,var(--clr-accent2),var(--clr-accent))', display:'flex', alignItems:'center', justifyContent:'center' }}>
                     {d.profile_photo_url ? <img src={d.profile_photo_url} alt="" style={{ width:'100%', height:'100%', objectFit:'cover' }}/> : <LuTruck size={16} color="#fff"/>}
                   </div>
@@ -5914,7 +5914,7 @@ function AdminLiveDriversSection() {
                     const prog = driverProgress(selected)
                     if (!prog) return null
                     return (
-                      <div style={{ background:'rgba(0,229,255,0.05)', borderRadius:8, border:'1px solid rgba(0,229,255,0.12)', padding:'0.5rem 0.65rem' }}>
+                      <div style={{ background:'rgba(97, 148, 31,0.05)', borderRadius:8, border:'1px solid rgba(97, 148, 31,0.12)', padding:'0.5rem 0.65rem' }}>
                         <div style={{ display:'flex', justifyContent:'space-between', marginBottom:'0.35rem' }}>
                           <span style={{ fontSize:'0.65rem', color:'var(--clr-muted)', fontWeight:600 }}>{tr('alv_trip_progress')}</span>
                           <span style={{ fontSize:'0.72rem', color:'var(--clr-accent)', fontWeight:800 }}>{prog.pct}%</span>
@@ -5933,7 +5933,7 @@ function AdminLiveDriversSection() {
                     )
                   })()}
                   {/* OTPs */}
-                  <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'0.5rem', padding:'0.6rem', background:'rgba(0,229,255,0.06)', borderRadius:8, border:'1px solid rgba(0,229,255,0.12)' }}>
+                  <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'0.5rem', padding:'0.6rem', background:'rgba(97, 148, 31,0.06)', borderRadius:8, border:'1px solid rgba(97, 148, 31,0.12)' }}>
                     <div style={{ textAlign:'center' }}>
                       <p style={{ fontSize:'0.65rem', color:'var(--clr-muted)', fontWeight:600, marginBottom:'0.15rem' }}>{tr('alv_pickup_otp')}</p>
                       <p style={{ fontSize:'1.1rem', fontWeight:900, color:'var(--clr-accent)', letterSpacing:2 }}>{selected.pickup_otp ?? '—'}</p>
@@ -5978,8 +5978,8 @@ function AdminLiveDriversSection() {
                     ) : messages.map(m => (
                       <div key={m.id} style={{ display:'flex', flexDirection:'column', alignItems: m.sender_role === 'Admin' ? 'flex-end' : 'flex-start' }}>
                         <div style={{ maxWidth:'85%', padding:'0.45rem 0.75rem', borderRadius:10, fontSize:'0.8rem', color:'var(--clr-text)',
-                          background: m.sender_role === 'Admin' ? 'rgba(0,229,255,0.12)' : m.sender_role === 'Shipper' ? 'rgba(245,158,11,0.09)' : 'rgba(167,139,250,0.1)',
-                          border: `1px solid ${m.sender_role === 'Admin' ? 'rgba(0,229,255,0.22)' : m.sender_role === 'Shipper' ? 'rgba(245,158,11,0.22)' : 'rgba(167,139,250,0.22)'}` }}>
+                          background: m.sender_role === 'Admin' ? 'rgba(97, 148, 31,0.12)' : m.sender_role === 'Shipper' ? 'rgba(245,158,11,0.09)' : 'rgba(167,139,250,0.1)',
+                          border: `1px solid ${m.sender_role === 'Admin' ? 'rgba(97, 148, 31,0.22)' : m.sender_role === 'Shipper' ? 'rgba(245,158,11,0.22)' : 'rgba(167,139,250,0.22)'}` }}>
                           {m.message}
                         </div>
                         <span style={{ fontSize:'0.6rem', marginTop:'0.12rem', fontWeight:600,
@@ -6007,7 +6007,7 @@ function AdminLiveDriversSection() {
         </div>
       )}
 
-      {toast && <div style={{ position:'fixed', bottom:'1.25rem', right:'1.25rem', zIndex:200, background:'rgba(0,229,255,0.12)', border:'1px solid rgba(0,229,255,0.25)', color:'var(--clr-text)', padding:'0.65rem 1.1rem', borderRadius:12, fontSize:'0.85rem', fontWeight:600, backdropFilter:'blur(12px)' }}>{toast}</div>}
+      {toast && <div style={{ position:'fixed', bottom:'1.25rem', right:'1.25rem', zIndex:200, background:'rgba(97, 148, 31,0.12)', border:'1px solid rgba(97, 148, 31,0.25)', color:'var(--clr-text)', padding:'0.65rem 1.1rem', borderRadius:12, fontSize:'0.85rem', fontWeight:600, backdropFilter:'blur(12px)' }}>{toast}</div>}
     </div>
   )
 }
@@ -6297,7 +6297,7 @@ function AdminGuestOrdersSection() {
                       {detailOrder.distance_km != null && <div><p style={{ fontSize:'0.7rem', color:'var(--clr-muted)' }}>{tr('agst_distance')}</p><p style={{ fontSize:'0.82rem', color:'var(--clr-text)', fontWeight:600 }}>{Number(detailOrder.distance_km).toFixed(1)} km</p></div>}
                     </div>
                   </div>
-                  <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'0.5rem', padding:'0.7rem', background:'rgba(0,229,255,0.06)', borderRadius:8, border:'1px solid rgba(0,229,255,0.12)' }}>
+                  <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'0.5rem', padding:'0.7rem', background:'rgba(97, 148, 31,0.06)', borderRadius:8, border:'1px solid rgba(97, 148, 31,0.12)' }}>
                     <div style={{ textAlign:'center' }}>
                       <p style={{ fontSize:'0.65rem', color:'var(--clr-muted)', fontWeight:600, marginBottom:'0.2rem' }}>{tr('aord_pickup_otp')}</p>
                       <p style={{ fontSize:'1.1rem', fontWeight:900, color:'var(--clr-accent)', letterSpacing:2 }}>{detailOrder.pickup_otp ?? '—'}</p>
@@ -6351,7 +6351,7 @@ function AdminGuestOrdersSection() {
             {gStep === 'form' ? (
               <div style={{ display:'flex', flexDirection:'column', gap:'0.85rem' }}>
                 {/* Guest info */}
-                <div style={{ display:'flex', flexDirection:'column', gap:'0.6rem', padding:'0.85rem', borderRadius:10, border:'1px solid rgba(0,229,255,0.15)', background:'rgba(0,229,255,0.04)' }}>
+                <div style={{ display:'flex', flexDirection:'column', gap:'0.6rem', padding:'0.85rem', borderRadius:10, border:'1px solid rgba(97, 148, 31,0.15)', background:'rgba(97, 148, 31,0.04)' }}>
                   <p style={{ fontSize:'0.7rem', fontWeight:700, color:'var(--clr-accent)', marginBottom:'0.1rem' }}>{tr('agst_all_optional')}</p>
                   <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'0.55rem' }}>
                     <div>
@@ -6521,7 +6521,7 @@ function AdminGuestOrdersSection() {
                   </div>
                 </div>
                 {gForm.guest_name && (
-                  <div style={{ padding:'0.6rem 0.85rem', borderRadius:8, background:'rgba(0,229,255,0.06)', border:'1px solid rgba(0,229,255,0.15)', fontSize:'0.75rem', color:'var(--clr-accent)' }}>
+                  <div style={{ padding:'0.6rem 0.85rem', borderRadius:8, background:'rgba(97, 148, 31,0.06)', border:'1px solid rgba(97, 148, 31,0.15)', fontSize:'0.75rem', color:'var(--clr-accent)' }}>
                     Guest: {gForm.guest_name} · {gForm.guest_phone || '—'} · {gForm.guest_email || '—'}
                   </div>
                 )}
@@ -6537,7 +6537,7 @@ function AdminGuestOrdersSection() {
         </div>
       )}
 
-      {toast && <div style={{ position:'fixed', bottom:'1.25rem', right:'1.25rem', zIndex:200, background:'rgba(0,229,255,0.12)', border:'1px solid rgba(0,229,255,0.25)', color:'var(--clr-text)', padding:'0.65rem 1.1rem', borderRadius:12, fontSize:'0.85rem', fontWeight:600, backdropFilter:'blur(12px)' }}>{toast}</div>}
+      {toast && <div style={{ position:'fixed', bottom:'1.25rem', right:'1.25rem', zIndex:200, background:'rgba(97, 148, 31,0.12)', border:'1px solid rgba(97, 148, 31,0.25)', color:'var(--clr-text)', padding:'0.65rem 1.1rem', borderRadius:12, fontSize:'0.85rem', fontWeight:600, backdropFilter:'blur(12px)' }}>{toast}</div>}
     </div>
   )
 }
@@ -6621,7 +6621,7 @@ function AdminCargoTypesSection() {
           {items.length === 0 ? <p style={{ padding:'2rem', textAlign:'center', color:'var(--clr-muted)' }}>{tr('ct_empty')}</p>
           : items.map((c, i) => (
             <div key={c.id} style={{ display:'flex', alignItems:'center', gap:'0.75rem', padding:'0.75rem 1rem', borderBottom: i < items.length-1 ? '1px solid rgba(255,255,255,0.05)' : 'none' }}>
-              <div style={{ width:36, height:36, borderRadius:8, background:'rgba(0,229,255,0.08)', border:'1px solid rgba(0,229,255,0.15)', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, color:'var(--clr-accent)', fontSize:'1rem' }}>
+              <div style={{ width:36, height:36, borderRadius:8, background:'rgba(97, 148, 31,0.08)', border:'1px solid rgba(97, 148, 31,0.15)', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, color:'var(--clr-accent)', fontSize:'1rem' }}>
                 <CargoIcon icon={c.icon} iconUrl={c.icon_url} size={18}/>
               </div>
               <div style={{ flex:1, minWidth:0 }}>
@@ -6650,14 +6650,14 @@ function AdminCargoTypesSection() {
               <div>
                 <label style={labelStyle}>{tr('ct_label_icon')}</label>
                 <div style={{ display:'flex', gap:'0.5rem', marginBottom:'0.6rem' }}>
-                  <button type="button" onClick={() => setIconMode('preset')} style={{ flex:1, padding:'0.4rem', borderRadius:7, border:`1px solid ${iconMode==='preset'?'var(--clr-accent)':'rgba(255,255,255,0.1)'}`, background:iconMode==='preset'?'rgba(0,229,255,0.1)':'rgba(255,255,255,0.04)', color:iconMode==='preset'?'var(--clr-accent)':'var(--clr-muted)', fontFamily:'inherit', fontSize:'0.75rem', fontWeight:600, cursor:'pointer' }}>{tr('ct_icon_preset')}</button>
-                  <button type="button" onClick={() => setIconMode('custom')} style={{ flex:1, padding:'0.4rem', borderRadius:7, border:`1px solid ${iconMode==='custom'?'var(--clr-accent)':'rgba(255,255,255,0.1)'}`, background:iconMode==='custom'?'rgba(0,229,255,0.1)':'rgba(255,255,255,0.04)', color:iconMode==='custom'?'var(--clr-accent)':'var(--clr-muted)', fontFamily:'inherit', fontSize:'0.75rem', fontWeight:600, cursor:'pointer' }}><LuImage size={12}/> {tr('ct_icon_custom')}</button>
+                  <button type="button" onClick={() => setIconMode('preset')} style={{ flex:1, padding:'0.4rem', borderRadius:7, border:`1px solid ${iconMode==='preset'?'var(--clr-accent)':'rgba(255,255,255,0.1)'}`, background:iconMode==='preset'?'rgba(97, 148, 31,0.1)':'rgba(255,255,255,0.04)', color:iconMode==='preset'?'var(--clr-accent)':'var(--clr-muted)', fontFamily:'inherit', fontSize:'0.75rem', fontWeight:600, cursor:'pointer' }}>{tr('ct_icon_preset')}</button>
+                  <button type="button" onClick={() => setIconMode('custom')} style={{ flex:1, padding:'0.4rem', borderRadius:7, border:`1px solid ${iconMode==='custom'?'var(--clr-accent)':'rgba(255,255,255,0.1)'}`, background:iconMode==='custom'?'rgba(97, 148, 31,0.1)':'rgba(255,255,255,0.04)', color:iconMode==='custom'?'var(--clr-accent)':'var(--clr-muted)', fontFamily:'inherit', fontSize:'0.75rem', fontWeight:600, cursor:'pointer' }}><LuImage size={12}/> {tr('ct_icon_custom')}</button>
                 </div>
                 {iconMode === 'preset' ? (
                   <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:'0.4rem' }}>
                     {PRESET_ICONS.map(p => (
                       <button key={p.name} type="button" onClick={() => setForm(f => ({ ...f, icon:p.name }))}
-                        style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:'0.2rem', padding:'0.5rem 0.25rem', borderRadius:8, border:`1px solid ${form.icon===p.name?'var(--clr-accent)':'rgba(255,255,255,0.08)'}`, background:form.icon===p.name?'rgba(0,229,255,0.12)':'rgba(255,255,255,0.03)', color:form.icon===p.name?'var(--clr-accent)':'var(--clr-muted)', cursor:'pointer', fontFamily:'inherit', fontSize:'0.6rem', fontWeight:600 }}>
+                        style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:'0.2rem', padding:'0.5rem 0.25rem', borderRadius:8, border:`1px solid ${form.icon===p.name?'var(--clr-accent)':'rgba(255,255,255,0.08)'}`, background:form.icon===p.name?'rgba(97, 148, 31,0.12)':'rgba(255,255,255,0.03)', color:form.icon===p.name?'var(--clr-accent)':'var(--clr-muted)', cursor:'pointer', fontFamily:'inherit', fontSize:'0.6rem', fontWeight:600 }}>
                         {p.icon}
                         <span style={{ lineHeight:1.1, textAlign:'center' }}>{p.label}</span>
                       </button>
@@ -6702,7 +6702,7 @@ function AdminCargoTypesSection() {
           </div>
         </div>
       )}
-      {toast && <div style={{ position:'fixed', bottom:'1.25rem', right:'1.25rem', zIndex:200, background:'rgba(0,229,255,0.12)', border:'1px solid rgba(0,229,255,0.25)', color:'var(--clr-text)', padding:'0.65rem 1.1rem', borderRadius:12, fontSize:'0.85rem', fontWeight:600, backdropFilter:'blur(12px)' }}>{toast}</div>}
+      {toast && <div style={{ position:'fixed', bottom:'1.25rem', right:'1.25rem', zIndex:200, background:'rgba(97, 148, 31,0.12)', border:'1px solid rgba(97, 148, 31,0.25)', color:'var(--clr-text)', padding:'0.65rem 1.1rem', borderRadius:12, fontSize:'0.85rem', fontWeight:600, backdropFilter:'blur(12px)' }}>{toast}</div>}
     </div>
   )
 }
@@ -6844,7 +6844,7 @@ function AdminPricingRulesSection() {
           </div>
         </div>
       )}
-      {toast && <div style={{ position:'fixed', bottom:'1.25rem', right:'1.25rem', zIndex:200, background:'rgba(0,229,255,0.12)', border:'1px solid rgba(0,229,255,0.25)', color:'var(--clr-text)', padding:'0.65rem 1.1rem', borderRadius:12, fontSize:'0.85rem', fontWeight:600, backdropFilter:'blur(12px)' }}>{toast}</div>}
+      {toast && <div style={{ position:'fixed', bottom:'1.25rem', right:'1.25rem', zIndex:200, background:'rgba(97, 148, 31,0.12)', border:'1px solid rgba(97, 148, 31,0.25)', color:'var(--clr-text)', padding:'0.65rem 1.1rem', borderRadius:12, fontSize:'0.85rem', fontWeight:600, backdropFilter:'blur(12px)' }}>{toast}</div>}
     </div>
   )
 }
@@ -7006,7 +7006,7 @@ function AdminCarOwnersSection() {
                   )}
                   {v.status === 'APPROVED' && (
                     <button onClick={() => { setAssignTarget(v); setAssignDriverId(v.assigned_driver_id ? String(v.assigned_driver_id) : ''); setAssignErr('') }}
-                      style={{ background: 'rgba(0,229,255,0.1)', border: '1px solid rgba(0,229,255,0.25)', borderRadius: 8, padding: '0.4rem 0.85rem', color: 'var(--clr-accent)', cursor: 'pointer', fontFamily: 'inherit', fontSize: '0.78rem', fontWeight: 600 }}>
+                      style={{ background: 'rgba(97, 148, 31,0.1)', border: '1px solid rgba(97, 148, 31,0.25)', borderRadius: 8, padding: '0.4rem 0.85rem', color: 'var(--clr-accent)', cursor: 'pointer', fontFamily: 'inherit', fontSize: '0.78rem', fontWeight: 600 }}>
                       {v.assigned_driver_id ? 'Change Driver' : 'Assign Driver'}
                     </button>
                   )}
@@ -7167,9 +7167,9 @@ function AdminBemnetChat({ aiEnabled, userName, userRole }: { aiEnabled: boolean
           title="Chat with Bemnet AI"
           style={{
             position: 'fixed', bottom: '1.25rem', right: '1.25rem', zIndex: 1200,
-            width: 58, height: 58, borderRadius: '50%', border: '2px solid rgba(0,229,255,0.35)', cursor: 'pointer', padding: 0,
+            width: 58, height: 58, borderRadius: '50%', border: '2px solid rgba(97, 148, 31,0.35)', cursor: 'pointer', padding: 0,
             background: 'var(--chat-fab-bg)',
-            boxShadow: '0 8px 32px rgba(0,0,0,0.6), 0 0 0 1px rgba(0,229,255,0.12)',
+            boxShadow: '0 8px 32px rgba(0,0,0,0.6), 0 0 0 1px rgba(97, 148, 31,0.12)',
             backdropFilter: 'blur(16px)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             animation: mounted ? 'fab-pop 0.5s cubic-bezier(0.34,1.56,0.64,1) both, fab-pulse 2.5s 1.5s ease-in-out infinite' : 'none',
@@ -7479,8 +7479,8 @@ export default function AdminDashboardPage() {
     <div style={{ display: 'flex', height: '100vh', overflow: 'hidden', background: 'var(--clr-bg)', position: 'relative' }}>
       {/* Aurora background */}
       <div style={{ position: 'fixed', inset: 0, pointerEvents: 'none', zIndex: 0, overflow: 'hidden' }}>
-        <div style={{ position: 'absolute', borderRadius: '50%', filter: 'blur(80px)', opacity: adminTheme === 'LIGHT' ? 0.06 : 0.3, width: '70vmax', height: '70vmax', top: '-25vmax', left: '-20vmax', background: 'radial-gradient(ellipse,#7c3aed 0%,#4f46e5 40%,transparent 70%)' }} />
-        <div style={{ position: 'absolute', borderRadius: '50%', filter: 'blur(80px)', opacity: adminTheme === 'LIGHT' ? 0.05 : 0.25, width: '60vmax', height: '60vmax', bottom: '-20vmax', right: '-15vmax', background: 'radial-gradient(ellipse,#00e5ff 0%,#0ea5e9 40%,transparent 70%)' }} />
+        <div style={{ position: 'absolute', borderRadius: '50%', filter: 'blur(80px)', opacity: adminTheme === 'LIGHT' ? 0.06 : 0.3, width: '70vmax', height: '70vmax', top: '-25vmax', left: '-20vmax', background: 'radial-gradient(ellipse,#3e6113 0%,#283e0c 40%,transparent 70%)' }} />
+        <div style={{ position: 'absolute', borderRadius: '50%', filter: 'blur(80px)', opacity: adminTheme === 'LIGHT' ? 0.05 : 0.25, width: '60vmax', height: '60vmax', bottom: '-20vmax', right: '-15vmax', background: 'radial-gradient(ellipse,#61941f 0%,#71ad25 40%,transparent 70%)' }} />
       </div>
 
       {/* Mobile overlay (only when NOT pinned) */}
@@ -7625,7 +7625,7 @@ export default function AdminDashboardPage() {
             <p style={{ fontWeight: 700, fontSize: '0.9rem', color: 'var(--clr-text)', display:'flex', alignItems:'center', gap:'0.4rem' }}>{sectionTitle?.icon} {sectionTitle?.label}</p>
           </div>
           <button onClick={() => { setSection('profile'); if (!pinned) setSidebarOpen(false) }} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
-            <div style={{ width: 32, height: 32, borderRadius: '50%', overflow: 'hidden', background: 'linear-gradient(135deg,var(--clr-accent2),var(--clr-accent))', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '2px solid rgba(0,229,255,0.3)' }}>
+            <div style={{ width: 32, height: 32, borderRadius: '50%', overflow: 'hidden', background: 'linear-gradient(135deg,var(--clr-accent2),var(--clr-accent))', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '2px solid rgba(97, 148, 31,0.3)' }}>
               {user?.profile_photo_url ? <img src={user.profile_photo_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <LuShield size={15} color="#fff"/>}
             </div>
           </button>

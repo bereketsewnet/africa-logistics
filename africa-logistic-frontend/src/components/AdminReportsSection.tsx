@@ -60,7 +60,7 @@ const STATUS_COLORS: Record<string, string> = {
   CUSTOMS_CLEARED: '#4ade80', DELIVERED: '#22c55e', COMPLETED: '#16a34a',
   CANCELLED: '#f87171', FAILED: '#ef4444',
 }
-const CHART_COLORS = ['#00e5ff', '#a78bfa', '#34d399', '#fbbf24', '#f97316', '#f87171', '#60a5fa']
+const CHART_COLORS = ['#61941f', '#a78bfa', '#34d399', '#fbbf24', '#f97316', '#f87171', '#60a5fa']
 
 function pct(val: number, prev: number) {
   if (!prev) return null
@@ -228,7 +228,7 @@ function OrderReportPage() {
           const active = from === f && to === defaultTo
           return (
             <button key={p.label} onClick={() => { setFrom(f); setTo(defaultTo); load(f, defaultTo) }}
-              style={{ padding: '0.28rem 0.65rem', borderRadius: 8, border: '1px solid rgba(255,255,255,0.12)', background: active ? 'rgba(0,229,255,0.12)' : 'rgba(255,255,255,0.04)', color: active ? 'var(--clr-accent)' : 'var(--clr-muted)', fontSize: '0.72rem', fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
+              style={{ padding: '0.28rem 0.65rem', borderRadius: 8, border: '1px solid rgba(255,255,255,0.12)', background: active ? 'rgba(97, 148, 31,0.12)' : 'rgba(255,255,255,0.04)', color: active ? 'var(--clr-accent)' : 'var(--clr-muted)', fontSize: '0.72rem', fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
               {p.label}
             </button>
           )
@@ -261,7 +261,7 @@ function OrderReportPage() {
       {report && !loading && (
         <div ref={reportRef} className="rpt-page" style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', width: '100%' }}>
           {/* Report Header */}
-          <div className="rpt-hdr rpt-report-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'linear-gradient(135deg, rgba(0,229,255,0.08), rgba(167,139,250,0.06))', border: '1px solid rgba(0,229,255,0.15)', borderRadius: 14, padding: '1.2rem 1.5rem' }}>
+          <div className="rpt-hdr rpt-report-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'linear-gradient(135deg, rgba(97, 148, 31,0.08), rgba(167,139,250,0.06))', border: '1px solid rgba(97, 148, 31,0.15)', borderRadius: 14, padding: '1.2rem 1.5rem' }}>
             <div className="rpt-report-brand" style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
               <img src={logoImg} alt="Africa Logistics" style={{ height: 44, width: 'auto', objectFit: 'contain', borderRadius: 8 }}/>
               <div>
@@ -302,8 +302,8 @@ function OrderReportPage() {
               <AreaChart data={report.daily_trend} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
                 <defs>
                   <linearGradient id="gradOrders" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%"  stopColor="#00e5ff" stopOpacity={0.35}/>
-                    <stop offset="95%" stopColor="#00e5ff" stopOpacity={0}/>
+                    <stop offset="5%"  stopColor="#61941f" stopOpacity={0.35}/>
+                    <stop offset="95%" stopColor="#61941f" stopOpacity={0}/>
                   </linearGradient>
                   <linearGradient id="gradRevenue" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%"  stopColor="#fbbf24" stopOpacity={0.35}/>
@@ -316,7 +316,7 @@ function OrderReportPage() {
                 <YAxis yAxisId="revenue" orientation="right" tick={{ fill: '#9ca3af', fontSize: 10 }} tickLine={false} axisLine={false} tickFormatter={v => `${(v/1000).toFixed(0)}k`}/>
                 <Tooltip content={<CustomTooltip/>}/>
                 <Legend wrapperStyle={{ fontSize: '0.72rem' }}/>
-                <Area yAxisId="orders" type="monotone" dataKey="orders" name="Orders" stroke="#00e5ff" fill="url(#gradOrders)" strokeWidth={2} dot={false}/>
+                <Area yAxisId="orders" type="monotone" dataKey="orders" name="Orders" stroke="#61941f" fill="url(#gradOrders)" strokeWidth={2} dot={false}/>
                 <Area yAxisId="revenue" type="monotone" dataKey="revenue" name="Revenue (ETB)" stroke="#fbbf24" fill="url(#gradRevenue)" strokeWidth={2} dot={false}/>
               </AreaChart>
             </ResponsiveContainer>
@@ -614,7 +614,7 @@ function FinanceReportPage() {
           const active = from === f && to === defaultTo
           return (
             <button key={p.label} onClick={() => { setFrom(f); setTo(defaultTo); load(f, defaultTo) }}
-              style={{ padding: '0.28rem 0.65rem', borderRadius: 8, border: '1px solid rgba(255,255,255,0.12)', background: active ? 'rgba(0,229,255,0.12)' : 'rgba(255,255,255,0.04)', color: active ? 'var(--clr-accent)' : 'var(--clr-muted)', fontSize: '0.72rem', fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
+              style={{ padding: '0.28rem 0.65rem', borderRadius: 8, border: '1px solid rgba(255,255,255,0.12)', background: active ? 'rgba(97, 148, 31,0.12)' : 'rgba(255,255,255,0.04)', color: active ? 'var(--clr-accent)' : 'var(--clr-muted)', fontSize: '0.72rem', fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
               {p.label}
             </button>
           )
@@ -1058,7 +1058,7 @@ function DriverReportPage() {
           const active = from === f && to === defaultTo
           return (
             <button key={p.label} onClick={() => { setFrom(f); setTo(defaultTo); load(f, defaultTo) }}
-              style={{ padding: '0.28rem 0.65rem', borderRadius: 8, border: '1px solid rgba(255,255,255,0.12)', background: active ? 'rgba(0,229,255,0.12)' : 'rgba(255,255,255,0.04)', color: active ? 'var(--clr-accent)' : 'var(--clr-muted)', fontSize: '0.72rem', fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
+              style={{ padding: '0.28rem 0.65rem', borderRadius: 8, border: '1px solid rgba(255,255,255,0.12)', background: active ? 'rgba(97, 148, 31,0.12)' : 'rgba(255,255,255,0.04)', color: active ? 'var(--clr-accent)' : 'var(--clr-muted)', fontSize: '0.72rem', fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
               {p.label}
             </button>
           )
@@ -1444,7 +1444,7 @@ function LogisticsReportPage() {
           const active = from === f && to === defaultTo
           return (
             <button key={p.label} onClick={() => { setFrom(f); setTo(defaultTo); load(f, defaultTo) }}
-              style={{ padding: '0.28rem 0.65rem', borderRadius: 8, border: '1px solid rgba(255,255,255,0.12)', background: active ? 'rgba(0,229,255,0.12)' : 'rgba(255,255,255,0.04)', color: active ? 'var(--clr-accent)' : 'var(--clr-muted)', fontSize: '0.72rem', fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
+              style={{ padding: '0.28rem 0.65rem', borderRadius: 8, border: '1px solid rgba(255,255,255,0.12)', background: active ? 'rgba(97, 148, 31,0.12)' : 'rgba(255,255,255,0.04)', color: active ? 'var(--clr-accent)' : 'var(--clr-muted)', fontSize: '0.72rem', fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
               {p.label}
             </button>
           )

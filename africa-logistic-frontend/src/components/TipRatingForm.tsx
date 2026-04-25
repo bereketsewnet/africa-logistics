@@ -110,7 +110,7 @@ export default function TipRatingForm({ orderId, driverId: _driverId, onClose, o
               key={amount}
               onClick={() => setTipAmount(amount)}
               style={{
-                padding: '0.75rem', background: tipAmount === amount ? 'rgba(0,229,255,0.2)' : 'rgba(255,255,255,0.03)',
+                padding: '0.75rem', background: tipAmount === amount ? 'rgba(97, 148, 31,0.2)' : 'rgba(255,255,255,0.03)',
                 border: tipAmount === amount ? '1.5px solid var(--clr-accent)' : '1px solid rgba(255,255,255,0.08)',
                 borderRadius: '10px', color: 'var(--clr-text)', fontWeight: 600,
                 cursor: 'pointer', transition: 'all 0.2s', fontSize: '0.9rem',
@@ -184,7 +184,7 @@ export default function TipRatingForm({ orderId, driverId: _driverId, onClose, o
           onClick={handleSubmit}
           disabled={loading || rating === 0}
           style={{
-            padding: '0.9rem', background: 'linear-gradient(135deg,#7c3aed,#0ea5e9)',
+            padding: '0.9rem', background: 'linear-gradient(135deg,#3e6113,#71ad25)',
             border: 'none', borderRadius: '10px', color: '#fff',
             fontWeight: 700, cursor: loading || rating === 0 ? 'not-allowed' : 'pointer',
             fontSize: '0.95rem', fontFamily: 'inherit', transition: 'all 0.3s',

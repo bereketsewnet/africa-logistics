@@ -62,7 +62,7 @@ interface ShipperReport {
   }
 }
 
-const CHART_COLORS = ['#00e5ff', '#4ade80', '#fbbf24', '#a78bfa', '#fb7185', '#60a5fa']
+const CHART_COLORS = ['#61941f', '#4ade80', '#fbbf24', '#a78bfa', '#fb7185', '#60a5fa']
 const STATUS_COLORS: Record<string, string> = {
   PENDING: '#fbbf24',
   ASSIGNED: '#60a5fa',
@@ -213,7 +213,7 @@ export default function ShipperReportPage() {
               <button
                 key={preset.label}
                 onClick={() => { setFrom(f); setTo(defaultTo); load(f, defaultTo) }}
-                style={{ padding: '0.28rem 0.65rem', borderRadius: 8, border: '1px solid rgba(255,255,255,0.12)', background: active ? 'rgba(0,229,255,0.12)' : 'rgba(255,255,255,0.04)', color: active ? 'var(--clr-accent)' : 'var(--clr-muted)', fontSize: '0.72rem', fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}
+                style={{ padding: '0.28rem 0.65rem', borderRadius: 8, border: '1px solid rgba(255,255,255,0.12)', background: active ? 'rgba(97, 148, 31,0.12)' : 'rgba(255,255,255,0.04)', color: active ? 'var(--clr-accent)' : 'var(--clr-muted)', fontSize: '0.72rem', fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}
               >
                 {preset.label}
               </button>
@@ -243,7 +243,7 @@ export default function ShipperReportPage() {
 
         {report && summary && (
           <>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem', background: 'linear-gradient(135deg, rgba(0,229,255,0.08), rgba(167,139,250,0.07))', border: '1px solid rgba(0,229,255,0.16)', borderRadius: 16, padding: '1.2rem 1.35rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem', background: 'linear-gradient(135deg, rgba(97, 148, 31,0.08), rgba(167,139,250,0.07))', border: '1px solid rgba(97, 148, 31,0.16)', borderRadius: 16, padding: '1.2rem 1.35rem' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', minWidth: 0 }}>
                 <img src={logoImg} alt="Africa Logistics" style={{ height: 46, width: 'auto', objectFit: 'contain', borderRadius: 8 }} />
                 <div style={{ minWidth: 0 }}>
@@ -278,8 +278,8 @@ export default function ShipperReportPage() {
                   <AreaChart data={report.daily} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
                     <defs>
                       <linearGradient id="shipOrders" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#00e5ff" stopOpacity={0.32} />
-                        <stop offset="95%" stopColor="#00e5ff" stopOpacity={0} />
+                        <stop offset="5%" stopColor="#61941f" stopOpacity={0.32} />
+                        <stop offset="95%" stopColor="#61941f" stopOpacity={0} />
                       </linearGradient>
                       <linearGradient id="shipSpend" x1="0" y1="0" x2="0" y2="1">
                         <stop offset="5%" stopColor="#4ade80" stopOpacity={0.28} />
@@ -292,7 +292,7 @@ export default function ShipperReportPage() {
                     <YAxis yAxisId="right" orientation="right" tick={{ fill: '#9ca3af', fontSize: 10 }} tickLine={false} axisLine={false} tickFormatter={(value) => `${(Number(value) / 1000).toFixed(0)}k`} />
                     <Tooltip content={<CustomTooltip />} />
                     <Legend wrapperStyle={{ fontSize: '0.72rem' }} />
-                    <Area yAxisId="left" type="monotone" dataKey="orders" name={tr('srpt_legend_orders')} stroke="#00e5ff" fill="url(#shipOrders)" strokeWidth={2} dot={false} />
+                    <Area yAxisId="left" type="monotone" dataKey="orders" name={tr('srpt_legend_orders')} stroke="#61941f" fill="url(#shipOrders)" strokeWidth={2} dot={false} />
                     <Area yAxisId="left" type="monotone" dataKey="completed" name={tr('srpt_legend_completed')} stroke="#fbbf24" fillOpacity={0} strokeWidth={2} dot={false} />
                     <Area yAxisId="right" type="monotone" dataKey="spent" name={tr('srpt_legend_spent')} stroke="#4ade80" fill="url(#shipSpend)" strokeWidth={2} dot={false} />
                   </AreaChart>

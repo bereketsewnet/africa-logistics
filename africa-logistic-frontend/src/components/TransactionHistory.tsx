@@ -288,8 +288,8 @@ export default function TransactionHistoryPage() {
                   <button
                     onClick={() => downloadReceipt(tx)}
                     style={{
-                      padding: '0.45rem 0.7rem', borderRadius: '8px', border: '1px solid rgba(0,229,255,0.25)',
-                      background: 'rgba(0,229,255,0.08)', color: 'var(--clr-accent)', cursor: 'pointer',
+                      padding: '0.45rem 0.7rem', borderRadius: '8px', border: '1px solid rgba(97, 148, 31,0.25)',
+                      background: 'rgba(97, 148, 31,0.08)', color: 'var(--clr-accent)', cursor: 'pointer',
                       display: 'flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.8rem', fontWeight: 700
                     }}
                     className="hover-lift"
@@ -314,7 +314,7 @@ export default function TransactionHistoryPage() {
             disabled={page === 0}
             style={{
               padding: '0.5rem 1rem', borderRadius: '8px', border: 'none',
-              background: page === 0 ? 'rgba(255,255,255,0.03)' : 'rgba(0,229,255,0.1)',
+              background: page === 0 ? 'rgba(255,255,255,0.03)' : 'rgba(97, 148, 31,0.1)',
               color: page === 0 ? 'var(--clr-muted)' : 'var(--clr-accent)',
               cursor: page === 0 ? 'not-allowed' : 'pointer',
               display: 'flex', alignItems: 'center', gap: '0.5rem',
@@ -335,7 +335,7 @@ export default function TransactionHistoryPage() {
             disabled={!hasMore}
             style={{
               padding: '0.5rem 1rem', borderRadius: '8px', border: 'none',
-              background: !hasMore ? 'rgba(255,255,255,0.03)' : 'rgba(0,229,255,0.1)',
+              background: !hasMore ? 'rgba(255,255,255,0.03)' : 'rgba(97, 148, 31,0.1)',
               color: !hasMore ? 'var(--clr-muted)' : 'var(--clr-accent)',
               cursor: !hasMore ? 'not-allowed' : 'pointer',
               display: 'flex', alignItems: 'center', gap: '0.5rem',

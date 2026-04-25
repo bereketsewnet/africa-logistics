@@ -152,8 +152,8 @@ function HelpAndSupportPage() {
   )
 
   const contactItems = [
-    ...(contact.phone1 ? [{ href:`tel:${contact.phone1}`,       icon:<LuPhone size={16}/>,  text:contact.phone1,  color:'#00e5ff', bg:'rgba(0,229,255,0.08)',   border:'rgba(0,229,255,0.18)'   }] : []),
-    ...(contact.phone2 ? [{ href:`tel:${contact.phone2}`,       icon:<LuPhone size={16}/>,  text:contact.phone2,  color:'#00e5ff', bg:'rgba(0,229,255,0.08)',   border:'rgba(0,229,255,0.18)'   }] : []),
+    ...(contact.phone1 ? [{ href:`tel:${contact.phone1}`,       icon:<LuPhone size={16}/>,  text:contact.phone1,  color:'#61941f', bg:'rgba(97, 148, 31,0.08)',   border:'rgba(97, 148, 31,0.18)'   }] : []),
+    ...(contact.phone2 ? [{ href:`tel:${contact.phone2}`,       icon:<LuPhone size={16}/>,  text:contact.phone2,  color:'#61941f', bg:'rgba(97, 148, 31,0.08)',   border:'rgba(97, 148, 31,0.18)'   }] : []),
     ...(contact.email1 ? [{ href:`mailto:${contact.email1}`,    icon:<LuMail size={16}/>,   text:contact.email1,  color:'#818cf8', bg:'rgba(129,140,248,0.08)', border:'rgba(129,140,248,0.18)' }] : []),
     ...(contact.email2 ? [{ href:`mailto:${contact.email2}`,    icon:<LuMail size={16}/>,   text:contact.email2,  color:'#818cf8', bg:'rgba(129,140,248,0.08)', border:'rgba(129,140,248,0.18)' }] : []),
     ...(contact.po_box  ? [{ href:undefined,                    icon:<LuMapPin size={16}/>, text:contact.po_box,  color:'#fbbf24', bg:'rgba(251,191,36,0.08)',  border:'rgba(251,191,36,0.18)'  }] : []),
@@ -176,10 +176,10 @@ function HelpAndSupportPage() {
     <div className="page-enter" style={{ padding:'1.75rem 1.25rem 5rem', maxWidth:740, margin:'0 auto', width:'100%' }}>
 
       {/* ── Hero banner ── */}
-      <div style={{ position:'relative', textAlign:'center', padding:'2.5rem 1.5rem 2.25rem', borderRadius:'1.5rem', background:'linear-gradient(155deg,rgba(0,229,255,0.06) 0%,rgba(139,92,246,0.07) 100%)', border:'1px solid rgba(255,255,255,0.07)', marginBottom:'1.5rem', overflow:'hidden' }}>
-        <div style={{ position:'absolute', top:-50, right:-50, width:180, height:180, borderRadius:'50%', background:'radial-gradient(circle,rgba(0,229,255,0.1) 0%,transparent 70%)', pointerEvents:'none' }}/>
+      <div style={{ position:'relative', textAlign:'center', padding:'2.5rem 1.5rem 2.25rem', borderRadius:'1.5rem', background:'linear-gradient(155deg,rgba(97, 148, 31,0.06) 0%,rgba(139,92,246,0.07) 100%)', border:'1px solid rgba(255,255,255,0.07)', marginBottom:'1.5rem', overflow:'hidden' }}>
+        <div style={{ position:'absolute', top:-50, right:-50, width:180, height:180, borderRadius:'50%', background:'radial-gradient(circle,rgba(97, 148, 31,0.1) 0%,transparent 70%)', pointerEvents:'none' }}/>
         <div style={{ position:'absolute', bottom:-30, left:-30, width:130, height:130, borderRadius:'50%', background:'radial-gradient(circle,rgba(139,92,246,0.1) 0%,transparent 70%)', pointerEvents:'none' }}/>
-        <div style={{ position:'relative', width:80, height:80, borderRadius:'50%', background:'linear-gradient(135deg,rgba(0,229,255,0.12),rgba(139,92,246,0.12))', border:'1.5px solid rgba(0,229,255,0.22)', display:'flex', alignItems:'center', justifyContent:'center', margin:'0 auto 1.25rem', color:'var(--clr-accent)' }}>
+        <div style={{ position:'relative', width:80, height:80, borderRadius:'50%', background:'linear-gradient(135deg,rgba(97, 148, 31,0.12),rgba(139,92,246,0.12))', border:'1.5px solid rgba(97, 148, 31,0.22)', display:'flex', alignItems:'center', justifyContent:'center', margin:'0 auto 1.25rem', color:'var(--clr-accent)' }}>
           <LuLifeBuoy size={36}/>
         </div>
         <h1 style={{ fontSize:'clamp(1.6rem,4.5vw,2.1rem)', fontWeight:900, color:'var(--clr-text)', margin:'0 0 0.5rem', letterSpacing:'-0.025em' }}>{tr('help_title')}</h1>
@@ -208,7 +208,7 @@ function HelpAndSupportPage() {
           {hasContact && (
             <div className="glass" style={{ borderRadius:'1.25rem', padding:'1.5rem' }}>
               <div style={{ display:'flex', alignItems:'center', gap:'0.55rem', marginBottom:'1.15rem' }}>
-                <div style={{ width:30, height:30, borderRadius:'8px', background:'rgba(0,229,255,0.1)', border:'1px solid rgba(0,229,255,0.18)', display:'flex', alignItems:'center', justifyContent:'center', color:'var(--clr-accent)', flexShrink:0 }}>
+                <div style={{ width:30, height:30, borderRadius:'8px', background:'rgba(97, 148, 31,0.1)', border:'1px solid rgba(97, 148, 31,0.18)', display:'flex', alignItems:'center', justifyContent:'center', color:'var(--clr-accent)', flexShrink:0 }}>
                   <LuPhone size={13}/>
                 </div>
                 <span style={{ fontSize:'0.68rem', fontWeight:800, letterSpacing:'0.1em', textTransform:'uppercase', color:'var(--clr-accent)' }}>{tr('help_contact_us')}</span>
@@ -350,9 +350,9 @@ function BemnetChat({ aiEnabled, userName, userRole }: { aiEnabled: boolean; use
           title="Chat with Bemnet AI"
           style={{
             position:'fixed', bottom:'5rem', right:'1.25rem', zIndex:1200,
-            width:58, height:58, borderRadius:'50%', border:'2px solid rgba(0,229,255,0.35)', cursor:'pointer', padding:0,
+            width:58, height:58, borderRadius:'50%', border:'2px solid rgba(97, 148, 31,0.35)', cursor:'pointer', padding:0,
             background:'var(--chat-fab-bg)',
-            boxShadow:'0 8px 32px rgba(0,0,0,0.6), 0 0 0 1px rgba(0,229,255,0.12)',
+            boxShadow:'0 8px 32px rgba(0,0,0,0.6), 0 0 0 1px rgba(97, 148, 31,0.12)',
             backdropFilter:'blur(16px)',
             display:'flex', alignItems:'center', justifyContent:'center',
             animation: mounted ? 'fab-pop 0.5s cubic-bezier(0.34,1.56,0.64,1) both, fab-pulse 2.5s 1.5s ease-in-out infinite' : 'none',
@@ -958,7 +958,7 @@ export default function DashboardPage() {
               <div className="glass page-enter" style={{ padding:'1.75rem' }}>
                 <div style={{ display:'flex', alignItems:'flex-start', gap:'1.1rem' }}>
                   <div style={{ position:'relative', flexShrink:0 }}>
-                    <div style={{ width:76, height:76, borderRadius:'50%', background: photoUrl ? 'transparent' : 'linear-gradient(135deg,var(--clr-accent2),var(--clr-accent))', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'2rem', overflow:'hidden', border:'2.5px solid rgba(0,229,255,0.3)', boxShadow:'0 0 24px rgba(0,229,255,0.2)' }}>
+                    <div style={{ width:76, height:76, borderRadius:'50%', background: photoUrl ? 'transparent' : 'linear-gradient(135deg,var(--clr-accent2),var(--clr-accent))', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'2rem', overflow:'hidden', border:'2.5px solid rgba(97, 148, 31,0.3)', boxShadow:'0 0 24px rgba(97, 148, 31,0.2)' }}>
                       {photoUrl ? <img src={photoUrl} alt="Profile" style={{ width:'100%', height:'100%', objectFit:'cover' }}/> : roleIcon}
                     </div>
                     <button title="Change photo" onClick={() => photoInput.current?.click()} disabled={photoLoading}
@@ -1044,12 +1044,12 @@ export default function DashboardPage() {
                 {tabs.map(t => (
                   <button key={t.id} onClick={() => setActiveTab(t.id)} style={{
                     flex:1, padding:'0.5rem 0.35rem', border:'none', borderRadius:10,
-                    background: activeTab === t.id ? 'rgba(0,229,255,0.12)' : 'transparent',
+                    background: activeTab === t.id ? 'rgba(97, 148, 31,0.12)' : 'transparent',
                     color: activeTab === t.id ? 'var(--clr-accent)' : 'var(--clr-muted)',
                     fontFamily:'inherit', fontSize:'0.78rem', fontWeight:600,
                     cursor:'pointer', transition:'all 0.18s',
                     display:'flex', alignItems:'center', justifyContent:'center', gap:'0.35rem',
-                    outline: activeTab === t.id ? '1px solid rgba(0,229,255,0.2)' : 'none',
+                    outline: activeTab === t.id ? '1px solid rgba(97, 148, 31,0.2)' : 'none',
                   }}>
                     {t.icon}{t.label}
                   </button>
@@ -1076,7 +1076,7 @@ export default function DashboardPage() {
                     <p style={{ fontSize:'0.78rem', color:'var(--clr-muted)', lineHeight:1.5 }}>
                       {completedDocs === 0 ? tr('verification_upload_start') : `${completedDocs} of 3 documents uploaded — ${3 - completedDocs} remaining.`}
                     </p>
-                    <button onClick={() => setActiveTab('documents')} style={{ alignSelf:'flex-start', padding:'0.32rem 0.8rem', borderRadius:8, border:'1px solid rgba(0,229,255,0.25)', background:'rgba(0,229,255,0.07)', color:'var(--clr-accent)', fontFamily:'inherit', fontSize:'0.78rem', fontWeight:700, cursor:'pointer' }}>
+                    <button onClick={() => setActiveTab('documents')} style={{ alignSelf:'flex-start', padding:'0.32rem 0.8rem', borderRadius:8, border:'1px solid rgba(97, 148, 31,0.25)', background:'rgba(97, 148, 31,0.07)', color:'var(--clr-accent)', fontFamily:'inherit', fontSize:'0.78rem', fontWeight:700, cursor:'pointer' }}>
                       {tr('go_to_documents')}
                     </button>
                   </div>
@@ -1234,7 +1234,7 @@ export default function DashboardPage() {
                       style={{
                         flex: 1, padding: '0.7rem 0.5rem', borderRadius: 12, border: '1px solid',
                         borderColor: themeVal === val ? 'var(--clr-accent)' : 'rgba(255,255,255,0.10)',
-                        background: themeVal === val ? 'rgba(0,229,255,0.10)' : 'rgba(255,255,255,0.03)',
+                        background: themeVal === val ? 'rgba(97, 148, 31,0.10)' : 'rgba(255,255,255,0.03)',
                         color: themeVal === val ? 'var(--clr-accent)' : 'var(--clr-muted)',
                         fontFamily: 'inherit', fontSize: '0.82rem', fontWeight: 600,
                         cursor: 'pointer', transition: 'all 0.18s',
@@ -1417,7 +1417,7 @@ export default function DashboardPage() {
                 onClick={() => setPaymentTab('wallet')}
                 style={{
                   padding: '0.6rem 1rem', borderRadius: '8px', border: 'none',
-                  background: paymentTab === 'wallet' ? 'rgba(0,229,255,0.15)' : 'transparent',
+                  background: paymentTab === 'wallet' ? 'rgba(97, 148, 31,0.15)' : 'transparent',
                   color: paymentTab === 'wallet' ? 'var(--clr-accent)' : 'var(--clr-muted)',
                   fontWeight: 600, cursor: 'pointer', fontSize: '0.9rem',
                   fontFamily: 'inherit', transition: 'all 0.2s',
@@ -1430,7 +1430,7 @@ export default function DashboardPage() {
                 onClick={() => setPaymentTab('transactions')}
                 style={{
                   padding: '0.6rem 1rem', borderRadius: '8px', border: 'none',
-                  background: paymentTab === 'transactions' ? 'rgba(0,229,255,0.15)' : 'transparent',
+                  background: paymentTab === 'transactions' ? 'rgba(97, 148, 31,0.15)' : 'transparent',
                   color: paymentTab === 'transactions' ? 'var(--clr-accent)' : 'var(--clr-muted)',
                   fontWeight: 600, cursor: 'pointer', fontSize: '0.9rem',
                   fontFamily: 'inherit', transition: 'all 0.2s',
@@ -1443,7 +1443,7 @@ export default function DashboardPage() {
                 onClick={() => setPaymentTab('invoices')}
                 style={{
                   padding: '0.6rem 1rem', borderRadius: '8px', border: 'none',
-                  background: paymentTab === 'invoices' ? 'rgba(0,229,255,0.15)' : 'transparent',
+                  background: paymentTab === 'invoices' ? 'rgba(97, 148, 31,0.15)' : 'transparent',
                   color: paymentTab === 'invoices' ? 'var(--clr-accent)' : 'var(--clr-muted)',
                   fontWeight: 600, cursor: 'pointer', fontSize: '0.9rem',
                   fontFamily: 'inherit', transition: 'all 0.2s',
@@ -1456,7 +1456,7 @@ export default function DashboardPage() {
                 onClick={() => setPaymentTab('add-funds')}
                 style={{
                   padding: '0.6rem 1rem', borderRadius: '8px', border: 'none',
-                  background: paymentTab === 'add-funds' ? 'rgba(0,229,255,0.15)' : 'transparent',
+                  background: paymentTab === 'add-funds' ? 'rgba(97, 148, 31,0.15)' : 'transparent',
                   color: paymentTab === 'add-funds' ? 'var(--clr-accent)' : 'var(--clr-muted)',
                   fontWeight: 600, cursor: 'pointer', fontSize: '0.9rem',
                   fontFamily: 'inherit', transition: 'all 0.2s',
@@ -1479,7 +1479,7 @@ export default function DashboardPage() {
                   }}
                   style={{
                     padding: '0.6rem 1rem', borderRadius: '8px', border: 'none',
-                    background: paymentTab === 'payouts' ? 'rgba(0,229,255,0.15)' : 'transparent',
+                    background: paymentTab === 'payouts' ? 'rgba(97, 148, 31,0.15)' : 'transparent',
                     color: paymentTab === 'payouts' ? 'var(--clr-accent)' : 'var(--clr-muted)',
                     fontWeight: 600, cursor: 'pointer', fontSize: '0.9rem',
                     fontFamily: 'inherit', transition: 'all 0.2s',
@@ -1707,7 +1707,7 @@ export default function DashboardPage() {
                 )}
 
                 {vehicleToast && (
-                  <div style={{ position:'fixed', bottom:'5.5rem', right:'1.25rem', zIndex:200, background:'rgba(0,229,255,0.12)', border:'1px solid rgba(0,229,255,0.25)', color:'var(--clr-text)', padding:'0.65rem 1.1rem', borderRadius:12, fontSize:'0.85rem', fontWeight:600, backdropFilter:'blur(12px)' }}>
+                  <div style={{ position:'fixed', bottom:'5.5rem', right:'1.25rem', zIndex:200, background:'rgba(97, 148, 31,0.12)', border:'1px solid rgba(97, 148, 31,0.25)', color:'var(--clr-text)', padding:'0.65rem 1.1rem', borderRadius:12, fontSize:'0.85rem', fontWeight:600, backdropFilter:'blur(12px)' }}>
                     {vehicleToast}
                   </div>
                 )}

@@ -82,8 +82,8 @@ const STYLE_TAG = `
     to   { opacity: 1; transform: translateY(0); }
   }
   @keyframes wlt-glow {
-    0%,100% { box-shadow: 0 0 20px rgba(0,229,255,0.2), 0 0 60px rgba(0,229,255,0.05); }
-    50%      { box-shadow: 0 0 35px rgba(0,229,255,0.4), 0 0 80px rgba(0,229,255,0.15); }
+    0%,100% { box-shadow: 0 0 20px rgba(97, 148, 31,0.2), 0 0 60px rgba(97, 148, 31,0.05); }
+    50%      { box-shadow: 0 0 35px rgba(97, 148, 31,0.4), 0 0 80px rgba(97, 148, 31,0.15); }
   }
   @keyframes wlt-stat-in {
     from { opacity: 0; transform: translateY(12px) scale(0.92); }
@@ -93,8 +93,8 @@ const STYLE_TAG = `
     position: relative;
     overflow: hidden;
     border-radius: 20px;
-    background: linear-gradient(145deg, rgba(124,58,237,0.18) 0%, rgba(14,165,233,0.12) 50%, rgba(0,229,255,0.08) 100%);
-    border: 1px solid rgba(0,229,255,0.18);
+    background: linear-gradient(145deg, rgba(62,97,19,0.18) 0%, rgba(14,165,233,0.12) 50%, rgba(97, 148, 31,0.08) 100%);
+    border: 1px solid rgba(97, 148, 31,0.18);
     padding: 1.25rem 1.5rem;
     animation: wlt-glow 4s ease-in-out infinite;
   }
@@ -103,7 +103,7 @@ const STYLE_TAG = `
     position: absolute;
     inset: -2px;
     border-radius: 21px;
-    background: linear-gradient(135deg, rgba(0,229,255,0.3), rgba(124,58,237,0.3), rgba(0,229,255,0.1));
+    background: linear-gradient(135deg, rgba(97, 148, 31,0.3), rgba(62,97,19,0.3), rgba(97, 148, 31,0.1));
     mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
     -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
     mask-composite: exclude;
@@ -120,7 +120,7 @@ const STYLE_TAG = `
     opacity: 0.2;
   }
   .wlt-balance-num {
-    background: linear-gradient(90deg, #e2e8f0, #00e5ff, #7c3aed, #00e5ff, #e2e8f0);
+    background: linear-gradient(90deg, #e2e8f0, #61941f, #3e6113, #61941f, #e2e8f0);
     background-size: 200% auto;
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
@@ -152,7 +152,7 @@ const STYLE_TAG = `
   }
   .wlt-tx-row:hover {
     background: rgba(255,255,255,0.045);
-    border-color: rgba(0,229,255,0.12);
+    border-color: rgba(97, 148, 31,0.12);
     transform: translateX(3px);
   }
   .wlt-wd-card {
@@ -175,9 +175,9 @@ const STYLE_TAG = `
     gap: 0.55rem;
     padding: 0.85rem;
     border-radius: 14px;
-    border: 1px solid rgba(0,229,255,0.25);
-    background: linear-gradient(145deg, rgba(0,229,255,0.08), rgba(124,58,237,0.06));
-    color: #00e5ff;
+    border: 1px solid rgba(97, 148, 31,0.25);
+    background: linear-gradient(145deg, rgba(97, 148, 31,0.08), rgba(62,97,19,0.06));
+    color: #61941f;
     font-family: inherit;
     font-size: 0.95rem;
     font-weight: 700;
@@ -187,9 +187,9 @@ const STYLE_TAG = `
     letter-spacing: 0.02em;
   }
   .wlt-withdraw-btn:hover {
-    background: linear-gradient(145deg, rgba(0,229,255,0.14), rgba(124,58,237,0.1));
-    border-color: rgba(0,229,255,0.45);
-    box-shadow: 0 0 20px rgba(0,229,255,0.15);
+    background: linear-gradient(145deg, rgba(97, 148, 31,0.14), rgba(62,97,19,0.1));
+    border-color: rgba(97, 148, 31,0.45);
+    box-shadow: 0 0 20px rgba(97, 148, 31,0.15);
     transform: translateY(-1px);
   }
   .wlt-section-title {
@@ -212,7 +212,7 @@ const STYLE_TAG = `
   .wlt-prog-fill {
     height: 100%;
     border-radius: 99px;
-    background: linear-gradient(90deg, #7c3aed, #00e5ff);
+    background: linear-gradient(90deg, #3e6113, #61941f);
     transition: width 0.4s ease;
   }
   .wlt-img-thumb {
@@ -231,7 +231,7 @@ const STYLE_TAG = `
     font-size: 0.83rem; font-weight: 600;
     transition: all 0.18s;
   }
-  .wlt-drop-zone:hover { border-color: rgba(0,229,255,0.4); color: #00e5ff; background: rgba(0,229,255,0.04); }
+  .wlt-drop-zone:hover { border-color: rgba(97, 148, 31,0.4); color: #61941f; background: rgba(97, 148, 31,0.04); }
   .wlt-bottom-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -285,7 +285,7 @@ function Skeleton() {
       {[280, 180, 220].map((h, i) => (
         <div key={i} className="glass" style={{ height: h, borderRadius: 20, opacity: 0.4,
             animation: `pulse 1.6s ${i * 0.15}s ease-in-out infinite`,
-            background: 'linear-gradient(135deg, rgba(124,58,237,0.1), rgba(0,229,255,0.05))' }} />
+            background: 'linear-gradient(135deg, rgba(62,97,19,0.1), rgba(97, 148, 31,0.05))' }} />
       ))}
     </div>
   )
@@ -389,7 +389,7 @@ function WithdrawalForm({ balance, onSuccess }: { balance: number; onSuccess: ()
           )}
         </div>
         <div className="wlt-prog-bar">
-          <div className="wlt-prog-fill" style={{ width: `${pct}%`, background: pct > 90 ? 'linear-gradient(90deg,#f87171,#ef4444)' : 'linear-gradient(90deg,#7c3aed,#00e5ff)' }} />
+          <div className="wlt-prog-fill" style={{ width: `${pct}%`, background: pct > 90 ? 'linear-gradient(90deg,#f87171,#ef4444)' : 'linear-gradient(90deg,#3e6113,#61941f)' }} />
         </div>
       </div>
 
@@ -428,7 +428,7 @@ function WithdrawalForm({ balance, onSuccess }: { balance: number; onSuccess: ()
       {/* Proof image upload */}
       <div>
         <label htmlFor="wd-proof" className="wlt-drop-zone"
-          style={{ color: proofB64 ? '#00e5ff' : 'var(--clr-muted)' }}>
+          style={{ color: proofB64 ? '#61941f' : 'var(--clr-muted)' }}>
           <LuUpload size={15}/>
           {proofB64 ? proofName : tr('attach_receipt')}
         </label>
@@ -539,7 +539,7 @@ function WithdrawalCard({ w }: { w: WithdrawalRequest }) {
           )}
           {/* Admin note */}
           {w.admin_note && (
-            <div style={{ fontSize:'0.8rem', color: w.status === 'REJECTED' ? '#fca5a5' : 'var(--clr-muted)', padding:'0.5rem 0.75rem', borderRadius:'10px', background: w.status === 'REJECTED' ? 'rgba(239,68,68,0.06)' : 'rgba(255,255,255,0.02)', borderLeft:`2px solid ${w.status === 'REJECTED' ? 'rgba(239,68,68,0.4)' : 'rgba(0,229,255,0.2)'}` }}>
+            <div style={{ fontSize:'0.8rem', color: w.status === 'REJECTED' ? '#fca5a5' : 'var(--clr-muted)', padding:'0.5rem 0.75rem', borderRadius:'10px', background: w.status === 'REJECTED' ? 'rgba(239,68,68,0.06)' : 'rgba(255,255,255,0.02)', borderLeft:`2px solid ${w.status === 'REJECTED' ? 'rgba(239,68,68,0.4)' : 'rgba(97, 148, 31,0.2)'}` }}>
               <span style={{ fontWeight:600 }}>{tr('admin_note')}:</span> "{w.admin_note}"
             </div>
           )}
@@ -635,16 +635,16 @@ export default function WalletDashboard() {
         {/* ═══ HERO BALANCE CARD ══════════════════════════════════════════ */}
         <div className="wlt-card-hero">
           {/* Background orbs */}
-          <div className="wlt-orb" style={{ width:220, height:220, top:-60, right:-60, background:'radial-gradient(circle, #7c3aed 0%, transparent 70%)' }}/>
-          <div className="wlt-orb" style={{ width:160, height:160, bottom:-40, left:-30, background:'radial-gradient(circle, #00e5ff 0%, transparent 70%)' }}/>
+          <div className="wlt-orb" style={{ width:220, height:220, top:-60, right:-60, background:'radial-gradient(circle, #3e6113 0%, transparent 70%)' }}/>
+          <div className="wlt-orb" style={{ width:160, height:160, bottom:-40, left:-30, background:'radial-gradient(circle, #61941f 0%, transparent 70%)' }}/>
 
           {/* Top row */}
           <div className="wlt-hero-top" style={{ position:'relative', display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:'1.5rem', flexWrap:'wrap', gap:'0.75rem' }}>
             <div className="wlt-hero-icon-row" style={{ display:'flex', alignItems:'center', gap:'1rem' }}>
               {/* Wallet icon with pulse ring */}
               <div style={{ position:'relative' }}>
-                <div style={{ position:'absolute', inset:-6, borderRadius:'50%', border:'2px solid rgba(0,229,255,0.3)', animation:'wlt-pulse-ring 2s ease-out infinite' }}/>
-                <div style={{ width:52, height:52, borderRadius:'15px', background:'linear-gradient(135deg, rgba(0,229,255,0.2), rgba(124,58,237,0.2))', border:'1px solid rgba(0,229,255,0.3)', display:'flex', alignItems:'center', justifyContent:'center', color:'#00e5ff', animation:'wlt-float 4s ease-in-out infinite' }}>
+                <div style={{ position:'absolute', inset:-6, borderRadius:'50%', border:'2px solid rgba(97, 148, 31,0.3)', animation:'wlt-pulse-ring 2s ease-out infinite' }}/>
+                <div style={{ width:52, height:52, borderRadius:'15px', background:'linear-gradient(135deg, rgba(97, 148, 31,0.2), rgba(62,97,19,0.2))', border:'1px solid rgba(97, 148, 31,0.3)', display:'flex', alignItems:'center', justifyContent:'center', color:'#61941f', animation:'wlt-float 4s ease-in-out infinite' }}>
                   <LuWallet size={26}/>
                 </div>
               </div>
@@ -727,7 +727,7 @@ export default function WalletDashboard() {
             <LuClock size={14} style={{ color:'var(--clr-accent)' }}/>
             {tr('withdrawal_requests')}
             {withdrawals.length > 0 && (
-              <span style={{ background:'rgba(0,229,255,0.1)', color:'var(--clr-accent)', borderRadius:99, fontSize:'0.65rem', fontWeight:800, padding:'0.12rem 0.5rem', marginLeft:'auto' }}>{withdrawals.length}</span>
+              <span style={{ background:'rgba(97, 148, 31,0.1)', color:'var(--clr-accent)', borderRadius:99, fontSize:'0.65rem', fontWeight:800, padding:'0.12rem 0.5rem', marginLeft:'auto' }}>{withdrawals.length}</span>
             )}
           </div>
 
@@ -737,7 +737,7 @@ export default function WalletDashboard() {
             </div>
           ) : withdrawals.length === 0 ? (
             <div style={{ textAlign:'center', padding:'2rem 1rem' }}>
-              <div style={{ width:52, height:52, borderRadius:'50%', background:'rgba(0,229,255,0.06)', border:'1px solid rgba(0,229,255,0.12)', display:'flex', alignItems:'center', justifyContent:'center', margin:'0 auto 0.75rem', color:'var(--clr-accent)', opacity:0.5 }}>
+              <div style={{ width:52, height:52, borderRadius:'50%', background:'rgba(97, 148, 31,0.06)', border:'1px solid rgba(97, 148, 31,0.12)', display:'flex', alignItems:'center', justifyContent:'center', margin:'0 auto 0.75rem', color:'var(--clr-accent)', opacity:0.5 }}>
                 <LuBanknote size={22}/>
               </div>
               <p style={{ color:'var(--clr-muted)', fontSize:'0.88rem' }}>{tr('no_withdrawals')}</p>

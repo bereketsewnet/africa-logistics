@@ -80,7 +80,7 @@ interface DriverSelfReport {
   document_reviews: { document_type: string; action: string; reason: string; reviewed_at: string }[]
 }
 
-const CHART_COLORS = ['#00e5ff', '#4ade80', '#fbbf24', '#a78bfa', '#fb7185', '#60a5fa']
+const CHART_COLORS = ['#61941f', '#4ade80', '#fbbf24', '#a78bfa', '#fb7185', '#60a5fa']
 const STATUS_COLORS: Record<string, string> = {
   ASSIGNED: '#60a5fa',
   EN_ROUTE: '#a78bfa',
@@ -229,7 +229,7 @@ export default function DriverReportPage() {
               <button
                 key={preset.label}
                 onClick={() => { setFrom(f); setTo(defaultTo); load(f, defaultTo) }}
-                style={{ padding: '0.28rem 0.65rem', borderRadius: 8, border: '1px solid rgba(255,255,255,0.12)', background: active ? 'rgba(0,229,255,0.12)' : 'rgba(255,255,255,0.04)', color: active ? 'var(--clr-accent)' : 'var(--clr-muted)', fontSize: '0.72rem', fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}
+                style={{ padding: '0.28rem 0.65rem', borderRadius: 8, border: '1px solid rgba(255,255,255,0.12)', background: active ? 'rgba(97, 148, 31,0.12)' : 'rgba(255,255,255,0.04)', color: active ? 'var(--clr-accent)' : 'var(--clr-muted)', fontSize: '0.72rem', fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}
               >
                 {preset.label}
               </button>
@@ -294,8 +294,8 @@ export default function DriverReportPage() {
                   <AreaChart data={report.daily} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
                     <defs>
                       <linearGradient id="drvJobs" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#00e5ff" stopOpacity={0.32} />
-                        <stop offset="95%" stopColor="#00e5ff" stopOpacity={0} />
+                        <stop offset="5%" stopColor="#61941f" stopOpacity={0.32} />
+                        <stop offset="95%" stopColor="#61941f" stopOpacity={0} />
                       </linearGradient>
                       <linearGradient id="drvEarn" x1="0" y1="0" x2="0" y2="1">
                         <stop offset="5%" stopColor="#4ade80" stopOpacity={0.26} />
@@ -308,7 +308,7 @@ export default function DriverReportPage() {
                     <YAxis yAxisId="right" orientation="right" tick={{ fill: '#9ca3af', fontSize: 10 }} tickLine={false} axisLine={false} tickFormatter={(value) => `${(Number(value) / 1000).toFixed(0)}k`} />
                     <Tooltip content={<CustomTooltip />} />
                     <Legend wrapperStyle={{ fontSize: '0.72rem' }} />
-                    <Area yAxisId="left" type="monotone" dataKey="jobs" name="Jobs" stroke="#00e5ff" fill="url(#drvJobs)" strokeWidth={2} dot={false} />
+                    <Area yAxisId="left" type="monotone" dataKey="jobs" name="Jobs" stroke="#61941f" fill="url(#drvJobs)" strokeWidth={2} dot={false} />
                     <Area yAxisId="left" type="monotone" dataKey="completed" name="Completed" stroke="#fbbf24" fillOpacity={0} strokeWidth={2} dot={false} />
                     <Area yAxisId="right" type="monotone" dataKey="earnings" name="Earnings" stroke="#4ade80" fill="url(#drvEarn)" strokeWidth={2} dot={false} />
                   </AreaChart>

@@ -170,7 +170,7 @@ export default function InvoicesPage() {
             <div style={{ gridColumn: '1 / -1', height: '1px', background: 'rgba(255,255,255,0.1)' }} />
 
             {/* Totals */}
-            <div style={{ background: 'rgba(0,229,255,0.08)', padding: '1rem', borderRadius: '10px', border: '1px solid rgba(0,229,255,0.2)' }}>
+            <div style={{ background: 'rgba(97, 148, 31,0.08)', padding: '1rem', borderRadius: '10px', border: '1px solid rgba(97, 148, 31,0.2)' }}>
               <p style={{ fontSize: '0.8rem', color: 'var(--clr-muted)', marginBottom: '0.5rem' }}>Subtotal</p>
               <p style={{ fontSize: '1.2rem', fontWeight: 700, color: 'var(--clr-accent)' }}>
                 {formatCurrency(selectedInvoice.subtotal)}
@@ -185,7 +185,7 @@ export default function InvoicesPage() {
             </div>
 
             {/* Final Amounts */}
-            <div style={{ gridColumn: '1 / -1', background: 'linear-gradient(135deg,rgba(124,58,237,0.1),rgba(0,229,255,0.05))', padding: '1.5rem', borderRadius: '12px', border: '1px solid rgba(0,229,255,0.2)' }}>
+            <div style={{ gridColumn: '1 / -1', background: 'linear-gradient(135deg,rgba(62,97,19,0.1),rgba(97, 148, 31,0.05))', padding: '1.5rem', borderRadius: '12px', border: '1px solid rgba(97, 148, 31,0.2)' }}>
               <div style={{ display: 'grid', gap: '1rem', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))' }}>
                 <div>
                   <p style={{ fontSize: '0.8rem', color: 'var(--clr-muted)', marginBottom: '0.5rem' }}>Shipper Pays</p>
@@ -209,7 +209,7 @@ export default function InvoicesPage() {
             disabled={downloading}
             style={{
               width: '100%', padding: '0.9rem', fontSize: '1rem', fontWeight: 700,
-              background: 'linear-gradient(135deg,#7c3aed,#0ea5e9)',
+              background: 'linear-gradient(135deg,#3e6113,#71ad25)',
               color: '#fff', border: 'none', borderRadius: '10px',
               cursor: downloading ? 'not-allowed' : 'pointer',
               display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.75rem',
@@ -268,8 +268,8 @@ export default function InvoicesPage() {
                     <button
                       onClick={() => setSelectedInvoice(invoice)}
                       style={{
-                        padding: '0.6rem 1rem', background: 'rgba(0,229,255,0.1)',
-                        color: 'var(--clr-accent)', border: '1px solid rgba(0,229,255,0.2)',
+                        padding: '0.6rem 1rem', background: 'rgba(97, 148, 31,0.1)',
+                        color: 'var(--clr-accent)', border: '1px solid rgba(97, 148, 31,0.2)',
                         borderRadius: '8px', cursor: 'pointer', fontSize: '0.85rem',
                         fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.4rem',
                         transition: 'all 0.2s', fontFamily: 'inherit'
@@ -282,8 +282,8 @@ export default function InvoicesPage() {
                       onClick={() => handleDownload(invoice)}
                       disabled={downloading}
                       style={{
-                        padding: '0.6rem 1rem', background: 'rgba(124,58,237,0.1)',
-                        color: 'var(--clr-accent2)', border: '1px solid rgba(124,58,237,0.2)',
+                        padding: '0.6rem 1rem', background: 'rgba(62,97,19,0.1)',
+                        color: 'var(--clr-accent2)', border: '1px solid rgba(62,97,19,0.2)',
                         borderRadius: '8px', cursor: downloading ? 'not-allowed' : 'pointer',
                         fontSize: '0.85rem', fontWeight: 600,
                         display: 'flex', alignItems: 'center', gap: '0.4rem',

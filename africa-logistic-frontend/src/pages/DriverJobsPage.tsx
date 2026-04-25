@@ -294,7 +294,7 @@ function JobDetailModal({ job, onClose, onRefresh }: { job: Job; onClose: () => 
             {/* Tabs */}
             <div style={{ display:'flex', gap:'0.25rem', background:'rgba(255,255,255,0.04)', borderRadius:10, padding:'0.25rem', marginBottom:'1rem' }}>
               {(isCrossBorder ? ['info','chat','docs'] as const : ['info','chat'] as const).map(tabKey => (
-                <button key={tabKey} onClick={() => setTab(tabKey as any)} style={{ flex:1, padding:'0.4rem', border:'none', borderRadius:8, background: tab === tabKey ? 'rgba(0,229,255,0.12)' : 'transparent', color: tab === tabKey ? 'var(--clr-accent)' : 'var(--clr-muted)', fontFamily:'inherit', fontSize:'0.78rem', fontWeight:700, cursor:'pointer', transition:'all 0.15s', outline: tab === tabKey ? '1px solid rgba(0,229,255,0.2)' : 'none', position:'relative' }}>
+                <button key={tabKey} onClick={() => setTab(tabKey as any)} style={{ flex:1, padding:'0.4rem', border:'none', borderRadius:8, background: tab === tabKey ? 'rgba(97, 148, 31,0.12)' : 'transparent', color: tab === tabKey ? 'var(--clr-accent)' : 'var(--clr-muted)', fontFamily:'inherit', fontSize:'0.78rem', fontWeight:700, cursor:'pointer', transition:'all 0.15s', outline: tab === tabKey ? '1px solid rgba(97, 148, 31,0.2)' : 'none', position:'relative' }}>
                   {tabKey === 'info' ? tr('job_details_tab') : tabKey === 'docs' ? <><LuFileText size={12} style={{ marginRight:3 }}/> {tr('docs_tab')}</> : (
                     <>{unreadChat && tab !== 'chat' && <span style={{ position:'absolute', top:2, right:2, width:7, height:7, borderRadius:'50%', background:'#f87171', boxShadow:'0 0 4px #f87171' }}/>}{tr('admin_chat_tab')}</>
                   )}
@@ -514,7 +514,7 @@ function JobDetailModal({ job, onClose, onRefresh }: { job: Job; onClose: () => 
                     const roleLabel = m.sender_role_id === 1 ? tr('role_admin') : m.sender_role_id === 4 ? tr('role_staff') : tr('role_you')
                     return (
                       <div key={m.id} style={{ display:'flex', flexDirection:'column', alignItems: isMe ? 'flex-end' : 'flex-start' }}>
-                        <div style={{ maxWidth:'80%', background: isMe ? 'rgba(0,229,255,0.12)' : 'rgba(255,255,255,0.05)', border: isMe ? '1px solid rgba(0,229,255,0.2)' : '1px solid rgba(255,255,255,0.08)', borderRadius:12, padding:'0.55rem 0.85rem' }}>
+                        <div style={{ maxWidth:'80%', background: isMe ? 'rgba(97, 148, 31,0.12)' : 'rgba(255,255,255,0.05)', border: isMe ? '1px solid rgba(97, 148, 31,0.2)' : '1px solid rgba(255,255,255,0.08)', borderRadius:12, padding:'0.55rem 0.85rem' }}>
                           <p style={{ fontSize:'0.8rem', color:'var(--clr-text)', lineHeight:1.5, wordBreak:'break-word' }}>{m.message}</p>
                         </div>
                         <p style={{ fontSize:'0.65rem', color:'var(--clr-muted)', marginTop:'0.15rem', paddingInline:'0.25rem' }}>{m.sender_first_name} · {roleLabel} · {fmtDate(m.created_at)}</p>
@@ -654,7 +654,7 @@ function GpsPingButton({ activeJobId }: { activeJobId: string | null }) {
   return (
     <div style={{ display:'flex', alignItems:'center', gap:'0.5rem', flexWrap:'wrap' }}>
       <button onClick={ping} disabled={pinging}
-        style={{ display:'flex', alignItems:'center', gap:'0.4rem', padding:'0.38rem 0.75rem', borderRadius:8, border:'1px solid rgba(0,229,255,0.25)', background:'rgba(0,229,255,0.07)', color:'var(--clr-accent)', fontFamily:'inherit', fontSize:'0.76rem', fontWeight:700, cursor:'pointer' }}>
+        style={{ display:'flex', alignItems:'center', gap:'0.4rem', padding:'0.38rem 0.75rem', borderRadius:8, border:'1px solid rgba(97, 148, 31,0.25)', background:'rgba(97, 148, 31,0.07)', color:'var(--clr-accent)', fontFamily:'inherit', fontSize:'0.76rem', fontWeight:700, cursor:'pointer' }}>
         {pinging ? <><Spinner/> {tr('pinging')}</> : <><LuNavigation size={13}/> {tr('btn_ping_location')}</>}
       </button>
       <button onClick={() => setAutoPing(v => !v)}
@@ -801,7 +801,7 @@ export default function DriverJobsPage() {
           {/* Tab switcher */}
           <div style={{ display:'flex', gap:'0.25rem', background:'rgba(255,255,255,0.04)', borderRadius:10, padding:'0.25rem', marginTop:'1rem' }}>
             {(['active','completed'] as JobTab[]).map(tabKey => (
-              <button key={tabKey} onClick={() => { setJobTab(tabKey); clearSelection() }} style={{ flex:1, padding:'0.45rem', border:'none', borderRadius:8, background: jobTab === tabKey ? 'rgba(0,229,255,0.12)' : 'transparent', color: jobTab === tabKey ? 'var(--clr-accent)' : 'var(--clr-muted)', fontFamily:'inherit', fontSize:'0.78rem', fontWeight:700, cursor:'pointer', transition:'all 0.15s', outline: jobTab === tabKey ? '1px solid rgba(0,229,255,0.2)' : 'none', display:'flex', alignItems:'center', justifyContent:'center', gap:'0.35rem' }}>
+              <button key={tabKey} onClick={() => { setJobTab(tabKey); clearSelection() }} style={{ flex:1, padding:'0.45rem', border:'none', borderRadius:8, background: jobTab === tabKey ? 'rgba(97, 148, 31,0.12)' : 'transparent', color: jobTab === tabKey ? 'var(--clr-accent)' : 'var(--clr-muted)', fontFamily:'inherit', fontSize:'0.78rem', fontWeight:700, cursor:'pointer', transition:'all 0.15s', outline: jobTab === tabKey ? '1px solid rgba(97, 148, 31,0.2)' : 'none', display:'flex', alignItems:'center', justifyContent:'center', gap:'0.35rem' }}>
                 {tabKey === 'active' ? <><LuClock size={13}/> Active ({active.length})</> : <><LuCircleCheck size={13}/> Completed ({completed.length})</>}
               </button>
             ))}
@@ -810,7 +810,7 @@ export default function DriverJobsPage() {
 
         {/* ── Bulk Action Bar ── */}
         {selectedJobs.size > 0 && (
-          <div className="glass" style={{ padding:'0.75rem 1.25rem', display:'flex', alignItems:'center', gap:'0.65rem', flexWrap:'wrap', border:'1px solid rgba(0,229,255,0.2)' }}>
+          <div className="glass" style={{ padding:'0.75rem 1.25rem', display:'flex', alignItems:'center', gap:'0.65rem', flexWrap:'wrap', border:'1px solid rgba(97, 148, 31,0.2)' }}>
             <span style={{ fontSize:'0.8rem', fontWeight:700, color:'var(--clr-accent)', flex:1, minWidth:120 }}>
               {selectedJobs.size} job{selectedJobs.size > 1 ? 's' : ''} selected
             </span>
@@ -862,7 +862,7 @@ export default function DriverJobsPage() {
             const unread = unreadCounts[job.id] ?? 0
             return (
               <div key={job.id} className="glass-inner"
-                style={{ padding:'0.9rem 1rem', cursor:'pointer', transition:'background 0.15s', display:'flex', flexDirection:'column', justifyContent:'space-between', outline: isSelected ? '2px solid rgba(0,229,255,0.35)' : 'none' }}
+                style={{ padding:'0.9rem 1rem', cursor:'pointer', transition:'background 0.15s', display:'flex', flexDirection:'column', justifyContent:'space-between', outline: isSelected ? '2px solid rgba(97, 148, 31,0.35)' : 'none' }}
                 onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.04)')}
                 onMouseLeave={e => (e.currentTarget.style.background = '')}>
                 

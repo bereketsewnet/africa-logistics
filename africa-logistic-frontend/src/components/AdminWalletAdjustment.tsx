@@ -277,7 +277,7 @@ export default function AdminWalletAdjustment() {
                     key={type}
                     onClick={() => setAdjustmentType(type)}
                     style={{
-                      padding: '0.75rem', background: adjustmentType === type ? 'linear-gradient(135deg,#7c3aed,#0ea5e9)' : 'rgba(255,255,255,0.04)',
+                      padding: '0.75rem', background: adjustmentType === type ? 'linear-gradient(135deg,#3e6113,#71ad25)' : 'rgba(255,255,255,0.04)',
                       border: adjustmentType === type ? 'none' : '1px solid rgba(255,255,255,0.08)',
                       borderRadius: '8px', color: adjustmentType === type ? '#fff' : 'var(--clr-text)',
                       fontWeight: 600, cursor: 'pointer', fontSize: '0.9rem',
@@ -348,8 +348,8 @@ export default function AdminWalletAdjustment() {
             {/* Preview */}
             {adjustmentAmount && (
               <div style={{
-                padding: '1rem', background: 'rgba(124,58,237,0.08)',
-                border: '1px solid rgba(124,58,237,0.2)', borderRadius: '10px'
+                padding: '1rem', background: 'rgba(62,97,19,0.08)',
+                border: '1px solid rgba(62,97,19,0.2)', borderRadius: '10px'
               }}>
                 <p style={{ fontSize: '0.85rem', color: 'var(--clr-muted)', marginBottom: '0.5rem' }}>
                   {adjustmentType === 'DEPOSIT' || adjustmentType === 'REFUND' ? tr('waj_will_add') : tr('waj_will_deduct')}:
@@ -386,7 +386,7 @@ export default function AdminWalletAdjustment() {
                 onClick={handleAdjustment}
                 disabled={processing || !adjustmentAmount}
                 style={{
-                  padding: '0.9rem', background: 'linear-gradient(135deg,#7c3aed,#0ea5e9)',
+                  padding: '0.9rem', background: 'linear-gradient(135deg,#3e6113,#71ad25)',
                   border: 'none', borderRadius: '10px', color: '#fff',
                   fontWeight: 700, cursor: processing || !adjustmentAmount ? 'not-allowed' : 'pointer',
                   fontSize: '0.95rem', fontFamily: 'inherit', transition: 'all 0.3s',
@@ -437,7 +437,7 @@ export default function AdminWalletAdjustment() {
           {tr('waj_admin_wallet')}
         </h3>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))', gap: '0.75rem', marginBottom: '1rem' }}>
-          <div style={{ padding: '0.9rem', borderRadius: '10px', background: 'rgba(0,229,255,0.08)', border: '1px solid rgba(0,229,255,0.2)' }}>
+          <div style={{ padding: '0.9rem', borderRadius: '10px', background: 'rgba(97, 148, 31,0.08)', border: '1px solid rgba(97, 148, 31,0.2)' }}>
             <p style={{ fontSize: '0.8rem', color: 'var(--clr-muted)' }}>{tr('waj_curr_bal_kpi')}</p>
             <p style={{ fontSize: '1.2rem', fontWeight: 800, color: 'var(--clr-accent)' }}>
               {formatCurrency(adminWallet?.balance ?? 0)}
@@ -482,7 +482,7 @@ export default function AdminWalletAdjustment() {
             onClick={handleAdminRefill}
             disabled={refilling}
             style={{
-              padding: '0.7rem 1rem', background: 'linear-gradient(135deg,#7c3aed,#0ea5e9)', border: 'none', borderRadius: '8px',
+              padding: '0.7rem 1rem', background: 'linear-gradient(135deg,#3e6113,#71ad25)', border: 'none', borderRadius: '8px',
               color: '#fff', fontWeight: 700, cursor: refilling ? 'not-allowed' : 'pointer', opacity: refilling ? 0.7 : 1
             }}
             className="hover-lift"
@@ -543,7 +543,7 @@ export default function AdminWalletAdjustment() {
             onClick={handleSearch}
             disabled={loading || !canSearch}
             style={{
-              padding: '0.75rem 1.5rem', background: 'linear-gradient(135deg,#7c3aed,#0ea5e9)',
+              padding: '0.75rem 1.5rem', background: 'linear-gradient(135deg,#3e6113,#71ad25)',
               border: 'none', borderRadius: '10px', color: '#fff',
               fontWeight: 600, cursor: loading || !canSearch ? 'not-allowed' : 'pointer',
               fontSize: '0.95rem', fontFamily: 'inherit', transition: 'all 0.3s'
@@ -608,8 +608,8 @@ export default function AdminWalletAdjustment() {
                   setSelectedUser(user)
                 }}
                 style={{
-                  padding: '0.6rem 1.2rem', background: 'rgba(0,229,255,0.1)',
-                  border: '1px solid rgba(0,229,255,0.2)', borderRadius: '8px',
+                  padding: '0.6rem 1.2rem', background: 'rgba(97, 148, 31,0.1)',
+                  border: '1px solid rgba(97, 148, 31,0.2)', borderRadius: '8px',
                   color: 'var(--clr-accent)', cursor: 'pointer',
                   fontSize: '0.9rem', fontWeight: 600, fontFamily: 'inherit'
                 }}

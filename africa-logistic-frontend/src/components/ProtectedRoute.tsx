@@ -49,40 +49,40 @@ function SplashLoader() {
           <div style={{ position:'absolute', left:'50%', top:12, transform:'translateX(-50%)', animation:'truck-drive 1.4s 0.2s cubic-bezier(0.4,0,0.2,1) both' }}>
             <svg width="160" height="80" viewBox="0 0 160 80" fill="none" xmlns="http://www.w3.org/2000/svg">
               {/* Trailer body */}
-              <rect x="0" y="18" width="100" height="42" rx="4" fill="url(#trailerGrad)" stroke="rgba(0,229,255,0.35)" strokeWidth="1.2"/>
+              <rect x="0" y="18" width="100" height="42" rx="4" fill="url(#trailerGrad)" stroke="rgba(97, 148, 31,0.35)" strokeWidth="1.2"/>
               {/* Trailer door lines */}
-              <line x1="33" y1="18" x2="33" y2="60" stroke="rgba(0,229,255,0.2)" strokeWidth="1"/>
-              <line x1="66" y1="18" x2="66" y2="60" stroke="rgba(0,229,255,0.2)" strokeWidth="1"/>
+              <line x1="33" y1="18" x2="33" y2="60" stroke="rgba(97, 148, 31,0.2)" strokeWidth="1"/>
+              <line x1="66" y1="18" x2="66" y2="60" stroke="rgba(97, 148, 31,0.2)" strokeWidth="1"/>
               {/* Trailer text */}
-              <text x="50" y="43" textAnchor="middle" fontSize="8" fontWeight="700" fill="rgba(0,229,255,0.55)" fontFamily="sans-serif">AFRICA LOGISTICS</text>
+              <text x="50" y="43" textAnchor="middle" fontSize="8" fontWeight="700" fill="rgba(97, 148, 31,0.55)" fontFamily="sans-serif">AFRICA LOGISTICS</text>
               {/* Cab body */}
-              <rect x="100" y="24" width="48" height="36" rx="5" fill="url(#cabGrad)" stroke="rgba(0,229,255,0.4)" strokeWidth="1.2"/>
+              <rect x="100" y="24" width="48" height="36" rx="5" fill="url(#cabGrad)" stroke="rgba(97, 148, 31,0.4)" strokeWidth="1.2"/>
               {/* Windshield */}
-              <path d="M104 28 L104 44 L142 44 L142 38 Q138 28 128 28 Z" fill="rgba(0,229,255,0.14)" stroke="rgba(0,229,255,0.3)" strokeWidth="1"/>
+              <path d="M104 28 L104 44 L142 44 L142 38 Q138 28 128 28 Z" fill="rgba(97, 148, 31,0.14)" stroke="rgba(97, 148, 31,0.3)" strokeWidth="1"/>
               {/* Headlight */}
               <rect x="144" y="34" width="8" height="5" rx="2" fill="#fbbf24" opacity="0.9"/>
               <line x1="152" y1="36.5" x2="160" y2="33" stroke="rgba(251,191,36,0.5)" strokeWidth="1.5"/>
               <line x1="152" y1="36.5" x2="160" y2="36.5" stroke="rgba(251,191,36,0.35)" strokeWidth="1"/>
               {/* Grill */}
-              <rect x="143" y="42" width="10" height="10" rx="1.5" fill="rgba(0,229,255,0.1)" stroke="rgba(0,229,255,0.25)" strokeWidth="0.8"/>
-              {[0,1,2].map(i=><line key={i} x1="143" y1={44+i*3} x2="153" y2={44+i*3} stroke="rgba(0,229,255,0.2)" strokeWidth="0.6"/>)}
+              <rect x="143" y="42" width="10" height="10" rx="1.5" fill="rgba(97, 148, 31,0.1)" stroke="rgba(97, 148, 31,0.25)" strokeWidth="0.8"/>
+              {[0,1,2].map(i=><line key={i} x1="143" y1={44+i*3} x2="153" y2={44+i*3} stroke="rgba(97, 148, 31,0.2)" strokeWidth="0.6"/>)}
               {/* Connector hitch */}
               <rect x="96" y="38" width="6" height="6" rx="1" fill="rgba(100,116,139,0.6)"/>
               {/* Rear wheels (trailer) */}
               {[14,30].map(x=>(
                 <g key={x}>
-                  <circle cx={x} cy="62" r="10" fill="#1e293b" stroke="rgba(0,229,255,0.3)" strokeWidth="1.2"/>
-                  <circle cx={x} cy="62" r="5" fill="#0f172a" stroke="rgba(0,229,255,0.2)" strokeWidth="0.8"/>
-                  <circle cx={x} cy="62" r="1.5" fill="rgba(0,229,255,0.5)"/>
+                  <circle cx={x} cy="62" r="10" fill="#1e293b" stroke="rgba(97, 148, 31,0.3)" strokeWidth="1.2"/>
+                  <circle cx={x} cy="62" r="5" fill="#0f172a" stroke="rgba(97, 148, 31,0.2)" strokeWidth="0.8"/>
+                  <circle cx={x} cy="62" r="1.5" fill="rgba(97, 148, 31,0.5)"/>
                   <animateTransform attributeName="transform" type="rotate" from={`0 ${x} 62`} to={`360 ${x} 62`} dur="0.6s" repeatCount="indefinite"/>
                 </g>
               ))}
               {/* Front wheels (cab) */}
               {[118,138].map(x=>(
                 <g key={x}>
-                  <circle cx={x} cy="62" r="9" fill="#1e293b" stroke="rgba(0,229,255,0.3)" strokeWidth="1.2"/>
-                  <circle cx={x} cy="62" r="4.5" fill="#0f172a" stroke="rgba(0,229,255,0.2)" strokeWidth="0.8"/>
-                  <circle cx={x} cy="62" r="1.5" fill="rgba(0,229,255,0.5)"/>
+                  <circle cx={x} cy="62" r="9" fill="#1e293b" stroke="rgba(97, 148, 31,0.3)" strokeWidth="1.2"/>
+                  <circle cx={x} cy="62" r="4.5" fill="#0f172a" stroke="rgba(97, 148, 31,0.2)" strokeWidth="0.8"/>
+                  <circle cx={x} cy="62" r="1.5" fill="rgba(97, 148, 31,0.5)"/>
                   <animateTransform attributeName="transform" type="rotate" from={`0 ${x} 62`} to={`360 ${x} 62`} dur="0.6s" repeatCount="indefinite"/>
                 </g>
               ))}
@@ -108,7 +108,7 @@ function SplashLoader() {
               animation:'road-scroll 0.7s linear infinite',
             }}>
               {Array.from({length:24}).map((_,i)=>(
-                <div key={i} style={{ flexShrink:0, width:28, height:3, borderRadius:99, background:i%2===0?'rgba(0,229,255,0.45)':'transparent' }}/>
+                <div key={i} style={{ flexShrink:0, width:28, height:3, borderRadius:99, background:i%2===0?'rgba(97, 148, 31,0.45)':'transparent' }}/>
               ))}
             </div>
           </div>
@@ -126,7 +126,7 @@ function SplashLoader() {
 
         {/* Progress bar */}
         <div className="splash-progress-track" style={{ borderRadius:99, height:3, overflow:'hidden', marginBottom:'1.25rem' }}>
-          <div style={{ height:'100%', borderRadius:99, background:'linear-gradient(90deg,#7c3aed,#00e5ff)', animation:'progress-fill 1.8s cubic-bezier(0.4,0,0.2,1) infinite' }}/>
+          <div style={{ height:'100%', borderRadius:99, background:'linear-gradient(90deg,#3e6113,#61941f)', animation:'progress-fill 1.8s cubic-bezier(0.4,0,0.2,1) infinite' }}/>
         </div>
 
         {/* Loading text with dots */}

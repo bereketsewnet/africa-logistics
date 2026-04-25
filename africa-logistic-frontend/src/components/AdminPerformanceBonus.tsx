@@ -140,7 +140,7 @@ export default function AdminPerformanceBonus() {
             onClick={handleProcessBonuses}
             disabled={processing}
             style={{
-              padding: '0.75rem 1.5rem', background: 'linear-gradient(135deg,#7c3aed,#0ea5e9)',
+              padding: '0.75rem 1.5rem', background: 'linear-gradient(135deg,#3e6113,#71ad25)',
               border: 'none', borderRadius: '8px', color: '#fff',
               fontWeight: 700, cursor: processing ? 'not-allowed' : 'pointer',
               fontSize: '0.95rem', fontFamily: 'inherit', transition: 'all 0.3s',
@@ -162,8 +162,8 @@ export default function AdminPerformanceBonus() {
               key={sort}
               onClick={() => handleSort(sort)}
               style={{
-                padding: '0.5rem 1rem', background: sortBy === sort ? 'rgba(0,229,255,0.2)' : 'rgba(255,255,255,0.04)',
-                border: sortBy === sort ? '1px solid rgba(0,229,255,0.3)' : '1px solid rgba(255,255,255,0.08)',
+                padding: '0.5rem 1rem', background: sortBy === sort ? 'rgba(97, 148, 31,0.2)' : 'rgba(255,255,255,0.04)',
+                border: sortBy === sort ? '1px solid rgba(97, 148, 31,0.3)' : '1px solid rgba(255,255,255,0.08)',
                 borderRadius: '8px', color: sortBy === sort ? 'var(--clr-accent)' : 'var(--clr-text)',
                 fontWeight: 600, cursor: 'pointer', fontSize: '0.85rem',
                 fontFamily: 'inherit', transition: 'all 0.2s'
@@ -250,7 +250,7 @@ export default function AdminPerformanceBonus() {
               </div>
 
               {/* Bonus Section */}
-              <div style={{ gridColumn: '1 / -1', padding: '1rem', background: 'linear-gradient(135deg,rgba(124,58,237,0.1),rgba(0,229,255,0.05))', borderRadius: '10px', border: '1px solid rgba(0,229,255,0.2)' }}>
+              <div style={{ gridColumn: '1 / -1', padding: '1rem', background: 'linear-gradient(135deg,rgba(62,97,19,0.1),rgba(97, 148, 31,0.05))', borderRadius: '10px', border: '1px solid rgba(97, 148, 31,0.2)' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.75rem' }}>
                   <div>
                     <p style={{ fontSize: '0.8rem', color: 'var(--clr-muted)', marginBottom: '0.3rem' }}>Bonus Tier</p>
@@ -296,7 +296,7 @@ export default function AdminPerformanceBonus() {
             disabled={page === 0}
             style={{
               padding: '0.5rem 1rem', borderRadius: '8px', border: 'none',
-              background: page === 0 ? 'rgba(255,255,255,0.03)' : 'rgba(0,229,255,0.1)',
+              background: page === 0 ? 'rgba(255,255,255,0.03)' : 'rgba(97, 148, 31,0.1)',
               color: page === 0 ? 'var(--clr-muted)' : 'var(--clr-accent)',
               cursor: page === 0 ? 'not-allowed' : 'pointer',
               display: 'flex', alignItems: 'center', gap: '0.5rem',
@@ -317,7 +317,7 @@ export default function AdminPerformanceBonus() {
             disabled={!hasMore}
             style={{
               padding: '0.5rem 1rem', borderRadius: '8px', border: 'none',
-              background: !hasMore ? 'rgba(255,255,255,0.03)' : 'rgba(0,229,255,0.1)',
+              background: !hasMore ? 'rgba(255,255,255,0.03)' : 'rgba(97, 148, 31,0.1)',
               color: !hasMore ? 'var(--clr-muted)' : 'var(--clr-accent)',
               cursor: !hasMore ? 'not-allowed' : 'pointer',
               display: 'flex', alignItems: 'center', gap: '0.5rem',

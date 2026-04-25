@@ -174,7 +174,7 @@ export default function CarOwnerDashboard() {
                   <span style={{
                     display: 'inline-flex', alignItems: 'center', gap: '0.3rem',
                     padding: '0.2rem 0.55rem', borderRadius: 999,
-                    background: 'rgba(0,229,255,0.12)', color: 'var(--clr-accent)',
+                    background: 'rgba(97, 148, 31,0.12)', color: 'var(--clr-accent)',
                     fontSize: '0.72rem', fontWeight: 700,
                   }}>
                     <LuCar size={11}/> {t('car_owner_badge')}

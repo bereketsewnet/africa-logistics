@@ -359,7 +359,7 @@ export default function AdminPaymentReview() {
                 <LuX size={16}/> {wProcessing ? tr('apr_processing') : tr('apr_reject_btn')}
               </button>
               <button onClick={handleWApprove} disabled={wProcessing}
-                style={{ padding: '0.9rem', background: 'linear-gradient(135deg,#7c3aed,#0ea5e9)', border: 'none', borderRadius: '10px', color: '#fff', fontWeight: 700, cursor: wProcessing ? 'not-allowed' : 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', opacity: wProcessing ? 0.6 : 1 }}>
+                style={{ padding: '0.9rem', background: 'linear-gradient(135deg,#3e6113,#71ad25)', border: 'none', borderRadius: '10px', color: '#fff', fontWeight: 700, cursor: wProcessing ? 'not-allowed' : 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', opacity: wProcessing ? 0.6 : 1 }}>
                 <LuCheck size={16}/> {wProcessing ? tr('apr_processing') : tr('apr_approve_debit')}
               </button>
             </div>
@@ -437,13 +437,13 @@ export default function AdminPaymentReview() {
             Payment Details
           </h4>
           <div style={{ display: 'grid', gap: '1rem', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', marginBottom: '1.5rem' }}>
-            <div style={{ padding: '1rem', background: 'rgba(0,229,255,0.08)', borderRadius: '10px', border: '1px solid rgba(0,229,255,0.2)' }}>
+            <div style={{ padding: '1rem', background: 'rgba(97, 148, 31,0.08)', borderRadius: '10px', border: '1px solid rgba(97, 148, 31,0.2)' }}>
               <p style={{ fontSize: '0.75rem', color: 'var(--clr-muted)', marginBottom: '0.25rem' }}>{tr('apr_amount')}</p>
               <p style={{ fontSize: '1.3rem', fontWeight: 800, color: 'var(--clr-accent)' }}>
                 {formatCurrency(selectedPayment.amount)}
               </p>
             </div>
-            <div style={{ padding: '1rem', background: 'rgba(124,58,237,0.08)', borderRadius: '10px', border: '1px solid rgba(124,58,237,0.2)' }}>
+            <div style={{ padding: '1rem', background: 'rgba(62,97,19,0.08)', borderRadius: '10px', border: '1px solid rgba(62,97,19,0.2)' }}>
               <p style={{ fontSize: '0.75rem', color: 'var(--clr-muted)', marginBottom: '0.25rem' }}>{tr('apr_status')}</p>
               <p style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--clr-accent2)' }}>
                 {selectedPayment.status}
@@ -467,7 +467,7 @@ export default function AdminPaymentReview() {
             selectedPayment.proof_image_url.endsWith('.pdf') ? (
               <div style={{
                 padding: '2rem', borderRadius: '12px',
-                border: '1px solid rgba(0,229,255,0.2)',
+                border: '1px solid rgba(97, 148, 31,0.2)',
                 background: 'rgba(255,255,255,0.03)',
                 display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.75rem'
               }}>
@@ -546,7 +546,7 @@ export default function AdminPaymentReview() {
               onClick={handleApprove}
               disabled={processing}
               style={{
-                padding: '1rem', background: 'linear-gradient(135deg,#7c3aed,#0ea5e9)',
+                padding: '1rem', background: 'linear-gradient(135deg,#3e6113,#71ad25)',
                 border: 'none', borderRadius: '10px', color: '#fff',
                 fontWeight: 700, fontSize: '1rem', cursor: processing ? 'not-allowed' : 'pointer',
                 fontFamily: 'inherit', transition: 'all 0.3s',
@@ -570,7 +570,7 @@ export default function AdminPaymentReview() {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem', flexWrap: 'wrap', gap: '1rem' }}>
           <h3 style={{ fontSize: '1.3rem', fontWeight: 800, color: 'var(--clr-text)' }}>{tr('apr_title')}</h3>
           <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-            <div style={{ padding: '0.55rem 1rem', borderRadius: '8px', background: 'rgba(0,229,255,0.08)', border: '1px solid rgba(0,229,255,0.15)', display: 'flex', alignItems: 'center', gap: '0.4rem', color: 'var(--clr-accent)', fontWeight: 700, fontSize: '0.85rem' }}>
+            <div style={{ padding: '0.55rem 1rem', borderRadius: '8px', background: 'rgba(97, 148, 31,0.08)', border: '1px solid rgba(97, 148, 31,0.15)', display: 'flex', alignItems: 'center', gap: '0.4rem', color: 'var(--clr-accent)', fontWeight: 700, fontSize: '0.85rem' }}>
               <LuClock size={15}/> {pendingCount} {tr('apr_manual_pending')}
             </div>
             {wPendingCount > 0 && (
@@ -582,7 +582,7 @@ export default function AdminPaymentReview() {
         </div>
         <div style={{ display: 'flex', gap: '0.5rem', background: 'rgba(255,255,255,0.03)', padding: '0.4rem', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.07)', width: 'fit-content' }}>
           {(['payments', 'withdrawals'] as const).map(tab => (
-            <button key={tab} onClick={() => setActiveMainTab(tab)} style={{ padding: '0.55rem 1.2rem', borderRadius: '7px', border: 'none', fontFamily: 'inherit', fontSize: '0.88rem', fontWeight: 700, cursor: 'pointer', transition: 'all 0.18s', background: activeMainTab === tab ? 'rgba(0,229,255,0.12)' : 'transparent', color: activeMainTab === tab ? 'var(--clr-accent)' : 'var(--clr-muted)', boxShadow: activeMainTab === tab ? '0 0 0 1px rgba(0,229,255,0.2)' : 'none' }}>
+            <button key={tab} onClick={() => setActiveMainTab(tab)} style={{ padding: '0.55rem 1.2rem', borderRadius: '7px', border: 'none', fontFamily: 'inherit', fontSize: '0.88rem', fontWeight: 700, cursor: 'pointer', transition: 'all 0.18s', background: activeMainTab === tab ? 'rgba(97, 148, 31,0.12)' : 'transparent', color: activeMainTab === tab ? 'var(--clr-accent)' : 'var(--clr-muted)', boxShadow: activeMainTab === tab ? '0 0 0 1px rgba(97, 148, 31,0.2)' : 'none' }}>
               {tab === 'payments' ? (
                 <span style={{ display:'flex', alignItems:'center', gap:'0.4rem' }}><LuCheck size={14}/>{tr('apr_manual_tab')}</span>
               ) : (
@@ -630,7 +630,7 @@ export default function AdminPaymentReview() {
           <div style={{ padding: '2rem', textAlign: 'center' }}><div style={{ display: 'inline-block' }} className="spinner" /></div>
         ) : filteredPayments.length === 0 ? (
           <div className="glass" style={{ padding: '3rem 1rem', textAlign: 'center' }}>
-            <div style={{ width: 60, height: 60, borderRadius: '50%', background: 'rgba(0,229,255,0.08)', border: '1px solid rgba(0,229,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1rem', color: 'var(--clr-muted)' }}>
+            <div style={{ width: 60, height: 60, borderRadius: '50%', background: 'rgba(97, 148, 31,0.08)', border: '1px solid rgba(97, 148, 31,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1rem', color: 'var(--clr-muted)' }}>
               <LuCheck size={32}/>
             </div>
             <p style={{ color: 'var(--clr-muted)', fontSize: '1rem', fontWeight: 600 }}>
@@ -658,7 +658,7 @@ export default function AdminPaymentReview() {
                     </span>
                   </div>
                   <button onClick={e => { e.stopPropagation(); setSelectedPayment(payment); setNotes('') }}
-                    style={{ padding: '0.6rem 1rem', background: 'rgba(0,229,255,0.1)', border: '1px solid rgba(0,229,255,0.2)', borderRadius: '8px', color: 'var(--clr-accent)', cursor: 'pointer', fontSize: '0.9rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.4rem', fontFamily: 'inherit', transition: 'all 0.2s' }} className="hover-lift">
+                    style={{ padding: '0.6rem 1rem', background: 'rgba(97, 148, 31,0.1)', border: '1px solid rgba(97, 148, 31,0.2)', borderRadius: '8px', color: 'var(--clr-accent)', cursor: 'pointer', fontSize: '0.9rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.4rem', fontFamily: 'inherit', transition: 'all 0.2s' }} className="hover-lift">
                     <LuEye size={16}/> {tr('apr_view_btn')}
                   </button>
                 </div>
@@ -702,7 +702,7 @@ export default function AdminPaymentReview() {
                       <span style={{ fontSize: '0.73rem', fontWeight: 700, color: stColor, background: `${stColor}18`, padding: '0.18rem 0.5rem', borderRadius: '5px' }}>{wr.status}</span>
                     </div>
                     <button onClick={e => { e.stopPropagation(); setSelectedWithdrawal(wr); setApprovedAmount(String(wr.amount_requested)); setWCommissionRate(String(wr.commission_rate ?? 15)); setAdminNote(''); setAdminImageB64(null); setRejectReason('') }}
-                      style={{ padding: '0.6rem 1rem', background: 'rgba(0,229,255,0.1)', border: '1px solid rgba(0,229,255,0.2)', borderRadius: '8px', color: 'var(--clr-accent)', cursor: 'pointer', fontSize: '0.9rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.4rem', fontFamily: 'inherit', transition: 'all 0.2s' }} className="hover-lift">
+                      style={{ padding: '0.6rem 1rem', background: 'rgba(97, 148, 31,0.1)', border: '1px solid rgba(97, 148, 31,0.2)', borderRadius: '8px', color: 'var(--clr-accent)', cursor: 'pointer', fontSize: '0.9rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.4rem', fontFamily: 'inherit', transition: 'all 0.2s' }} className="hover-lift">
                       <LuEye size={16}/> Review
                     </button>
                   </div>

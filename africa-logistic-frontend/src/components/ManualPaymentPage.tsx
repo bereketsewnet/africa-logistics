@@ -191,7 +191,7 @@ export default function ManualPaymentPage({ onSuccess }: ManualPaymentPageProps)
               {proof?.type === 'application/pdf' ? (
                 <div style={{
                   width: '100%', padding: '2rem',
-                  borderRadius: '12px', border: '1px solid rgba(0,229,255,0.2)',
+                  borderRadius: '12px', border: '1px solid rgba(97, 148, 31,0.2)',
                   background: 'rgba(255,255,255,0.03)',
                   display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.75rem'
                 }}>
@@ -205,7 +205,7 @@ export default function ManualPaymentPage({ onSuccess }: ManualPaymentPageProps)
                   alt="Preview"
                   style={{
                     width: '100%', maxHeight: '300px', objectFit: 'cover',
-                    borderRadius: '12px', border: '1px solid rgba(0,229,255,0.2)'
+                    borderRadius: '12px', border: '1px solid rgba(97, 148, 31,0.2)'
                   }}
                 />
               )}
@@ -231,7 +231,7 @@ export default function ManualPaymentPage({ onSuccess }: ManualPaymentPageProps)
               htmlFor="proof-upload"
               style={{
                 display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-                padding: '2rem', background: 'rgba(124,58,237,0.07)', border: '2px dashed rgba(124,58,237,0.3)',
+                padding: '2rem', background: 'rgba(62,97,19,0.07)', border: '2px dashed rgba(62,97,19,0.3)',
                 borderRadius: '12px', cursor: 'pointer', transition: 'all 0.2s'
               }}
               className="hover-lift"
@@ -289,7 +289,7 @@ export default function ManualPaymentPage({ onSuccess }: ManualPaymentPageProps)
           type="submit"
           disabled={loading || !amount || !proof}
           style={{
-            padding: '1rem', background: 'linear-gradient(135deg,#7c3aed,#0ea5e9)',
+            padding: '1rem', background: 'linear-gradient(135deg,#3e6113,#71ad25)',
             border: 'none', borderRadius: '10px', color: '#fff',
             fontWeight: 700, cursor: loading || !amount || !proof ? 'not-allowed' : 'pointer',
             fontSize: '1rem', fontFamily: 'inherit', transition: 'all 0.3s',
