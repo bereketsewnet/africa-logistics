@@ -1,4 +1,4 @@
-# ─── Africa Logistics Backend ────────────────────────────────────────────────
+# ─── Afri Logistics Backend ────────────────────────────────────────────────
 FROM node:20-alpine
 
 WORKDIR /app

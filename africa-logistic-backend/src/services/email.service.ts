@@ -105,8 +105,8 @@ function buildStyledEmail({
     </table>` : ''
 
   const headerLogoHtml = EMAIL_LOGO_AVAILABLE
-    ? `<img src="cid:${EMAIL_LOGO_CID}" alt="Africa Logistics" style="height:54px;width:auto;object-fit:contain;display:block;margin:0 auto 8px;" />`
-    : `<p style="margin:0;font-size:22px;font-weight:700;color:#1a1a2e;font-family:Arial,sans-serif;letter-spacing:-0.3px;">Africa Logistics</p>`
+    ? `<img src="cid:${EMAIL_LOGO_CID}" alt="Afri Logistics" style="height:54px;width:auto;object-fit:contain;display:block;margin:0 auto 8px;" />`
+    : `<p style="margin:0;font-size:22px;font-weight:700;color:#1a1a2e;font-family:Arial,sans-serif;letter-spacing:-0.3px;">Afri Logistics</p>`
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -174,10 +174,10 @@ function buildStyledEmail({
           <tr>
             <td align="center" style="padding:20px 40px 28px;background-color:#fafafa;border-radius:0 0 12px 12px;">
               <p style="margin:0 0 4px;font-size:12px;color:#999999;font-family:Arial,sans-serif;">
-                ${footerNote || 'You received this because your email is linked to an Africa Logistics account.'}
+                ${footerNote || 'You received this because your email is linked to an Afri Logistics account.'}
               </p>
               <p style="margin:0;font-size:11px;color:#bbbbbb;font-family:Arial,sans-serif;">
-                &copy; ${new Date().getFullYear()} Africa Logistics &bull; africa-logistics.lula.com.et
+                &copy; ${new Date().getFullYear()} Afri Logistics &bull; africa-logistics.lula.com.et
               </p>
             </td>
           </tr>
@@ -194,12 +194,12 @@ function buildStyledEmail({
 
 export async function sendPasswordResetEmail(to: string, resetUrl: string) {
   const html = buildStyledEmail({
-    title: 'Reset your password — Africa Logistics',
-    preheader: 'You requested a password reset for your Africa Logistics account.',
+    title: 'Reset your password — Afri Logistics',
+    preheader: 'You requested a password reset for your Afri Logistics account.',
     bodyHtml: `
       <h1 style="margin:0 0 12px;font-size:22px;font-weight:700;color:#1a1a2e;font-family:Arial,sans-serif;">Reset your password</h1>
       <p style="margin:0 0 16px;color:#444444;font-size:15px;line-height:1.6;font-family:Arial,sans-serif;">
-        We received a request to reset the password for your <strong style="color:#1a1a2e;">Africa Logistics</strong> account.
+        We received a request to reset the password for your <strong style="color:#1a1a2e;">Afri Logistics</strong> account.
         Click the button below to choose a new password.
       </p>
       <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:16px 0;">
@@ -214,14 +214,14 @@ export async function sendPasswordResetEmail(to: string, resetUrl: string) {
     `,
     ctaUrl: resetUrl,
     ctaLabel: 'Reset My Password',
-    footerNote: 'This password reset was requested for your Africa Logistics account.',
+    footerNote: 'This password reset was requested for your Afri Logistics account.',
   })
 
   return sendEmail({
     to,
-    subject: '🔑 Reset your password — Africa Logistics',
+    subject: '🔑 Reset your password — Afri Logistics',
     html,
-    text: `Reset your Africa Logistics password:\n${resetUrl}\n\nLink expires in 1 hour. If you did not request this, ignore this email.`,
+    text: `Reset your Afri Logistics password:\n${resetUrl}\n\nLink expires in 1 hour. If you did not request this, ignore this email.`,
   })
 }
 
@@ -230,12 +230,12 @@ export async function sendVerificationEmail(to: string, token: string) {
   const verifyUrl = `${frontendBase.replace(/\/$/, '')}/verify-email?token=${encodeURIComponent(token)}`
 
   const html = buildStyledEmail({
-    title: 'Verify your email — Africa Logistics',
-    preheader: 'Confirm your email address to activate your Africa Logistics account.',
+    title: 'Verify your email — Afri Logistics',
+    preheader: 'Confirm your email address to activate your Afri Logistics account.',
     bodyHtml: `
       <h1 style="margin:0 0 12px;font-size:22px;font-weight:700;color:#1a1a2e;font-family:Arial,sans-serif;">Confirm your email address</h1>
       <p style="margin:0 0 16px;color:#444444;font-size:15px;line-height:1.6;font-family:Arial,sans-serif;">
-        Welcome to <strong style="color:#1a1a2e;">Africa Logistics</strong>. Click the button below to verify your email address and activate your account.
+        Welcome to <strong style="color:#1a1a2e;">Afri Logistics</strong>. Click the button below to verify your email address and activate your account.
       </p>
       <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:16px 0;">
         <tr>
@@ -249,37 +249,37 @@ export async function sendVerificationEmail(to: string, token: string) {
     `,
     ctaUrl: verifyUrl,
     ctaLabel: 'Verify My Email',
-    footerNote: 'This verification was requested for your Africa Logistics account.',
+    footerNote: 'This verification was requested for your Afri Logistics account.',
   })
 
   return sendEmail({
     to,
-    subject: '✉ Verify your email — Africa Logistics',
+    subject: '✉ Verify your email — Afri Logistics',
     html,
-    text: `Verify your Africa Logistics email:\n${verifyUrl}\n\nLink expires in 24 hours.`,
+    text: `Verify your Afri Logistics email:\n${verifyUrl}\n\nLink expires in 24 hours.`,
   })
 }
 
 // ─── Order Status Notification ────────────────────────────────────────────────
 
 const STATUS_LABEL: Record<string, string> = {
-  PENDING:    'Pending',
-  ASSIGNED:   'Driver Assigned',
-  EN_ROUTE:   'Driver En Route',
-  AT_PICKUP:  'Driver At Pickup',
+  PENDING: 'Pending',
+  ASSIGNED: 'Driver Assigned',
+  EN_ROUTE: 'Driver En Route',
+  AT_PICKUP: 'Driver At Pickup',
   IN_TRANSIT: 'In Transit',
-  DELIVERED:  'Delivered',
-  CANCELLED:  'Cancelled',
+  DELIVERED: 'Delivered',
+  CANCELLED: 'Cancelled',
 }
 
 const STATUS_COLOR: Record<string, string> = {
-  PENDING:    '#fbbf24',
-  ASSIGNED:   '#60a5fa',
-  EN_ROUTE:   '#a78bfa',
-  AT_PICKUP:  '#fb923c',
+  PENDING: '#fbbf24',
+  ASSIGNED: '#60a5fa',
+  EN_ROUTE: '#a78bfa',
+  AT_PICKUP: '#fb923c',
   IN_TRANSIT: '#34d399',
-  DELIVERED:  '#4ade80',
-  CANCELLED:  '#f87171',
+  DELIVERED: '#4ade80',
+  CANCELLED: '#f87171',
 }
 
 export interface OrderStatusEmailData {
@@ -293,8 +293,8 @@ export interface OrderStatusEmailData {
 }
 
 export async function sendOrderStatusEmail(to: string, data: OrderStatusEmailData) {
-  const label  = STATUS_LABEL[data.status] ?? data.status
-  const color  = STATUS_COLOR[data.status] ?? '#94a3b8'
+  const label = STATUS_LABEL[data.status] ?? data.status
+  const color = STATUS_COLOR[data.status] ?? '#94a3b8'
   const appUrl = `${process.env.FRONTEND_BASE_URL || 'https://africa-logistics.lula.com.et'}`
 
   const roleMsg = data.recipientRole === 'shipper'
@@ -309,7 +309,7 @@ export async function sendOrderStatusEmail(to: string, data: OrderStatusEmailDat
     : ''
 
   const html = buildStyledEmail({
-    title: `Order ${label} — Africa Logistics`,
+    title: `Order ${label} — Afri Logistics`,
     preheader: `${data.referenceCode} is now ${label}.`,
     bodyHtml: `
       <h1 style="margin:0 0 8px;font-size:20px;font-weight:700;color:#1a1a2e;font-family:Arial,sans-serif;">Order Update</h1>
@@ -358,12 +358,12 @@ export async function sendOrderStatusEmail(to: string, data: OrderStatusEmailDat
     `,
     ctaUrl: appUrl,
     ctaLabel: 'View Order',
-    footerNote: 'You received this because email notifications are enabled for your Africa Logistics account.',
+    footerNote: 'You received this because email notifications are enabled for your Afri Logistics account.',
   })
 
   return sendEmail({
     to,
-    subject: `🚛 [${data.referenceCode}] ${label} — Africa Logistics`,
+    subject: `🚛 [${data.referenceCode}] ${label} — Afri Logistics`,
     html,
     text: `Order ${data.referenceCode} is now ${label}.\nPickup: ${data.pickupAddress}\nDelivery: ${data.deliveryAddress}\nView at: ${appUrl}`,
   })
@@ -374,9 +374,9 @@ export async function sendOrderStatusEmail(to: string, data: OrderStatusEmailDat
 export interface OrderPlacedEmailData {
   referenceCode: string
   recipientName: string
-  pickupAddress:   string
+  pickupAddress: string
   deliveryAddress: string
-  pickupOtp:   string
+  pickupOtp: string
   deliveryOtp: string
   estimatedPrice: string   // e.g. "690.98 ETB"
 }
@@ -385,7 +385,7 @@ export async function sendOrderPlacedEmail(to: string, data: OrderPlacedEmailDat
   const appUrl = process.env.FRONTEND_BASE_URL || 'https://africa-logistics.lula.com.et'
 
   const html = buildStyledEmail({
-    title: `Order Confirmed ${data.referenceCode} — Africa Logistics`,
+    title: `Order Confirmed ${data.referenceCode} — Afri Logistics`,
     preheader: `Your order ${data.referenceCode} is confirmed. Keep your OTPs safe.`,
     bodyHtml: `
       <h1 style="margin:0 0 8px;font-size:20px;font-weight:700;color:#1a1a2e;font-family:Arial,sans-serif;">Order Confirmed!</h1>
@@ -462,7 +462,7 @@ export async function sendOrderPlacedEmail(to: string, data: OrderPlacedEmailDat
     `,
     ctaUrl: appUrl,
     ctaLabel: 'View My Orders',
-    footerNote: 'You received this because you placed an order on Africa Logistics.',
+    footerNote: 'You received this because you placed an order on Afri Logistics.',
   })
 
   return sendEmail({

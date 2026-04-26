@@ -1,6 +1,6 @@
 # Driver Guide Overview
 
-You are reading the driver-side RAG knowledge base for Africa Logistics.
+You are reading the driver-side RAG knowledge base for Afri logistics.
 
 This folder is written for the AI assistant Bemnet so it can answer driver questions correctly, step by step, and without mixing driver actions with shipper or admin workflows.
 

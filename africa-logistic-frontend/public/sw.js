@@ -6,7 +6,7 @@ self.addEventListener('push', (event) => {
     payload = {}
   }
 
-  const title = payload.title || 'Africa Logistics'
+  const title = payload.title || 'Afri Logistics'
   const options = {
     body: payload.body || 'You have a new update.',
     icon: '/favicon.ico',

@@ -13,7 +13,7 @@ test.describe('Login page', () => {
   test('shows login page with phone and email mode buttons', async ({ page }) => {
     await expect(page.getByRole('button', { name: /phone/i })).toBeVisible()
     await expect(page.getByRole('button', { name: /email/i })).toBeVisible()
-    await expect(page.getByAltText(/africa logistics/i)).toBeVisible()
+    await expect(page.getByAltText(/Afri logistics/i)).toBeVisible()
   })
 
   test('switches between phone and email mode', async ({ page }) => {

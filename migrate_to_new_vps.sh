@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-# Africa Logistics migration helper
+# Afri Logistics migration helper
 # - Ensures required tools are installed (Docker, Docker Compose, Node.js, npm, zip/unzip)
 # - Asks for new server IP + frontend/backend domains
 # - Replaces old IP/domain/API URL values across project text files

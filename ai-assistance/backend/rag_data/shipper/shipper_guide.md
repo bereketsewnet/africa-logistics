@@ -1,6 +1,6 @@
 # Shipper Guide Overview
 
-You are reading the shipper-side RAG knowledge base for Africa Logistics.
+You are reading the shipper-side RAG knowledge base for Afri logistics.
 
 This folder is written for the AI assistant Bemnet so it can answer shipper questions correctly, step by step, and without mixing shipper actions with driver or admin workflows.
 

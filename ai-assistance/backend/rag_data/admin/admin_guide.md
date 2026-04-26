@@ -1,6 +1,6 @@
 # Admin Guide Overview
 
-You are reading the admin-side RAG knowledge base for Africa Logistics.
+You are reading the admin-side RAG knowledge base for Afri logistics.
 
 This folder is written for the AI assistant Bemnet so it can answer admin questions correctly, step by step, and without mixing admin actions with shipper or driver workflows.
 

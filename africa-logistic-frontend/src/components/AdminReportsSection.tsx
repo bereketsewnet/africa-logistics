@@ -91,7 +91,7 @@ function KpiCard({ label, value, sub, change, icon, accent = 'var(--clr-accent)'
       <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
         {change != null && (
           <span style={{ fontSize: '0.68rem', fontWeight: 700, color: up ? '#4ade80' : '#f87171', display: 'flex', alignItems: 'center', gap: '0.15rem' }}>
-            {up ? <LuTrendingUp size={11}/> : <LuTrendingDown size={11}/>}
+            {up ? <LuTrendingUp size={11} /> : <LuTrendingDown size={11} />}
             {Math.abs(parseFloat(change))}%
           </span>
         )}
@@ -133,14 +133,14 @@ function CustomTooltip({ active, payload, label }: any) {
 function OrderReportPage() {
   const { t: tr } = useLanguage()
   const today = new Date()
-  const defaultTo   = today.toISOString().slice(0, 10)
+  const defaultTo = today.toISOString().slice(0, 10)
   const defaultFrom = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
 
-  const [from, setFrom]     = useState(defaultFrom)
-  const [to, setTo]         = useState(defaultTo)
+  const [from, setFrom] = useState(defaultFrom)
+  const [to, setTo] = useState(defaultTo)
   const [report, setReport] = useState<OrderReport | null>(null)
   const [loading, setLoading] = useState(false)
-  const [error, setError]   = useState('')
+  const [error, setError] = useState('')
   const [downloading, setDownloading] = useState(false)
   const reportRef = useRef<HTMLDivElement>(null)
 
@@ -171,10 +171,10 @@ function OrderReportPage() {
       })
       const imgData = canvas.toDataURL('image/png')
       const pdf = new jsPDF('p', 'mm', 'a4')
-      const pageWidth  = pdf.internal.pageSize.getWidth()
+      const pageWidth = pdf.internal.pageSize.getWidth()
       const pageHeight = pdf.internal.pageSize.getHeight()
-      const imgWidth   = pageWidth
-      const imgHeight  = (canvas.height * pageWidth) / canvas.width
+      const imgWidth = pageWidth
+      const imgHeight = (canvas.height * pageWidth) / canvas.width
       let yPos = 0
       let remaining = imgHeight
 
@@ -195,7 +195,7 @@ function OrderReportPage() {
   }
 
   const s = report?.summary
-  const changeOrders  = s && report?.comparison ? pct(s.total_orders,  report.comparison.prev_total_orders)  : null
+  const changeOrders = s && report?.comparison ? pct(s.total_orders, report.comparison.prev_total_orders) : null
   const changeRevenue = s && report?.comparison ? pct(s.total_revenue, report.comparison.prev_total_revenue) : null
 
   const statusData = report
@@ -210,16 +210,16 @@ function OrderReportPage() {
     <div className="rpt-page" style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', width: '100%' }}>
       {/* ─ Controls bar ─ */}
       <div className="rpt-controls" style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '0.65rem', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 12, padding: '0.7rem 1rem' }}>
-        <LuCalendar size={14} style={{ color: 'var(--clr-muted)', flexShrink: 0 }}/>
+        <LuCalendar size={14} style={{ color: 'var(--clr-muted)', flexShrink: 0 }} />
         <div className="rpt-controls-field" style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flex: '0 0 auto' }}>
           <label style={{ fontSize: '0.72rem', color: 'var(--clr-muted)', fontWeight: 600 }}>{tr('rpt_from')}</label>
           <input type="date" value={from} max={to} onChange={e => setFrom(e.target.value)}
-            style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 8, padding: '0.28rem 0.55rem', color: 'var(--clr-text)', fontSize: '0.78rem', fontFamily: 'inherit', colorScheme: 'dark' }}/>
+            style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 8, padding: '0.28rem 0.55rem', color: 'var(--clr-text)', fontSize: '0.78rem', fontFamily: 'inherit', colorScheme: 'dark' }} />
         </div>
         <div className="rpt-controls-field" style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flex: '0 0 auto' }}>
           <label style={{ fontSize: '0.72rem', color: 'var(--clr-muted)', fontWeight: 600 }}>{tr('rpt_to')}</label>
           <input type="date" value={to} min={from} onChange={e => setTo(e.target.value)}
-            style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 8, padding: '0.28rem 0.55rem', color: 'var(--clr-text)', fontSize: '0.78rem', fontFamily: 'inherit', colorScheme: 'dark' }}/>
+            style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 8, padding: '0.28rem 0.55rem', color: 'var(--clr-text)', fontSize: '0.78rem', fontFamily: 'inherit', colorScheme: 'dark' }} />
         </div>
 
         {/* Quick presets */}
@@ -234,26 +234,26 @@ function OrderReportPage() {
           )
         })}
 
-        <div className="rpt-controls-spacer" style={{ flex: 1 }}/>
+        <div className="rpt-controls-spacer" style={{ flex: 1 }} />
         <button onClick={() => load()} disabled={loading}
           style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', padding: '0.38rem 0.85rem', borderRadius: 9, border: '1px solid rgba(255,255,255,0.12)', background: 'rgba(255,255,255,0.06)', color: 'var(--clr-text)', fontSize: '0.78rem', fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
-          <LuRefreshCw size={13} style={{ animation: loading ? 'spin 1s linear infinite' : 'none' }}/> {tr('rpt_apply')}
+          <LuRefreshCw size={13} style={{ animation: loading ? 'spin 1s linear infinite' : 'none' }} /> {tr('rpt_apply')}
         </button>
         <button onClick={handleDownload} disabled={downloading || !report}
           style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', padding: '0.38rem 0.9rem', borderRadius: 9, border: 'none', background: 'var(--clr-accent)', color: '#000', fontSize: '0.78rem', fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', opacity: (downloading || !report) ? 0.5 : 1 }}>
-          <LuDownload size={13}/> {downloading ? tr('arpt_generating') : tr('arpt_download_pdf')}
+          <LuDownload size={13} /> {downloading ? tr('arpt_generating') : tr('arpt_download_pdf')}
         </button>
       </div>
 
       {error && (
         <div style={{ background: 'rgba(248,113,113,0.1)', border: '1px solid rgba(248,113,113,0.3)', borderRadius: 10, padding: '0.7rem 1rem', fontSize: '0.8rem', color: '#f87171', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-          <LuTriangleAlert size={14}/> {error}
+          <LuTriangleAlert size={14} /> {error}
         </div>
       )}
 
       {loading && (
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '4rem', gap: '0.75rem', color: 'var(--clr-muted)', fontSize: '0.85rem' }}>
-          <LuRefreshCw size={18} style={{ animation: 'spin 1s linear infinite', color: 'var(--clr-accent)' }}/> {tr('arpt_ord_loading')}
+          <LuRefreshCw size={18} style={{ animation: 'spin 1s linear infinite', color: 'var(--clr-accent)' }} /> {tr('arpt_ord_loading')}
         </div>
       )}
 
@@ -263,9 +263,9 @@ function OrderReportPage() {
           {/* Report Header */}
           <div className="rpt-hdr rpt-report-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'linear-gradient(135deg, rgba(97, 148, 31,0.08), rgba(167,139,250,0.06))', border: '1px solid rgba(97, 148, 31,0.15)', borderRadius: 14, padding: '1.2rem 1.5rem' }}>
             <div className="rpt-report-brand" style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-              <img src={logoImg} alt="Africa Logistics" style={{ height: 44, width: 'auto', objectFit: 'contain', borderRadius: 8 }}/>
+              <img src={logoImg} alt="Afri logistics" style={{ height: 44, width: 'auto', objectFit: 'contain', borderRadius: 8 }} />
               <div>
-                <p style={{ margin: 0, fontWeight: 800, fontSize: '1rem', color: 'var(--clr-text)' }}>Africa Logistics</p>
+                <p style={{ margin: 0, fontWeight: 800, fontSize: '1rem', color: 'var(--clr-text)' }}>Afri logistics</p>
                 <p style={{ margin: 0, fontSize: '0.72rem', color: 'var(--clr-muted)' }}>{tr('arpt_ord_subtitle')}</p>
               </div>
             </div>
@@ -282,18 +282,18 @@ function OrderReportPage() {
 
           {/* ─ KPI Row 1 ─ */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(170px, 1fr))', gap: '0.85rem' }}>
-            <KpiCard label={tr('arpt_ord_kpi_total')} value={fmt(s!.total_orders)} change={changeOrders} sub={tr('arpt_sub_vs_prev')} icon={<LuListOrdered size={18}/>} />
-            <KpiCard label={tr('arpt_ord_kpi_normal')} value={fmt(s!.normal_orders)} sub={tr('arpt_sub_reg_shippers')} icon={<LuPackage size={18}/>} accent="#60a5fa" />
-            <KpiCard label={tr('arpt_ord_kpi_guest')} value={fmt(s!.guest_orders)} sub={tr('arpt_sub_walk_in')} icon={<LuUsers size={18}/>} accent="#a78bfa" />
-            <KpiCard label={tr('arpt_ord_kpi_completed')} value={fmt(s!.completed_orders)} icon={<LuCircleCheck size={18}/>} accent="#4ade80"
-              sub={s!.total_orders ? `${((s!.completed_orders / s!.total_orders) * 100).toFixed(1)}% rate` : undefined}/>
-            <KpiCard label={tr('arpt_ord_kpi_active')} value={fmt(s!.active_orders)} icon={<LuActivity size={18}/>} accent="#38bdf8" />
-            <KpiCard label={tr('arpt_ord_kpi_cancelled')} value={fmt(s!.cancelled_orders)} icon={<LuCircleX size={18}/>} accent="#f87171"
-              sub={s!.total_orders ? `${((s!.cancelled_orders / s!.total_orders) * 100).toFixed(1)}% rate` : undefined}/>
-            <KpiCard label={tr('arpt_ord_kpi_revenue')} value={fmtCurrency(s!.total_revenue)} change={changeRevenue} sub={tr('arpt_sub_vs_prev')} icon={<LuChartColumnBig size={18}/>} accent="#fbbf24" />
-            <KpiCard label={tr('arpt_ord_kpi_avg_val')} value={fmtCurrency(s!.avg_order_value)} icon={<LuTrendingUp size={18}/>} accent="#34d399" />
-            <KpiCard label={tr('arpt_ord_kpi_avg_del')} value={report.delivery_time.avg_hours != null ? `${report.delivery_time.avg_hours}h` : 'N/A'} sub={tr('arpt_sub_hours_order')} icon={<LuClock size={18}/>} accent="#fb923c" />
-            <KpiCard label={tr('arpt_ord_kpi_drivers')} value={fmt(s!.active_drivers)} sub={tr('arpt_sub_in_period')} icon={<LuTruck size={18}/>} accent="#818cf8" />
+            <KpiCard label={tr('arpt_ord_kpi_total')} value={fmt(s!.total_orders)} change={changeOrders} sub={tr('arpt_sub_vs_prev')} icon={<LuListOrdered size={18} />} />
+            <KpiCard label={tr('arpt_ord_kpi_normal')} value={fmt(s!.normal_orders)} sub={tr('arpt_sub_reg_shippers')} icon={<LuPackage size={18} />} accent="#60a5fa" />
+            <KpiCard label={tr('arpt_ord_kpi_guest')} value={fmt(s!.guest_orders)} sub={tr('arpt_sub_walk_in')} icon={<LuUsers size={18} />} accent="#a78bfa" />
+            <KpiCard label={tr('arpt_ord_kpi_completed')} value={fmt(s!.completed_orders)} icon={<LuCircleCheck size={18} />} accent="#4ade80"
+              sub={s!.total_orders ? `${((s!.completed_orders / s!.total_orders) * 100).toFixed(1)}% rate` : undefined} />
+            <KpiCard label={tr('arpt_ord_kpi_active')} value={fmt(s!.active_orders)} icon={<LuActivity size={18} />} accent="#38bdf8" />
+            <KpiCard label={tr('arpt_ord_kpi_cancelled')} value={fmt(s!.cancelled_orders)} icon={<LuCircleX size={18} />} accent="#f87171"
+              sub={s!.total_orders ? `${((s!.cancelled_orders / s!.total_orders) * 100).toFixed(1)}% rate` : undefined} />
+            <KpiCard label={tr('arpt_ord_kpi_revenue')} value={fmtCurrency(s!.total_revenue)} change={changeRevenue} sub={tr('arpt_sub_vs_prev')} icon={<LuChartColumnBig size={18} />} accent="#fbbf24" />
+            <KpiCard label={tr('arpt_ord_kpi_avg_val')} value={fmtCurrency(s!.avg_order_value)} icon={<LuTrendingUp size={18} />} accent="#34d399" />
+            <KpiCard label={tr('arpt_ord_kpi_avg_del')} value={report.delivery_time.avg_hours != null ? `${report.delivery_time.avg_hours}h` : 'N/A'} sub={tr('arpt_sub_hours_order')} icon={<LuClock size={18} />} accent="#fb923c" />
+            <KpiCard label={tr('arpt_ord_kpi_drivers')} value={fmt(s!.active_drivers)} sub={tr('arpt_sub_in_period')} icon={<LuTruck size={18} />} accent="#818cf8" />
           </div>
 
           {/* ─ Charts Row 1: Daily Trend ─ */}
@@ -302,22 +302,22 @@ function OrderReportPage() {
               <AreaChart data={report.daily_trend} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
                 <defs>
                   <linearGradient id="gradOrders" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%"  stopColor="#61941f" stopOpacity={0.35}/>
-                    <stop offset="95%" stopColor="#61941f" stopOpacity={0}/>
+                    <stop offset="5%" stopColor="#61941f" stopOpacity={0.35} />
+                    <stop offset="95%" stopColor="#61941f" stopOpacity={0} />
                   </linearGradient>
                   <linearGradient id="gradRevenue" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%"  stopColor="#fbbf24" stopOpacity={0.35}/>
-                    <stop offset="95%" stopColor="#fbbf24" stopOpacity={0}/>
+                    <stop offset="5%" stopColor="#fbbf24" stopOpacity={0.35} />
+                    <stop offset="95%" stopColor="#fbbf24" stopOpacity={0} />
                   </linearGradient>
                 </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)"/>
-                <XAxis dataKey="date" tickFormatter={fmtDate} tick={{ fill: '#9ca3af', fontSize: 10 }} tickLine={false} axisLine={false}/>
-                <YAxis yAxisId="orders" tick={{ fill: '#9ca3af', fontSize: 10 }} tickLine={false} axisLine={false}/>
-                <YAxis yAxisId="revenue" orientation="right" tick={{ fill: '#9ca3af', fontSize: 10 }} tickLine={false} axisLine={false} tickFormatter={v => `${(v/1000).toFixed(0)}k`}/>
-                <Tooltip content={<CustomTooltip/>}/>
-                <Legend wrapperStyle={{ fontSize: '0.72rem' }}/>
-                <Area yAxisId="orders" type="monotone" dataKey="orders" name="Orders" stroke="#61941f" fill="url(#gradOrders)" strokeWidth={2} dot={false}/>
-                <Area yAxisId="revenue" type="monotone" dataKey="revenue" name="Revenue (ETB)" stroke="#fbbf24" fill="url(#gradRevenue)" strokeWidth={2} dot={false}/>
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
+                <XAxis dataKey="date" tickFormatter={fmtDate} tick={{ fill: '#9ca3af', fontSize: 10 }} tickLine={false} axisLine={false} />
+                <YAxis yAxisId="orders" tick={{ fill: '#9ca3af', fontSize: 10 }} tickLine={false} axisLine={false} />
+                <YAxis yAxisId="revenue" orientation="right" tick={{ fill: '#9ca3af', fontSize: 10 }} tickLine={false} axisLine={false} tickFormatter={v => `${(v / 1000).toFixed(0)}k`} />
+                <Tooltip content={<CustomTooltip />} />
+                <Legend wrapperStyle={{ fontSize: '0.72rem' }} />
+                <Area yAxisId="orders" type="monotone" dataKey="orders" name="Orders" stroke="#61941f" fill="url(#gradOrders)" strokeWidth={2} dot={false} />
+                <Area yAxisId="revenue" type="monotone" dataKey="revenue" name="Revenue (ETB)" stroke="#fbbf24" fill="url(#gradRevenue)" strokeWidth={2} dot={false} />
               </AreaChart>
             </ResponsiveContainer>
           </ChartCard>
@@ -327,13 +327,13 @@ function OrderReportPage() {
             <ChartCard title={tr('arpt_ord_chart_ng')} height={240}>
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={report.daily_trend} margin={{ top: 5, right: 5, left: 0, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)"/>
-                  <XAxis dataKey="date" tickFormatter={fmtDate} tick={{ fill: '#9ca3af', fontSize: 9 }} tickLine={false} axisLine={false}/>
-                  <YAxis tick={{ fill: '#9ca3af', fontSize: 9 }} tickLine={false} axisLine={false}/>
-                  <Tooltip content={<CustomTooltip/>}/>
-                  <Legend wrapperStyle={{ fontSize: '0.7rem' }}/>
-                  <Bar dataKey="normal_orders" name="Normal" fill="#60a5fa" radius={[3, 3, 0, 0]} maxBarSize={20}/>
-                  <Bar dataKey="guest_orders"  name="Guest"  fill="#a78bfa" radius={[3, 3, 0, 0]} maxBarSize={20}/>
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
+                  <XAxis dataKey="date" tickFormatter={fmtDate} tick={{ fill: '#9ca3af', fontSize: 9 }} tickLine={false} axisLine={false} />
+                  <YAxis tick={{ fill: '#9ca3af', fontSize: 9 }} tickLine={false} axisLine={false} />
+                  <Tooltip content={<CustomTooltip />} />
+                  <Legend wrapperStyle={{ fontSize: '0.7rem' }} />
+                  <Bar dataKey="normal_orders" name="Normal" fill="#60a5fa" radius={[3, 3, 0, 0]} maxBarSize={20} />
+                  <Bar dataKey="guest_orders" name="Guest" fill="#a78bfa" radius={[3, 3, 0, 0]} maxBarSize={20} />
                 </BarChart>
               </ResponsiveContainer>
             </ChartCard>
@@ -342,11 +342,11 @@ function OrderReportPage() {
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                   <Pie data={statusData} cx="40%" cy="50%" innerRadius={55} outerRadius={90} paddingAngle={2} dataKey="value">
-                    {statusData.map((entry, i) => <Cell key={i} fill={entry.fill}/>)}
+                    {statusData.map((entry, i) => <Cell key={i} fill={entry.fill} />)}
                   </Pie>
                   <Tooltip formatter={(value: any, name: any) => [fmt(Number(value)), name]}
-                    contentStyle={{ background: '#1a1f2e', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 10, fontSize: '0.74rem' }}/>
-                  <Legend iconSize={9} wrapperStyle={{ fontSize: '0.7rem', paddingLeft: '0.5rem' }}/>
+                    contentStyle={{ background: '#1a1f2e', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 10, fontSize: '0.74rem' }} />
+                  <Legend iconSize={9} wrapperStyle={{ fontSize: '0.7rem', paddingLeft: '0.5rem' }} />
                 </PieChart>
               </ResponsiveContainer>
             </ChartCard>
@@ -357,13 +357,13 @@ function OrderReportPage() {
             <ChartCard title={tr('arpt_ord_chart_daily')} height={240}>
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={report.daily_trend} margin={{ top: 5, right: 5, left: 0, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)"/>
-                  <XAxis dataKey="date" tickFormatter={fmtDate} tick={{ fill: '#9ca3af', fontSize: 9 }} tickLine={false} axisLine={false}/>
-                  <YAxis tick={{ fill: '#9ca3af', fontSize: 9 }} tickLine={false} axisLine={false} tickFormatter={v => `${(v/1000).toFixed(0)}k`}/>
-                  <Tooltip content={<CustomTooltip/>}/>
-                  <Legend wrapperStyle={{ fontSize: '0.7rem' }}/>
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
+                  <XAxis dataKey="date" tickFormatter={fmtDate} tick={{ fill: '#9ca3af', fontSize: 9 }} tickLine={false} axisLine={false} />
+                  <YAxis tick={{ fill: '#9ca3af', fontSize: 9 }} tickLine={false} axisLine={false} tickFormatter={v => `${(v / 1000).toFixed(0)}k`} />
+                  <Tooltip content={<CustomTooltip />} />
+                  <Legend wrapperStyle={{ fontSize: '0.7rem' }} />
                   <Bar dataKey="revenue" name="Revenue" radius={[4, 4, 0, 0]} maxBarSize={24}>
-                    {report.daily_trend.map((_, i) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} fillOpacity={0.85}/>)}
+                    {report.daily_trend.map((_, i) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} fillOpacity={0.85} />)}
                   </Bar>
                 </BarChart>
               </ResponsiveContainer>
@@ -373,11 +373,11 @@ function OrderReportPage() {
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                   <Pie data={paymentData} cx="50%" cy="50%" innerRadius={50} outerRadius={80} paddingAngle={3} dataKey="value">
-                    {paymentData.map((_, i) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]}/>)}
+                    {paymentData.map((_, i) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />)}
                   </Pie>
                   <Tooltip formatter={(v: any, n: any) => [fmt(Number(v)), n]}
-                    contentStyle={{ background: '#1a1f2e', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 10, fontSize: '0.74rem' }}/>
-                  <Legend iconSize={9} wrapperStyle={{ fontSize: '0.7rem' }}/>
+                    contentStyle={{ background: '#1a1f2e', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 10, fontSize: '0.74rem' }} />
+                  <Legend iconSize={9} wrapperStyle={{ fontSize: '0.7rem' }} />
                 </PieChart>
               </ResponsiveContainer>
             </ChartCard>
@@ -388,14 +388,14 @@ function OrderReportPage() {
             <ChartCard title={tr('arpt_ord_chart_cargo')} height={220}>
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={report.cargo_breakdown} layout="vertical" margin={{ top: 0, right: 60, left: 0, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" horizontal={false}/>
-                  <XAxis type="number" tick={{ fill: '#9ca3af', fontSize: 9 }} tickLine={false} axisLine={false}/>
-                  <YAxis type="category" dataKey="cargo_type" tick={{ fill: '#9ca3af', fontSize: 10 }} tickLine={false} axisLine={false} width={90}/>
-                  <Tooltip content={<CustomTooltip/>}/>
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" horizontal={false} />
+                  <XAxis type="number" tick={{ fill: '#9ca3af', fontSize: 9 }} tickLine={false} axisLine={false} />
+                  <YAxis type="category" dataKey="cargo_type" tick={{ fill: '#9ca3af', fontSize: 10 }} tickLine={false} axisLine={false} width={90} />
+                  <Tooltip content={<CustomTooltip />} />
                   <Bar dataKey="count" name="Orders" radius={[0, 4, 4, 0]} maxBarSize={18}>
-                    {report.cargo_breakdown.map((_, i) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]}/>)}
+                    {report.cargo_breakdown.map((_, i) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />)}
                   </Bar>
-                  <Bar dataKey="revenue" name="Revenue" radius={[0, 4, 4, 0]} maxBarSize={18} fill="#fbbf24" fillOpacity={0.7}/>
+                  <Bar dataKey="revenue" name="Revenue" radius={[0, 4, 4, 0]} maxBarSize={18} fill="#fbbf24" fillOpacity={0.7} />
                 </BarChart>
               </ResponsiveContainer>
             </ChartCard>
@@ -404,7 +404,7 @@ function OrderReportPage() {
           {/* ─ Status Summary Table ─ */}
           <div style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.09)', borderRadius: 14, overflow: 'hidden' }}>
             <div style={{ padding: '1rem 1.2rem', borderBottom: '1px solid rgba(255,255,255,0.07)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <LuChartColumnBig size={15} style={{ color: 'var(--clr-accent)' }}/>
+              <LuChartColumnBig size={15} style={{ color: 'var(--clr-accent)' }} />
               <p style={{ margin: 0, fontWeight: 700, fontSize: '0.83rem', color: 'var(--clr-text)' }}>{tr('arpt_ord_tbl_status')}</p>
             </div>
             <div className="rpt-table-scroll" style={{ overflowX: 'auto' }}>
@@ -423,7 +423,7 @@ function OrderReportPage() {
                       <tr key={status} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)', background: i % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.015)' }}>
                         <td style={{ padding: '0.6rem 1.1rem', fontWeight: 600 }}>
                           <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}>
-                            <span style={{ width: 8, height: 8, borderRadius: '50%', background: STATUS_COLORS[status] ?? '#888', flexShrink: 0 }}/>
+                            <span style={{ width: 8, height: 8, borderRadius: '50%', background: STATUS_COLORS[status] ?? '#888', flexShrink: 0 }} />
                             {status}
                           </span>
                         </td>
@@ -431,7 +431,7 @@ function OrderReportPage() {
                         <td style={{ padding: '0.6rem 1.1rem', color: 'var(--clr-muted)' }}>{pctVal}%</td>
                         <td style={{ padding: '0.6rem 1.1rem', minWidth: 120 }}>
                           <div style={{ height: 6, borderRadius: 3, background: 'rgba(255,255,255,0.07)', overflow: 'hidden' }}>
-                            <div style={{ height: '100%', width: `${pctVal}%`, background: STATUS_COLORS[status] ?? '#888', borderRadius: 3, transition: 'width 0.6s ease' }}/>
+                            <div style={{ height: '100%', width: `${pctVal}%`, background: STATUS_COLORS[status] ?? '#888', borderRadius: 3, transition: 'width 0.6s ease' }} />
                           </div>
                         </td>
                       </tr>
@@ -446,7 +446,7 @@ function OrderReportPage() {
           {report.top_routes.length > 0 && (
             <div style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.09)', borderRadius: 14, overflow: 'hidden' }}>
               <div style={{ padding: '1rem 1.2rem', borderBottom: '1px solid rgba(255,255,255,0.07)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <LuMapPin size={15} style={{ color: 'var(--clr-accent)' }}/>
+                <LuMapPin size={15} style={{ color: 'var(--clr-accent)' }} />
                 <p style={{ margin: 0, fontWeight: 700, fontSize: '0.83rem', color: 'var(--clr-text)' }}>{tr('arpt_ord_tbl_routes')}</p>
               </div>
               <div className="rpt-table-scroll" style={{ overflowX: 'auto' }}>
@@ -482,9 +482,9 @@ function OrderReportPage() {
           {/* ─ Delivery Time Summary ─ */}
           {report.delivery_time.avg_hours != null && (
             <div className="rpt-grid-3">
-              <KpiCard label={tr('arpt_ord_kpi_avg_del_time')} value={`${report.delivery_time.avg_hours}h`} sub={tr('arpt_sub_hours_order')} icon={<LuClock size={18}/>} accent="#fb923c"/>
-              <KpiCard label={tr('arpt_ord_kpi_fastest')} value={`${report.delivery_time.min_hours}h`} sub={tr('arpt_sub_min_hours')} icon={<LuTrendingUp size={18}/>} accent="#4ade80"/>
-              <KpiCard label={tr('arpt_ord_kpi_slowest')} value={`${report.delivery_time.max_hours}h`} sub={tr('arpt_sub_max_hours')} icon={<LuTrendingDown size={18}/>} accent="#f87171"/>
+              <KpiCard label={tr('arpt_ord_kpi_avg_del_time')} value={`${report.delivery_time.avg_hours}h`} sub={tr('arpt_sub_hours_order')} icon={<LuClock size={18} />} accent="#fb923c" />
+              <KpiCard label={tr('arpt_ord_kpi_fastest')} value={`${report.delivery_time.min_hours}h`} sub={tr('arpt_sub_min_hours')} icon={<LuTrendingUp size={18} />} accent="#4ade80" />
+              <KpiCard label={tr('arpt_ord_kpi_slowest')} value={`${report.delivery_time.max_hours}h`} sub={tr('arpt_sub_max_hours')} icon={<LuTrendingDown size={18} />} accent="#f87171" />
             </div>
           )}
 
@@ -541,14 +541,14 @@ const WALLET_TYPE_COLORS: Record<string, string> = {
 function FinanceReportPage() {
   const { t: tr } = useLanguage()
   const today = new Date()
-  const defaultTo   = today.toISOString().slice(0, 10)
+  const defaultTo = today.toISOString().slice(0, 10)
   const defaultFrom = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
 
-  const [from, setFrom]       = useState(defaultFrom)
-  const [to, setTo]           = useState(defaultTo)
-  const [report, setReport]   = useState<FinanceReport | null>(null)
+  const [from, setFrom] = useState(defaultFrom)
+  const [to, setTo] = useState(defaultTo)
+  const [report, setReport] = useState<FinanceReport | null>(null)
   const [loading, setLoading] = useState(false)
-  const [error, setError]     = useState('')
+  const [error, setError] = useState('')
   const [downloading, setDownloading] = useState(false)
   const reportRef = useRef<HTMLDivElement>(null)
 
@@ -558,7 +558,7 @@ function FinanceReportPage() {
       const { data } = await apiClient.get('/admin/reports/finance', { params: { from: f, to: t } })
       setReport(data.report)
     } catch { setError(tr('arpt_fin_error')) }
-    finally   { setLoading(false) }
+    finally { setLoading(false) }
   }, [from, to])
 
   useEffect(() => { load() }, []) // eslint-disable-line
@@ -600,13 +600,13 @@ function FinanceReportPage() {
 
       {/* Controls bar */}
       <div className="rpt-controls" style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '0.65rem', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 12, padding: '0.7rem 1rem' }}>
-        <LuCalendar size={14} style={{ color: 'var(--clr-muted)', flexShrink: 0 }}/>
+        <LuCalendar size={14} style={{ color: 'var(--clr-muted)', flexShrink: 0 }} />
         {([tr('rpt_from'), tr('rpt_to')]).map((lbl, i) => (
           <div key={lbl} className="rpt-controls-field" style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
             <label style={{ fontSize: '0.72rem', color: 'var(--clr-muted)', fontWeight: 600 }}>{lbl}</label>
             <input type="date" value={i === 0 ? from : to} max={i === 0 ? to : undefined} min={i === 1 ? from : undefined}
               onChange={e => i === 0 ? setFrom(e.target.value) : setTo(e.target.value)}
-              style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 8, padding: '0.28rem 0.55rem', color: 'var(--clr-text)', fontSize: '0.78rem', fontFamily: 'inherit', colorScheme: 'dark' }}/>
+              style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 8, padding: '0.28rem 0.55rem', color: 'var(--clr-text)', fontSize: '0.78rem', fontFamily: 'inherit', colorScheme: 'dark' }} />
           </div>
         ))}
         {[{ label: '7D', days: 7 }, { label: '30D', days: 30 }, { label: '90D', days: 90 }, { label: '1Y', days: 365 }].map(p => {
@@ -619,26 +619,26 @@ function FinanceReportPage() {
             </button>
           )
         })}
-        <div className="rpt-controls-spacer" style={{ flex: 1 }}/>
+        <div className="rpt-controls-spacer" style={{ flex: 1 }} />
         <button onClick={() => load()} disabled={loading}
           style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', padding: '0.38rem 0.85rem', borderRadius: 9, border: '1px solid rgba(255,255,255,0.12)', background: 'rgba(255,255,255,0.06)', color: 'var(--clr-text)', fontSize: '0.78rem', fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
-          <LuRefreshCw size={13} style={{ animation: loading ? 'spin 1s linear infinite' : 'none' }}/> {tr('rpt_apply')}
+          <LuRefreshCw size={13} style={{ animation: loading ? 'spin 1s linear infinite' : 'none' }} /> {tr('rpt_apply')}
         </button>
         <button onClick={handleDownload} disabled={downloading || !report}
           style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', padding: '0.38rem 0.9rem', borderRadius: 9, border: 'none', background: 'var(--clr-accent)', color: '#000', fontSize: '0.78rem', fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', opacity: (downloading || !report) ? 0.5 : 1 }}>
-          <LuDownload size={13}/> {downloading ? tr('arpt_generating') : tr('arpt_download_pdf')}
+          <LuDownload size={13} /> {downloading ? tr('arpt_generating') : tr('arpt_download_pdf')}
         </button>
       </div>
 
       {error && (
         <div style={{ background: 'rgba(248,113,113,0.1)', border: '1px solid rgba(248,113,113,0.3)', borderRadius: 10, padding: '0.7rem 1rem', fontSize: '0.8rem', color: '#f87171', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-          <LuTriangleAlert size={14}/> {error}
+          <LuTriangleAlert size={14} /> {error}
         </div>
       )}
 
       {loading && (
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '4rem', gap: '0.75rem', color: 'var(--clr-muted)', fontSize: '0.85rem' }}>
-          <LuRefreshCw size={18} style={{ animation: 'spin 1s linear infinite', color: 'var(--clr-accent)' }}/> {tr('arpt_fin_loading')}
+          <LuRefreshCw size={18} style={{ animation: 'spin 1s linear infinite', color: 'var(--clr-accent)' }} /> {tr('arpt_fin_loading')}
         </div>
       )}
 
@@ -648,9 +648,9 @@ function FinanceReportPage() {
           {/* Report header */}
           <div className="rpt-hdr rpt-report-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'linear-gradient(135deg, rgba(251,191,36,0.08), rgba(167,139,250,0.06))', border: '1px solid rgba(251,191,36,0.2)', borderRadius: 14, padding: '1.2rem 1.5rem' }}>
             <div className="rpt-report-brand" style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-              <img src={logoImg} alt="Africa Logistics" style={{ height: 44, width: 'auto', objectFit: 'contain', borderRadius: 8 }}/>
+              <img src={logoImg} alt="Afri logistics" style={{ height: 44, width: 'auto', objectFit: 'contain', borderRadius: 8 }} />
               <div>
-                <p style={{ margin: 0, fontWeight: 800, fontSize: '1rem', color: 'var(--clr-text)' }}>Africa Logistics</p>
+                <p style={{ margin: 0, fontWeight: 800, fontSize: '1rem', color: 'var(--clr-text)' }}>Afri logistics</p>
                 <p style={{ margin: 0, fontSize: '0.72rem', color: 'var(--clr-muted)' }}>{tr('arpt_fin_subtitle')}</p>
               </div>
             </div>
@@ -667,18 +667,18 @@ function FinanceReportPage() {
 
           {/* ─ Revenue KPIs ─ */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(165px, 1fr))', gap: '0.85rem' }}>
-            <KpiCard label={tr('arpt_fin_kpi_gross')} value={fmtCurrency(r!.gross_revenue)} change={changeRev} sub={tr('arpt_sub_vs_prev')} icon={<LuChartColumnBig size={18}/>} accent="#fbbf24"/>
-            <KpiCard label={tr('arpt_fin_kpi_settled')} value={fmtCurrency(r!.settled_revenue)} sub={tr('arpt_sub_fully_paid')} icon={<LuCircleCheck size={18}/>}  accent="#4ade80"/>
-            <KpiCard label={tr('arpt_fin_kpi_escrow')} value={fmtCurrency(r!.escrowed_revenue)} sub={tr('arpt_sub_await_release')} icon={<LuShieldCheck size={18}/>}  accent="#38bdf8"/>
-            <KpiCard label={tr('arpt_fin_kpi_unpaid')} value={fmtCurrency(r!.unpaid_revenue)} sub={tr('arpt_sub_pend_payment')} icon={<LuCircleX size={18}/>}      accent="#f87171"/>
-            <KpiCard label={tr('arpt_fin_kpi_avg_val')} value={fmtCurrency(r!.avg_order_revenue)} sub={tr('arpt_sub_per_order')} icon={<LuTrendingUp size={18}/>}   accent="#34d399"/>
-            <KpiCard label={tr('arpt_fin_kpi_reviews')} value={fmt(mp!.total)} sub={`${mp!.pending_count} ${tr('arpt_sub_pending_short')}`} icon={<LuReceipt size={18}/>}  accent="#fbbf24"/>
-            <KpiCard label={tr('arpt_fin_kpi_approved')} value={fmtCurrency(mp!.approved_amount)} change={changePay} sub={tr('arpt_sub_vs_prev')} icon={<LuCircleCheck size={18}/>}  accent="#4ade80"/>
-            <KpiCard label={tr('arpt_fin_kpi_deposits')} value={fmtCurrency(mp!.total_deposits)} sub={tr('arpt_sub_appr_deposits')} icon={<LuArrowDownLeft size={18}/>} accent="#60a5fa"/>
-            <KpiCard label={tr('arpt_fin_kpi_withdrawals')} value={fmtCurrency(mp!.total_withdrawals)} sub={tr('arpt_sub_appr_withdrawals')} icon={<LuArrowUpRight size={18}/>}  accent="#f97316"/>
-            <KpiCard label={tr('arpt_fin_kpi_commission')} value={fmtCurrency(inv!.total_commission)} sub={tr('arpt_sub_from_invoices')} icon={<LuCoins size={18}/>}        accent="#a78bfa"/>
-            <KpiCard label={tr('arpt_fin_kpi_payouts')} value={fmtCurrency(inv!.total_driver_payout)} sub={tr('arpt_sub_from_invoices')} icon={<LuTruck size={18}/>}        accent="#818cf8"/>
-            <KpiCard label={tr('arpt_fin_kpi_tips')} value={fmtCurrency(inv!.total_tips)} sub={tr('arpt_sub_from_customers')} icon={<LuBanknote size={18}/>}     accent="#34d399"/>
+            <KpiCard label={tr('arpt_fin_kpi_gross')} value={fmtCurrency(r!.gross_revenue)} change={changeRev} sub={tr('arpt_sub_vs_prev')} icon={<LuChartColumnBig size={18} />} accent="#fbbf24" />
+            <KpiCard label={tr('arpt_fin_kpi_settled')} value={fmtCurrency(r!.settled_revenue)} sub={tr('arpt_sub_fully_paid')} icon={<LuCircleCheck size={18} />} accent="#4ade80" />
+            <KpiCard label={tr('arpt_fin_kpi_escrow')} value={fmtCurrency(r!.escrowed_revenue)} sub={tr('arpt_sub_await_release')} icon={<LuShieldCheck size={18} />} accent="#38bdf8" />
+            <KpiCard label={tr('arpt_fin_kpi_unpaid')} value={fmtCurrency(r!.unpaid_revenue)} sub={tr('arpt_sub_pend_payment')} icon={<LuCircleX size={18} />} accent="#f87171" />
+            <KpiCard label={tr('arpt_fin_kpi_avg_val')} value={fmtCurrency(r!.avg_order_revenue)} sub={tr('arpt_sub_per_order')} icon={<LuTrendingUp size={18} />} accent="#34d399" />
+            <KpiCard label={tr('arpt_fin_kpi_reviews')} value={fmt(mp!.total)} sub={`${mp!.pending_count} ${tr('arpt_sub_pending_short')}`} icon={<LuReceipt size={18} />} accent="#fbbf24" />
+            <KpiCard label={tr('arpt_fin_kpi_approved')} value={fmtCurrency(mp!.approved_amount)} change={changePay} sub={tr('arpt_sub_vs_prev')} icon={<LuCircleCheck size={18} />} accent="#4ade80" />
+            <KpiCard label={tr('arpt_fin_kpi_deposits')} value={fmtCurrency(mp!.total_deposits)} sub={tr('arpt_sub_appr_deposits')} icon={<LuArrowDownLeft size={18} />} accent="#60a5fa" />
+            <KpiCard label={tr('arpt_fin_kpi_withdrawals')} value={fmtCurrency(mp!.total_withdrawals)} sub={tr('arpt_sub_appr_withdrawals')} icon={<LuArrowUpRight size={18} />} accent="#f97316" />
+            <KpiCard label={tr('arpt_fin_kpi_commission')} value={fmtCurrency(inv!.total_commission)} sub={tr('arpt_sub_from_invoices')} icon={<LuCoins size={18} />} accent="#a78bfa" />
+            <KpiCard label={tr('arpt_fin_kpi_payouts')} value={fmtCurrency(inv!.total_driver_payout)} sub={tr('arpt_sub_from_invoices')} icon={<LuTruck size={18} />} accent="#818cf8" />
+            <KpiCard label={tr('arpt_fin_kpi_tips')} value={fmtCurrency(inv!.total_tips)} sub={tr('arpt_sub_from_customers')} icon={<LuBanknote size={18} />} accent="#34d399" />
           </div>
 
           {/* ─ Revenue Trend Charts ─ */}
@@ -686,27 +686,27 @@ function FinanceReportPage() {
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={report.daily_revenue} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
                 <defs>
-                  <linearGradient id="gradRevFin"  x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%"  stopColor="#fbbf24" stopOpacity={0.35}/>
-                    <stop offset="95%" stopColor="#fbbf24" stopOpacity={0}/>
+                  <linearGradient id="gradRevFin" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#fbbf24" stopOpacity={0.35} />
+                    <stop offset="95%" stopColor="#fbbf24" stopOpacity={0} />
                   </linearGradient>
                   <linearGradient id="gradSettled" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%"  stopColor="#4ade80" stopOpacity={0.30}/>
-                    <stop offset="95%" stopColor="#4ade80" stopOpacity={0}/>
+                    <stop offset="5%" stopColor="#4ade80" stopOpacity={0.30} />
+                    <stop offset="95%" stopColor="#4ade80" stopOpacity={0} />
                   </linearGradient>
-                  <linearGradient id="gradEscrow"  x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%"  stopColor="#38bdf8" stopOpacity={0.25}/>
-                    <stop offset="95%" stopColor="#38bdf8" stopOpacity={0}/>
+                  <linearGradient id="gradEscrow" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#38bdf8" stopOpacity={0.25} />
+                    <stop offset="95%" stopColor="#38bdf8" stopOpacity={0} />
                   </linearGradient>
                 </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)"/>
-                <XAxis dataKey="date" tickFormatter={fmtDate} tick={{ fill: '#9ca3af', fontSize: 10 }} tickLine={false} axisLine={false}/>
-                <YAxis tick={{ fill: '#9ca3af', fontSize: 10 }} tickLine={false} axisLine={false} tickFormatter={v => `${(v/1000).toFixed(0)}k`}/>
-                <Tooltip content={<CustomTooltip/>}/>
-                <Legend wrapperStyle={{ fontSize: '0.72rem' }}/>
-                <Area type="monotone" dataKey="revenue"  name="Gross (ETB)"    stroke="#fbbf24" fill="url(#gradRevFin)"  strokeWidth={2} dot={false}/>
-                <Area type="monotone" dataKey="settled"  name="Settled (ETB)"  stroke="#4ade80" fill="url(#gradSettled)" strokeWidth={2} dot={false}/>
-                <Area type="monotone" dataKey="escrowed" name="Escrowed (ETB)" stroke="#38bdf8" fill="url(#gradEscrow)"  strokeWidth={2} dot={false}/>
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
+                <XAxis dataKey="date" tickFormatter={fmtDate} tick={{ fill: '#9ca3af', fontSize: 10 }} tickLine={false} axisLine={false} />
+                <YAxis tick={{ fill: '#9ca3af', fontSize: 10 }} tickLine={false} axisLine={false} tickFormatter={v => `${(v / 1000).toFixed(0)}k`} />
+                <Tooltip content={<CustomTooltip />} />
+                <Legend wrapperStyle={{ fontSize: '0.72rem' }} />
+                <Area type="monotone" dataKey="revenue" name="Gross (ETB)" stroke="#fbbf24" fill="url(#gradRevFin)" strokeWidth={2} dot={false} />
+                <Area type="monotone" dataKey="settled" name="Settled (ETB)" stroke="#4ade80" fill="url(#gradSettled)" strokeWidth={2} dot={false} />
+                <Area type="monotone" dataKey="escrowed" name="Escrowed (ETB)" stroke="#38bdf8" fill="url(#gradEscrow)" strokeWidth={2} dot={false} />
               </AreaChart>
             </ResponsiveContainer>
           </ChartCard>
@@ -716,12 +716,12 @@ function FinanceReportPage() {
             <ChartCard title={tr('arpt_fin_chart_vehicle')} height={240}>
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={vehicleData} layout="vertical" margin={{ top: 5, right: 50, left: 0, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" horizontal={false}/>
-                  <XAxis type="number" tick={{ fill: '#9ca3af', fontSize: 9 }} tickLine={false} axisLine={false} tickFormatter={v => `${(v/1000).toFixed(0)}k`}/>
-                  <YAxis type="category" dataKey="vehicle_type" tick={{ fill: '#9ca3af', fontSize: 10 }} tickLine={false} axisLine={false} width={80}/>
-                  <Tooltip content={<CustomTooltip/>}/>
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" horizontal={false} />
+                  <XAxis type="number" tick={{ fill: '#9ca3af', fontSize: 9 }} tickLine={false} axisLine={false} tickFormatter={v => `${(v / 1000).toFixed(0)}k`} />
+                  <YAxis type="category" dataKey="vehicle_type" tick={{ fill: '#9ca3af', fontSize: 10 }} tickLine={false} axisLine={false} width={80} />
+                  <Tooltip content={<CustomTooltip />} />
                   <Bar dataKey="revenue" name="Revenue (ETB)" radius={[0, 4, 4, 0]} maxBarSize={18}>
-                    {vehicleData.map((_, i) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]}/>)}
+                    {vehicleData.map((_, i) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />)}
                   </Bar>
                 </BarChart>
               </ResponsiveContainer>
@@ -731,11 +731,11 @@ function FinanceReportPage() {
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                   <Pie data={walletPieData} cx="38%" cy="50%" innerRadius={55} outerRadius={88} paddingAngle={2} dataKey="value">
-                    {walletPieData.map((entry, i) => <Cell key={i} fill={entry.fill}/>)}
+                    {walletPieData.map((entry, i) => <Cell key={i} fill={entry.fill} />)}
                   </Pie>
                   <Tooltip formatter={(v: any, n: any) => [fmtCurrency(Number(v)), n]}
-                    contentStyle={{ background: '#1a1f2e', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 10, fontSize: '0.74rem' }}/>
-                  <Legend iconSize={9} wrapperStyle={{ fontSize: '0.7rem', paddingLeft: '0.5rem' }}/>
+                    contentStyle={{ background: '#1a1f2e', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 10, fontSize: '0.74rem' }} />
+                  <Legend iconSize={9} wrapperStyle={{ fontSize: '0.7rem', paddingLeft: '0.5rem' }} />
                 </PieChart>
               </ResponsiveContainer>
             </ChartCard>
@@ -746,13 +746,13 @@ function FinanceReportPage() {
             <ChartCard title={tr('arpt_fin_chart_flow')} height={260}>
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={report.wallet_daily} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)"/>
-                  <XAxis dataKey="date" tickFormatter={fmtDate} tick={{ fill: '#9ca3af', fontSize: 10 }} tickLine={false} axisLine={false}/>
-                  <YAxis tick={{ fill: '#9ca3af', fontSize: 10 }} tickLine={false} axisLine={false} tickFormatter={v => `${(v/1000).toFixed(0)}k`}/>
-                  <Tooltip content={<CustomTooltip/>}/>
-                  <Legend wrapperStyle={{ fontSize: '0.72rem' }}/>
-                  <Bar dataKey="credits" name="Credits (ETB)" fill="#4ade80" radius={[3,3,0,0]} maxBarSize={22} fillOpacity={0.85}/>
-                  <Bar dataKey="debits"  name="Debits (ETB)"  fill="#f87171" radius={[3,3,0,0]} maxBarSize={22} fillOpacity={0.85}/>
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
+                  <XAxis dataKey="date" tickFormatter={fmtDate} tick={{ fill: '#9ca3af', fontSize: 10 }} tickLine={false} axisLine={false} />
+                  <YAxis tick={{ fill: '#9ca3af', fontSize: 10 }} tickLine={false} axisLine={false} tickFormatter={v => `${(v / 1000).toFixed(0)}k`} />
+                  <Tooltip content={<CustomTooltip />} />
+                  <Legend wrapperStyle={{ fontSize: '0.72rem' }} />
+                  <Bar dataKey="credits" name="Credits (ETB)" fill="#4ade80" radius={[3, 3, 0, 0]} maxBarSize={22} fillOpacity={0.85} />
+                  <Bar dataKey="debits" name="Debits (ETB)" fill="#f87171" radius={[3, 3, 0, 0]} maxBarSize={22} fillOpacity={0.85} />
                 </BarChart>
               </ResponsiveContainer>
             </ChartCard>
@@ -765,21 +765,21 @@ function FinanceReportPage() {
                 <AreaChart data={report.manual_payments_daily} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
                   <defs>
                     <linearGradient id="gradApproved" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%"  stopColor="#4ade80" stopOpacity={0.3}/>
-                      <stop offset="95%" stopColor="#4ade80" stopOpacity={0}/>
+                      <stop offset="5%" stopColor="#4ade80" stopOpacity={0.3} />
+                      <stop offset="95%" stopColor="#4ade80" stopOpacity={0} />
                     </linearGradient>
                     <linearGradient id="gradPending" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%"  stopColor="#fbbf24" stopOpacity={0.25}/>
-                      <stop offset="95%" stopColor="#fbbf24" stopOpacity={0}/>
+                      <stop offset="5%" stopColor="#fbbf24" stopOpacity={0.25} />
+                      <stop offset="95%" stopColor="#fbbf24" stopOpacity={0} />
                     </linearGradient>
                   </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)"/>
-                  <XAxis dataKey="date" tickFormatter={fmtDate} tick={{ fill: '#9ca3af', fontSize: 10 }} tickLine={false} axisLine={false}/>
-                  <YAxis tick={{ fill: '#9ca3af', fontSize: 10 }} tickLine={false} axisLine={false} tickFormatter={v => `${(v/1000).toFixed(0)}k`}/>
-                  <Tooltip content={<CustomTooltip/>}/>
-                  <Legend wrapperStyle={{ fontSize: '0.72rem' }}/>
-                  <Area type="monotone" dataKey="approved_amount" name="Approved (ETB)" stroke="#4ade80" fill="url(#gradApproved)" strokeWidth={2} dot={false}/>
-                  <Area type="monotone" dataKey="pending_amount"  name="Pending (ETB)"  stroke="#fbbf24" fill="url(#gradPending)"  strokeWidth={2} dot={false}/>
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
+                  <XAxis dataKey="date" tickFormatter={fmtDate} tick={{ fill: '#9ca3af', fontSize: 10 }} tickLine={false} axisLine={false} />
+                  <YAxis tick={{ fill: '#9ca3af', fontSize: 10 }} tickLine={false} axisLine={false} tickFormatter={v => `${(v / 1000).toFixed(0)}k`} />
+                  <Tooltip content={<CustomTooltip />} />
+                  <Legend wrapperStyle={{ fontSize: '0.72rem' }} />
+                  <Area type="monotone" dataKey="approved_amount" name="Approved (ETB)" stroke="#4ade80" fill="url(#gradApproved)" strokeWidth={2} dot={false} />
+                  <Area type="monotone" dataKey="pending_amount" name="Pending (ETB)" stroke="#fbbf24" fill="url(#gradPending)" strokeWidth={2} dot={false} />
                 </AreaChart>
               </ResponsiveContainer>
             </ChartCard>
@@ -788,32 +788,32 @@ function FinanceReportPage() {
           {/* ─ Invoice Breakdown ─ */}
           {inv && inv.total_invoices > 0 && (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(165px, 1fr))', gap: '0.85rem' }}>
-              <KpiCard label={tr('arpt_fin_kpi_invoices')} value={fmt(inv.total_invoices)} sub={tr('arpt_sub_for_period')} icon={<LuFileText size={18}/>}   accent="#60a5fa"/>
-              <KpiCard label={tr('arpt_fin_kpi_billed')} value={fmtCurrency(inv.total_billed)} sub={tr('arpt_sub_all_invoices')} icon={<LuReceipt size={18}/>}    accent="#fbbf24"/>
-              <KpiCard label={tr('arpt_fin_kpi_drv_pay')} value={fmtCurrency(inv.total_driver_payout)} sub={tr('arpt_sub_net_drivers')} icon={<LuTruck size={18}/>}      accent="#a78bfa"/>
-              <KpiCard label={tr('arpt_fin_kpi_comm_short')} value={fmtCurrency(inv.total_commission)} sub={tr('arpt_sub_platform_fee')} icon={<LuCoins size={18}/>}      accent="#34d399"/>
-              <KpiCard label={tr('arpt_fin_kpi_tips_short')} value={fmtCurrency(inv.total_tips)} sub={tr('arpt_sub_from_customers')} icon={<LuBanknote size={18}/>}   accent="#4ade80"/>
-              <KpiCard label={tr('arpt_fin_kpi_extras')} value={fmtCurrency(inv.total_extra_charges)} sub={tr('arpt_sub_fees_surcharges')} icon={<LuWallet size={18}/>}  accent="#f97316"/>
+              <KpiCard label={tr('arpt_fin_kpi_invoices')} value={fmt(inv.total_invoices)} sub={tr('arpt_sub_for_period')} icon={<LuFileText size={18} />} accent="#60a5fa" />
+              <KpiCard label={tr('arpt_fin_kpi_billed')} value={fmtCurrency(inv.total_billed)} sub={tr('arpt_sub_all_invoices')} icon={<LuReceipt size={18} />} accent="#fbbf24" />
+              <KpiCard label={tr('arpt_fin_kpi_drv_pay')} value={fmtCurrency(inv.total_driver_payout)} sub={tr('arpt_sub_net_drivers')} icon={<LuTruck size={18} />} accent="#a78bfa" />
+              <KpiCard label={tr('arpt_fin_kpi_comm_short')} value={fmtCurrency(inv.total_commission)} sub={tr('arpt_sub_platform_fee')} icon={<LuCoins size={18} />} accent="#34d399" />
+              <KpiCard label={tr('arpt_fin_kpi_tips_short')} value={fmtCurrency(inv.total_tips)} sub={tr('arpt_sub_from_customers')} icon={<LuBanknote size={18} />} accent="#4ade80" />
+              <KpiCard label={tr('arpt_fin_kpi_extras')} value={fmtCurrency(inv.total_extra_charges)} sub={tr('arpt_sub_fees_surcharges')} icon={<LuWallet size={18} />} accent="#f97316" />
             </div>
           )}
 
           {/* ─ Manual Payment Summary Table ─ */}
           <div style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.09)', borderRadius: 14, overflow: 'hidden' }}>
             <div style={{ padding: '1rem 1.2rem', borderBottom: '1px solid rgba(255,255,255,0.07)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <LuReceipt size={15} style={{ color: '#fbbf24' }}/>
+              <LuReceipt size={15} style={{ color: '#fbbf24' }} />
               <p style={{ margin: 0, fontWeight: 700, fontSize: '0.83rem', color: 'var(--clr-text)' }}>{tr('arpt_fin_tbl_pay')}</p>
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 0 }}>
               {[
-                { label: tr('arpt_fin_row_total_sub'), value: fmt(mp!.total),                    color: 'var(--clr-text)' },
-                { label: tr('arpt_fin_row_pending'), value: fmt(mp!.pending_count),             color: '#fbbf24' },
-                { label: tr('arpt_fin_row_approved'), value: fmt(mp!.approved_count),            color: '#4ade80' },
-                { label: tr('arpt_fin_row_rejected'), value: fmt(mp!.rejected_count),            color: '#f87171' },
-                { label: tr('arpt_fin_row_pend_amt'), value: fmtCurrency(mp!.pending_amount),    color: '#fbbf24' },
-                { label: tr('arpt_fin_row_appr_amt'), value: fmtCurrency(mp!.approved_amount),   color: '#4ade80' },
-                { label: tr('arpt_fin_row_deposits'), value: fmtCurrency(mp!.total_deposits),    color: '#60a5fa' },
+                { label: tr('arpt_fin_row_total_sub'), value: fmt(mp!.total), color: 'var(--clr-text)' },
+                { label: tr('arpt_fin_row_pending'), value: fmt(mp!.pending_count), color: '#fbbf24' },
+                { label: tr('arpt_fin_row_approved'), value: fmt(mp!.approved_count), color: '#4ade80' },
+                { label: tr('arpt_fin_row_rejected'), value: fmt(mp!.rejected_count), color: '#f87171' },
+                { label: tr('arpt_fin_row_pend_amt'), value: fmtCurrency(mp!.pending_amount), color: '#fbbf24' },
+                { label: tr('arpt_fin_row_appr_amt'), value: fmtCurrency(mp!.approved_amount), color: '#4ade80' },
+                { label: tr('arpt_fin_row_deposits'), value: fmtCurrency(mp!.total_deposits), color: '#60a5fa' },
                 { label: tr('arpt_fin_row_withdrawals'), value: fmtCurrency(mp!.total_withdrawals), color: '#f97316' },
-                { label: tr('arpt_fin_row_refunds'), value: fmtCurrency(mp!.total_refunds),     color: '#38bdf8' },
+                { label: tr('arpt_fin_row_refunds'), value: fmtCurrency(mp!.total_refunds), color: '#38bdf8' },
                 { label: tr('arpt_fin_row_adjustments'), value: fmtCurrency(mp!.total_adjustments), color: '#a78bfa' },
               ].map((item) => (
                 <div key={item.label} style={{ padding: '0.85rem 1.2rem', borderBottom: '1px solid rgba(255,255,255,0.05)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.5rem' }}>
@@ -828,7 +828,7 @@ function FinanceReportPage() {
           {report.wallet_by_type.length > 0 && (
             <div style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.09)', borderRadius: 14, overflow: 'hidden' }}>
               <div style={{ padding: '1rem 1.2rem', borderBottom: '1px solid rgba(255,255,255,0.07)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <LuWallet size={15} style={{ color: 'var(--clr-accent)' }}/>
+                <LuWallet size={15} style={{ color: 'var(--clr-accent)' }} />
                 <p style={{ margin: 0, fontWeight: 700, fontSize: '0.83rem', color: 'var(--clr-text)' }}>{tr('arpt_fin_tbl_wallet')}</p>
               </div>
               <div className="rpt-table-scroll" style={{ overflowX: 'auto' }}>
@@ -850,7 +850,7 @@ function FinanceReportPage() {
                           <tr key={w.transaction_type} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)', background: i % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.015)' }}>
                             <td style={{ padding: '0.6rem 1.1rem', fontWeight: 600 }}>
                               <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}>
-                                <span style={{ width: 8, height: 8, borderRadius: '50%', background: col, flexShrink: 0 }}/>
+                                <span style={{ width: 8, height: 8, borderRadius: '50%', background: col, flexShrink: 0 }} />
                                 {w.transaction_type}
                               </span>
                             </td>
@@ -858,7 +858,7 @@ function FinanceReportPage() {
                             <td style={{ padding: '0.6rem 1.1rem', color: '#fbbf24', fontWeight: 600 }}>{fmtCurrency(w.total_amount)}</td>
                             <td style={{ padding: '0.6rem 1.1rem', minWidth: 120 }}>
                               <div style={{ height: 6, borderRadius: 3, background: 'rgba(255,255,255,0.07)', overflow: 'hidden' }}>
-                                <div style={{ height: '100%', width: `${pctVal}%`, background: col, borderRadius: 3 }}/>
+                                <div style={{ height: '100%', width: `${pctVal}%`, background: col, borderRadius: 3 }} />
                               </div>
                             </td>
                           </tr>
@@ -875,7 +875,7 @@ function FinanceReportPage() {
           {report.top_shippers.length > 0 && (
             <div style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.09)', borderRadius: 14, overflow: 'hidden' }}>
               <div style={{ padding: '1rem 1.2rem', borderBottom: '1px solid rgba(255,255,255,0.07)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <LuUser size={15} style={{ color: 'var(--clr-accent)' }}/>
+                <LuUser size={15} style={{ color: 'var(--clr-accent)' }} />
                 <p style={{ margin: 0, fontWeight: 700, fontSize: '0.83rem', color: 'var(--clr-text)' }}>{tr('arpt_fin_tbl_shippers')}</p>
               </div>
               <div className="rpt-table-scroll" style={{ overflowX: 'auto' }}>
@@ -951,9 +951,9 @@ interface DriverReport {
 }
 
 const STATUS_BADGE: Record<string, { bg: string; color: string }> = {
-  AVAILABLE: { bg: 'rgba(74,222,128,0.15)',  color: '#4ade80' },
-  ON_JOB:    { bg: 'rgba(251,191,36,0.15)',  color: '#fbbf24' },
-  OFFLINE:   { bg: 'rgba(156,163,175,0.15)', color: '#9ca3af' },
+  AVAILABLE: { bg: 'rgba(74,222,128,0.15)', color: '#4ade80' },
+  ON_JOB: { bg: 'rgba(251,191,36,0.15)', color: '#fbbf24' },
+  OFFLINE: { bg: 'rgba(156,163,175,0.15)', color: '#9ca3af' },
   SUSPENDED: { bg: 'rgba(248,113,113,0.15)', color: '#f87171' },
 }
 
@@ -964,7 +964,7 @@ function StarBar({ stars, count, total }: { stars: number; count: number; total:
     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.75rem' }}>
       <span style={{ width: 16, color: '#fbbf24', fontWeight: 700, flexShrink: 0 }}>{stars}★</span>
       <div style={{ flex: 1, height: 7, borderRadius: 4, background: 'rgba(255,255,255,0.08)', overflow: 'hidden' }}>
-        <div style={{ width: `${pct}%`, height: '100%', background: colors[stars] ?? '#888', borderRadius: 4, transition: 'width 0.4s ease' }}/>
+        <div style={{ width: `${pct}%`, height: '100%', background: colors[stars] ?? '#888', borderRadius: 4, transition: 'width 0.4s ease' }} />
       </div>
       <span style={{ width: 32, textAlign: 'right', color: 'var(--clr-muted)', fontWeight: 600 }}>{count}</span>
     </div>
@@ -976,14 +976,14 @@ function StarBar({ stars, count, total }: { stars: number; count: number; total:
 function DriverReportPage() {
   const { t: tr } = useLanguage()
   const today = new Date()
-  const defaultTo   = today.toISOString().slice(0, 10)
+  const defaultTo = today.toISOString().slice(0, 10)
   const defaultFrom = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
 
-  const [from, setFrom]       = useState(defaultFrom)
-  const [to, setTo]           = useState(defaultTo)
-  const [report, setReport]   = useState<DriverReport | null>(null)
+  const [from, setFrom] = useState(defaultFrom)
+  const [to, setTo] = useState(defaultTo)
+  const [report, setReport] = useState<DriverReport | null>(null)
   const [loading, setLoading] = useState(false)
-  const [error, setError]     = useState('')
+  const [error, setError] = useState('')
   const [downloading, setDownloading] = useState(false)
   const reportRef = useRef<HTMLDivElement>(null)
 
@@ -993,7 +993,7 @@ function DriverReportPage() {
       const { data } = await apiClient.get('/admin/reports/drivers', { params: { from: f, to: t } })
       setReport(data.report)
     } catch { setError(tr('arpt_drv_error')) }
-    finally   { setLoading(false) }
+    finally { setLoading(false) }
   }, [from, to])
 
   useEffect(() => { load() }, []) // eslint-disable-line
@@ -1030,8 +1030,8 @@ function DriverReportPage() {
 
   const statusPieData = ov ? [
     { name: 'Available', value: ov.available_drivers, fill: '#4ade80' },
-    { name: 'On Job',    value: ov.on_job_drivers,    fill: '#fbbf24' },
-    { name: 'Offline',   value: ov.offline_drivers,   fill: '#6b7280' },
+    { name: 'On Job', value: ov.on_job_drivers, fill: '#fbbf24' },
+    { name: 'Offline', value: ov.offline_drivers, fill: '#6b7280' },
     { name: 'Suspended', value: ov.suspended_drivers, fill: '#f87171' },
   ].filter(d => d.value > 0) : []
 
@@ -1044,13 +1044,13 @@ function DriverReportPage() {
 
       {/* Controls bar */}
       <div className="rpt-controls" style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '0.65rem', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 12, padding: '0.7rem 1rem' }}>
-        <LuCalendar size={14} style={{ color: 'var(--clr-muted)', flexShrink: 0 }}/>
+        <LuCalendar size={14} style={{ color: 'var(--clr-muted)', flexShrink: 0 }} />
         {([tr('rpt_from'), tr('rpt_to')]).map((lbl, i) => (
           <div key={lbl} className="rpt-controls-field" style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
             <label style={{ fontSize: '0.72rem', color: 'var(--clr-muted)', fontWeight: 600 }}>{lbl}</label>
             <input type="date" value={i === 0 ? from : to} max={i === 0 ? to : undefined} min={i === 1 ? from : undefined}
               onChange={e => i === 0 ? setFrom(e.target.value) : setTo(e.target.value)}
-              style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 8, padding: '0.28rem 0.55rem', color: 'var(--clr-text)', fontSize: '0.78rem', fontFamily: 'inherit', colorScheme: 'dark' }}/>
+              style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 8, padding: '0.28rem 0.55rem', color: 'var(--clr-text)', fontSize: '0.78rem', fontFamily: 'inherit', colorScheme: 'dark' }} />
           </div>
         ))}
         {[{ label: '7D', days: 7 }, { label: '30D', days: 30 }, { label: '90D', days: 90 }, { label: '1Y', days: 365 }].map(p => {
@@ -1063,26 +1063,26 @@ function DriverReportPage() {
             </button>
           )
         })}
-        <div className="rpt-controls-spacer" style={{ flex: 1 }}/>
+        <div className="rpt-controls-spacer" style={{ flex: 1 }} />
         <button onClick={() => load()} disabled={loading}
           style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', padding: '0.38rem 0.85rem', borderRadius: 9, border: '1px solid rgba(255,255,255,0.12)', background: 'rgba(255,255,255,0.06)', color: 'var(--clr-text)', fontSize: '0.78rem', fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
-          <LuRefreshCw size={13} style={{ animation: loading ? 'spin 1s linear infinite' : 'none' }}/> {tr('rpt_apply')}
+          <LuRefreshCw size={13} style={{ animation: loading ? 'spin 1s linear infinite' : 'none' }} /> {tr('rpt_apply')}
         </button>
         <button onClick={handleDownload} disabled={downloading || !report}
           style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', padding: '0.38rem 0.9rem', borderRadius: 9, border: 'none', background: 'var(--clr-accent)', color: '#000', fontSize: '0.78rem', fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', opacity: (downloading || !report) ? 0.5 : 1 }}>
-          <LuDownload size={13}/> {downloading ? tr('arpt_generating') : tr('arpt_download_pdf')}
+          <LuDownload size={13} /> {downloading ? tr('arpt_generating') : tr('arpt_download_pdf')}
         </button>
       </div>
 
       {error && (
         <div style={{ background: 'rgba(248,113,113,0.1)', border: '1px solid rgba(248,113,113,0.3)', borderRadius: 10, padding: '0.7rem 1rem', fontSize: '0.8rem', color: '#f87171', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-          <LuTriangleAlert size={14}/> {error}
+          <LuTriangleAlert size={14} /> {error}
         </div>
       )}
 
       {loading && (
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '4rem', gap: '0.75rem', color: 'var(--clr-muted)', fontSize: '0.85rem' }}>
-          <LuRefreshCw size={18} style={{ animation: 'spin 1s linear infinite', color: 'var(--clr-accent)' }}/> {tr('arpt_drv_loading')}
+          <LuRefreshCw size={18} style={{ animation: 'spin 1s linear infinite', color: 'var(--clr-accent)' }} /> {tr('arpt_drv_loading')}
         </div>
       )}
 
@@ -1092,9 +1092,9 @@ function DriverReportPage() {
           {/* Report header */}
           <div className="rpt-hdr rpt-report-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'linear-gradient(135deg, rgba(129,140,248,0.08), rgba(52,211,153,0.06))', border: '1px solid rgba(129,140,248,0.2)', borderRadius: 14, padding: '1.2rem 1.5rem' }}>
             <div className="rpt-report-brand" style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-              <img src={logoImg} alt="Africa Logistics" style={{ height: 44, width: 'auto', objectFit: 'contain', borderRadius: 8 }}/>
+              <img src={logoImg} alt="Afri logistics" style={{ height: 44, width: 'auto', objectFit: 'contain', borderRadius: 8 }} />
               <div>
-                <p style={{ margin: 0, fontWeight: 800, fontSize: '1rem', color: 'var(--clr-text)' }}>Africa Logistics</p>
+                <p style={{ margin: 0, fontWeight: 800, fontSize: '1rem', color: 'var(--clr-text)' }}>Afri logistics</p>
                 <p style={{ margin: 0, fontSize: '0.72rem', color: 'var(--clr-muted)' }}>{tr('arpt_drv_subtitle')}</p>
               </div>
             </div>
@@ -1111,18 +1111,18 @@ function DriverReportPage() {
 
           {/* ─ Fleet Overview KPIs ─ */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(165px, 1fr))', gap: '0.85rem' }}>
-            <KpiCard label={tr('arpt_drv_kpi_total')} value={fmt(ov!.total_drivers)} sub={tr('arpt_sub_registered')} icon={<LuUsers size={18}/>}      accent="#818cf8"/>
-            <KpiCard label={tr('arpt_drv_kpi_verified')} value={fmt(ov!.verified_drivers)} sub={`${ov!.total_drivers ? ((ov!.verified_drivers/ov!.total_drivers)*100).toFixed(0) : 0}${tr('arpt_sub_pct_fleet')}`} icon={<LuBadgeCheck size={18}/>} accent="#4ade80"/>
-            <KpiCard label={tr('arpt_drv_kpi_available')} value={fmt(ov!.available_drivers)} sub={tr('arpt_sub_ready_jobs')} icon={<LuCircleDot size={18}/>}  accent="#4ade80"/>
-            <KpiCard label={tr('arpt_drv_kpi_on_job')} value={fmt(ov!.on_job_drivers)} sub={tr('arpt_sub_curr_active')} icon={<LuTruck size={18}/>}      accent="#fbbf24"/>
-            <KpiCard label={tr('arpt_drv_kpi_offline')} value={fmt(ov!.offline_drivers)} sub={tr('arpt_sub_not_available')} icon={<LuClock size={18}/>}      accent="#6b7280"/>
-            <KpiCard label={tr('arpt_drv_kpi_suspended')} value={fmt(ov!.suspended_drivers)} sub={tr('arpt_sub_restricted')} icon={<LuBan size={18}/>}        accent="#f87171"/>
-            <KpiCard label={tr('arpt_drv_kpi_fleet_rating')} value={`${(ov!.avg_profile_rating || 0).toFixed(2)} ★`} sub={tr('arpt_sub_across_drivers')} icon={<LuStar size={18}/>}       accent="#fbbf24"/>
-            <KpiCard label={tr('arpt_drv_kpi_trips')} value={fmt(pf!.total_trips)} sub={tr('arpt_sub_all_time')} icon={<LuPackage size={18}/>}    accent="#38bdf8"/>
-            <KpiCard label={tr('arpt_drv_kpi_on_time')} value={`${(pf!.avg_on_time_pct || 0).toFixed(1)}%`} sub={tr('arpt_sub_fleet_avg')} icon={<LuThumbsUp size={18}/>}   accent="#34d399"/>
-            <KpiCard label={tr('arpt_drv_kpi_earnings')} value={fmtCurrency(pf!.total_earned)} sub={tr('arpt_sub_drv_payouts')} icon={<LuCoins size={18}/>}      accent="#a78bfa"/>
-            <KpiCard label={tr('arpt_drv_kpi_bonuses')} value={fmtCurrency(pf!.total_bonus)} sub={tr('arpt_sub_perf_bonuses')} icon={<LuTrendingUp size={18}/>} accent="#34d399"/>
-            <KpiCard label={tr('arpt_drv_kpi_avg_rating')} value={`${(pf!.avg_rating || 0).toFixed(2)} ★`} sub={tr('arpt_sub_drv_ratings_src')} icon={<LuStar size={18}/>}       accent="#fbbf24"/>
+            <KpiCard label={tr('arpt_drv_kpi_total')} value={fmt(ov!.total_drivers)} sub={tr('arpt_sub_registered')} icon={<LuUsers size={18} />} accent="#818cf8" />
+            <KpiCard label={tr('arpt_drv_kpi_verified')} value={fmt(ov!.verified_drivers)} sub={`${ov!.total_drivers ? ((ov!.verified_drivers / ov!.total_drivers) * 100).toFixed(0) : 0}${tr('arpt_sub_pct_fleet')}`} icon={<LuBadgeCheck size={18} />} accent="#4ade80" />
+            <KpiCard label={tr('arpt_drv_kpi_available')} value={fmt(ov!.available_drivers)} sub={tr('arpt_sub_ready_jobs')} icon={<LuCircleDot size={18} />} accent="#4ade80" />
+            <KpiCard label={tr('arpt_drv_kpi_on_job')} value={fmt(ov!.on_job_drivers)} sub={tr('arpt_sub_curr_active')} icon={<LuTruck size={18} />} accent="#fbbf24" />
+            <KpiCard label={tr('arpt_drv_kpi_offline')} value={fmt(ov!.offline_drivers)} sub={tr('arpt_sub_not_available')} icon={<LuClock size={18} />} accent="#6b7280" />
+            <KpiCard label={tr('arpt_drv_kpi_suspended')} value={fmt(ov!.suspended_drivers)} sub={tr('arpt_sub_restricted')} icon={<LuBan size={18} />} accent="#f87171" />
+            <KpiCard label={tr('arpt_drv_kpi_fleet_rating')} value={`${(ov!.avg_profile_rating || 0).toFixed(2)} ★`} sub={tr('arpt_sub_across_drivers')} icon={<LuStar size={18} />} accent="#fbbf24" />
+            <KpiCard label={tr('arpt_drv_kpi_trips')} value={fmt(pf!.total_trips)} sub={tr('arpt_sub_all_time')} icon={<LuPackage size={18} />} accent="#38bdf8" />
+            <KpiCard label={tr('arpt_drv_kpi_on_time')} value={`${(pf!.avg_on_time_pct || 0).toFixed(1)}%`} sub={tr('arpt_sub_fleet_avg')} icon={<LuThumbsUp size={18} />} accent="#34d399" />
+            <KpiCard label={tr('arpt_drv_kpi_earnings')} value={fmtCurrency(pf!.total_earned)} sub={tr('arpt_sub_drv_payouts')} icon={<LuCoins size={18} />} accent="#a78bfa" />
+            <KpiCard label={tr('arpt_drv_kpi_bonuses')} value={fmtCurrency(pf!.total_bonus)} sub={tr('arpt_sub_perf_bonuses')} icon={<LuTrendingUp size={18} />} accent="#34d399" />
+            <KpiCard label={tr('arpt_drv_kpi_avg_rating')} value={`${(pf!.avg_rating || 0).toFixed(2)} ★`} sub={tr('arpt_sub_drv_ratings_src')} icon={<LuStar size={18} />} accent="#fbbf24" />
           </div>
 
           {/* ─ Driver Status Pie + Vehicle Fleet Pie ─ */}
@@ -1131,11 +1131,11 @@ function DriverReportPage() {
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                   <Pie data={statusPieData} cx="38%" cy="50%" innerRadius={55} outerRadius={88} paddingAngle={2} dataKey="value">
-                    {statusPieData.map((d, i) => <Cell key={i} fill={d.fill}/>)}
+                    {statusPieData.map((d, i) => <Cell key={i} fill={d.fill} />)}
                   </Pie>
                   <Tooltip formatter={(v: any, n: any) => [fmt(Number(v)), n]}
-                    contentStyle={{ background: '#1a1f2e', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 10, fontSize: '0.74rem' }}/>
-                  <Legend iconSize={9} wrapperStyle={{ fontSize: '0.7rem', paddingLeft: '0.5rem' }}/>
+                    contentStyle={{ background: '#1a1f2e', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 10, fontSize: '0.74rem' }} />
+                  <Legend iconSize={9} wrapperStyle={{ fontSize: '0.7rem', paddingLeft: '0.5rem' }} />
                 </PieChart>
               </ResponsiveContainer>
             </ChartCard>
@@ -1144,11 +1144,11 @@ function DriverReportPage() {
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                   <Pie data={vehiclePieData} cx="38%" cy="50%" innerRadius={55} outerRadius={88} paddingAngle={2} dataKey="value">
-                    {vehiclePieData.map((d, i) => <Cell key={i} fill={d.fill}/>)}
+                    {vehiclePieData.map((d, i) => <Cell key={i} fill={d.fill} />)}
                   </Pie>
                   <Tooltip formatter={(v: any, n: any) => [fmt(Number(v)), n]}
-                    contentStyle={{ background: '#1a1f2e', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 10, fontSize: '0.74rem' }}/>
-                  <Legend iconSize={9} wrapperStyle={{ fontSize: '0.7rem', paddingLeft: '0.5rem' }}/>
+                    contentStyle={{ background: '#1a1f2e', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 10, fontSize: '0.74rem' }} />
+                  <Legend iconSize={9} wrapperStyle={{ fontSize: '0.7rem', paddingLeft: '0.5rem' }} />
                 </PieChart>
               </ResponsiveContainer>
             </ChartCard>
@@ -1161,21 +1161,21 @@ function DriverReportPage() {
                 <AreaChart data={report.daily_trips} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
                   <defs>
                     <linearGradient id="gradTrips" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%"  stopColor="#818cf8" stopOpacity={0.35}/>
-                      <stop offset="95%" stopColor="#818cf8" stopOpacity={0}/>
+                      <stop offset="5%" stopColor="#818cf8" stopOpacity={0.35} />
+                      <stop offset="95%" stopColor="#818cf8" stopOpacity={0} />
                     </linearGradient>
                     <linearGradient id="gradActDrv" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%"  stopColor="#34d399" stopOpacity={0.25}/>
-                      <stop offset="95%" stopColor="#34d399" stopOpacity={0}/>
+                      <stop offset="5%" stopColor="#34d399" stopOpacity={0.25} />
+                      <stop offset="95%" stopColor="#34d399" stopOpacity={0} />
                     </linearGradient>
                   </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)"/>
-                  <XAxis dataKey="date" tickFormatter={fmtDate} tick={{ fill: '#9ca3af', fontSize: 10 }} tickLine={false} axisLine={false}/>
-                  <YAxis tick={{ fill: '#9ca3af', fontSize: 10 }} tickLine={false} axisLine={false}/>
-                  <Tooltip content={<CustomTooltip/>}/>
-                  <Legend wrapperStyle={{ fontSize: '0.72rem' }}/>
-                  <Area type="monotone" dataKey="completed_trips"  name="Completed Trips"  stroke="#818cf8" fill="url(#gradTrips)"  strokeWidth={2} dot={false}/>
-                  <Area type="monotone" dataKey="active_drivers"   name="Active Drivers"   stroke="#34d399" fill="url(#gradActDrv)" strokeWidth={2} dot={false}/>
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
+                  <XAxis dataKey="date" tickFormatter={fmtDate} tick={{ fill: '#9ca3af', fontSize: 10 }} tickLine={false} axisLine={false} />
+                  <YAxis tick={{ fill: '#9ca3af', fontSize: 10 }} tickLine={false} axisLine={false} />
+                  <Tooltip content={<CustomTooltip />} />
+                  <Legend wrapperStyle={{ fontSize: '0.72rem' }} />
+                  <Area type="monotone" dataKey="completed_trips" name="Completed Trips" stroke="#818cf8" fill="url(#gradTrips)" strokeWidth={2} dot={false} />
+                  <Area type="monotone" dataKey="active_drivers" name="Active Drivers" stroke="#34d399" fill="url(#gradActDrv)" strokeWidth={2} dot={false} />
                 </AreaChart>
               </ResponsiveContainer>
             </ChartCard>
@@ -1187,14 +1187,14 @@ function DriverReportPage() {
             {/* Star rating bars */}
             <div style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.09)', borderRadius: 14, padding: '1.1rem 1.25rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.4rem' }}>
-                <LuStar size={15} style={{ color: '#fbbf24' }}/>
+                <LuStar size={15} style={{ color: '#fbbf24' }} />
                 <p style={{ margin: 0, fontWeight: 700, fontSize: '0.83rem', color: 'var(--clr-text)' }}>
                   {tr('arpt_drv_rating_dist')}
                   <span style={{ fontSize: '0.7rem', color: 'var(--clr-muted)', fontWeight: 400, marginLeft: '0.5rem' }}>({ratingTotal} reviews in period)</span>
                 </p>
               </div>
               {fullRatingDist.map(r => (
-                <StarBar key={r.stars} stars={r.stars} count={r.count} total={ratingTotal}/>
+                <StarBar key={r.stars} stars={r.stars} count={r.count} total={ratingTotal} />
               ))}
               <div style={{ marginTop: '0.5rem', paddingTop: '0.5rem', borderTop: '1px solid rgba(255,255,255,0.06)', display: 'flex', justifyContent: 'space-between', fontSize: '0.72rem', color: 'var(--clr-muted)' }}>
                 <span>{tr('arpt_drv_avg_period')}</span>
@@ -1208,12 +1208,12 @@ function DriverReportPage() {
             <ChartCard title={tr('arpt_drv_chart_exp')} height={220}>
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={report.trips_buckets} layout="vertical" margin={{ top: 5, right: 40, left: 0, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" horizontal={false}/>
-                  <XAxis type="number" tick={{ fill: '#9ca3af', fontSize: 9 }} tickLine={false} axisLine={false}/>
-                  <YAxis type="category" dataKey="bucket" tick={{ fill: '#9ca3af', fontSize: 10 }} tickLine={false} axisLine={false} width={72}/>
-                  <Tooltip content={<CustomTooltip/>}/>
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" horizontal={false} />
+                  <XAxis type="number" tick={{ fill: '#9ca3af', fontSize: 9 }} tickLine={false} axisLine={false} />
+                  <YAxis type="category" dataKey="bucket" tick={{ fill: '#9ca3af', fontSize: 10 }} tickLine={false} axisLine={false} width={72} />
+                  <Tooltip content={<CustomTooltip />} />
                   <Bar dataKey="drivers" name="Drivers" radius={[0, 4, 4, 0]} maxBarSize={18}>
-                    {report.trips_buckets.map((_, i) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]}/>)}
+                    {report.trips_buckets.map((_, i) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />)}
                   </Bar>
                 </BarChart>
               </ResponsiveContainer>
@@ -1225,14 +1225,14 @@ function DriverReportPage() {
             <ChartCard title={tr('arpt_drv_chart_ratings')} height={220}>
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={report.daily_ratings} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)"/>
-                  <XAxis dataKey="date" tickFormatter={fmtDate} tick={{ fill: '#9ca3af', fontSize: 10 }} tickLine={false} axisLine={false}/>
-                  <YAxis yAxisId="left"  tick={{ fill: '#9ca3af', fontSize: 10 }} tickLine={false} axisLine={false}/>
-                  <YAxis yAxisId="right" orientation="right" domain={[1, 5]} tick={{ fill: '#9ca3af', fontSize: 10 }} tickLine={false} axisLine={false}/>
-                  <Tooltip content={<CustomTooltip/>}/>
-                  <Legend wrapperStyle={{ fontSize: '0.72rem' }}/>
-                  <Bar yAxisId="left"  dataKey="count"     name="Reviews"   fill="#818cf8" radius={[3,3,0,0]} maxBarSize={20} fillOpacity={0.8}/>
-                  <Bar yAxisId="right" dataKey="avg_stars" name="Avg Stars ★" fill="#fbbf24" radius={[3,3,0,0]} maxBarSize={20} fillOpacity={0.7}/>
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
+                  <XAxis dataKey="date" tickFormatter={fmtDate} tick={{ fill: '#9ca3af', fontSize: 10 }} tickLine={false} axisLine={false} />
+                  <YAxis yAxisId="left" tick={{ fill: '#9ca3af', fontSize: 10 }} tickLine={false} axisLine={false} />
+                  <YAxis yAxisId="right" orientation="right" domain={[1, 5]} tick={{ fill: '#9ca3af', fontSize: 10 }} tickLine={false} axisLine={false} />
+                  <Tooltip content={<CustomTooltip />} />
+                  <Legend wrapperStyle={{ fontSize: '0.72rem' }} />
+                  <Bar yAxisId="left" dataKey="count" name="Reviews" fill="#818cf8" radius={[3, 3, 0, 0]} maxBarSize={20} fillOpacity={0.8} />
+                  <Bar yAxisId="right" dataKey="avg_stars" name="Avg Stars ★" fill="#fbbf24" radius={[3, 3, 0, 0]} maxBarSize={20} fillOpacity={0.7} />
                 </BarChart>
               </ResponsiveContainer>
             </ChartCard>
@@ -1242,7 +1242,7 @@ function DriverReportPage() {
           {docs && (
             <div style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.09)', borderRadius: 14, overflow: 'hidden' }}>
               <div style={{ padding: '1rem 1.2rem', borderBottom: '1px solid rgba(255,255,255,0.07)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <LuBadgeCheck size={15} style={{ color: '#4ade80' }}/>
+                <LuBadgeCheck size={15} style={{ color: '#4ade80' }} />
                 <p style={{ margin: 0, fontWeight: 700, fontSize: '0.83rem', color: 'var(--clr-text)' }}>{tr('arpt_drv_doc_verif')}</p>
               </div>
               <div className="rpt-grid-3-doc">
@@ -1261,7 +1261,7 @@ function DriverReportPage() {
                       {(() => {
                         const total = doc.approved + doc.pending
                         const pct = total ? (doc.approved / total) * 100 : 0
-                        return <div style={{ height: '100%', width: `${pct}%`, background: '#4ade80', borderRadius: 3 }}/>
+                        return <div style={{ height: '100%', width: `${pct}%`, background: '#4ade80', borderRadius: 3 }} />
                       })()}
                     </div>
                   </div>
@@ -1274,7 +1274,7 @@ function DriverReportPage() {
           {report.top_drivers.length > 0 && (
             <div style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.09)', borderRadius: 14, overflow: 'hidden' }}>
               <div style={{ padding: '1rem 1.2rem', borderBottom: '1px solid rgba(255,255,255,0.07)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <LuTruck size={15} style={{ color: 'var(--clr-accent)' }}/>
+                <LuTruck size={15} style={{ color: 'var(--clr-accent)' }} />
                 <p style={{ margin: 0, fontWeight: 700, fontSize: '0.83rem', color: 'var(--clr-text)' }}>{tr('arpt_drv_tbl_top')}</p>
               </div>
               <div className="rpt-table-scroll" style={{ overflowX: 'auto' }}>
@@ -1308,7 +1308,7 @@ function DriverReportPage() {
                           <td style={{ padding: '0.6rem 1rem' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
                               <div style={{ flex: 1, minWidth: 50, height: 5, borderRadius: 3, background: 'rgba(255,255,255,0.08)', overflow: 'hidden' }}>
-                                <div style={{ width: `${d.on_time_percentage}%`, height: '100%', background: d.on_time_percentage >= 80 ? '#4ade80' : d.on_time_percentage >= 60 ? '#fbbf24' : '#f87171', borderRadius: 3 }}/>
+                                <div style={{ width: `${d.on_time_percentage}%`, height: '100%', background: d.on_time_percentage >= 80 ? '#4ade80' : d.on_time_percentage >= 60 ? '#fbbf24' : '#f87171', borderRadius: 3 }} />
                               </div>
                               <span style={{ fontSize: '0.7rem', color: 'var(--clr-muted)', flexShrink: 0 }}>{d.on_time_percentage.toFixed(0)}%</span>
                             </div>
@@ -1369,14 +1369,14 @@ const STATUS_ORDER_COLORS: Record<string, string> = {
 function LogisticsReportPage() {
   const { t: tr } = useLanguage()
   const today = new Date()
-  const defaultTo   = today.toISOString().slice(0, 10)
+  const defaultTo = today.toISOString().slice(0, 10)
   const defaultFrom = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
 
-  const [from, setFrom]       = useState(defaultFrom)
-  const [to, setTo]           = useState(defaultTo)
-  const [report, setReport]   = useState<LogisticsReport | null>(null)
+  const [from, setFrom] = useState(defaultFrom)
+  const [to, setTo] = useState(defaultTo)
+  const [report, setReport] = useState<LogisticsReport | null>(null)
   const [loading, setLoading] = useState(false)
-  const [error, setError]     = useState('')
+  const [error, setError] = useState('')
   const [downloading, setDownloading] = useState(false)
   const reportRef = useRef<HTMLDivElement>(null)
 
@@ -1386,7 +1386,7 @@ function LogisticsReportPage() {
       const { data } = await apiClient.get('/admin/reports/logistics', { params: { from: f, to: t } })
       setReport(data.report)
     } catch { setError(tr('arpt_log_error')) }
-    finally   { setLoading(false) }
+    finally { setLoading(false) }
   }, [from, to])
 
   useEffect(() => { load() }, []) // eslint-disable-line
@@ -1412,15 +1412,15 @@ function LogisticsReportPage() {
   }
 
   const sm = report?.summary
-  const changeOrders   = sm ? pct(sm.total_orders,  sm.prev_total_orders) : null
-  const changeDelivery = sm ? pct(sm.delivered,      sm.prev_delivered)    : null
+  const changeOrders = sm ? pct(sm.total_orders, sm.prev_total_orders) : null
+  const changeDelivery = sm ? pct(sm.delivered, sm.prev_delivered) : null
 
   const statusPieData = (report?.by_status ?? [])
     .map(s => ({ name: s.status, value: s.count, fill: STATUS_ORDER_COLORS[s.status] ?? '#888' }))
 
   const fmtMin = (mins: number) => {
     if (!mins || mins <= 0) return '—'
-    if (mins < 60)  return `${mins.toFixed(0)}m`
+    if (mins < 60) return `${mins.toFixed(0)}m`
     if (mins < 1440) return `${(mins / 60).toFixed(1)}h`
     return `${(mins / 1440).toFixed(1)}d`
   }
@@ -1430,13 +1430,13 @@ function LogisticsReportPage() {
 
       {/* Controls bar */}
       <div className="rpt-controls" style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '0.65rem', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 12, padding: '0.7rem 1rem' }}>
-        <LuCalendar size={14} style={{ color: 'var(--clr-muted)', flexShrink: 0 }}/>
+        <LuCalendar size={14} style={{ color: 'var(--clr-muted)', flexShrink: 0 }} />
         {([tr('rpt_from'), tr('rpt_to')]).map((lbl, i) => (
           <div key={lbl} className="rpt-controls-field" style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
             <label style={{ fontSize: '0.72rem', color: 'var(--clr-muted)', fontWeight: 600 }}>{lbl}</label>
             <input type="date" value={i === 0 ? from : to} max={i === 0 ? to : undefined} min={i === 1 ? from : undefined}
               onChange={e => i === 0 ? setFrom(e.target.value) : setTo(e.target.value)}
-              style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 8, padding: '0.28rem 0.55rem', color: 'var(--clr-text)', fontSize: '0.78rem', fontFamily: 'inherit', colorScheme: 'dark' }}/>
+              style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 8, padding: '0.28rem 0.55rem', color: 'var(--clr-text)', fontSize: '0.78rem', fontFamily: 'inherit', colorScheme: 'dark' }} />
           </div>
         ))}
         {[{ label: '7D', days: 7 }, { label: '30D', days: 30 }, { label: '90D', days: 90 }, { label: '1Y', days: 365 }].map(p => {
@@ -1449,26 +1449,26 @@ function LogisticsReportPage() {
             </button>
           )
         })}
-        <div className="rpt-controls-spacer" style={{ flex: 1 }}/>
+        <div className="rpt-controls-spacer" style={{ flex: 1 }} />
         <button onClick={() => load()} disabled={loading}
           style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', padding: '0.38rem 0.85rem', borderRadius: 9, border: '1px solid rgba(255,255,255,0.12)', background: 'rgba(255,255,255,0.06)', color: 'var(--clr-text)', fontSize: '0.78rem', fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
-          <LuRefreshCw size={13} style={{ animation: loading ? 'spin 1s linear infinite' : 'none' }}/> {tr('rpt_apply')}
+          <LuRefreshCw size={13} style={{ animation: loading ? 'spin 1s linear infinite' : 'none' }} /> {tr('rpt_apply')}
         </button>
         <button onClick={handleDownload} disabled={downloading || !report}
           style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', padding: '0.38rem 0.9rem', borderRadius: 9, border: 'none', background: 'var(--clr-accent)', color: '#000', fontSize: '0.78rem', fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', opacity: (downloading || !report) ? 0.5 : 1 }}>
-          <LuDownload size={13}/> {downloading ? tr('arpt_generating') : tr('arpt_download_pdf')}
+          <LuDownload size={13} /> {downloading ? tr('arpt_generating') : tr('arpt_download_pdf')}
         </button>
       </div>
 
       {error && (
         <div style={{ background: 'rgba(248,113,113,0.1)', border: '1px solid rgba(248,113,113,0.3)', borderRadius: 10, padding: '0.7rem 1rem', fontSize: '0.8rem', color: '#f87171', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-          <LuTriangleAlert size={14}/> {error}
+          <LuTriangleAlert size={14} /> {error}
         </div>
       )}
 
       {loading && (
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '4rem', gap: '0.75rem', color: 'var(--clr-muted)', fontSize: '0.85rem' }}>
-          <LuRefreshCw size={18} style={{ animation: 'spin 1s linear infinite', color: 'var(--clr-accent)' }}/> {tr('arpt_log_loading')}
+          <LuRefreshCw size={18} style={{ animation: 'spin 1s linear infinite', color: 'var(--clr-accent)' }} /> {tr('arpt_log_loading')}
         </div>
       )}
 
@@ -1478,9 +1478,9 @@ function LogisticsReportPage() {
           {/* Report header */}
           <div className="rpt-hdr rpt-report-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'linear-gradient(135deg, rgba(56,189,248,0.08), rgba(74,222,128,0.06))', border: '1px solid rgba(56,189,248,0.2)', borderRadius: 14, padding: '1.2rem 1.5rem' }}>
             <div className="rpt-report-brand" style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-              <img src={logoImg} alt="Africa Logistics" style={{ height: 44, width: 'auto', objectFit: 'contain', borderRadius: 8 }}/>
+              <img src={logoImg} alt="Afri logistics" style={{ height: 44, width: 'auto', objectFit: 'contain', borderRadius: 8 }} />
               <div>
-                <p style={{ margin: 0, fontWeight: 800, fontSize: '1rem', color: 'var(--clr-text)' }}>Africa Logistics</p>
+                <p style={{ margin: 0, fontWeight: 800, fontSize: '1rem', color: 'var(--clr-text)' }}>Afri logistics</p>
                 <p style={{ margin: 0, fontSize: '0.72rem', color: 'var(--clr-muted)' }}>{tr('arpt_log_subtitle')}</p>
               </div>
             </div>
@@ -1497,16 +1497,16 @@ function LogisticsReportPage() {
 
           {/* ─ KPI Cards ─ */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: '0.85rem' }}>
-            <KpiCard label={tr('arpt_log_kpi_total')} value={fmt(sm!.total_orders)} change={changeOrders} sub={tr('arpt_sub_vs_prev')} icon={<LuPackage size={18}/>}    accent="#38bdf8"/>
-            <KpiCard label={tr('arpt_log_kpi_delivered')} value={fmt(sm!.delivered)} change={changeDelivery} sub={tr('arpt_sub_vs_prev')} icon={<LuCircleCheck size={18}/>} accent="#4ade80"/>
-            <KpiCard label={tr('arpt_log_kpi_in_transit')} value={fmt(sm!.in_transit)} sub={tr('arpt_sub_curr_active')} icon={<LuTruck size={18}/>}      accent="#fbbf24"/>
-            <KpiCard label={tr('arpt_log_kpi_cross_border')} value={fmt(sm!.cross_border_orders)} sub={tr('arpt_sub_intl_orders')} icon={<LuGlobe size={18}/>}      accent="#a78bfa"/>
-            <KpiCard label={tr('arpt_log_kpi_cancelled')} value={fmt(sm!.cancelled)} sub={tr('arpt_sub_in_period')} icon={<LuCircleX size={18}/>}    accent="#f87171"/>
-            <KpiCard label={tr('arpt_log_kpi_total_dist')} value={`${sm!.total_distance_km.toFixed(0)} km`} sub={tr('arpt_sub_all_combined')} icon={<LuRoute size={18}/>}      accent="#34d399"/>
-            <KpiCard label={tr('arpt_log_kpi_avg_dist')} value={`${(sm!.avg_distance_km || 0).toFixed(1)} km`} sub={tr('arpt_sub_per_order')} icon={<LuMapPin size={18}/>}     accent="#60a5fa"/>
-            <KpiCard label={tr('arpt_log_kpi_avg_weight')} value={sm!.avg_weight_kg > 0 ? `${sm!.avg_weight_kg.toFixed(0)} kg` : '—'} sub={tr('arpt_sub_per_order')} icon={<LuWeight size={18}/>}     accent="#fb923c"/>
-            <KpiCard label={tr('arpt_log_kpi_assign_time')} value={fmtMin(sm!.avg_assign_min)} sub={tr('arpt_sub_order_driver')} icon={<LuTimer size={18}/>}      accent="#fbbf24"/>
-            <KpiCard label={tr('arpt_log_kpi_del_time')} value={fmtMin(sm!.avg_delivery_min)} sub={tr('arpt_sub_pickup_delivery')} icon={<LuClock size={18}/>}      accent="#4ade80"/>
+            <KpiCard label={tr('arpt_log_kpi_total')} value={fmt(sm!.total_orders)} change={changeOrders} sub={tr('arpt_sub_vs_prev')} icon={<LuPackage size={18} />} accent="#38bdf8" />
+            <KpiCard label={tr('arpt_log_kpi_delivered')} value={fmt(sm!.delivered)} change={changeDelivery} sub={tr('arpt_sub_vs_prev')} icon={<LuCircleCheck size={18} />} accent="#4ade80" />
+            <KpiCard label={tr('arpt_log_kpi_in_transit')} value={fmt(sm!.in_transit)} sub={tr('arpt_sub_curr_active')} icon={<LuTruck size={18} />} accent="#fbbf24" />
+            <KpiCard label={tr('arpt_log_kpi_cross_border')} value={fmt(sm!.cross_border_orders)} sub={tr('arpt_sub_intl_orders')} icon={<LuGlobe size={18} />} accent="#a78bfa" />
+            <KpiCard label={tr('arpt_log_kpi_cancelled')} value={fmt(sm!.cancelled)} sub={tr('arpt_sub_in_period')} icon={<LuCircleX size={18} />} accent="#f87171" />
+            <KpiCard label={tr('arpt_log_kpi_total_dist')} value={`${sm!.total_distance_km.toFixed(0)} km`} sub={tr('arpt_sub_all_combined')} icon={<LuRoute size={18} />} accent="#34d399" />
+            <KpiCard label={tr('arpt_log_kpi_avg_dist')} value={`${(sm!.avg_distance_km || 0).toFixed(1)} km`} sub={tr('arpt_sub_per_order')} icon={<LuMapPin size={18} />} accent="#60a5fa" />
+            <KpiCard label={tr('arpt_log_kpi_avg_weight')} value={sm!.avg_weight_kg > 0 ? `${sm!.avg_weight_kg.toFixed(0)} kg` : '—'} sub={tr('arpt_sub_per_order')} icon={<LuWeight size={18} />} accent="#fb923c" />
+            <KpiCard label={tr('arpt_log_kpi_assign_time')} value={fmtMin(sm!.avg_assign_min)} sub={tr('arpt_sub_order_driver')} icon={<LuTimer size={18} />} accent="#fbbf24" />
+            <KpiCard label={tr('arpt_log_kpi_del_time')} value={fmtMin(sm!.avg_delivery_min)} sub={tr('arpt_sub_pickup_delivery')} icon={<LuClock size={18} />} accent="#4ade80" />
           </div>
 
           {/* ─ Daily Volume + Distance ─ */}
@@ -1516,26 +1516,26 @@ function LogisticsReportPage() {
                 <AreaChart data={report.daily} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
                   <defs>
                     <linearGradient id="gradLogTotal" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%"  stopColor="#38bdf8" stopOpacity={0.3}/>
-                      <stop offset="95%" stopColor="#38bdf8" stopOpacity={0}/>
+                      <stop offset="5%" stopColor="#38bdf8" stopOpacity={0.3} />
+                      <stop offset="95%" stopColor="#38bdf8" stopOpacity={0} />
                     </linearGradient>
                     <linearGradient id="gradLogDel" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%"  stopColor="#4ade80" stopOpacity={0.25}/>
-                      <stop offset="95%" stopColor="#4ade80" stopOpacity={0}/>
+                      <stop offset="5%" stopColor="#4ade80" stopOpacity={0.25} />
+                      <stop offset="95%" stopColor="#4ade80" stopOpacity={0} />
                     </linearGradient>
                     <linearGradient id="gradLogCB" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%"  stopColor="#a78bfa" stopOpacity={0.2}/>
-                      <stop offset="95%" stopColor="#a78bfa" stopOpacity={0}/>
+                      <stop offset="5%" stopColor="#a78bfa" stopOpacity={0.2} />
+                      <stop offset="95%" stopColor="#a78bfa" stopOpacity={0} />
                     </linearGradient>
                   </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)"/>
-                  <XAxis dataKey="date" tickFormatter={fmtDate} tick={{ fill: '#9ca3af', fontSize: 10 }} tickLine={false} axisLine={false}/>
-                  <YAxis tick={{ fill: '#9ca3af', fontSize: 10 }} tickLine={false} axisLine={false}/>
-                  <Tooltip content={<CustomTooltip/>}/>
-                  <Legend wrapperStyle={{ fontSize: '0.72rem' }}/>
-                  <Area type="monotone" dataKey="orders"       name="Total Orders"      stroke="#38bdf8" fill="url(#gradLogTotal)" strokeWidth={2} dot={false}/>
-                  <Area type="monotone" dataKey="delivered"    name="Delivered"         stroke="#4ade80" fill="url(#gradLogDel)"   strokeWidth={2} dot={false}/>
-                  <Area type="monotone" dataKey="cross_border" name="Cross-Border"      stroke="#a78bfa" fill="url(#gradLogCB)"    strokeWidth={2} dot={false}/>
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
+                  <XAxis dataKey="date" tickFormatter={fmtDate} tick={{ fill: '#9ca3af', fontSize: 10 }} tickLine={false} axisLine={false} />
+                  <YAxis tick={{ fill: '#9ca3af', fontSize: 10 }} tickLine={false} axisLine={false} />
+                  <Tooltip content={<CustomTooltip />} />
+                  <Legend wrapperStyle={{ fontSize: '0.72rem' }} />
+                  <Area type="monotone" dataKey="orders" name="Total Orders" stroke="#38bdf8" fill="url(#gradLogTotal)" strokeWidth={2} dot={false} />
+                  <Area type="monotone" dataKey="delivered" name="Delivered" stroke="#4ade80" fill="url(#gradLogDel)" strokeWidth={2} dot={false} />
+                  <Area type="monotone" dataKey="cross_border" name="Cross-Border" stroke="#a78bfa" fill="url(#gradLogCB)" strokeWidth={2} dot={false} />
                 </AreaChart>
               </ResponsiveContainer>
             </ChartCard>
@@ -1547,11 +1547,11 @@ function LogisticsReportPage() {
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                   <Pie data={statusPieData} cx="38%" cy="50%" innerRadius={55} outerRadius={90} paddingAngle={2} dataKey="value">
-                    {statusPieData.map((d, i) => <Cell key={i} fill={d.fill}/>)}
+                    {statusPieData.map((d, i) => <Cell key={i} fill={d.fill} />)}
                   </Pie>
                   <Tooltip formatter={(v: any, n: any) => [fmt(Number(v)), n]}
-                    contentStyle={{ background: '#1a1f2e', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 10, fontSize: '0.74rem' }}/>
-                  <Legend iconSize={9} wrapperStyle={{ fontSize: '0.68rem', paddingLeft: '0.5rem' }}/>
+                    contentStyle={{ background: '#1a1f2e', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 10, fontSize: '0.74rem' }} />
+                  <Legend iconSize={9} wrapperStyle={{ fontSize: '0.68rem', paddingLeft: '0.5rem' }} />
                 </PieChart>
               </ResponsiveContainer>
             </ChartCard>
@@ -1559,12 +1559,12 @@ function LogisticsReportPage() {
             <ChartCard title={tr('arpt_log_chart_vehicle')} height={260}>
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={report.by_vehicle} layout="vertical" margin={{ top: 5, right: 50, left: 0, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" horizontal={false}/>
-                  <XAxis type="number" tick={{ fill: '#9ca3af', fontSize: 9 }} tickLine={false} axisLine={false}/>
-                  <YAxis type="category" dataKey="vehicle_type" tick={{ fill: '#9ca3af', fontSize: 10 }} tickLine={false} axisLine={false} width={85}/>
-                  <Tooltip content={<CustomTooltip/>}/>
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" horizontal={false} />
+                  <XAxis type="number" tick={{ fill: '#9ca3af', fontSize: 9 }} tickLine={false} axisLine={false} />
+                  <YAxis type="category" dataKey="vehicle_type" tick={{ fill: '#9ca3af', fontSize: 10 }} tickLine={false} axisLine={false} width={85} />
+                  <Tooltip content={<CustomTooltip />} />
                   <Bar dataKey="orders" name="Orders" radius={[0, 4, 4, 0]} maxBarSize={18}>
-                    {report.by_vehicle.map((_, i) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]}/>)}
+                    {report.by_vehicle.map((_, i) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />)}
                   </Bar>
                 </BarChart>
               </ResponsiveContainer>
@@ -1578,15 +1578,15 @@ function LogisticsReportPage() {
                 <AreaChart data={report.daily} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
                   <defs>
                     <linearGradient id="gradKm" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%"  stopColor="#34d399" stopOpacity={0.35}/>
-                      <stop offset="95%" stopColor="#34d399" stopOpacity={0}/>
+                      <stop offset="5%" stopColor="#34d399" stopOpacity={0.35} />
+                      <stop offset="95%" stopColor="#34d399" stopOpacity={0} />
                     </linearGradient>
                   </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)"/>
-                  <XAxis dataKey="date" tickFormatter={fmtDate} tick={{ fill: '#9ca3af', fontSize: 10 }} tickLine={false} axisLine={false}/>
-                  <YAxis tick={{ fill: '#9ca3af', fontSize: 10 }} tickLine={false} axisLine={false} tickFormatter={v => `${v}km`}/>
-                  <Tooltip content={<CustomTooltip/>}/>
-                  <Area type="monotone" dataKey="total_km" name="Distance (km)" stroke="#34d399" fill="url(#gradKm)" strokeWidth={2} dot={false}/>
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
+                  <XAxis dataKey="date" tickFormatter={fmtDate} tick={{ fill: '#9ca3af', fontSize: 10 }} tickLine={false} axisLine={false} />
+                  <YAxis tick={{ fill: '#9ca3af', fontSize: 10 }} tickLine={false} axisLine={false} tickFormatter={v => `${v}km`} />
+                  <Tooltip content={<CustomTooltip />} />
+                  <Area type="monotone" dataKey="total_km" name="Distance (km)" stroke="#34d399" fill="url(#gradKm)" strokeWidth={2} dot={false} />
                 </AreaChart>
               </ResponsiveContainer>
             </ChartCard>
@@ -1597,7 +1597,7 @@ function LogisticsReportPage() {
             {/* Cargo type table */}
             <div style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.09)', borderRadius: 14, overflow: 'hidden' }}>
               <div style={{ padding: '0.9rem 1.2rem', borderBottom: '1px solid rgba(255,255,255,0.07)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <LuContainer size={14} style={{ color: '#38bdf8' }}/>
+                <LuContainer size={14} style={{ color: '#38bdf8' }} />
                 <p style={{ margin: 0, fontWeight: 700, fontSize: '0.83rem', color: 'var(--clr-text)' }}>{tr('arpt_log_tbl_cargo')}</p>
               </div>
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.75rem' }}>
@@ -1624,7 +1624,7 @@ function LogisticsReportPage() {
             {/* Stage transition times */}
             <div style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.09)', borderRadius: 14, overflow: 'hidden' }}>
               <div style={{ padding: '0.9rem 1.2rem', borderBottom: '1px solid rgba(255,255,255,0.07)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <LuTimer size={14} style={{ color: '#fbbf24' }}/>
+                <LuTimer size={14} style={{ color: '#fbbf24' }} />
                 <p style={{ margin: 0, fontWeight: 700, fontSize: '0.83rem', color: 'var(--clr-text)' }}>{tr('arpt_log_tbl_stages')}</p>
               </div>
               {report.stage_times.length > 0 ? (
@@ -1642,7 +1642,7 @@ function LogisticsReportPage() {
                         <td style={{ padding: '0.52rem 0.75rem' }}>
                           <span style={{ padding: '0.15rem 0.45rem', borderRadius: 12, background: `${STATUS_ORDER_COLORS[st.from_status] ?? '#888'}22`, color: STATUS_ORDER_COLORS[st.from_status] ?? '#888', fontSize: '0.67rem', fontWeight: 700 }}>{st.from_status}</span>
                         </td>
-                        <td style={{ padding: '0.52rem 0', color: 'var(--clr-muted)' }}><LuArrowRight size={11}/></td>
+                        <td style={{ padding: '0.52rem 0', color: 'var(--clr-muted)' }}><LuArrowRight size={11} /></td>
                         <td style={{ padding: '0.52rem 0.75rem' }}>
                           <span style={{ padding: '0.15rem 0.45rem', borderRadius: 12, background: `${STATUS_ORDER_COLORS[st.to_status] ?? '#888'}22`, color: STATUS_ORDER_COLORS[st.to_status] ?? '#888', fontSize: '0.67rem', fontWeight: 700 }}>{st.to_status}</span>
                         </td>
@@ -1661,7 +1661,7 @@ function LogisticsReportPage() {
           {report.top_routes.length > 0 && (
             <div style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.09)', borderRadius: 14, overflow: 'hidden' }}>
               <div style={{ padding: '1rem 1.2rem', borderBottom: '1px solid rgba(255,255,255,0.07)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <LuRoute size={15} style={{ color: '#34d399' }}/>
+                <LuRoute size={15} style={{ color: '#34d399' }} />
                 <p style={{ margin: 0, fontWeight: 700, fontSize: '0.83rem', color: 'var(--clr-text)' }}>{tr('arpt_log_tbl_routes')}</p>
               </div>
               <div className="rpt-table-scroll" style={{ overflowX: 'auto' }}>
@@ -1678,7 +1678,7 @@ function LogisticsReportPage() {
                       <tr key={i} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)', background: i % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.015)' }}>
                         <td style={{ padding: '0.6rem 1rem', color: 'var(--clr-muted)', fontWeight: 700 }}>#{i + 1}</td>
                         <td style={{ padding: '0.6rem 1rem', fontWeight: 600, color: 'var(--clr-text)', maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.from_city}</td>
-                        <td style={{ padding: '0.6rem 0.3rem', color: 'var(--clr-muted)' }}><LuArrowRight size={12}/></td>
+                        <td style={{ padding: '0.6rem 0.3rem', color: 'var(--clr-muted)' }}><LuArrowRight size={12} /></td>
                         <td style={{ padding: '0.6rem 1rem', fontWeight: 600, color: 'var(--clr-text)', maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.to_city}</td>
                         <td style={{ padding: '0.6rem 1rem', fontWeight: 700, color: '#38bdf8' }}>{fmt(r.count)}</td>
                         <td style={{ padding: '0.6rem 1rem', color: 'var(--clr-muted)' }}>{r.avg_km > 0 ? `${r.avg_km} km` : '—'}</td>
@@ -1695,12 +1695,12 @@ function LogisticsReportPage() {
             <ChartCard title={tr('arpt_log_chart_cities')} height={240}>
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={report.pickup_cities} layout="vertical" margin={{ top: 5, right: 60, left: 0, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" horizontal={false}/>
-                  <XAxis type="number" tick={{ fill: '#9ca3af', fontSize: 9 }} tickLine={false} axisLine={false}/>
-                  <YAxis type="category" dataKey="city" tick={{ fill: '#9ca3af', fontSize: 10 }} tickLine={false} axisLine={false} width={150} tickFormatter={v => v.length > 20 ? v.slice(0, 20) + '…' : v}/>
-                  <Tooltip content={<CustomTooltip/>}/>
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" horizontal={false} />
+                  <XAxis type="number" tick={{ fill: '#9ca3af', fontSize: 9 }} tickLine={false} axisLine={false} />
+                  <YAxis type="category" dataKey="city" tick={{ fill: '#9ca3af', fontSize: 10 }} tickLine={false} axisLine={false} width={150} tickFormatter={v => v.length > 20 ? v.slice(0, 20) + '…' : v} />
+                  <Tooltip content={<CustomTooltip />} />
                   <Bar dataKey="orders" name="Orders" radius={[0, 4, 4, 0]} maxBarSize={18}>
-                    {report.pickup_cities.map((_, i) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]}/>)}
+                    {report.pickup_cities.map((_, i) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />)}
                   </Bar>
                 </BarChart>
               </ResponsiveContainer>
@@ -1711,7 +1711,7 @@ function LogisticsReportPage() {
           {report.cb_documents.length > 0 && (
             <div style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.09)', borderRadius: 14, overflow: 'hidden' }}>
               <div style={{ padding: '1rem 1.2rem', borderBottom: '1px solid rgba(255,255,255,0.07)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <LuGlobe size={15} style={{ color: '#a78bfa' }}/>
+                <LuGlobe size={15} style={{ color: '#a78bfa' }} />
                 <p style={{ margin: 0, fontWeight: 700, fontSize: '0.83rem', color: 'var(--clr-text)' }}>{tr('arpt_log_tbl_cb_docs')}</p>
               </div>
               <div className="rpt-table-scroll" style={{ overflowX: 'auto' }}>
@@ -1736,7 +1736,7 @@ function LogisticsReportPage() {
                           <td style={{ padding: '0.6rem 1rem', minWidth: 110 }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
                               <div style={{ flex: 1, height: 5, borderRadius: 3, background: 'rgba(255,255,255,0.08)' }}>
-                                <div style={{ width: `${approvalRate}%`, height: '100%', background: '#4ade80', borderRadius: 3 }}/>
+                                <div style={{ width: `${approvalRate}%`, height: '100%', background: '#4ade80', borderRadius: 3 }} />
                               </div>
                               <span style={{ fontSize: '0.7rem', color: '#4ade80', fontWeight: 700, flexShrink: 0 }}>{approvalRate}%</span>
                             </div>
@@ -1754,7 +1754,7 @@ function LogisticsReportPage() {
           {report.extra_charges.length > 0 && (
             <div style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.09)', borderRadius: 14, overflow: 'hidden' }}>
               <div style={{ padding: '1rem 1.2rem', borderBottom: '1px solid rgba(255,255,255,0.07)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <LuCoins size={15} style={{ color: '#fbbf24' }}/>
+                <LuCoins size={15} style={{ color: '#fbbf24' }} />
                 <p style={{ margin: 0, fontWeight: 700, fontSize: '0.83rem', color: 'var(--clr-text)' }}>{tr('arpt_log_tbl_charges')}</p>
               </div>
               <div className="rpt-table-scroll" style={{ overflowX: 'auto' }}>
@@ -1798,10 +1798,10 @@ function LogisticsReportPage() {
 // ─── Main Reports Section ─────────────────────────────────────────────────────
 
 const REPORT_TABS = [
-  { id: 'orders',   label: 'Orders',   icon: <LuListOrdered size={14}/> },
-  { id: 'finance',  label: 'Finance',  icon: <LuFileText    size={14}/> },
-  { id: 'drivers',  label: 'Drivers',  icon: <LuTruck       size={14}/> },
-  { id: 'logistics',label: 'Logistics',icon: <LuGlobe       size={14}/> },
+  { id: 'orders', label: 'Orders', icon: <LuListOrdered size={14} /> },
+  { id: 'finance', label: 'Finance', icon: <LuFileText size={14} /> },
+  { id: 'drivers', label: 'Drivers', icon: <LuTruck size={14} /> },
+  { id: 'logistics', label: 'Logistics', icon: <LuGlobe size={14} /> },
 ] as const
 
 type ReportTab = typeof REPORT_TABS[number]['id']
@@ -1873,7 +1873,7 @@ export default function AdminReportsSection({ allowedTabs }: { allowedTabs?: Rep
       {/* Page heading */}
       <div>
         <h2 style={{ margin: '0 0 0.2rem', fontSize: '1rem', fontWeight: 800, color: 'var(--clr-text)', display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
-            <LuChartColumnBig size={17}/> {tr('arpt_title')}
+          <LuChartColumnBig size={17} /> {tr('arpt_title')}
         </h2>
         <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--clr-muted)' }}>{tr('arpt_subtitle')}</p>
       </div>
@@ -1894,9 +1894,9 @@ export default function AdminReportsSection({ allowedTabs }: { allowedTabs?: Rep
       </div>
 
       {/* Tab content */}
-      {activeTab === 'orders'    && <OrderReportPage />}
-      {activeTab === 'finance'   && <FinanceReportPage />}
-      {activeTab === 'drivers'   && <DriverReportPage />}
+      {activeTab === 'orders' && <OrderReportPage />}
+      {activeTab === 'finance' && <FinanceReportPage />}
+      {activeTab === 'drivers' && <DriverReportPage />}
       {activeTab === 'logistics' && <LogisticsReportPage />}
     </div>
   )

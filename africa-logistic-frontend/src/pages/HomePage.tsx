@@ -168,14 +168,14 @@ function Navbar() {
 
   const close = useCallback(() => setOpen(false), [])
 
-  const [theme, setTheme] = useState<'LIGHT'|'DARK'>(() =>
-    (localStorage.getItem('login-theme') as 'LIGHT'|'DARK'|null) ?? 'LIGHT'
+  const [theme, setTheme] = useState<'LIGHT' | 'DARK'>(() =>
+    (localStorage.getItem('login-theme') as 'LIGHT' | 'DARK' | null) ?? 'LIGHT'
   )
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme.toLowerCase())
   }, [])
   const toggleTheme = useCallback(() => {
-    const next: 'LIGHT'|'DARK' = theme === 'LIGHT' ? 'DARK' : 'LIGHT'
+    const next: 'LIGHT' | 'DARK' = theme === 'LIGHT' ? 'DARK' : 'LIGHT'
     setTheme(next)
     localStorage.setItem('login-theme', next)
     document.documentElement.setAttribute('data-theme', next.toLowerCase())
@@ -193,7 +193,7 @@ function Navbar() {
       <nav className={`hp-nav${scrolled ? ' scrolled' : ''}`}>
         <div className="hp-nav-inner">
           <a href="#hero" className="hp-logo">
-            <div className="hp-logo-icon"><img src={logoImg} alt="Africa Logistics logo" /></div>
+            <div className="hp-logo-icon"><img src={logoImg} alt="Afri logistics logo" /></div>
             <div>
               <div className="hp-logo-name">
                 Africa{' '}
@@ -409,10 +409,10 @@ function Marquee() {
 function StatsBar() {
   const { t } = useLanguage()
   const STATS = [
-    { icon: Package,   value: 5000, suffix: '+', label: t('stat_deliveries') || 'Deliveries Completed' },
-    { icon: Globe2,    value: 15,   suffix: '+', label: t('stat_countries') || 'Countries Covered' },
-    { icon: Clock,     value: 99,   suffix: '%', label: t('stat_ontime') || 'On-Time Rate' },
-    { icon: Headphones, value: 24,  suffix: '/7', label: t('stat_support') || 'Support Available' },
+    { icon: Package, value: 5000, suffix: '+', label: t('stat_deliveries') || 'Deliveries Completed' },
+    { icon: Globe2, value: 15, suffix: '+', label: t('stat_countries') || 'Countries Covered' },
+    { icon: Clock, value: 99, suffix: '%', label: t('stat_ontime') || 'On-Time Rate' },
+    { icon: Headphones, value: 24, suffix: '/7', label: t('stat_support') || 'Support Available' },
   ]
   return (
     <section className="hp-stats">
@@ -443,12 +443,12 @@ function StatsBar() {
 function Services() {
   const { t } = useLanguage()
   const SERVICES = [
-    { icon: Truck,     title: t('srv_freight') || 'Freight Transport',    color: '#71ad25', bg: 'rgba(113,173,37,.1)',  border: 'rgba(113,173,37,.15)',  desc: t('srv_freight_desc') || 'Reliable road freight across Africa with real-time GPS tracking and automated dispatch.' },
-    { icon: Globe2,    title: t('srv_cross') || 'Cross-Border Shipping', color: '#8fc94a', bg: 'rgba(143,201,74,.1)', border: 'rgba(143,201,74,.15)', desc: t('srv_cross_desc') || 'Seamless customs clearance, HS code management, and cross-border documentation.' },
-    { icon: Package,   title: t('srv_last_mile') || 'Last-Mile Delivery',    color: '#34d399', bg: 'rgba(52,211,153,.1)',  border: 'rgba(52,211,153,.15)',  desc: t('srv_last_mile_desc') || 'Fast, verified last-mile delivery with OTP confirmation at pickup and dropoff.' },
-    { icon: Warehouse, title: t('srv_warehousing') || 'Warehousing',           color: '#fbbf24', bg: 'rgba(251,191,36,.1)',  border: 'rgba(251,191,36,.15)',  desc: t('srv_warehousing_desc') || 'Secure warehousing and inventory management at strategic African locations.' },
-    { icon: Route,     title: t('srv_route') || 'Route Optimization',   color: '#f87171', bg: 'rgba(248,113,113,.1)', border: 'rgba(248,113,113,.15)', desc: t('srv_route_desc') || 'AI-powered route planning to minimize cost and delivery time across regions.' },
-    { icon: FileText,  title: t('srv_digital') || 'Digital Documentation', color: '#818cf8', bg: 'rgba(129,140,248,.1)', border: 'rgba(129,140,248,.15)', desc: t('srv_digital_desc') || 'Automated invoicing, BOL generation, and digital proof of delivery.' },
+    { icon: Truck, title: t('srv_freight') || 'Freight Transport', color: '#71ad25', bg: 'rgba(113,173,37,.1)', border: 'rgba(113,173,37,.15)', desc: t('srv_freight_desc') || 'Reliable road freight across Africa with real-time GPS tracking and automated dispatch.' },
+    { icon: Globe2, title: t('srv_cross') || 'Cross-Border Shipping', color: '#8fc94a', bg: 'rgba(143,201,74,.1)', border: 'rgba(143,201,74,.15)', desc: t('srv_cross_desc') || 'Seamless customs clearance, HS code management, and cross-border documentation.' },
+    { icon: Package, title: t('srv_last_mile') || 'Last-Mile Delivery', color: '#34d399', bg: 'rgba(52,211,153,.1)', border: 'rgba(52,211,153,.15)', desc: t('srv_last_mile_desc') || 'Fast, verified last-mile delivery with OTP confirmation at pickup and dropoff.' },
+    { icon: Warehouse, title: t('srv_warehousing') || 'Warehousing', color: '#fbbf24', bg: 'rgba(251,191,36,.1)', border: 'rgba(251,191,36,.15)', desc: t('srv_warehousing_desc') || 'Secure warehousing and inventory management at strategic African locations.' },
+    { icon: Route, title: t('srv_route') || 'Route Optimization', color: '#f87171', bg: 'rgba(248,113,113,.1)', border: 'rgba(248,113,113,.15)', desc: t('srv_route_desc') || 'AI-powered route planning to minimize cost and delivery time across regions.' },
+    { icon: FileText, title: t('srv_digital') || 'Digital Documentation', color: '#818cf8', bg: 'rgba(129,140,248,.1)', border: 'rgba(129,140,248,.15)', desc: t('srv_digital_desc') || 'Automated invoicing, BOL generation, and digital proof of delivery.' },
   ]
   return (
     <section id="services" className="hp-section">
@@ -517,16 +517,16 @@ function About() {
                 <span className="hp-gradient-text">{t('about_us_title2') || 'by Africa'}</span>
               </h2>
               <p>
-                {t('about_us_p1') || "Africa Logistics is a technology-driven logistics platform connecting shippers with reliable carriers across the continent. We combine cutting-edge technology with deep local expertise to solve Africa's toughest logistics challenges."}
+                {t('about_us_p1') || "Afri logistics is a technology-driven logistics platform connecting shippers with reliable carriers across the continent. We combine cutting-edge technology with deep local expertise to solve Africa's toughest logistics challenges."}
               </p>
               <p>
                 {t('about_us_p2') || 'Our mission is to make logistics seamless, transparent, and affordable for every business in Africa — from small traders to large enterprises.'}
               </p>
               <div className="hp-checklist">
                 {[
-                  t('about_chk1') || 'Real-Time GPS Tracking', 
-                  t('about_chk2') || 'Verified Drivers', 
-                  t('about_chk3') || 'Cross-Border Expertise', 
+                  t('about_chk1') || 'Real-Time GPS Tracking',
+                  t('about_chk2') || 'Verified Drivers',
+                  t('about_chk3') || 'Cross-Border Expertise',
                   t('about_chk4') || 'Digital Payments'
                 ].map(item => (
                   <div key={item} className="hp-check-item">
@@ -542,10 +542,10 @@ function About() {
               <div className="hp-about-card">
                 <div className="hp-about-stats-grid">
                   {[
-                    { icon: Truck,   val: '500+', lbl: 'Verified Drivers' },
-                    { icon: Globe2,  val: '15+',  lbl: 'African Countries' },
-                    { icon: Package, val: '5K+',  lbl: 'Deliveries' },
-                    { icon: Star,    val: '4.9',  lbl: 'Avg Rating' },
+                    { icon: Truck, val: '500+', lbl: 'Verified Drivers' },
+                    { icon: Globe2, val: '15+', lbl: 'African Countries' },
+                    { icon: Package, val: '5K+', lbl: 'Deliveries' },
+                    { icon: Star, val: '4.9', lbl: 'Avg Rating' },
                   ].map(({ icon: Icon, val, lbl }) => (
                     <div key={lbl} className="hp-about-stat">
                       <Icon />
@@ -569,10 +569,10 @@ function About() {
 function WhyUs() {
   const { t } = useLanguage()
   const WHY_US = [
-    { icon: Shield,     title: t('why_insured') || 'Fully Insured',       desc: t('why_insured_desc') || 'Every shipment is insured end-to-end for your complete peace of mind.' },
-    { icon: Clock,      title: t('why_tracking') || 'Real-Time Tracking',  desc: t('why_tracking_desc') || 'Track your cargo live on the map — from pickup all the way to delivery.' },
-    { icon: BarChart3,  title: t('why_pricing') || 'Transparent Pricing', desc: t('why_pricing_desc') || 'Instant quotes with no hidden fees. Pay exactly what you see.' },
-    { icon: Headphones, title: t('why_support') || 'Dedicated Support',   desc: t('why_support_desc') || '24/7 customer support with a dedicated account manager for every client.' },
+    { icon: Shield, title: t('why_insured') || 'Fully Insured', desc: t('why_insured_desc') || 'Every shipment is insured end-to-end for your complete peace of mind.' },
+    { icon: Clock, title: t('why_tracking') || 'Real-Time Tracking', desc: t('why_tracking_desc') || 'Track your cargo live on the map — from pickup all the way to delivery.' },
+    { icon: BarChart3, title: t('why_pricing') || 'Transparent Pricing', desc: t('why_pricing_desc') || 'Instant quotes with no hidden fees. Pay exactly what you see.' },
+    { icon: Headphones, title: t('why_support') || 'Dedicated Support', desc: t('why_support_desc') || '24/7 customer support with a dedicated account manager for every client.' },
   ]
   return (
     <section className="hp-section">
@@ -581,7 +581,7 @@ function WhyUs() {
           <div className="hp-badge"><Zap /> {t('why_us_badge') || 'Why Choose Us'}</div>
           <h2 className="hp-section-title">
             {t('advantage_of') || 'The advantage of'}<br />
-            <span className="hp-gradient-text">{t('africa_logistics_grad') || 'Africa Logistics'}</span>
+            <span className="hp-gradient-text">{t('africa_logistics_grad') || 'Afri logistics'}</span>
           </h2>
         </Reveal>
         <div className="hp-why-grid">
@@ -608,7 +608,7 @@ function WhyUs() {
 function Testimonials() {
   const { t } = useLanguage()
   const TESTIMONIALS = [
-    { quote: t('test_1') || 'Africa Logistics transformed our supply chain. Deliveries that took weeks now arrive in days.', author: 'Yohannes T.', role: t('test_1_role') || 'Operations Manager, Addis Coffee Export', stars: 5 },
+    { quote: t('test_1') || 'Afri logistics transformed our supply chain. Deliveries that took weeks now arrive in days.', author: 'Yohannes T.', role: t('test_1_role') || 'Operations Manager, Addis Coffee Export', stars: 5 },
     { quote: t('test_2') || 'The cross-border documentation feature saved us countless hours of manual customs work.', author: 'Amara K.', role: t('test_2_role') || 'Logistics Director, Nairobi Trading Co.', stars: 5 },
     { quote: t('test_3') || 'Best freight platform in East Africa. The real-time tracking gives us complete visibility.', author: 'Samuel M.', role: t('test_3_role') || 'CEO, Kampala Distributors', stars: 5 },
   ]
@@ -651,17 +651,17 @@ function Contact() {
   useEffect(() => {
     configApi.getContactInfo()
       .then(r => setInfo((r.data as any).contact ?? {}))
-      .catch(() => {})
+      .catch(() => { })
       .finally(() => setLoading(false))
   }, [])
 
   const socials = [
-    { label: 'WhatsApp',    url: info.whatsapp_number ? `https://wa.me/${info.whatsapp_number.replace(/\D/g,'')}` : null },
-    { label: 'Telegram',    url: info.telegram_url },
-    { label: 'Instagram',   url: info.instagram_url },
-    { label: 'YouTube',     url: info.youtube_url },
-    { label: 'TikTok',      url: info.tiktok_url },
-    { label: 'LinkedIn',    url: info.linkedin_url },
+    { label: 'WhatsApp', url: info.whatsapp_number ? `https://wa.me/${info.whatsapp_number.replace(/\D/g, '')}` : null },
+    { label: 'Telegram', url: info.telegram_url },
+    { label: 'Instagram', url: info.instagram_url },
+    { label: 'YouTube', url: info.youtube_url },
+    { label: 'TikTok', url: info.tiktok_url },
+    { label: 'LinkedIn', url: info.linkedin_url },
     { label: 'X / Twitter', url: info.x_url },
   ].filter(s => s.url)
 
@@ -765,8 +765,8 @@ function Footer() {
   const { t } = useLanguage()
   const FOOTER_LINKS = [
     { title: t('ft_services') || 'Services', items: [{ label: t('srv_freight') || 'Freight Transport', href: '#services' }, { label: t('srv_cross') || 'Cross-Border', href: '#services' }, { label: t('srv_last_mile') || 'Last-Mile', href: '#services' }, { label: t('srv_warehousing') || 'Warehousing', href: '#services' }] },
-    { title: t('ft_company') || 'Company',  items: [{ label: t('hp_menu_about') || 'About Us', href: '#about' }, { label: t('hp_menu_contact') || 'Contact', href: '#contact' }, { label: t('ft_careers') || 'Careers', href: '#' }, { label: t('ft_blog') || 'Blog', href: '#' }] },
-    { title: t('ft_legal') || 'Legal',    items: [{ label: t('ft_privacy') || 'Privacy Policy', href: '#' }, { label: t('ft_terms') || 'Terms of Service', href: '#' }, { label: t('ft_insurance') || 'Insurance', href: '#' }] },
+    { title: t('ft_company') || 'Company', items: [{ label: t('hp_menu_about') || 'About Us', href: '#about' }, { label: t('hp_menu_contact') || 'Contact', href: '#contact' }, { label: t('ft_careers') || 'Careers', href: '#' }, { label: t('ft_blog') || 'Blog', href: '#' }] },
+    { title: t('ft_legal') || 'Legal', items: [{ label: t('ft_privacy') || 'Privacy Policy', href: '#' }, { label: t('ft_terms') || 'Terms of Service', href: '#' }, { label: t('ft_insurance') || 'Insurance', href: '#' }] },
   ]
   return (
     <footer className="hp-footer">
@@ -774,9 +774,9 @@ function Footer() {
         <div className="hp-footer-grid">
           <div className="hp-footer-brand">
             <a href="#hero" className="hp-logo" style={{ textDecoration: 'none' }}>
-              <div className="hp-logo-icon"><img src={logoImg} alt="Africa Logistics logo" /></div>
+              <div className="hp-logo-icon"><img src={logoImg} alt="Afri logistics logo" /></div>
               <div className="hp-logo-name">
-                Africa{' '}
+                Afri{' '}
                 <span style={{ background: 'linear-gradient(90deg,#71ad25,#3e6113)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
                   Logistics
                 </span>
@@ -792,7 +792,7 @@ function Footer() {
           ))}
         </div>
         <div className="hp-footer-bottom">
-          <p>© {new Date().getFullYear()} Africa Logistics. All rights reserved.</p>
+          <p>© {new Date().getFullYear()} Afri logistics. All rights reserved.</p>
           <p>Moving Africa Forward</p>
         </div>
       </div>

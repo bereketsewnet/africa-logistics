@@ -31,7 +31,7 @@ def _load_identity() -> str:
     except FileNotFoundError:
         logger.warning("identity/who_am_i.md not found — using fallback system prompt")
         return (
-            "You are Bemnet, the AI assistant for Africa Logistics. "
+            "You are Bemnet, the AI assistant for Afri logistics. "
             "Help users navigate the platform clearly and politely."
         )
 

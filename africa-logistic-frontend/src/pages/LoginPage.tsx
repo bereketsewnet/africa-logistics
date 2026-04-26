@@ -18,17 +18,17 @@ import LanguageToggle from '../components/LanguageToggle'
 type LoginMode = 'phone' | 'email'
 
 export default function LoginPage() {
-  const { login }   = useAuth()
-  const navigate    = useNavigate()
-  const { t: tr }   = useLanguage()
+  const { login } = useAuth()
+  const navigate = useNavigate()
+  const { t: tr } = useLanguage()
 
   const [loginMode, setLoginMode] = useState<LoginMode>('phone')
-  const [phone,     setPhone]     = useState('')
-  const [email,     setEmail]     = useState('')
-  const [password,  setPassword]  = useState('')
-  const [showPw,    setShowPw]    = useState(false)
-  const [error,     setError]     = useState('')
-  const [loading,   setLoading]   = useState(false)
+  const [phone, setPhone] = useState('')
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [showPw, setShowPw] = useState(false)
+  const [error, setError] = useState('')
+  const [loading, setLoading] = useState(false)
 
   const [loginTheme, setLoginTheme] = useState<'LIGHT' | 'DARK'>(() =>
     (localStorage.getItem('login-theme') as 'LIGHT' | 'DARK' | null) ?? 'LIGHT'
@@ -110,7 +110,7 @@ export default function LoginPage() {
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', marginBottom: '1.1rem' }}>
             <img
               src={logoImg}
-              alt="Africa Logistics"
+              alt="Afri logistics"
               style={{ height: 58, width: 'auto', objectFit: 'contain', marginBottom: '0.35rem', borderRadius: 10, display: 'block' }}
             />
             <p style={{ color: 'var(--clr-muted)', marginTop: '0.25rem', fontSize: '0.9rem' }}>
@@ -138,7 +138,7 @@ export default function LoginPage() {
                   fontFamily: 'inherit',
                 }}
               >
-                {m === 'phone' ? <LuPhone size={14}/> : <LuMail size={14}/>}
+                {m === 'phone' ? <LuPhone size={14} /> : <LuMail size={14} />}
                 {m === 'phone' ? tr('login_phone') : tr('login_email')}
               </button>
             ))}
@@ -153,7 +153,7 @@ export default function LoginPage() {
 
           <form onSubmit={handleSubmit} autoComplete="off" style={{ display: 'flex', flexDirection: 'column', gap: '0.78rem' }}>
             {/* Dummy inputs stop password managers from hijacking real fields */}
-            <input type="text"     style={{ display: 'none' }} aria-hidden="true" readOnly />
+            <input type="text" style={{ display: 'none' }} aria-hidden="true" readOnly />
             <input type="password" style={{ display: 'none' }} aria-hidden="true" readOnly />
 
             {/* Phone or Email field */}

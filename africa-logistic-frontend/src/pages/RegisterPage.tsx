@@ -19,17 +19,17 @@ import LanguageToggle from '../components/LanguageToggle'
 function getStrength(pw: string): { score: number; labelKey: string; color: string } {
   if (!pw) return { score: 0, labelKey: '', color: '' }
   let s = 0
-  if (pw.length >= 6)  s++
+  if (pw.length >= 6) s++
   if (pw.length >= 10) s++
   if (/[A-Z]/.test(pw)) s++
   if (/[0-9]/.test(pw)) s++
   if (/[^A-Za-z0-9]/.test(pw)) s++
   const levels = [
-    { labelKey: 'pw_too_short',  color: '#ef4444' },
-    { labelKey: 'pw_weak',       color: '#f59e0b' },
-    { labelKey: 'pw_fair',       color: '#eab308' },
-    { labelKey: 'pw_good',       color: '#22c55e' },
-    { labelKey: 'pw_strong',     color: '#61941f' },
+    { labelKey: 'pw_too_short', color: '#ef4444' },
+    { labelKey: 'pw_weak', color: '#f59e0b' },
+    { labelKey: 'pw_fair', color: '#eab308' },
+    { labelKey: 'pw_good', color: '#22c55e' },
+    { labelKey: 'pw_strong', color: '#61941f' },
     { labelKey: 'pw_very_strong', color: '#39ff14' },
   ]
   return { score: s, ...levels[s] }
@@ -72,7 +72,7 @@ function OtpInput({ value, onChange }: { value: string; onChange: (v: string) =>
 
   return (
     <div className="otp-grid" onPaste={handlePaste}>
-      {[0,1,2,3,4,5].map(i => (
+      {[0, 1, 2, 3, 4, 5].map(i => (
         <input
           key={i}
           ref={el => { boxes.current[i] = el }}
@@ -114,7 +114,7 @@ function useCountdown(seconds: number) {
 /* ── Main component ─────────────────────────────────────────────────── */
 export default function RegisterPage() {
   const { login } = useAuth()
-  const navigate  = useNavigate()
+  const navigate = useNavigate()
   const { t: tr } = useLanguage()
 
   const [step, setStep] = useState<1 | 2 | 3>(1)
@@ -127,12 +127,12 @@ export default function RegisterPage() {
 
   // Step 3
   const [firstName, setFirstName] = useState('')
-  const [lastName,  setLastName]  = useState('')
-  const [roleId,    setRoleId]    = useState<2 | 3 | 6>(2)
-  const [password,  setPassword]  = useState('')
-  const [showPw,    setShowPw]    = useState(false)
+  const [lastName, setLastName] = useState('')
+  const [roleId, setRoleId] = useState<2 | 3 | 6>(2)
+  const [password, setPassword] = useState('')
+  const [showPw, setShowPw] = useState(false)
 
-  const [error,   setError]   = useState('')
+  const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
   const [regTheme, setRegTheme] = useState<'LIGHT' | 'DARK'>(() =>
@@ -171,7 +171,7 @@ export default function RegisterPage() {
   /* Step 2 → verify OTP, move to step 3 */
   const handleVerifyOtp = async (e: FormEvent) => {
     e.preventDefault()
-    if (otp.replace(/\D/g,'').length < 6) { setError(tr('reg_enter_all')); return }
+    if (otp.replace(/\D/g, '').length < 6) { setError(tr('reg_enter_all')); return }
     setError('')
     setStep(3)
   }
@@ -184,11 +184,11 @@ export default function RegisterPage() {
     try {
       const { data } = await apiClient.post('/auth/register/verify', {
         phone_number: normalisePhone(phone),
-        otp:          otp.replace(/\D/g,''),
+        otp: otp.replace(/\D/g, ''),
         new_password: password,
-        role_id:      roleId,
-        first_name:   firstName,
-        last_name:    lastName,
+        role_id: roleId,
+        first_name: firstName,
+        last_name: lastName,
       })
       await login(data.token)
       navigate('/dashboard')
@@ -224,7 +224,7 @@ export default function RegisterPage() {
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', marginBottom: '1.5rem' }}>
             <img
               src={logoImg}
-              alt="Africa Logistics"
+              alt="Afri logistics"
               style={{ height: 64, width: 'auto', objectFit: 'contain', marginBottom: '0.5rem', borderRadius: 10, display: 'block' }}
             />
             <p style={{ color: 'var(--clr-muted)', marginTop: '0.25rem', fontSize: '0.875rem' }}>
@@ -234,7 +234,7 @@ export default function RegisterPage() {
 
           {/* Step dots */}
           <div className="step-dots" style={{ marginBottom: '1.75rem' }}>
-            {[1,2,3].map(n => (
+            {[1, 2, 3].map(n => (
               <div key={n} className={`step-dot${step === n ? ' active' : step > n ? ' done' : ''}`} />
             ))}
           </div>
@@ -256,8 +256,8 @@ export default function RegisterPage() {
               </div>
               <button type="submit" className="btn-primary" disabled={loading}>
                 {loading
-                  ? <span style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:'0.5rem' }}><span className="spinner" /> {tr('reg_sending_otp')}</span>
-                  : <span style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:'0.5rem' }}>{tr('reg_send_otp')} <LuArrowRight size={16}/></span>}
+                  ? <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}><span className="spinner" /> {tr('reg_sending_otp')}</span>
+                  : <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>{tr('reg_send_otp')} <LuArrowRight size={16} /></span>}
               </button>
               <div className="divider">{tr('reg_or')}</div>
               <button type="button" className="btn-telegram">
@@ -271,9 +271,9 @@ export default function RegisterPage() {
           {step === 2 && (
             <form key="s2" className="step-enter" onSubmit={handleVerifyOtp}
               style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-              <div className="alert alert-info" style={{ fontSize: '0.85rem', display:'flex', alignItems:'center', gap:'0.4rem' }}>
-                <LuSmartphone size={15}/> {tr('reg_otp_sent')} <strong>{normalisePhone(phone)}</strong>{' '}
-                <button type="button" className="link-accent" style={{ fontSize:'0.8rem', background:'none', border:'none', cursor:'pointer', padding:0 }}
+              <div className="alert alert-info" style={{ fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                <LuSmartphone size={15} /> {tr('reg_otp_sent')} <strong>{normalisePhone(phone)}</strong>{' '}
+                <button type="button" className="link-accent" style={{ fontSize: '0.8rem', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
                   onClick={() => { setStep(1); setOtp(''); setError('') }}>
                   {tr('reg_change')}
                 </button>
@@ -286,15 +286,15 @@ export default function RegisterPage() {
               </div>
               <div style={{ textAlign: 'center', fontSize: '0.85rem', color: 'var(--clr-muted)' }}>
                 {remaining > 0 ? (
-                  <>{tr('reg_resend_in')} <span className="countdown">{Math.floor(remaining/60)}:{String(remaining%60).padStart(2,'0')}</span></>
+                  <>{tr('reg_resend_in')} <span className="countdown">{Math.floor(remaining / 60)}:{String(remaining % 60).padStart(2, '0')}</span></>
                 ) : (
-                  <button type="button" className="link-accent" style={{ background:'none', border:'none', cursor:'pointer', padding:0, fontSize:'0.85rem' }}
-                    onClick={() => { handleRequestOtp({ preventDefault: ()=>{} } as any) }}>
+                  <button type="button" className="link-accent" style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, fontSize: '0.85rem' }}
+                    onClick={() => { handleRequestOtp({ preventDefault: () => { } } as any) }}>
                     {tr('reg_resend')}
                   </button>
                 )}
               </div>
-              <button type="submit" className="btn-primary" disabled={otp.replace(/\D/g,'').length < 6}>
+              <button type="submit" className="btn-primary" disabled={otp.replace(/\D/g, '').length < 6}>
                 {tr('reg_verify_code')}
               </button>
             </form>
@@ -323,7 +323,7 @@ export default function RegisterPage() {
                   {tr('reg_i_am')}
                 </p>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.75rem' }}>
-                  {([{ id: 2, icon: <LuPackage size={16}/>, key: 'reg_shipper' as const }, { id: 3, icon: <LuTruck size={16}/>, key: 'reg_driver' as const }, { id: 6, icon: <LuCar size={16}/>, key: 'reg_car_owner' as const }] as const).map(r => (
+                  {([{ id: 2, icon: <LuPackage size={16} />, key: 'reg_shipper' as const }, { id: 3, icon: <LuTruck size={16} />, key: 'reg_driver' as const }, { id: 6, icon: <LuCar size={16} />, key: 'reg_car_owner' as const }] as const).map(r => (
                     <button key={r.id} type="button"
                       style={{
                         padding: '0.75rem',
@@ -339,7 +339,7 @@ export default function RegisterPage() {
                         boxShadow: roleId === r.id ? '0 0 12px rgba(97, 148, 31,0.15)' : 'none',
                       }}
                       onClick={() => setRoleId(r.id as 2 | 3 | 6)}>
-                      <span style={{display:'flex',alignItems:'center',gap:'0.4rem'}}>{r.icon} {tr(r.key)}</span>
+                      <span style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>{r.icon} {tr(r.key)}</span>
                     </button>
                   ))}
                 </div>
@@ -352,8 +352,8 @@ export default function RegisterPage() {
                     value={password} onChange={e => setPassword(e.target.value)}
                     required minLength={6} style={{ paddingRight: '2.8rem' }} autoComplete="new-password" />
                   <label htmlFor="new-pw">{tr('reg_password')}</label>
-                  <button type="button" className="input-suffix" onClick={() => setShowPw(v=>!v)}>
-                    {showPw ? <LuEyeOff size={16}/> : <LuEye size={16}/>}
+                  <button type="button" className="input-suffix" onClick={() => setShowPw(v => !v)}>
+                    {showPw ? <LuEyeOff size={16} /> : <LuEye size={16} />}
                   </button>
                 </div>
                 {password && (
@@ -369,9 +369,9 @@ export default function RegisterPage() {
               </div>
 
               <button type="submit" className="btn-primary" disabled={loading} style={{ marginTop: '0.25rem' }}>
-                {loading ? <span style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:'0.5rem' }}>
+                {loading ? <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
                   <span className="spinner" /> {tr('reg_creating')}</span>
-                  : <span style={{display:'flex',alignItems:'center',gap:'0.4rem'}}><LuCheck size={16}/> {tr('reg_create_btn')}</span>}
+                  : <span style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}><LuCheck size={16} /> {tr('reg_create_btn')}</span>}
               </button>
             </form>
           )}

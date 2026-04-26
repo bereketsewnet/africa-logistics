@@ -64,9 +64,9 @@ interface AssignDriverBody {
 // ─── SMS Helper ───────────────────────────────────────────────────────────────
 
 async function sendRejectionSms(phone: string, message: string): Promise<void> {
-  const sid  = process.env.TWILIO_ACCOUNT_SID
+  const sid = process.env.TWILIO_ACCOUNT_SID
   const token = process.env.TWILIO_AUTH_TOKEN
-  const from  = process.env.TWILIO_PHONE_NUMBER
+  const from = process.env.TWILIO_PHONE_NUMBER
   if (!sid || !token || !from || sid.startsWith('ACxxxxx')) {
     console.log(`📱 [SMS stub] To ${phone}: ${message}`)
     return
@@ -85,7 +85,7 @@ import path from 'path'
 
 function saveFile(base64Data: string, subDir: string, baseName: string): string {
   const match = base64Data.match(/^data:([a-zA-Z0-9+/]+\/[a-zA-Z0-9+/]+);base64,(.+)$/)
-  const raw  = match ? match[2] : base64Data
+  const raw = match ? match[2] : base64Data
   const mime = match ? match[1] : 'image/jpeg'
   const extMap: Record<string, string> = {
     'image/jpeg': 'jpg', 'image/jpg': 'jpg', 'image/png': 'png',
@@ -150,12 +150,12 @@ export async function adminGetUsersHandler(
   today.setHours(0, 0, 0, 0)
 
   const stats = {
-    total_users:    users.length,
-    active_users:   users.filter((u: any) => u.is_active).length,
-    total_admins:   users.filter((u: any) => u.role_id === 1).length,
+    total_users: users.length,
+    active_users: users.filter((u: any) => u.is_active).length,
+    total_admins: users.filter((u: any) => u.role_id === 1).length,
     total_shippers: users.filter((u: any) => u.role_id === 2).length,
-    total_drivers:  users.filter((u: any) => u.role_id === 3).length,
-    new_today:      users.filter((u: any) => new Date(u.created_at) >= today).length,
+    total_drivers: users.filter((u: any) => u.role_id === 3).length,
+    new_today: users.filter((u: any) => new Date(u.created_at) >= today).length,
   }
 
   return reply.send({ users, stats })
@@ -269,9 +269,9 @@ export async function adminReviewDocumentHandler(
 
   const validTypes = ['national_id', 'license', 'libre']
   const validActions = ['APPROVED', 'REJECTED']
-  if (!validTypes.includes(document_type))  return reply.status(400).send({ message: 'Invalid document_type.' })
-  if (!validActions.includes(action))       return reply.status(400).send({ message: 'action must be APPROVED or REJECTED.' })
-  if (action === 'REJECTED' && !reason)     return reply.status(400).send({ message: 'reason is required when rejecting.' })
+  if (!validTypes.includes(document_type)) return reply.status(400).send({ message: 'Invalid document_type.' })
+  if (!validActions.includes(action)) return reply.status(400).send({ message: 'action must be APPROVED or REJECTED.' })
+  if (action === 'REJECTED' && !reason) return reply.status(400).send({ message: 'reason is required when rejecting.' })
 
   const db = request.server.db
   const profile = await getDriverProfile(db, request.params.id)
@@ -289,7 +289,7 @@ export async function adminReviewDocumentHandler(
       const docLabel: Record<string, string> = { national_id: 'National ID', license: "Driver's License", libre: 'Libre document' }
       await sendRejectionSms(
         userRows[0].phone_number,
-        `Africa Logistics: Your ${docLabel[document_type] ?? document_type} was rejected. Reason: ${reason}. Please re-upload via the app.`
+        `Afri Logistics: Your ${docLabel[document_type] ?? document_type} was rejected. Reason: ${reason}. Please re-upload via the app.`
       )
     }
   }
@@ -359,7 +359,7 @@ export async function adminRejectDriverHandler(
   if (userRows[0]?.phone_number) {
     await sendRejectionSms(
       userRows[0].phone_number,
-      `Africa Logistics: Your driver application has been rejected. Reason: ${reason}. Please contact support if you have questions.`
+      `Afri Logistics: Your driver application has been rejected. Reason: ${reason}. Please contact support if you have questions.`
     )
   }
 
@@ -433,14 +433,14 @@ export async function adminCreateVehicleHandler(
   if (libre_file) libreUrl = saveFile(libre_file, 'vehicles', `libre_${Date.now()}`)
 
   const vehicleId = await createVehicle(request.server.db, {
-    plateNumber:    plate_number,
-    vehicleType:    vehicle_type,
-    maxCapacityKg:  max_capacity_kg,
+    plateNumber: plate_number,
+    vehicleType: vehicle_type,
+    maxCapacityKg: max_capacity_kg,
     isCompanyOwned: is_company_owned ?? false,
     vehiclePhotoUrl: photoUrl,
-    vehicleImages:  imageUrls.length ? imageUrls : undefined,
+    vehicleImages: imageUrls.length ? imageUrls : undefined,
     libreUrl,
-    description:    description ?? null,
+    description: description ?? null,
   })
 
   const vehicle = await getVehicleById(request.server.db, vehicleId)
@@ -477,15 +477,15 @@ export async function adminUpdateVehicleHandler(
   if (body.libre_file) libreUrl = saveFile(body.libre_file, 'vehicles', `libre_${request.params.id}`)
 
   await updateVehicle(db, request.params.id, {
-    plateNumber:    body.plate_number,
-    vehicleType:    body.vehicle_type,
-    maxCapacityKg:  body.max_capacity_kg,
+    plateNumber: body.plate_number,
+    vehicleType: body.vehicle_type,
+    maxCapacityKg: body.max_capacity_kg,
     isCompanyOwned: body.is_company_owned,
     vehiclePhotoUrl: photoUrl,
     ...(imageUrls !== undefined ? { vehicleImages: JSON.stringify(imageUrls) } as any : {}),
-    ...(libreUrl  !== undefined ? { libreUrl } as any : {}),
-    description:    body.description,
-    isActive:       body.is_active,
+    ...(libreUrl !== undefined ? { libreUrl } as any : {}),
+    description: body.description,
+    isActive: body.is_active,
   })
 
   const updated = await getVehicleById(db, request.params.id)
@@ -567,10 +567,12 @@ export async function adminAssignDriverToVehicleHandler(
  * Body: { first_name, last_name, phone_number, password, email?, role_id }
  */
 export async function adminCreateStaffHandler(
-  request: FastifyRequest<{ Body: {
-    first_name: string; last_name?: string; phone_number: string
-    password: string; email?: string; role_id: number
-  } }>,
+  request: FastifyRequest<{
+    Body: {
+      first_name: string; last_name?: string; phone_number: string
+      password: string; email?: string; role_id: number
+    }
+  }>,
   reply: FastifyReply
 ) {
   const caller = request.user as { id: string; role_id: number }
@@ -611,7 +613,7 @@ export async function adminCreateStaffHandler(
        is_active, is_phone_verified, is_email_verified)
      VALUES (?, ?, ?, ?, ?, ?, ?, 1, 1, ?)`,
     [id, role_id, first_name.trim(), (last_name ?? '').trim(), phone_number, email ?? null,
-     password_hash, email ? 1 : 0]
+      password_hash, email ? 1 : 0]
   )
 
   return reply.status(201).send({ success: true, message: 'Staff user created.', id })
@@ -623,9 +625,11 @@ export async function adminCreateStaffHandler(
  * Body: { first_name?, last_name?, email?, role_id? }
  */
 export async function adminUpdateUserHandler(
-  request: FastifyRequest<{ Params: { id: string }; Body: {
-    first_name?: string; last_name?: string; email?: string; role_id?: number
-  } }>,
+  request: FastifyRequest<{
+    Params: { id: string }; Body: {
+      first_name?: string; last_name?: string; email?: string; role_id?: number
+    }
+  }>,
   reply: FastifyReply
 ) {
   const caller = request.user as { id: string; role_id: number }
@@ -641,9 +645,9 @@ export async function adminUpdateUserHandler(
   const updates: string[] = []
   const values: any[] = []
   if (first_name !== undefined) { updates.push('first_name = ?'); values.push(first_name.trim()) }
-  if (last_name  !== undefined) { updates.push('last_name = ?');  values.push(last_name.trim()) }
-  if (email      !== undefined) { updates.push('email = ?');      values.push(email || null) }
-  if (role_id    !== undefined) { updates.push('role_id = ?');    values.push(role_id) }
+  if (last_name !== undefined) { updates.push('last_name = ?'); values.push(last_name.trim()) }
+  if (email !== undefined) { updates.push('email = ?'); values.push(email || null) }
+  if (role_id !== undefined) { updates.push('role_id = ?'); values.push(role_id) }
 
   if (updates.length === 0) return reply.status(400).send({ message: 'Nothing to update.' })
 
@@ -799,21 +803,21 @@ interface AdminOrderDetailsBody {
 /** GET /api/admin/orders */
 export async function adminListOrdersHandler(
   request: FastifyRequest<{ Querystring: AdminOrderListQuery }>,
-  reply:   FastifyReply
+  reply: FastifyReply
 ) {
-  const q     = request.query
-  const page  = parseInt(q.page  ?? '1',  10)
+  const q = request.query
+  const page = parseInt(q.page ?? '1', 10)
   const limit = parseInt(q.limit ?? '25', 10)
 
   const { orders, total } = await listOrders(request.server.db, {
-    status:    q.status,
+    status: q.status,
     shipperId: q.shipper_id,
-    driverId:  q.driver_id,
+    driverId: q.driver_id,
     page,
     limit,
-    search:   q.search,
+    search: q.search,
     dateFrom: q.date_from,
-    dateTo:   q.date_to,
+    dateTo: q.date_to,
   })
 
   return reply.send({
@@ -826,7 +830,7 @@ export async function adminListOrdersHandler(
 /** GET /api/admin/orders/:id */
 export async function adminGetOrderHandler(
   request: FastifyRequest<{ Params: { id: string } }>,
-  reply:   FastifyReply
+  reply: FastifyReply
 ) {
   const order = await getOrderById(request.server.db, request.params.id)
   if (!order) return reply.status(404).send({ success: false, message: 'Order not found.' })
@@ -836,13 +840,13 @@ export async function adminGetOrderHandler(
 /** PATCH /api/admin/orders/:id/assign — Assign driver to a pending order */
 export async function adminAssignOrderHandler(
   request: FastifyRequest<{ Params: { id: string }; Body: AdminAssignBody }>,
-  reply:   FastifyReply
+  reply: FastifyReply
 ) {
-  const admin  = request.user as any
+  const admin = request.user as any
   const { driver_id, vehicle_id } = request.body
-  const order  = await getOrderById(request.server.db, request.params.id)
+  const order = await getOrderById(request.server.db, request.params.id)
 
-  if (!order)   return reply.status(404).send({ success: false, message: 'Order not found.' })
+  if (!order) return reply.status(404).send({ success: false, message: 'Order not found.' })
   if (!driver_id) return reply.status(400).send({ success: false, message: 'driver_id is required.' })
 
   if (['PENDING', 'ASSIGNED'].includes(order.status)) {
@@ -854,7 +858,7 @@ export async function adminAssignOrderHandler(
       body: 'You have been assigned a new order.',
       url: '/driver/jobs',
       data: { order_id: order.id, reference_code: order.reference_code, type: 'NEW_ASSIGNMENT' },
-    }).catch(() => {})
+    }).catch(() => { })
   } else {
     const db = request.server.db
     await db.query(
@@ -874,7 +878,7 @@ export async function adminAssignOrderHandler(
       body: 'An active order has been assigned to you.',
       url: '/driver/jobs',
       data: { order_id: order.id, reference_code: order.reference_code, type: 'REASSIGNED_ORDER' },
-    }).catch(() => {})
+    }).catch(() => { })
   }
 
   return reply.send({ success: true, message: 'Driver assigned successfully.' })
@@ -883,17 +887,17 @@ export async function adminAssignOrderHandler(
 /** PATCH /api/admin/orders/:id/status — Manual override order status */
 export async function adminUpdateOrderStatusHandler(
   request: FastifyRequest<{ Params: { id: string }; Body: AdminOrderStatusBody }>,
-  reply:   FastifyReply
+  reply: FastifyReply
 ) {
-  const admin  = request.user as any
+  const admin = request.user as any
   const { status, notes } = request.body
-  const order  = await getOrderById(request.server.db, request.params.id)
+  const order = await getOrderById(request.server.db, request.params.id)
 
   if (!order) return reply.status(404).send({ success: false, message: 'Order not found.' })
 
   const validStatuses = [
-    'PENDING','ASSIGNED','EN_ROUTE','AT_PICKUP','IN_TRANSIT',
-    'AT_BORDER','IN_CUSTOMS','CUSTOMS_CLEARED','DELIVERED','COMPLETED','CANCELLED','FAILED',
+    'PENDING', 'ASSIGNED', 'EN_ROUTE', 'AT_PICKUP', 'IN_TRANSIT',
+    'AT_BORDER', 'IN_CUSTOMS', 'CUSTOMS_CLEARED', 'DELIVERED', 'COMPLETED', 'CANCELLED', 'FAILED',
   ]
   if (!validStatuses.includes(status)) {
     return reply.status(400).send({ success: false, message: `Invalid status: ${status}` })
@@ -913,11 +917,11 @@ interface AdminOrderNotesBody {
 /** PATCH /api/admin/orders/:id/notes — Internal admin-only notes */
 export async function adminUpdateOrderNotesHandler(
   request: FastifyRequest<{ Params: { id: string }; Body: AdminOrderNotesBody }>,
-  reply:   FastifyReply
+  reply: FastifyReply
 ) {
-  const admin  = request.user as any
+  const admin = request.user as any
   const { internal_notes } = request.body ?? {}
-  const order  = await getOrderById(request.server.db, request.params.id)
+  const order = await getOrderById(request.server.db, request.params.id)
 
   if (!order) return reply.status(404).send({ success: false, message: 'Order not found.' })
   if (typeof internal_notes !== 'string') {
@@ -1072,10 +1076,10 @@ export async function adminUpdateOrderDetailsHandler(
 /** POST /api/admin/orders/:id/cancel */
 export async function adminCancelOrderHandler(
   request: FastifyRequest<{ Params: { id: string } }>,
-  reply:   FastifyReply
+  reply: FastifyReply
 ) {
-  const admin  = request.user as any
-  const order  = await getOrderById(request.server.db, request.params.id)
+  const admin = request.user as any
+  const order = await getOrderById(request.server.db, request.params.id)
   if (!order) return reply.status(404).send({ success: false, message: 'Order not found.' })
 
   await cancelOrder(request.server.db, order.id, admin.id)
@@ -1122,7 +1126,7 @@ interface AdminCreateOrderBody {
 /** POST /api/admin/orders — admin creates an order on behalf of a shipper or as a guest */
 export async function adminCreateOrderOnBehalfHandler(
   request: FastifyRequest<{ Body: AdminCreateOrderBody }>,
-  reply:   FastifyReply
+  reply: FastifyReply
 ) {
   const admin = request.user as any
   const {
@@ -1157,11 +1161,11 @@ export async function adminCreateOrderOnBehalfHandler(
   const distanceKm = await getRouteDistanceKm(pickup_lat, pickup_lng, delivery_lat, delivery_lng)
 
   // Geocode missing addresses
-  const pickupAddr   = pickup_address   || await reverseGeocode(pickup_lat, pickup_lng) || `${pickup_lat},${pickup_lng}`
+  const pickupAddr = pickup_address || await reverseGeocode(pickup_lat, pickup_lng) || `${pickup_lat},${pickup_lng}`
   const deliveryAddr = delivery_address || await reverseGeocode(delivery_lat, delivery_lng) || `${delivery_lat},${delivery_lng}`
 
-  const quote       = calculateQuote(distanceKm, rule, estimated_weight_kg, is_cross_border)
-  const pickupOtp   = generateOtp()
+  const quote = calculateQuote(distanceKm, rule, estimated_weight_kg, is_cross_border)
+  const pickupOtp = generateOtp()
   const deliveryOtp = generateOtp()
 
   // For registered shippers, require enough wallet balance to cover the order.
@@ -1182,7 +1186,7 @@ export async function adminCreateOrderOnBehalfHandler(
   }
 
   // Save optional media files
-  let cargoImageUrl:     string | null = null
+  let cargoImageUrl: string | null = null
   let paymentReceiptUrl: string | null = null
   if (cargo_image) {
     try { cargoImageUrl = saveFile(cargo_image, 'order-images', `cargo_${Date.now()}`) } catch { /* ignore */ }
@@ -1192,42 +1196,42 @@ export async function adminCreateOrderOnBehalfHandler(
   }
 
   // Resolve guest fields
-  const resolvedGuestName  = is_guest ? (guest_name?.trim() || `Guest-${Date.now()}`) : null
+  const resolvedGuestName = is_guest ? (guest_name?.trim() || `Guest-${Date.now()}`) : null
   const resolvedGuestPhone = is_guest ? (guest_phone?.trim() || process.env.GUEST_DEFAULT_PHONE || '') : null
   const resolvedGuestEmail = is_guest ? (guest_email?.trim() || process.env.GUEST_DEFAULT_EMAIL || '') : null
 
   const orderId = await createOrder(request.server.db, {
-    shipperId:           is_guest ? null : (shipper_id ?? null),
-    cargoTypeId:         cargo_type_id,
-    pickupLat:           pickup_lat,
-    pickupLng:           pickup_lng,
-    pickupAddress:       pickupAddr,
-    deliveryLat:         delivery_lat,
-    deliveryLng:         delivery_lng,
-    deliveryAddress:     deliveryAddr,
-    estimatedWeightKg:   estimated_weight_kg ?? null,
+    shipperId: is_guest ? null : (shipper_id ?? null),
+    cargoTypeId: cargo_type_id,
+    pickupLat: pickup_lat,
+    pickupLng: pickup_lng,
+    pickupAddress: pickupAddr,
+    deliveryLat: delivery_lat,
+    deliveryLng: delivery_lng,
+    deliveryAddress: deliveryAddr,
+    estimatedWeightKg: estimated_weight_kg ?? null,
     vehicleTypeRequired: vehicle_type,
     specialInstructions: special_instructions ?? null,
-    distanceKm:          quote.distance_km,
-    baseFare:            quote.base_fare,
-    perKmRate:           quote.per_km_rate,
-    citySurcharge:       quote.city_surcharge,
-    estimatedPrice:      quote.estimated_price,
+    distanceKm: quote.distance_km,
+    baseFare: quote.base_fare,
+    perKmRate: quote.per_km_rate,
+    citySurcharge: quote.city_surcharge,
+    estimatedPrice: quote.estimated_price,
     pickupOtp,
     deliveryOtp,
     orderImage1Url: null,
     orderImage2Url: null,
     cargoImageUrl,
     paymentReceiptUrl,
-    isGuestOrder:   is_guest ? true : false,
-    guestName:      resolvedGuestName,
-    guestPhone:     resolvedGuestPhone,
-    guestEmail:     resolvedGuestEmail,
-    isCrossBorder:      is_cross_border ?? false,
-    pickupCountryId:    pickup_country_id ?? 1,
-    deliveryCountryId:  delivery_country_id ?? 1,
-    hsCode:             hs_code ?? null,
-    shipperTin:         shipper_tin ?? null,
+    isGuestOrder: is_guest ? true : false,
+    guestName: resolvedGuestName,
+    guestPhone: resolvedGuestPhone,
+    guestEmail: resolvedGuestEmail,
+    isCrossBorder: is_cross_border ?? false,
+    pickupCountryId: pickup_country_id ?? 1,
+    deliveryCountryId: delivery_country_id ?? 1,
+    hsCode: hs_code ?? null,
+    shipperTin: shipper_tin ?? null,
   })
 
   // Optionally assign driver right away
@@ -1250,7 +1254,7 @@ export async function adminCreateOrderOnBehalfHandler(
 /** GET /api/admin/cargo-types */
 export async function adminListCargoTypesHandler(
   request: FastifyRequest,
-  reply:   FastifyReply
+  reply: FastifyReply
 ) {
   const types = await listAllCargoTypes(request.server.db)
   return reply.send({ success: true, cargo_types: types })
@@ -1259,7 +1263,7 @@ export async function adminListCargoTypesHandler(
 /** POST /api/admin/cargo-types */
 export async function adminCreateCargoTypeHandler(
   request: FastifyRequest<{ Body: { name: string; description?: string; requires_special_handling?: boolean; icon?: string; icon_url?: string } }>,
-  reply:   FastifyReply
+  reply: FastifyReply
 ) {
   const { name, description, requires_special_handling, icon, icon_url } = request.body
   if (!name?.trim()) return reply.status(400).send({ success: false, message: 'Cargo type name is required.' })
@@ -1271,7 +1275,7 @@ export async function adminCreateCargoTypeHandler(
 /** PUT /api/admin/cargo-types/:id */
 export async function adminUpdateCargoTypeHandler(
   request: FastifyRequest<{ Params: { id: string }; Body: { name?: string; description?: string; requires_special_handling?: boolean; icon?: string; icon_url?: string; is_active?: boolean } }>,
-  reply:   FastifyReply
+  reply: FastifyReply
 ) {
   await updateCargoType(request.server.db, Number(request.params.id), request.body)
   return reply.send({ success: true, message: 'Cargo type updated.' })
@@ -1294,7 +1298,7 @@ interface PricingRuleBody {
 /** GET /api/admin/pricing-rules */
 export async function adminListPricingRulesHandler(
   request: FastifyRequest,
-  reply:   FastifyReply
+  reply: FastifyReply
 ) {
   const rules = await listPricingRules(request.server.db)
   return reply.send({ success: true, pricing_rules: rules })
@@ -1303,7 +1307,7 @@ export async function adminListPricingRulesHandler(
 /** POST /api/admin/pricing-rules */
 export async function adminCreatePricingRuleHandler(
   request: FastifyRequest<{ Body: PricingRuleBody }>,
-  reply:   FastifyReply
+  reply: FastifyReply
 ) {
   const { vehicle_type, base_fare, per_km_rate, per_kg_rate, city_surcharge, additional_fees, min_distance_km, max_weight_kg } = request.body
   if (!vehicle_type || base_fare === undefined || per_km_rate === undefined) {
@@ -1320,20 +1324,20 @@ export async function adminCreatePricingRuleHandler(
 /** PUT /api/admin/pricing-rules/:id */
 export async function adminUpdatePricingRuleHandler(
   request: FastifyRequest<{ Params: { id: string }; Body: Partial<PricingRuleBody> }>,
-  reply:   FastifyReply
+  reply: FastifyReply
 ) {
   const fields: string[] = []
-  const values: any[]   = []
+  const values: any[] = []
   const b = request.body
-  if (b.vehicle_type    !== undefined) { fields.push('vehicle_type = ?');    values.push(b.vehicle_type) }
-  if (b.base_fare       !== undefined) { fields.push('base_fare = ?');       values.push(b.base_fare) }
-  if (b.per_km_rate     !== undefined) { fields.push('per_km_rate = ?');     values.push(b.per_km_rate) }
-  if (b.per_kg_rate     !== undefined) { fields.push('per_kg_rate = ?');     values.push(b.per_kg_rate) }
-  if (b.city_surcharge  !== undefined) { fields.push('city_surcharge = ?');  values.push(b.city_surcharge) }
+  if (b.vehicle_type !== undefined) { fields.push('vehicle_type = ?'); values.push(b.vehicle_type) }
+  if (b.base_fare !== undefined) { fields.push('base_fare = ?'); values.push(b.base_fare) }
+  if (b.per_km_rate !== undefined) { fields.push('per_km_rate = ?'); values.push(b.per_km_rate) }
+  if (b.per_kg_rate !== undefined) { fields.push('per_kg_rate = ?'); values.push(b.per_kg_rate) }
+  if (b.city_surcharge !== undefined) { fields.push('city_surcharge = ?'); values.push(b.city_surcharge) }
   if (b.additional_fees !== undefined) { fields.push('additional_fees = ?'); values.push(b.additional_fees ? JSON.stringify(b.additional_fees) : null) }
   if (b.min_distance_km !== undefined) { fields.push('min_distance_km = ?'); values.push(b.min_distance_km) }
-  if (b.max_weight_kg   !== undefined) { fields.push('max_weight_kg = ?');   values.push(b.max_weight_kg) }
-  if (b.is_active       !== undefined) { fields.push('is_active = ?');       values.push(b.is_active ? 1 : 0) }
+  if (b.max_weight_kg !== undefined) { fields.push('max_weight_kg = ?'); values.push(b.max_weight_kg) }
+  if (b.is_active !== undefined) { fields.push('is_active = ?'); values.push(b.is_active ? 1 : 0) }
 
   if (!fields.length) return reply.status(400).send({ success: false, message: 'No fields to update.' })
 
@@ -1345,7 +1349,7 @@ export async function adminUpdatePricingRuleHandler(
 /** GET /api/admin/stats/orders — summary counts by status */
 export async function adminOrderStatsHandler(
   request: FastifyRequest,
-  reply:   FastifyReply
+  reply: FastifyReply
 ) {
   const [rows] = await request.server.db.query<any[]>(
     `SELECT status, COUNT(*) as cnt FROM orders GROUP BY status`
@@ -1371,7 +1375,7 @@ export async function adminOrderStatsHandler(
 /** GET /api/admin/drivers/live — all drivers with latest location + active order */
 export async function adminLiveDriversHandler(
   request: FastifyRequest,
-  reply:   FastifyReply
+  reply: FastifyReply
 ) {
   const drivers = await getActiveDriversWithLocation(request.server.db)
   return reply.send({ success: true, drivers })
@@ -1382,7 +1386,7 @@ export async function adminLiveDriversHandler(
 /** GET /api/admin/orders/:id/messages */
 export async function adminGetOrderMessagesHandler(
   request: FastifyRequest<{ Params: { id: string }; Querystring: { channel?: string } }>,
-  reply:   FastifyReply
+  reply: FastifyReply
 ) {
   const admin = request.user as any
   const channel = request.query.channel ?? undefined
@@ -1395,7 +1399,7 @@ export async function adminGetOrderMessagesHandler(
 /** POST /api/admin/orders/:id/messages */
 export async function adminSendOrderMessageHandler(
   request: FastifyRequest<{ Params: { id: string }; Body: { message: string; channel?: string } }>,
-  reply:   FastifyReply
+  reply: FastifyReply
 ) {
   const admin = request.user as any
   if (!request.body.message?.trim()) return reply.status(400).send({ success: false, message: 'Message required.' })
@@ -1414,7 +1418,7 @@ export async function adminSendOrderMessageHandler(
         body: cleanedMessage.slice(0, 120),
         url: '/dashboard',
         data: { order_id: order.id, reference_code: order.reference_code, channel, type: 'NEW_CHAT_MESSAGE' },
-      }).catch(() => {})
+      }).catch(() => { })
     }
   }
 
@@ -1425,7 +1429,7 @@ export async function adminSendOrderMessageHandler(
         body: cleanedMessage.slice(0, 120),
         url: '/driver/jobs',
         data: { order_id: order.id, reference_code: order.reference_code, channel, type: 'NEW_CHAT_MESSAGE' },
-      }).catch(() => {})
+      }).catch(() => { })
     }
   }
 
@@ -1435,9 +1439,9 @@ export async function adminSendOrderMessageHandler(
 /** GET /api/admin/orders/guest — list guest orders only */
 export async function adminListGuestOrdersHandler(
   request: FastifyRequest<{ Querystring: { page?: string; limit?: string; search?: string; status?: string } }>,
-  reply:   FastifyReply
+  reply: FastifyReply
 ) {
-  const page  = parseInt(request.query.page  ?? '1',  10)
+  const page = parseInt(request.query.page ?? '1', 10)
   const limit = parseInt(request.query.limit ?? '25', 10)
   const offset = (page - 1) * limit
   const search = request.query.search?.trim()
@@ -1480,7 +1484,7 @@ export async function adminListGuestOrdersHandler(
 /** GET /api/admin/orders/:id/suggest-drivers — nearest available drivers to pickup */
 export async function adminSuggestDriversHandler(
   request: FastifyRequest<{ Params: { id: string } }>,
-  reply:   FastifyReply
+  reply: FastifyReply
 ) {
   const order = await getOrderById(request.server.db, request.params.id)
   if (!order) return reply.status(404).send({ success: false, message: 'Order not found.' })
@@ -1507,7 +1511,7 @@ interface AdminPriceAdjustBody {
 /** PATCH /api/admin/orders/:id/price — override final price */
 export async function adminUpdateOrderPriceHandler(
   request: FastifyRequest<{ Params: { id: string }; Body: AdminPriceAdjustBody }>,
-  reply:   FastifyReply
+  reply: FastifyReply
 ) {
   const admin = request.user as any
   const { final_price, notes } = request.body
@@ -1535,7 +1539,7 @@ export async function adminUpdateOrderPriceHandler(
 /** GET /api/admin/drivers/:id/ratings — list all ratings for a driver */
 export async function adminGetDriverRatingsHandler(
   request: FastifyRequest<{ Params: { id: string } }>,
-  reply:   FastifyReply
+  reply: FastifyReply
 ) {
   const ratings = await getDriverRatings(request.server.db, request.params.id, false)
   const summary = await getDriverRatingSummary(request.server.db, request.params.id)
@@ -1545,7 +1549,7 @@ export async function adminGetDriverRatingsHandler(
 /** DELETE /api/admin/ratings/:id — soft-delete a rating */
 export async function adminDeleteRatingHandler(
   request: FastifyRequest<{ Params: { id: string } }>,
-  reply:   FastifyReply
+  reply: FastifyReply
 ) {
   const admin = request.user as any
   const result = await softDeleteRating(request.server.db, request.params.id, admin.id)
@@ -1556,7 +1560,7 @@ export async function adminDeleteRatingHandler(
 /** PATCH /api/admin/drivers/:id/status — admin overrides driver status */
 export async function adminUpdateDriverStatusHandler(
   request: FastifyRequest<{ Params: { id: string }; Body: { status: string } }>,
-  reply:   FastifyReply
+  reply: FastifyReply
 ) {
   const VALID = ['AVAILABLE', 'OFFLINE', 'SUSPENDED', 'ON_JOB']
   const { status } = request.body ?? {}
@@ -1850,14 +1854,14 @@ export async function adminAdjustWalletHandler(
       body: `Admin adjustment: ${action === 'DEPOSIT' || action === 'REFUND' ? '+' : '-'}${Number(amount).toFixed(2)} ETB`,
       url: '/wallet',
       data: { type: 'wallet_adjusted', transaction_id: txId }
-    }).catch(() => {})
+    }).catch(() => { })
 
     if (user?.email) {
       sendEmail({
         to: user.email,
         subject: `Wallet Adjusted - ${action}`,
         text: `Your wallet has been adjusted by admin.\n\nAction: ${action}\nAmount: ${Number(amount).toFixed(2)} ETB\nReason: ${reason}`
-      }).catch(() => {})
+      }).catch(() => { })
     }
 
     const newWallet = await getOrCreateWallet(request.server.db, userId)
@@ -2116,14 +2120,14 @@ export async function processPerfBonusesHandler(request: FastifyRequest, reply: 
           body: `You've earned ${detail.bonus.toFixed(2)} ETB (${detail.tier})`,
           url: '/wallet',
           data: { type: 'bonus_received', amount: detail.bonus }
-        }).catch(() => {})
+        }).catch(() => { })
 
         if (driver.email) {
           sendEmail({
             to: driver.email,
             subject: 'Performance Bonus Credited',
             text: `Congratulations! You've received a performance bonus of ${detail.bonus.toFixed(2)} ETB.\n\nTier: ${detail.tier}\n\nCheck your wallet in the app.`
-          }).catch(() => {})
+          }).catch(() => { })
         }
       }
     }
@@ -2250,11 +2254,11 @@ export async function adminUpdateVehicleTypeHandler(
   const fields: string[] = []
   const vals: any[] = []
 
-  if (body.name       !== undefined) { fields.push('name = ?');            vals.push(body.name.trim()) }
+  if (body.name !== undefined) { fields.push('name = ?'); vals.push(body.name.trim()) }
   if (body.max_capacity_kg !== undefined) { fields.push('max_capacity_kg = ?'); vals.push(body.max_capacity_kg) }
-  if (body.icon       !== undefined) { fields.push('icon = ?');            vals.push(body.icon || null) }
-  if (body.is_active  !== undefined) { fields.push('is_active = ?');       vals.push(body.is_active ? 1 : 0) }
-  if (body.sort_order !== undefined) { fields.push('sort_order = ?');      vals.push(body.sort_order) }
+  if (body.icon !== undefined) { fields.push('icon = ?'); vals.push(body.icon || null) }
+  if (body.is_active !== undefined) { fields.push('is_active = ?'); vals.push(body.is_active ? 1 : 0) }
+  if (body.sort_order !== undefined) { fields.push('sort_order = ?'); vals.push(body.sort_order) }
 
   if (body.icon_data) {
     try {
@@ -2296,7 +2300,7 @@ export async function adminCreateCountryHandler(
 ) {
   const db = request.server.db
   const { name, iso_code, is_active = false } = request.body
-  if (!name?.trim())     return reply.status(400).send({ success: false, message: 'Country name is required.' })
+  if (!name?.trim()) return reply.status(400).send({ success: false, message: 'Country name is required.' })
   if (!iso_code?.trim() || iso_code.trim().length !== 2)
     return reply.status(400).send({ success: false, message: 'ISO code must be exactly 2 characters.' })
 
@@ -2319,8 +2323,8 @@ export async function adminUpdateCountryHandler(
   const fields: string[] = []
   const vals: any[] = []
 
-  if (body.name      !== undefined) { fields.push('name = ?');      vals.push(body.name.trim()) }
-  if (body.iso_code  !== undefined) { fields.push('iso_code = ?');  vals.push(body.iso_code.trim().toLowerCase()) }
+  if (body.name !== undefined) { fields.push('name = ?'); vals.push(body.name.trim()) }
+  if (body.iso_code !== undefined) { fields.push('iso_code = ?'); vals.push(body.iso_code.trim().toLowerCase()) }
   if (body.is_active !== undefined) { fields.push('is_active = ?'); vals.push(body.is_active ? 1 : 0) }
 
   if (!fields.length) return reply.status(400).send({ success: false, message: 'No fields to update.' })
@@ -2590,7 +2594,7 @@ export async function adminGetSecurityEventsHandler(
   }
 
   const db = request.server.db
-  const page  = Math.max(1, Number(request.query.page)  || 1)
+  const page = Math.max(1, Number(request.query.page) || 1)
   const limit = Math.min(200, Math.max(1, Number(request.query.limit) || 50))
   const offset = (page - 1) * limit
 
@@ -2639,12 +2643,12 @@ export async function adminGetSecurityEventsHandler(
  */
 export async function adminListCrossBorderOrdersHandler(
   request: FastifyRequest<{ Querystring: { status?: string; page?: string; limit?: string } }>,
-  reply:   FastifyReply
+  reply: FastifyReply
 ) {
   const caller = request.user as any
   if ([2, 3].includes(caller.role_id)) return reply.status(403).send({ message: 'Admin access required.' })
 
-  const page  = parseInt(request.query.page  ?? '1',  10)
+  const page = parseInt(request.query.page ?? '1', 10)
   const limit = parseInt(request.query.limit ?? '25', 10)
   const offset = (page - 1) * limit
   const db = request.server.db
@@ -2693,7 +2697,7 @@ export async function adminListCrossBorderOrdersHandler(
  */
 export async function adminGetCrossBorderDocsHandler(
   request: FastifyRequest<{ Params: { id: string } }>,
-  reply:   FastifyReply
+  reply: FastifyReply
 ) {
   const caller = request.user as any
   if ([2, 3].includes(caller.role_id)) return reply.status(403).send({ message: 'Admin access required.' })
@@ -2712,7 +2716,7 @@ export async function adminGetCrossBorderDocsHandler(
  */
 export async function adminReviewCrossBorderDocHandler(
   request: FastifyRequest<{ Params: { id: string; docId: string }; Body: { action: CrossBorderDocStatus; review_notes?: string } }>,
-  reply:   FastifyReply
+  reply: FastifyReply
 ) {
   const caller = request.user as any
   // Admins (1) may review any document. Shippers (2) may review documents on their own orders.
@@ -2722,7 +2726,7 @@ export async function adminReviewCrossBorderDocHandler(
   const actionInput = String(body.action ?? '').trim().toLowerCase()
   const actionMap: Record<string, string> = {
     approve: 'APPROVED', approved: 'APPROVED',
-    reject: 'REJECTED',  rejected: 'REJECTED',
+    reject: 'REJECTED', rejected: 'REJECTED',
     pending_review: 'PENDING_REVIEW',
   }
   const rawAction = actionMap[actionInput] ?? String(body.action ?? '').trim().toUpperCase()
@@ -2769,7 +2773,7 @@ export async function adminReviewCrossBorderDocHandler(
       body: `Cross-border document for order ${order.reference_code} has been ${action.toLowerCase()}.`,
       url: '/driver/jobs',
       data: { order_id: order.id, doc_id: docId, type: 'CB_DOC_REVIEWED' },
-    }).catch(() => {})
+    }).catch(() => { })
   }
 
   return reply.send({ success: true, message: `Document ${action.toLowerCase()}.` })
@@ -2781,12 +2785,14 @@ export async function adminReviewCrossBorderDocHandler(
  * Body: { border_crossing_ref?, customs_declaration_ref?, hs_code?, shipper_tin? }
  */
 export async function adminUpdateBorderInfoHandler(
-  request: FastifyRequest<{ Params: { id: string }; Body: {
-    border_crossing_ref?: string
-    customs_declaration_ref?: string
-    hs_code?: string
-    shipper_tin?: string
-  } }>,
+  request: FastifyRequest<{
+    Params: { id: string }; Body: {
+      border_crossing_ref?: string
+      customs_declaration_ref?: string
+      hs_code?: string
+      shipper_tin?: string
+    }
+  }>,
   reply: FastifyReply
 ) {
   const caller = request.user as any
@@ -2798,10 +2804,10 @@ export async function adminUpdateBorderInfoHandler(
   const { border_crossing_ref, customs_declaration_ref, hs_code, shipper_tin } = request.body
 
   await updateOrderBorderInfo(request.server.db, request.params.id, {
-    borderCrossingRef:    border_crossing_ref,
+    borderCrossingRef: border_crossing_ref,
     customsDeclarationRef: customs_declaration_ref,
-    hsCode:               hs_code,
-    shipperTin:           shipper_tin,
+    hsCode: hs_code,
+    shipperTin: shipper_tin,
   }, caller.id)
 
   const updated = await getOrderById(request.server.db, request.params.id)
@@ -2816,7 +2822,7 @@ export async function adminUpdateBorderInfoHandler(
  */
 export async function adminSubmitToEswHandler(
   request: FastifyRequest<{ Params: { id: string } }>,
-  reply:   FastifyReply
+  reply: FastifyReply
 ) {
   const caller = request.user as any
   if ([2, 3].includes(caller.role_id)) return reply.status(403).send({ message: 'Admin access required.' })
@@ -2854,7 +2860,7 @@ export async function adminSubmitToEswHandler(
  */
 export async function eswWebhookHandler(
   request: FastifyRequest,
-  reply:   FastifyReply
+  reply: FastifyReply
 ) {
   const secret = process.env.ESW_WEBHOOK_SECRET
   if (secret) {
@@ -2890,7 +2896,7 @@ export async function eswWebhookHandler(
   // Update to CUSTOMS_CLEARED if in IN_CUSTOMS or AT_BORDER
   if (['IN_CUSTOMS', 'AT_BORDER'].includes(order.status) && status === 'CUSTOMS_CLEARED') {
     await updateOrderStatus(db, order.id, 'CUSTOMS_CLEARED', 'esw_webhook', 'Customs cleared via eSW webhook')
-    
+
     if (order.driver_id) {
       const { sendPushToUser: pushToUser } = await import('../services/push.service.js')
       await pushToUser(db, order.driver_id, {
@@ -2898,7 +2904,7 @@ export async function eswWebhookHandler(
         body: `Order ${order.reference_code} customs has been cleared. Please proceed.`,
         url: '/driver/jobs',
         data: { order_id: order.id, type: 'CUSTOMS_CLEARED' },
-      }).catch(() => {})
+      }).catch(() => { })
     }
   }
 
@@ -2913,7 +2919,7 @@ export async function eswWebhookHandler(
  */
 export async function adminGetContactInfoHandler(
   request: FastifyRequest,
-  reply:   FastifyReply
+  reply: FastifyReply
 ) {
   const caller = request.user as any
   if (caller.role_id !== 1) return reply.status(403).send({ message: 'Super-admin access required.' })
@@ -2929,15 +2935,15 @@ export async function adminGetContactInfoHandler(
  */
 export async function adminUpdateContactInfoHandler(
   request: FastifyRequest,
-  reply:   FastifyReply
+  reply: FastifyReply
 ) {
   const caller = request.user as any
   if (caller.role_id !== 1) return reply.status(403).send({ message: 'Super-admin access required.' })
 
   const body = (request.body as any) ?? {}
-  const allowed = ['phone1','phone2','email1','email2','po_box','youtube_url','tiktok_url','instagram_url','x_url','linkedin_url','whatsapp_number','telegram_url']
+  const allowed = ['phone1', 'phone2', 'email1', 'email2', 'po_box', 'youtube_url', 'tiktok_url', 'instagram_url', 'x_url', 'linkedin_url', 'whatsapp_number', 'telegram_url']
   const sets: string[] = []
-  const vals: any[]    = []
+  const vals: any[] = []
   for (const key of allowed) {
     if (key in body) {
       sets.push(`${key} = ?`)
@@ -2960,7 +2966,7 @@ export async function adminUpdateContactInfoHandler(
  */
 export async function adminGetAiSettingsHandler(
   request: FastifyRequest,
-  reply:   FastifyReply
+  reply: FastifyReply
 ) {
   const caller = request.user as any
   if (caller.role_id !== 1) return reply.status(403).send({ message: 'Super-admin access required.' })
@@ -2979,14 +2985,14 @@ export async function adminGetAiSettingsHandler(
  */
 export async function adminUpdateAiSettingsHandler(
   request: FastifyRequest,
-  reply:   FastifyReply
+  reply: FastifyReply
 ) {
   const caller = request.user as any
   if (caller.role_id !== 1) return reply.status(403).send({ message: 'Super-admin access required.' })
 
   const body = (request.body as any) ?? {}
   const sets: string[] = []
-  const vals: any[]    = []
+  const vals: any[] = []
 
   if ('ai_enabled' in body) { sets.push('ai_enabled = ?'); vals.push(body.ai_enabled ? 1 : 0) }
   if ('customer_id' in body) { sets.push('customer_id = ?'); vals.push(body.customer_id === '' ? null : body.customer_id) }
@@ -3010,21 +3016,21 @@ export async function adminUpdateAiSettingsHandler(
 /** GET /api/admin/reports/finance?from=YYYY-MM-DD&to=YYYY-MM-DD */
 export async function adminFinanceReportHandler(
   request: FastifyRequest<{ Querystring: { from?: string; to?: string } }>,
-  reply:   FastifyReply
+  reply: FastifyReply
 ) {
-  const db  = request.server.db
+  const db = request.server.db
   const now = new Date()
-  const toDate   = request.query.to   ? new Date(request.query.to)   : now
+  const toDate = request.query.to ? new Date(request.query.to) : now
   const fromDate = request.query.from ? new Date(request.query.from) : new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
 
   const fromStr = fromDate.toISOString().slice(0, 10) + ' 00:00:00'
-  const toStr   = toDate.toISOString().slice(0, 10)   + ' 23:59:59'
+  const toStr = toDate.toISOString().slice(0, 10) + ' 23:59:59'
 
   // Previous period for comparison
-  const durationMs  = toDate.getTime() - fromDate.getTime()
-  const prevFrom    = new Date(fromDate.getTime() - durationMs)
-  const prevFromStr = prevFrom.toISOString().slice(0, 10)   + ' 00:00:00'
-  const prevToStr   = fromDate.toISOString().slice(0, 10)   + ' 23:59:59'
+  const durationMs = toDate.getTime() - fromDate.getTime()
+  const prevFrom = new Date(fromDate.getTime() - durationMs)
+  const prevFromStr = prevFrom.toISOString().slice(0, 10) + ' 00:00:00'
+  const prevToStr = fromDate.toISOString().slice(0, 10) + ' 23:59:59'
 
   // 1. Revenue summary from completed/delivered orders
   const [[revSummary]] = await db.query<any[]>(`
@@ -3166,7 +3172,7 @@ export async function adminFinanceReportHandler(
   `, [prevFromStr, prevToStr])
 
   const fromDateStr = fromDate.toISOString().slice(0, 10)
-  const toDateStr   = toDate.toISOString().slice(0, 10)
+  const toDateStr = toDate.toISOString().slice(0, 10)
 
   return reply.send({
     success: true,
@@ -3174,72 +3180,72 @@ export async function adminFinanceReportHandler(
       generated_at: new Date().toISOString(),
       date_range: { from: fromDateStr, to: toDateStr },
       revenue: {
-        gross_revenue:       Number(revSummary.gross_revenue      ?? 0),
-        settled_revenue:     Number(revSummary.settled_revenue    ?? 0),
-        escrowed_revenue:    Number(revSummary.escrowed_revenue   ?? 0),
-        unpaid_revenue:      Number(revSummary.unpaid_revenue     ?? 0),
-        total_orders:        Number(revSummary.total_orders       ?? 0),
-        paid_orders:         Number(revSummary.paid_orders        ?? 0),
-        avg_order_revenue:   Number(revSummary.avg_order_revenue  ?? 0),
-        prev_gross_revenue:  Number(prevRevSummary.gross_revenue  ?? 0),
+        gross_revenue: Number(revSummary.gross_revenue ?? 0),
+        settled_revenue: Number(revSummary.settled_revenue ?? 0),
+        escrowed_revenue: Number(revSummary.escrowed_revenue ?? 0),
+        unpaid_revenue: Number(revSummary.unpaid_revenue ?? 0),
+        total_orders: Number(revSummary.total_orders ?? 0),
+        paid_orders: Number(revSummary.paid_orders ?? 0),
+        avg_order_revenue: Number(revSummary.avg_order_revenue ?? 0),
+        prev_gross_revenue: Number(prevRevSummary.gross_revenue ?? 0),
       },
       daily_revenue: dailyRevenue.map(r => ({
-        date:     r.date instanceof Date ? r.date.toISOString().slice(0, 10) : String(r.date).slice(0, 10),
-        revenue:  Number(r.revenue  ?? 0),
-        settled:  Number(r.settled  ?? 0),
+        date: r.date instanceof Date ? r.date.toISOString().slice(0, 10) : String(r.date).slice(0, 10),
+        revenue: Number(r.revenue ?? 0),
+        settled: Number(r.settled ?? 0),
         escrowed: Number(r.escrowed ?? 0),
-        orders:   Number(r.orders   ?? 0),
+        orders: Number(r.orders ?? 0),
       })),
       revenue_by_vehicle: revenueByVehicle.map(r => ({
         vehicle_type: r.vehicle_type,
-        orders:       Number(r.orders  ?? 0),
-        revenue:      Number(r.revenue ?? 0),
+        orders: Number(r.orders ?? 0),
+        revenue: Number(r.revenue ?? 0),
       })),
       manual_payments: {
-        total:                Number(mprSummary.total              ?? 0),
-        pending_count:        Number(mprSummary.pending_count      ?? 0),
-        approved_count:       Number(mprSummary.approved_count     ?? 0),
-        rejected_count:       Number(mprSummary.rejected_count     ?? 0),
-        approved_amount:      Number(mprSummary.approved_amount    ?? 0),
-        pending_amount:       Number(mprSummary.pending_amount     ?? 0),
-        total_deposits:       Number(mprSummary.total_deposits     ?? 0),
-        total_withdrawals:    Number(mprSummary.total_withdrawals  ?? 0),
-        total_refunds:        Number(mprSummary.total_refunds      ?? 0),
-        total_adjustments:    Number(mprSummary.total_adjustments  ?? 0),
-        prev_approved_amount: Number(prevMpr.approved_amount       ?? 0),
+        total: Number(mprSummary.total ?? 0),
+        pending_count: Number(mprSummary.pending_count ?? 0),
+        approved_count: Number(mprSummary.approved_count ?? 0),
+        rejected_count: Number(mprSummary.rejected_count ?? 0),
+        approved_amount: Number(mprSummary.approved_amount ?? 0),
+        pending_amount: Number(mprSummary.pending_amount ?? 0),
+        total_deposits: Number(mprSummary.total_deposits ?? 0),
+        total_withdrawals: Number(mprSummary.total_withdrawals ?? 0),
+        total_refunds: Number(mprSummary.total_refunds ?? 0),
+        total_adjustments: Number(mprSummary.total_adjustments ?? 0),
+        prev_approved_amount: Number(prevMpr.approved_amount ?? 0),
       },
       manual_payments_daily: mprDaily.map(r => ({
-        date:            r.date instanceof Date ? r.date.toISOString().slice(0, 10) : String(r.date).slice(0, 10),
-        count:           Number(r.count           ?? 0),
+        date: r.date instanceof Date ? r.date.toISOString().slice(0, 10) : String(r.date).slice(0, 10),
+        count: Number(r.count ?? 0),
         approved_amount: Number(r.approved_amount ?? 0),
-        pending_amount:  Number(r.pending_amount  ?? 0),
+        pending_amount: Number(r.pending_amount ?? 0),
       })),
       wallet_by_type: walletByType.map(r => ({
         transaction_type: r.transaction_type,
-        count:            Number(r.count        ?? 0),
-        total_amount:     Number(r.total_amount ?? 0),
+        count: Number(r.count ?? 0),
+        total_amount: Number(r.total_amount ?? 0),
       })),
       wallet_daily: walletDaily.map(r => ({
-        date:         r.date instanceof Date ? r.date.toISOString().slice(0, 10) : String(r.date).slice(0, 10),
-        credits:      Number(r.credits      ?? 0),
-        debits:       Number(r.debits       ?? 0),
+        date: r.date instanceof Date ? r.date.toISOString().slice(0, 10) : String(r.date).slice(0, 10),
+        credits: Number(r.credits ?? 0),
+        debits: Number(r.debits ?? 0),
         transactions: Number(r.transactions ?? 0),
       })),
       top_shippers: topShippers.map(r => ({
-        name:    `${r.first_name} ${r.last_name}`,
-        email:   r.email        ?? '',
-        phone:   r.phone_number ?? '',
-        orders:  Number(r.orders  ?? 0),
+        name: `${r.first_name} ${r.last_name}`,
+        email: r.email ?? '',
+        phone: r.phone_number ?? '',
+        orders: Number(r.orders ?? 0),
         revenue: Number(r.revenue ?? 0),
       })),
       invoices: {
-        total_invoices:      Number(invSummary.total_invoices      ?? 0),
-        total_billed:        Number(invSummary.total_billed        ?? 0),
+        total_invoices: Number(invSummary.total_invoices ?? 0),
+        total_billed: Number(invSummary.total_billed ?? 0),
         total_driver_payout: Number(invSummary.total_driver_payout ?? 0),
-        total_commission:    Number(invSummary.total_commission    ?? 0),
-        total_tips:          Number(invSummary.total_tips          ?? 0),
+        total_commission: Number(invSummary.total_commission ?? 0),
+        total_tips: Number(invSummary.total_tips ?? 0),
         total_extra_charges: Number(invSummary.total_extra_charges ?? 0),
-        avg_invoice_amount:  Number(invSummary.avg_invoice_amount  ?? 0),
+        avg_invoice_amount: Number(invSummary.avg_invoice_amount ?? 0),
       },
     },
   })
@@ -3250,20 +3256,20 @@ export async function adminFinanceReportHandler(
 /** GET /api/admin/reports/logistics?from=YYYY-MM-DD&to=YYYY-MM-DD */
 export async function adminLogisticsReportHandler(
   request: FastifyRequest<{ Querystring: { from?: string; to?: string } }>,
-  reply:   FastifyReply
+  reply: FastifyReply
 ) {
-  const db  = request.server.db
+  const db = request.server.db
   const now = new Date()
-  const toDate   = request.query.to   ? new Date(request.query.to)   : now
+  const toDate = request.query.to ? new Date(request.query.to) : now
   const fromDate = request.query.from ? new Date(request.query.from) : new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
 
   const fromStr = fromDate.toISOString().slice(0, 10) + ' 00:00:00'
-  const toStr   = toDate.toISOString().slice(0, 10)   + ' 23:59:59'
+  const toStr = toDate.toISOString().slice(0, 10) + ' 23:59:59'
 
   // prev period for % change
   const rangeDays = Math.max(1, Math.round((toDate.getTime() - fromDate.getTime()) / 86400000))
   const prevFromStr = new Date(fromDate.getTime() - rangeDays * 86400000).toISOString().slice(0, 10) + ' 00:00:00'
-  const prevToStr   = new Date(fromDate.getTime() - 1000).toISOString().slice(0, 10)                  + ' 23:59:59'
+  const prevToStr = new Date(fromDate.getTime() - 1000).toISOString().slice(0, 10) + ' 23:59:59'
 
   // 1. Overall operational summary
   const [summaryRows] = await db.query<any[]>(`
@@ -3430,29 +3436,29 @@ export async function adminLogisticsReportHandler(
       generated_at: new Date().toISOString(),
       date_range: { from: fromDate.toISOString().slice(0, 10), to: toDate.toISOString().slice(0, 10) },
       summary: {
-        total_orders:       Number(s.total_orders      ?? 0),
-        cross_border_orders:Number(s.cross_border_orders ?? 0),
-        delivered:          Number(s.delivered         ?? 0),
-        cancelled:          Number(s.cancelled         ?? 0),
-        failed:             Number(s.failed            ?? 0),
-        in_transit:         Number(s.in_transit        ?? 0),
-        avg_distance_km:    Number(s.avg_distance_km   ?? 0),
-        total_distance_km:  Number(s.total_distance_km ?? 0),
-        avg_weight_kg:      Number(s.avg_weight_kg     ?? 0),
-        avg_assign_min:     Number(s.avg_assign_min    ?? 0),
-        avg_delivery_min:   Number(s.avg_delivery_min  ?? 0),
-        prev_total_orders:  Number(prev.total_orders   ?? 0),
-        prev_delivered:     Number(prev.delivered      ?? 0),
+        total_orders: Number(s.total_orders ?? 0),
+        cross_border_orders: Number(s.cross_border_orders ?? 0),
+        delivered: Number(s.delivered ?? 0),
+        cancelled: Number(s.cancelled ?? 0),
+        failed: Number(s.failed ?? 0),
+        in_transit: Number(s.in_transit ?? 0),
+        avg_distance_km: Number(s.avg_distance_km ?? 0),
+        total_distance_km: Number(s.total_distance_km ?? 0),
+        avg_weight_kg: Number(s.avg_weight_kg ?? 0),
+        avg_assign_min: Number(s.avg_assign_min ?? 0),
+        avg_delivery_min: Number(s.avg_delivery_min ?? 0),
+        prev_total_orders: Number(prev.total_orders ?? 0),
+        prev_delivered: Number(prev.delivered ?? 0),
       },
-      daily:         (dailyRows    as any[]).map(r => ({ date: String(r.date), orders: Number(r.orders), delivered: Number(r.delivered), total_km: Number(r.total_km), cross_border: Number(r.cross_border) })),
-      by_vehicle:    (vehicleRows  as any[]).map(r => ({ vehicle_type: String(r.vehicle_type), orders: Number(r.orders), avg_km: Number(r.avg_km), revenue: Number(r.revenue) })),
-      by_cargo:      (cargoRows    as any[]).map(r => ({ cargo_type: String(r.cargo_type), orders: Number(r.orders), avg_km: Number(r.avg_km), avg_weight_kg: Number(r.avg_weight_kg) })),
-      by_status:     (statusRows   as any[]).map(r => ({ status: String(r.status), count: Number(r.count) })),
-      cb_documents:  (cbDocRows    as any[]).map(r => ({ document_type: String(r.document_type), total: Number(r.total), approved: Number(r.approved), pending: Number(r.pending), rejected: Number(r.rejected) })),
+      daily: (dailyRows as any[]).map(r => ({ date: String(r.date), orders: Number(r.orders), delivered: Number(r.delivered), total_km: Number(r.total_km), cross_border: Number(r.cross_border) })),
+      by_vehicle: (vehicleRows as any[]).map(r => ({ vehicle_type: String(r.vehicle_type), orders: Number(r.orders), avg_km: Number(r.avg_km), revenue: Number(r.revenue) })),
+      by_cargo: (cargoRows as any[]).map(r => ({ cargo_type: String(r.cargo_type), orders: Number(r.orders), avg_km: Number(r.avg_km), avg_weight_kg: Number(r.avg_weight_kg) })),
+      by_status: (statusRows as any[]).map(r => ({ status: String(r.status), count: Number(r.count) })),
+      cb_documents: (cbDocRows as any[]).map(r => ({ document_type: String(r.document_type), total: Number(r.total), approved: Number(r.approved), pending: Number(r.pending), rejected: Number(r.rejected) })),
       pickup_cities: (pickupCityRows as any[]).map(r => ({ city: String(r.city), orders: Number(r.orders) })),
-      top_routes:    (routeRows    as any[]).map(r => ({ from_city: String(r.from_city), to_city: String(r.to_city), count: Number(r.count), avg_km: Number(r.avg_km) })),
-      extra_charges: (chargeRows   as any[]).map(r => ({ charge_type: String(r.charge_type), count: Number(r.count), total_amount: Number(r.total_amount), avg_amount: Number(r.avg_amount), applied: Number(r.applied), pending: Number(r.pending) })),
-      stage_times:   (stageTimeRows as any[]).map(r => ({ from_status: String(r.from_status), to_status: String(r.to_status), avg_minutes: Number(r.avg_minutes) })),
+      top_routes: (routeRows as any[]).map(r => ({ from_city: String(r.from_city), to_city: String(r.to_city), count: Number(r.count), avg_km: Number(r.avg_km) })),
+      extra_charges: (chargeRows as any[]).map(r => ({ charge_type: String(r.charge_type), count: Number(r.count), total_amount: Number(r.total_amount), avg_amount: Number(r.avg_amount), applied: Number(r.applied), pending: Number(r.pending) })),
+      stage_times: (stageTimeRows as any[]).map(r => ({ from_status: String(r.from_status), to_status: String(r.to_status), avg_minutes: Number(r.avg_minutes) })),
     },
   })
 }
@@ -3462,15 +3468,15 @@ export async function adminLogisticsReportHandler(
 /** GET /api/admin/reports/drivers?from=YYYY-MM-DD&to=YYYY-MM-DD */
 export async function adminDriverReportHandler(
   request: FastifyRequest<{ Querystring: { from?: string; to?: string } }>,
-  reply:   FastifyReply
+  reply: FastifyReply
 ) {
-  const db  = request.server.db
+  const db = request.server.db
   const now = new Date()
-  const toDate   = request.query.to   ? new Date(request.query.to)   : now
+  const toDate = request.query.to ? new Date(request.query.to) : now
   const fromDate = request.query.from ? new Date(request.query.from) : new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
 
   const fromStr = fromDate.toISOString().slice(0, 10) + ' 00:00:00'
-  const toStr   = toDate.toISOString().slice(0, 10)   + ' 23:59:59'
+  const toStr = toDate.toISOString().slice(0, 10) + ' 23:59:59'
 
   // 1. Overall driver profile stats
   const [profileRows] = await db.query<any[]>(`
@@ -3596,38 +3602,38 @@ export async function adminDriverReportHandler(
       generated_at: new Date().toISOString(),
       date_range: { from: fromDate.toISOString().slice(0, 10), to: toDate.toISOString().slice(0, 10) },
       overview: {
-        total_drivers:      Number(profile.total_drivers     ?? 0),
-        verified_drivers:   Number(profile.verified_drivers  ?? 0),
-        available_drivers:  Number(profile.available_drivers ?? 0),
-        on_job_drivers:     Number(profile.on_job_drivers    ?? 0),
-        offline_drivers:    Number(profile.offline_drivers   ?? 0),
-        suspended_drivers:  Number(profile.suspended_drivers ?? 0),
+        total_drivers: Number(profile.total_drivers ?? 0),
+        verified_drivers: Number(profile.verified_drivers ?? 0),
+        available_drivers: Number(profile.available_drivers ?? 0),
+        on_job_drivers: Number(profile.on_job_drivers ?? 0),
+        offline_drivers: Number(profile.offline_drivers ?? 0),
+        suspended_drivers: Number(profile.suspended_drivers ?? 0),
         avg_profile_rating: Number(profile.avg_profile_rating ?? 0),
       },
       performance: {
-        total_trips:     Number(perf.total_trips    ?? 0),
-        on_time_trips:   Number(perf.on_time_trips  ?? 0),
-        late_trips:      Number(perf.late_trips     ?? 0),
+        total_trips: Number(perf.total_trips ?? 0),
+        on_time_trips: Number(perf.on_time_trips ?? 0),
+        late_trips: Number(perf.late_trips ?? 0),
         cancelled_trips: Number(perf.cancelled_trips ?? 0),
-        avg_rating:      Number(perf.avg_rating     ?? 0),
-        total_earned:    Number(perf.total_earned   ?? 0),
-        total_bonus:     Number(perf.total_bonus    ?? 0),
+        avg_rating: Number(perf.avg_rating ?? 0),
+        total_earned: Number(perf.total_earned ?? 0),
+        total_bonus: Number(perf.total_bonus ?? 0),
         avg_on_time_pct: Number(perf.avg_on_time_pct ?? 0),
       },
       documents: {
-        nat_id_approved:   Number(profile.nat_id_approved  ?? 0),
-        nat_id_pending:    Number(profile.nat_id_pending   ?? 0),
-        license_approved:  Number(profile.license_approved ?? 0),
-        license_pending:   Number(profile.license_pending  ?? 0),
-        libre_approved:    Number(profile.libre_approved   ?? 0),
-        libre_pending:     Number(profile.libre_pending    ?? 0),
+        nat_id_approved: Number(profile.nat_id_approved ?? 0),
+        nat_id_pending: Number(profile.nat_id_pending ?? 0),
+        license_approved: Number(profile.license_approved ?? 0),
+        license_pending: Number(profile.license_pending ?? 0),
+        libre_approved: Number(profile.libre_approved ?? 0),
+        libre_pending: Number(profile.libre_pending ?? 0),
       },
       rating_distribution: (ratingDistRows as any[]).map(r => ({ stars: Number(r.stars), count: Number(r.count) })),
-      daily_trips:     (dailyTripsRows  as any[]).map(r => ({ date: String(r.date), completed_trips: Number(r.completed_trips), active_drivers: Number(r.active_drivers) })),
-      daily_ratings:   (dailyRatingsRows as any[]).map(r => ({ date: String(r.date), count: Number(r.count), avg_stars: Number(r.avg_stars) })),
-      top_drivers:     (topDriverRows   as any[]).map(r => ({ ...r, total_trips: Number(r.total_trips), total_earned: Number(r.total_earned), average_rating: Number(r.average_rating), on_time_percentage: Number(r.on_time_percentage), cancelled_trips: Number(r.cancelled_trips), bonus_earned: Number(r.bonus_earned) })),
-      vehicle_types:   (vehicleTypeRows as any[]).map(r => ({ vehicle_type: String(r.vehicle_type), count: Number(r.count) })),
-      trips_buckets:   (tripsBucketRows as any[]).map(r => ({ bucket: String(r.bucket), drivers: Number(r.drivers) })),
+      daily_trips: (dailyTripsRows as any[]).map(r => ({ date: String(r.date), completed_trips: Number(r.completed_trips), active_drivers: Number(r.active_drivers) })),
+      daily_ratings: (dailyRatingsRows as any[]).map(r => ({ date: String(r.date), count: Number(r.count), avg_stars: Number(r.avg_stars) })),
+      top_drivers: (topDriverRows as any[]).map(r => ({ ...r, total_trips: Number(r.total_trips), total_earned: Number(r.total_earned), average_rating: Number(r.average_rating), on_time_percentage: Number(r.on_time_percentage), cancelled_trips: Number(r.cancelled_trips), bonus_earned: Number(r.bonus_earned) })),
+      vehicle_types: (vehicleTypeRows as any[]).map(r => ({ vehicle_type: String(r.vehicle_type), count: Number(r.count) })),
+      trips_buckets: (tripsBucketRows as any[]).map(r => ({ bucket: String(r.bucket), drivers: Number(r.drivers) })),
     },
   })
 }
@@ -3637,15 +3643,15 @@ export async function adminDriverReportHandler(
 /** GET /api/admin/reports/orders?from=YYYY-MM-DD&to=YYYY-MM-DD */
 export async function adminOrderReportHandler(
   request: FastifyRequest<{ Querystring: { from?: string; to?: string } }>,
-  reply:   FastifyReply
+  reply: FastifyReply
 ) {
-  const db  = request.server.db
+  const db = request.server.db
   const now = new Date()
-  const toDate   = request.query.to   ? new Date(request.query.to)   : now
+  const toDate = request.query.to ? new Date(request.query.to) : now
   const fromDate = request.query.from ? new Date(request.query.from) : new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
 
   const fromStr = fromDate.toISOString().slice(0, 10) + ' 00:00:00'
-  const toStr   = toDate.toISOString().slice(0, 10)   + ' 23:59:59'
+  const toStr = toDate.toISOString().slice(0, 10) + ' 23:59:59'
 
   // 1. Summary totals
   const [summaryRows] = await db.query<any[]>(`
@@ -3742,10 +3748,10 @@ export async function adminOrderReportHandler(
   `, [fromStr, toStr])
 
   // 8. Previous period comparison (same duration before fromDate)
-  const durationMs  = toDate.getTime() - fromDate.getTime()
-  const prevFrom    = new Date(fromDate.getTime() - durationMs)
+  const durationMs = toDate.getTime() - fromDate.getTime()
+  const prevFrom = new Date(fromDate.getTime() - durationMs)
   const prevFromStr = prevFrom.toISOString().slice(0, 10) + ' 00:00:00'
-  const prevToStr   = fromDate.toISOString().slice(0, 10) + ' 23:59:59'
+  const prevToStr = fromDate.toISOString().slice(0, 10) + ' 23:59:59'
 
   const [prevRows] = await db.query<any[]>(`
     SELECT
@@ -3755,15 +3761,15 @@ export async function adminOrderReportHandler(
     WHERE created_at BETWEEN ? AND ?
   `, [prevFromStr, prevToStr])
 
-  const s   = summaryRows[0] ?? {}
-  const prev = prevRows[0]   ?? {}
+  const s = summaryRows[0] ?? {}
+  const prev = prevRows[0] ?? {}
 
   const byStatus: Record<string, number> = {}
   for (const r of statusRows) byStatus[r.status] = Number(r.count)
   const byPayment: Record<string, number> = {}
   for (const r of paymentRows) byPayment[r.payment_status] = Number(r.count)
 
-  const toDateStr   = toDate.toISOString().slice(0, 10)
+  const toDateStr = toDate.toISOString().slice(0, 10)
   const fromDateStr = fromDate.toISOString().slice(0, 10)
 
   return reply.send({
@@ -3772,43 +3778,43 @@ export async function adminOrderReportHandler(
       generated_at: new Date().toISOString(),
       date_range: { from: fromDateStr, to: toDateStr },
       summary: {
-        total_orders:      Number(s.total_orders     ?? 0),
-        normal_orders:     Number(s.normal_orders    ?? 0),
-        guest_orders:      Number(s.guest_orders     ?? 0),
-        total_revenue:     Number(s.total_revenue    ?? 0),
-        avg_order_value:   Number(s.avg_order_value  ?? 0),
-        active_drivers:    Number(s.active_drivers   ?? 0),
+        total_orders: Number(s.total_orders ?? 0),
+        normal_orders: Number(s.normal_orders ?? 0),
+        guest_orders: Number(s.guest_orders ?? 0),
+        total_revenue: Number(s.total_revenue ?? 0),
+        avg_order_value: Number(s.avg_order_value ?? 0),
+        active_drivers: Number(s.active_drivers ?? 0),
         total_distance_km: Number(s.total_distance_km ?? 0),
-        completed_orders:  Number(s.completed_orders ?? 0),
-        cancelled_orders:  Number(s.cancelled_orders ?? 0),
-        failed_orders:     Number(s.failed_orders    ?? 0),
-        active_orders:     Number(s.active_orders    ?? 0),
+        completed_orders: Number(s.completed_orders ?? 0),
+        cancelled_orders: Number(s.cancelled_orders ?? 0),
+        failed_orders: Number(s.failed_orders ?? 0),
+        active_orders: Number(s.active_orders ?? 0),
       },
       comparison: {
-        prev_total_orders:  Number(prev.total_orders  ?? 0),
+        prev_total_orders: Number(prev.total_orders ?? 0),
         prev_total_revenue: Number(prev.total_revenue ?? 0),
       },
-      by_status:         byStatus,
+      by_status: byStatus,
       by_payment_status: byPayment,
       daily_trend: dailyRows.map(r => ({
-        date:          r.date instanceof Date ? r.date.toISOString().slice(0, 10) : String(r.date).slice(0, 10),
-        orders:        Number(r.orders),
+        date: r.date instanceof Date ? r.date.toISOString().slice(0, 10) : String(r.date).slice(0, 10),
+        orders: Number(r.orders),
         normal_orders: Number(r.normal_orders),
-        guest_orders:  Number(r.guest_orders),
-        revenue:       Number(r.revenue  ?? 0),
-        completed:     Number(r.completed ?? 0),
+        guest_orders: Number(r.guest_orders),
+        revenue: Number(r.revenue ?? 0),
+        completed: Number(r.completed ?? 0),
       })),
       top_routes: routeRows.map(r => ({
-        pickup:          r.pickup_address,
-        delivery:        r.delivery_address,
-        count:           Number(r.count),
-        total_revenue:   Number(r.total_revenue  ?? 0),
+        pickup: r.pickup_address,
+        delivery: r.delivery_address,
+        count: Number(r.count),
+        total_revenue: Number(r.total_revenue ?? 0),
         avg_distance_km: Number(r.avg_distance_km ?? 0),
       })),
       cargo_breakdown: cargoRows.map(r => ({
         cargo_type: r.cargo_type,
-        count:      Number(r.count),
-        revenue:    Number(r.revenue ?? 0),
+        count: Number(r.count),
+        revenue: Number(r.revenue ?? 0),
       })),
       delivery_time: {
         avg_hours: dtRows[0]?.avg_hours ?? null,
@@ -3878,9 +3884,9 @@ export async function adminPayDriverWalletHandler(
           to: driver.email,
           subject: `Payment Credited – Order ${order.reference_code}`,
           text: `Hi ${driver.first_name},\n\nA payment of ${result.netAmount.toFixed(2)} ETB has been credited to your wallet for order ${order.reference_code}.\n\nGross amount: ${gross_amount.toFixed(2)} ETB\nCommission deducted: ${result.commissionAmount.toFixed(2)} ETB\nNet credited: ${result.netAmount.toFixed(2)} ETB\n${note ? `Note: ${note}\n` : ''}\nThank you.`
-        }).catch(() => {})
+        }).catch(() => { })
       }
-    } catch {}
+    } catch { }
 
     return reply.send({
       success: true,

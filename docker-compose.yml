@@ -41,7 +41,7 @@ services:
     networks:
       - africa_net
 
-  # ─── Africa Logistics Backend (Fastify API) ───────────────────────────────
+  # ─── Afri Logistics Backend (Fastify API) ───────────────────────────────
   africa_backend:
     build:
       context: ./africa-logistic-backend
@@ -57,7 +57,7 @@ services:
     networks:
       - africa_net
 
-  # ─── Africa Logistics Frontend (React SPA via Nginx) ─────────────────────────
+  # ─── Afri Logistics Frontend (React SPA via Nginx) ─────────────────────────
   africa_frontend:
     build:
       context: ./africa-logistic-frontend

@@ -245,7 +245,7 @@ export default function ShipperReportPage() {
           <>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem', background: 'linear-gradient(135deg, rgba(97, 148, 31,0.08), rgba(167,139,250,0.07))', border: '1px solid rgba(97, 148, 31,0.16)', borderRadius: 16, padding: '1.2rem 1.35rem' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', minWidth: 0 }}>
-                <img src={logoImg} alt="Africa Logistics" style={{ height: 46, width: 'auto', objectFit: 'contain', borderRadius: 8 }} />
+                <img src={logoImg} alt="Afri logistics" style={{ height: 46, width: 'auto', objectFit: 'contain', borderRadius: 8 }} />
                 <div style={{ minWidth: 0 }}>
                   <p style={{ margin: 0, fontWeight: 800, fontSize: '1rem', color: 'var(--clr-text)' }}>{tr('srpt_general')}</p>
                   <p style={{ margin: '0.15rem 0 0', fontSize: '0.78rem', color: 'var(--clr-muted)' }}>{report.shipper.name || `${report.shipper.first_name} ${report.shipper.last_name}`.trim()}</p>

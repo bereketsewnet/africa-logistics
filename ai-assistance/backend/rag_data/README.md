@@ -1,6 +1,6 @@
-# Africa Logistics AI Assistance RAG Data
+# Afri logistics AI Assistance RAG Data
 
-This folder is the knowledge base for the Africa Logistics AI assistant.
+This folder is the knowledge base for the Afri logistics AI assistant.
 
 Its purpose is to show the AI:
 - who it is

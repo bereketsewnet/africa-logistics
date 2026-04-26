@@ -122,7 +122,7 @@ export default function ChatPage() {
           {messages.length === 0 && (
             <div className="text-center text-gray-600 mt-20">
               <p className="text-4xl mb-3">💬</p>
-              <p className="text-lg">Ask Bemnet anything about Africa Logistics</p>
+              <p className="text-lg">Ask Bemnet anything about Afri logistics</p>
             </div>
           )}
           {messages.map((m, i) => (

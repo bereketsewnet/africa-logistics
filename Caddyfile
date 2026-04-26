@@ -1,4 +1,4 @@
-# ─── Africa Logistics — Frontend ──────────────────────────────────────────────
+# ─── Afri Logistics — Frontend ──────────────────────────────────────────────
 # Canonical frontend domain
 africa-logistics.lula.com.et {
     handle_path /uploads/* {
@@ -13,7 +13,7 @@ afri-logistics.lula.com.et {
     redir https://africa-logistics.lula.com.et{uri} 308
 }
 
-# ─── Africa Logistics — Backend API ───────────────────────────────────────────
+# ─── Afri Logistics — Backend API ───────────────────────────────────────────
 # /uploads/* is served as static files from the shared Docker volume.
 # All other paths are proxied to the Fastify backend.
 africa-logistics-api.lula.com.et {

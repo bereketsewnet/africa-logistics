@@ -144,7 +144,7 @@ export default function TransactionHistoryPage() {
     const amountLine = `${isCredit ? '+' : '-'} ${formatCurrency(tx.amount)}`
 
     doc.setFontSize(18)
-    doc.text('Africa Logistics', 20, 20)
+    doc.text('Afri logistics', 20, 20)
     doc.setFontSize(12)
     doc.text('Wallet Transaction Receipt', 20, 30)
 

@@ -20,7 +20,7 @@ let twilioClient: ReturnType<typeof twilio> | null = null
 function getTwilioClient(): ReturnType<typeof twilio> {
   if (!twilioClient) {
     const accountSid = process.env.TWILIO_ACCOUNT_SID
-    const authToken  = process.env.TWILIO_AUTH_TOKEN
+    const authToken = process.env.TWILIO_AUTH_TOKEN
 
     if (!accountSid || !authToken || accountSid.startsWith('ACxxxxx')) {
       throw new Error(
@@ -35,7 +35,7 @@ function getTwilioClient(): ReturnType<typeof twilio> {
 
 // ─── In-Memory OTP Store ──────────────────────────────────────────────────────
 interface OtpRecord {
-  otp:       string  // The 6-digit code
+  otp: string  // The 6-digit code
   expiresAt: number  // Unix timestamp (ms) when this OTP expires
 }
 
@@ -76,9 +76,9 @@ export async function generateAndSendOtp(phoneNumber: string): Promise<void> {
   // ── Production: Send real SMS via Twilio ──────────────────────────────────
   const client = getTwilioClient()
   await client.messages.create({
-    body: `Your Africa Logistics verification code is: ${otp}. It expires in 10 minutes.`,
+    body: `Your Afri Logistics verification code is: ${otp}. It expires in 10 minutes.`,
     from: process.env.TWILIO_PHONE_NUMBER!,
-    to:   phoneNumber,
+    to: phoneNumber,
   })
 }
 
