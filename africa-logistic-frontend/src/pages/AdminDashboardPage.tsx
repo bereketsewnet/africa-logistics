@@ -14,8 +14,7 @@ import AdminPaymentReview from '../components/AdminPaymentReview'
 import AdminWalletAdjustment from '../components/AdminWalletAdjustment'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
-import logoImg from '../assets/logo.webp'
-import aiLogoSrc from '../assets/logo-ai-assistant.webp'
+import { useThemeLogo } from '../lib/useThemeLogo'
 import AdminReportsSectionComponent from '../components/AdminReportsSection'
 import {
   LuTruck, LuUser, LuShield, LuPackage, LuPhone, LuMail,
@@ -7108,6 +7107,7 @@ const ADMIN_BEMNET_GREET = "Hi! I'm **Bemnet**, your AI logistics assistant 👋
 function adminFmtTime(d: Date) { return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }
 
 function AdminBemnetChat({ aiEnabled, userName, userRole }: { aiEnabled: boolean; userName: string; userRole: string }) {
+  const aiLogoSrc = useThemeLogo()
   const [open, setOpen] = useState(false)
   const [msgs, setMsgs] = useState<AdminChatMsg[]>([])
   const [input, setInput] = useState('')
@@ -7316,6 +7316,7 @@ export default function AdminDashboardPage() {
   const { user, logout } = useAuth()
   const navigate = useNavigate()
   const { t: tr } = useLanguage()
+  const logoImg = useThemeLogo()
   const [chatAiEnabled, setChatAiEnabled] = useState(false)
 
   const [adminTheme, setAdminTheme] = useState<'LIGHT' | 'DARK'>(() =>

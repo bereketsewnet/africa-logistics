@@ -4,7 +4,7 @@
 
 import { Navigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
-import logoImg from '../assets/logo.webp'
+import { useThemeLogo } from '../lib/useThemeLogo'
 
 interface ProtectedRouteProps {
   children: React.ReactNode
@@ -13,6 +13,7 @@ interface ProtectedRouteProps {
 
 // ── Animated cargo-truck splash screen ───────────────────────────────────────
 function SplashLoader() {
+  const logoImg = useThemeLogo()
   return (
     <div className="splash-bg" style={{
       position: 'fixed', inset: 0, zIndex: 9999,

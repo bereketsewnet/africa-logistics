@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, type FormEvent, type ChangeEvent } from 'r
 import { useAuth } from '../context/AuthContext'
 import { useNavigate } from 'react-router-dom'
 import apiClient, { authApi, assistantApi, configApi, walletApi } from '../lib/apiClient'
-import aiLogoSrc from '../assets/logo-ai-assistant.webp'
+import { useThemeLogo } from '../lib/useThemeLogo'
 import ShipperOrdersPage from './ShipperOrdersPage'
 import DriverJobsPage from './DriverJobsPage'
 import DriverReportPage from './DriverReportPage'
@@ -272,6 +272,7 @@ const BEMNET_GREET = "Hi! I'm **Bemnet**, your AI logistics assistant 👋\nHow 
 function fmtTime(d: Date) { return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }
 
 function BemnetChat({ aiEnabled, userName, userRole }: { aiEnabled: boolean; userName: string; userRole: string }) {
+  const aiLogoSrc = useThemeLogo()
   const [open, setOpen] = useState(false)
   const [msgs, setMsgs] = useState<ChatMsg[]>([])
   const [input, setInput] = useState('')

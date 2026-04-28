@@ -6,7 +6,7 @@ import {
   Menu, X, Star, CheckCircle2, Warehouse, Route,
   Users, Zap, FileText, Headphones, Sun, Moon,
 } from 'lucide-react'
-import logoImg from '../assets/logo.webp'
+import { useThemeLogo } from '../lib/useThemeLogo'
 import { configApi } from '../lib/apiClient'
 import './HomePage.css'
 
@@ -147,6 +147,7 @@ function Navbar() {
   const [open, setOpen] = useState(false)
   const [active, setActive] = useState('hero')
   const { t } = useLanguage()
+  const logoImg = useThemeLogo()
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 40)
@@ -192,17 +193,8 @@ function Navbar() {
     <>
       <nav className={`hp-nav${scrolled ? ' scrolled' : ''}`}>
         <div className="hp-nav-inner">
-          <a href="#hero" className="hp-logo">
-            <div className="hp-logo-icon"><img src={logoImg} alt="Afri logistics logo" /></div>
-            <div>
-              <div className="hp-logo-name">
-                Africa{' '}
-                <span style={{ background: 'linear-gradient(90deg,#71ad25,#3e6113)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-                  Logistics
-                </span>
-              </div>
-              <span className="hp-logo-sub">{t('hp_moving_africa')}</span>
-            </div>
+          <a href="#hero" className="hp-logo" aria-label="Afri Logistics home">
+            <img src={logoImg} alt="Afri Logistics" className="hp-logo-img" />
           </a>
 
           <div className="hp-nav-links">
@@ -252,6 +244,7 @@ function Navbar() {
    ═══════════════════════════════════════════════ */
 function Hero() {
   const { t } = useLanguage()
+  const logoImg = useThemeLogo()
   const glow1Ref = useRef<HTMLDivElement>(null)
   const progressRef = useRef<HTMLDivElement>(null)
 
@@ -293,6 +286,11 @@ function Hero() {
       </div>
 
       <div className="hp-hero-content">
+        {/* Hero brand logo */}
+        <div className="hp-hero-logo">
+          <img src={logoImg} alt="Afri Logistics" />
+        </div>
+
         {/* Badge */}
         <div className="hp-hero-badge">
           <span className="hp-live-dot" />
@@ -763,6 +761,7 @@ function Contact() {
    ═══════════════════════════════════════════════ */
 function Footer() {
   const { t } = useLanguage()
+  const logoImg = useThemeLogo()
   const FOOTER_LINKS = [
     { title: t('ft_services') || 'Services', items: [{ label: t('srv_freight') || 'Freight Transport', href: '#services' }, { label: t('srv_cross') || 'Cross-Border', href: '#services' }, { label: t('srv_last_mile') || 'Last-Mile', href: '#services' }, { label: t('srv_warehousing') || 'Warehousing', href: '#services' }] },
     { title: t('ft_company') || 'Company', items: [{ label: t('hp_menu_about') || 'About Us', href: '#about' }, { label: t('hp_menu_contact') || 'Contact', href: '#contact' }, { label: t('ft_careers') || 'Careers', href: '#' }, { label: t('ft_blog') || 'Blog', href: '#' }] },
@@ -773,14 +772,8 @@ function Footer() {
       <div className="hp-container">
         <div className="hp-footer-grid">
           <div className="hp-footer-brand">
-            <a href="#hero" className="hp-logo" style={{ textDecoration: 'none' }}>
-              <div className="hp-logo-icon"><img src={logoImg} alt="Afri logistics logo" /></div>
-              <div className="hp-logo-name">
-                Afri{' '}
-                <span style={{ background: 'linear-gradient(90deg,#71ad25,#3e6113)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-                  Logistics
-                </span>
-              </div>
+            <a href="#hero" className="hp-logo" aria-label="Afri Logistics home" style={{ textDecoration: 'none' }}>
+              <img src={logoImg} alt="Afri Logistics" className="hp-logo-img hp-logo-img--footer" />
             </a>
             <p>Technology-driven logistics platform moving goods across Africa with speed, transparency, and reliability.</p>
           </div>

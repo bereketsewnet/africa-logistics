@@ -6,7 +6,7 @@ import { useLanguage } from '../context/LanguageContext'
 import apiClient from '../lib/apiClient'
 import PhoneField from '../components/PhoneField'
 import { normalisePhone } from '../lib/normalisePhone'
-import logoImg from '../assets/logo.webp'
+import { useThemeLogo } from '../lib/useThemeLogo'
 import {
   LuTruck, LuEye, LuEyeOff, LuTriangleAlert, LuPackage, LuSmartphone,
   LuArrowRight, LuCheck, LuCar,
@@ -116,6 +116,7 @@ export default function RegisterPage() {
   const { login } = useAuth()
   const navigate = useNavigate()
   const { t: tr } = useLanguage()
+  const logoImg = useThemeLogo()
 
   const [step, setStep] = useState<1 | 2 | 3>(1)
 

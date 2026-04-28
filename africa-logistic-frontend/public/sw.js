@@ -9,8 +9,8 @@ self.addEventListener('push', (event) => {
   const title = payload.title || 'Afri Logistics'
   const options = {
     body: payload.body || 'You have a new update.',
-    icon: '/favicon.ico',
-    badge: '/favicon.ico',
+    icon: '/favicon.png',
+    badge: '/favicon.png',
     data: {
       url: payload.url || '/',
       ...(payload.data || {}),

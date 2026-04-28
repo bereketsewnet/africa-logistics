@@ -1658,3 +1658,91 @@ select option {
     --kpi-orange: #ea580c;
   }
 }
+
+/* ══════════════════════════════════════════════════════════════
+   LIGHT-MODE REPORT CARD STYLING
+   Report KPI/chart/table cards use inline styles tuned for the
+   dark theme (rgba(255,255,255,0.04) bg, 0.09 border) which
+   become invisible on light backgrounds. These overrides scope
+   to .rpt-page (added on all three report wrappers) and use
+   CSS attribute selectors to repaint each card variant cleanly
+   in light mode.
+   ══════════════════════════════════════════════════════════════ */
+
+/* Cards — primary surface (KPI cards, chart cards, table containers) */
+[data-theme="light"] .rpt-page div[style*="rgba(255,255,255,0.04)"],
+[data-theme="light"] .rpt-page div[style*="rgba(255,255,255,0.03)"] {
+  background: #ffffff !important;
+  border-color: rgba(15, 23, 42, 0.10) !important;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 6px 18px rgba(15, 23, 42, 0.06) !important;
+}
+
+/* Form controls inside the report (date inputs, range buttons, action btns) */
+[data-theme="light"] .rpt-page input[style*="rgba(255,255,255,0.06)"],
+[data-theme="light"] .rpt-page select[style*="rgba(255,255,255,0.06)"],
+[data-theme="light"] .rpt-page button[style*="rgba(255,255,255,0.06)"],
+[data-theme="light"] .rpt-page button[style*="rgba(255,255,255,0.04)"] {
+  background: #ffffff !important;
+  border-color: rgba(15, 23, 42, 0.12) !important;
+  color: #0f172a !important;
+  color-scheme: light !important;
+}
+
+/* Striped table rows */
+[data-theme="light"] .rpt-page tr[style*="rgba(255,255,255,0.015)"],
+[data-theme="light"] .rpt-page tr[style*="rgba(255, 255, 255, 0.015)"] {
+  background: #f8fafc !important;
+}
+
+/* Row & section dividers */
+[data-theme="light"] .rpt-page tr[style*="1px solid rgba(255,255,255,0.07)"],
+[data-theme="light"] .rpt-page tr[style*="1px solid rgba(255,255,255,0.04)"],
+[data-theme="light"] .rpt-page div[style*="1px solid rgba(255,255,255,0.07)"] {
+  border-color: rgba(15, 23, 42, 0.08) !important;
+}
+
+/* Tab pill bar */
+[data-theme="light"] .rpt-page .rpt-nav-pills {
+  background: #ffffff !important;
+  border-color: rgba(15, 23, 42, 0.10) !important;
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.06) !important;
+}
+
+/* Inline progress-bar tracks (faint white bg used as "rail") */
+[data-theme="light"] .rpt-page div[style*="rgba(255,255,255,0.07)"] {
+  background: rgba(15, 23, 42, 0.07) !important;
+}
+
+/* Custom Recharts tooltip card */
+[data-theme="light"] .rpt-page div[style*="background: #171b28"],
+[data-theme="light"] .rpt-page div[style*="background:#171b28"] {
+  background: #ffffff !important;
+  border-color: rgba(15, 23, 42, 0.12) !important;
+  color: #0f172a !important;
+  box-shadow: 0 6px 20px rgba(15, 23, 42, 0.10) !important;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   LIGHT-MODE LOGO CONTRAST FIX
+   The light-mode logo PNG has near-white truck pixels that fade
+   into bright backgrounds. Add a subtle dark outline + soft
+   shadow so the truck silhouette stays legible everywhere.
+   Vite hashes the filename, but `src*="logo_light"` still matches.
+   ══════════════════════════════════════════════════════════════ */
+[data-theme="light"] img[src*="logo_light"] {
+  filter:
+    drop-shadow(0 0 0.6px rgba(15, 23, 42, 0.55))
+    drop-shadow(0 0 0.6px rgba(15, 23, 42, 0.45))
+    drop-shadow(0 4px 14px rgba(15, 23, 42, 0.12));
+}
+
+@media (prefers-color-scheme: light) {
+
+  [data-theme="system"] img[src*="logo_light"],
+  :root:not([data-theme]) img[src*="logo_light"] {
+    filter:
+      drop-shadow(0 0 0.6px rgba(15, 23, 42, 0.55))
+      drop-shadow(0 0 0.6px rgba(15, 23, 42, 0.45))
+      drop-shadow(0 4px 14px rgba(15, 23, 42, 0.12));
+  }
+}

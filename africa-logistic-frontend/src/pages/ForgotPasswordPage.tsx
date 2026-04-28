@@ -4,7 +4,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import apiClient from '../lib/apiClient'
 import PhoneField from '../components/PhoneField'
 import { normalisePhone } from '../lib/normalisePhone'
-import logoImg from '../assets/logo.webp'
+import { useThemeLogo } from '../lib/useThemeLogo'
 import { useLanguage } from '../context/LanguageContext'
 import LanguageToggle from '../components/LanguageToggle'
 import {
@@ -192,6 +192,7 @@ type EmailStep = 'email' | 'sent' | 'newpw' | 'success'
 export default function ForgotPasswordPage() {
   const navigate = useNavigate()
   const { t: tr } = useLanguage()
+  const logoImg = useThemeLogo()
   const [searchParams] = useSearchParams()
   const emailResetToken = searchParams.get('email_reset_token')
 

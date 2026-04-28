@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import apiClient from '../lib/apiClient'
-import logoImg from '../assets/logo.webp'
+import { logoDark } from '../lib/useThemeLogo'
 import {
   ResponsiveContainer, AreaChart, Area, BarChart, Bar,
   PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip,
@@ -132,6 +132,7 @@ function CustomTooltip({ active, payload, label }: any) {
 
 function OrderReportPage() {
   const { t: tr } = useLanguage()
+  const logoImg = logoDark
   const today = new Date()
   const defaultTo = today.toISOString().slice(0, 10)
   const defaultFrom = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
@@ -540,6 +541,7 @@ const WALLET_TYPE_COLORS: Record<string, string> = {
 
 function FinanceReportPage() {
   const { t: tr } = useLanguage()
+  const logoImg = logoDark
   const today = new Date()
   const defaultTo = today.toISOString().slice(0, 10)
   const defaultFrom = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
@@ -975,6 +977,7 @@ function StarBar({ stars, count, total }: { stars: number; count: number; total:
 
 function DriverReportPage() {
   const { t: tr } = useLanguage()
+  const logoImg = logoDark
   const today = new Date()
   const defaultTo = today.toISOString().slice(0, 10)
   const defaultFrom = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
@@ -1368,6 +1371,7 @@ const STATUS_ORDER_COLORS: Record<string, string> = {
 
 function LogisticsReportPage() {
   const { t: tr } = useLanguage()
+  const logoImg = logoDark
   const today = new Date()
   const defaultTo = today.toISOString().slice(0, 10)
   const defaultFrom = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)

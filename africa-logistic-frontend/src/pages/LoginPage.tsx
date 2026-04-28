@@ -6,7 +6,7 @@ import { useLanguage } from '../context/LanguageContext'
 import apiClient from '../lib/apiClient'
 import PhoneField from '../components/PhoneField'
 import { normalisePhone } from '../lib/normalisePhone'
-import logoImg from '../assets/logo.webp'
+import { useThemeLogo } from '../lib/useThemeLogo'
 import {
   LuEye, LuEyeOff, LuTriangleAlert,
   LuLogIn, LuPhone, LuMail,
@@ -21,6 +21,7 @@ export default function LoginPage() {
   const { login } = useAuth()
   const navigate = useNavigate()
   const { t: tr } = useLanguage()
+  const logoImg = useThemeLogo()
 
   const [loginMode, setLoginMode] = useState<LoginMode>('phone')
   const [phone, setPhone] = useState('')

@@ -13,7 +13,8 @@ interface EmailOptions {
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 const EMAIL_LOGO_CID = 'africa-logistics-logo'
-const EMAIL_LOGO_PATH = path.resolve(__dirname, '../assets/logo.webp')
+const EMAIL_LOGO_FILENAME = 'logo_dark.png'
+const EMAIL_LOGO_PATH = path.resolve(__dirname, `../assets/${EMAIL_LOGO_FILENAME}`)
 const EMAIL_LOGO_AVAILABLE = fs.existsSync(EMAIL_LOGO_PATH)
 
 function getTransporter() {
@@ -57,7 +58,7 @@ export async function sendEmail(opts: EmailOptions) {
     html: opts.html,
     text: opts.text,
     attachments: EMAIL_LOGO_AVAILABLE && opts.html
-      ? [{ filename: 'logo.webp', path: EMAIL_LOGO_PATH, cid: EMAIL_LOGO_CID }]
+      ? [{ filename: EMAIL_LOGO_FILENAME, path: EMAIL_LOGO_PATH, cid: EMAIL_LOGO_CID }]
       : undefined,
   })
 }

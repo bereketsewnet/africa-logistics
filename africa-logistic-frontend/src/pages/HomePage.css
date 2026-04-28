@@ -96,44 +96,31 @@
 .hp-logo {
   display: flex;
   align-items: center;
-  gap: 10px;
   text-decoration: none;
   flex-shrink: 0;
 }
 
-.hp-logo-icon {
-  width: 42px;
-  height: 42px;
-  border-radius: 10px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  overflow: hidden;
-}
-
-.hp-logo-icon img {
-  width: 100%;
-  height: 100%;
+.hp-logo-img {
+  height: 44px;
+  width: auto;
+  max-width: 100%;
   object-fit: contain;
   display: block;
-  filter: drop-shadow(0 0 8px rgba(113, 173, 37, .5));
+  filter: drop-shadow(0 0 10px rgba(113, 173, 37, .35));
 }
 
-.hp-logo-name {
-  font-size: 15px;
-  font-weight: 800;
-  color: #fff;
-  letter-spacing: -.025em;
+.hp-logo-img--footer {
+  height: 52px;
 }
 
-.hp-logo-sub {
-  display: block;
-  font-size: 9px;
-  color: var(--text-3);
-  letter-spacing: .18em;
-  text-transform: uppercase;
-  margin-top: 2px;
+@media (max-width: 720px) {
+  .hp-logo-img {
+    height: 36px;
+  }
+
+  .hp-logo-img--footer {
+    height: 44px;
+  }
 }
 
 .hp-nav-links {
@@ -411,6 +398,39 @@
   z-index: 2;
   max-width: 960px;
   width: 100%;
+}
+
+.hp-hero-logo {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 28px;
+  animation: hero-logo-in .8s var(--ease) both;
+}
+
+.hp-hero-logo img {
+  height: 132px;
+  width: auto;
+  max-width: 90%;
+  object-fit: contain;
+  filter: drop-shadow(0 18px 40px rgba(97, 148, 31, .35));
+}
+
+@media (max-width: 720px) {
+  .hp-hero-logo img {
+    height: 96px;
+  }
+}
+
+@keyframes hero-logo-in {
+  from {
+    opacity: 0;
+    transform: translateY(-12px) scale(.92);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 
 .hp-hero-badge {
@@ -1763,14 +1783,6 @@
 [data-theme="light"] .hp-nav.scrolled {
   background: rgba(242, 246, 255, .98);
   box-shadow: 0 1px 0 rgba(0, 0, 0, .07), 0 12px 40px rgba(0, 0, 0, .08);
-}
-
-[data-theme="light"] .hp-logo-name {
-  color: #0f172a;
-}
-
-[data-theme="light"] .hp-logo-sub {
-  color: #94a3b8;
 }
 
 [data-theme="light"] .hp-nav-links {

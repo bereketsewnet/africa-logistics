@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useLanguage } from '../context/LanguageContext'
-import logoImg from '../assets/logo.webp'
+import { logoDark } from '../lib/useThemeLogo'
 import { orderApi } from '../lib/apiClient'
 import {
   ResponsiveContainer, AreaChart, Area, PieChart, Pie, Cell,
@@ -130,6 +130,7 @@ function pill(label: string, color: string) {
 
 export default function ShipperReportPage() {
   const { t: tr } = useLanguage()
+  const logoImg = logoDark
   const today = new Date()
   const defaultTo = today.toISOString().slice(0, 10)
   const defaultFrom = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
@@ -174,7 +175,7 @@ export default function ShipperReportPage() {
   const summary = report?.summary
 
   return (
-    <div className="page-shell" style={{ alignItems: 'flex-start' }}>
+    <div className="page-shell rpt-page" style={{ alignItems: 'flex-start' }}>
       <style>{`
         @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
         .shipper-report-grid-2 { display: grid; grid-template-columns: 1.25fr 0.95fr; gap: 1rem; }
