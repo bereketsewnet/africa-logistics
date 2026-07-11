@@ -509,7 +509,7 @@ export async function updateProfileHandler(
     const dest = path.join(process.cwd(), 'uploads', filename)
     const buffer = Buffer.from(b64data, 'base64')
     fs.writeFileSync(dest, buffer)
-    const apiBase = (process.env.API_BASE_URL || 'https://africa-logistics-api.lula.com.et').replace(/\/$/, '')
+    const apiBase = (process.env.API_BASE_URL || 'https://backend.afri-logistics.com').replace(/\/$/, '')
     photoUrl = `${apiBase}/uploads/${filename}`
   }
 
@@ -629,7 +629,7 @@ export async function forgotPasswordEmailHandler(
     { expiresIn: '1h' }
   )
 
-  const frontendBase = (process.env.FRONTEND_BASE_URL || process.env.FRONTEND_URL?.split(',')[0] || 'https://africa-logistics.lula.com.et').replace(/\/$/, '')
+  const frontendBase = (process.env.FRONTEND_BASE_URL || process.env.FRONTEND_URL?.split(',')[0] || 'https://afri-logistics.com').replace(/\/$/, '')
   const resetUrl = `${frontendBase}/forgot-password?email_reset_token=${encodeURIComponent(resetToken)}`
 
   try {

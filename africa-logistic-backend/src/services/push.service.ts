@@ -18,7 +18,7 @@ interface PushPayload {
 function getVapidConfig() {
   const publicKey = process.env.VAPID_PUBLIC_KEY?.trim()
   const privateKey = process.env.VAPID_PRIVATE_KEY?.trim()
-  const subject = process.env.VAPID_SUBJECT?.trim() || 'mailto:support@africa-logistics.lula.com.et'
+  const subject = process.env.VAPID_SUBJECT?.trim() || 'mailto:support@afri-logistics.com'
 
   if (!publicKey || !privateKey) {
     return null

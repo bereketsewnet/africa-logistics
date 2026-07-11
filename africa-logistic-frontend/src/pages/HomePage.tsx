@@ -329,7 +329,7 @@ function Hero() {
                   <div className="hp-chrome-dot" style={{ background: 'rgba(34,197,94,.7)' }} />
                 </div>
                 <div className="hp-chrome-url">
-                  <span>africa-logistics.app/tracking</span>
+                  <span>afri-logistics.com/tracking</span>
                 </div>
               </div>
               <div className="hp-card-body">

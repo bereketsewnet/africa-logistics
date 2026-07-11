@@ -40,7 +40,7 @@ function getTransporter() {
 
 export async function sendEmail(opts: EmailOptions) {
   const transporter = getTransporter()
-  const from = process.env.SMTP_FROM || process.env.SMTP_USER || 'no-reply@africa-logistics.lula.com.et'
+  const from = process.env.SMTP_FROM || process.env.SMTP_USER || 'no-reply@afri-logistics.com'
 
   if (!transporter) {
     console.log('─────────────────────────────────────────')
@@ -178,7 +178,7 @@ function buildStyledEmail({
                 ${footerNote || 'You received this because your email is linked to an Afri Logistics account.'}
               </p>
               <p style="margin:0;font-size:11px;color:#bbbbbb;font-family:Arial,sans-serif;">
-                &copy; ${new Date().getFullYear()} Afri Logistics &bull; africa-logistics.lula.com.et
+                &copy; ${new Date().getFullYear()} Afri Logistics &bull; afri-logistics.com
               </p>
             </td>
           </tr>
@@ -227,7 +227,7 @@ export async function sendPasswordResetEmail(to: string, resetUrl: string) {
 }
 
 export async function sendVerificationEmail(to: string, token: string) {
-  const frontendBase = process.env.FRONTEND_BASE_URL || process.env.FRONTEND_URL?.split(',')[0] || 'https://africa-logistics.lula.com.et'
+  const frontendBase = process.env.FRONTEND_BASE_URL || process.env.FRONTEND_URL?.split(',')[0] || 'https://afri-logistics.com'
   const verifyUrl = `${frontendBase.replace(/\/$/, '')}/verify-email?token=${encodeURIComponent(token)}`
 
   const html = buildStyledEmail({
@@ -296,7 +296,7 @@ export interface OrderStatusEmailData {
 export async function sendOrderStatusEmail(to: string, data: OrderStatusEmailData) {
   const label = STATUS_LABEL[data.status] ?? data.status
   const color = STATUS_COLOR[data.status] ?? '#94a3b8'
-  const appUrl = `${process.env.FRONTEND_BASE_URL || 'https://africa-logistics.lula.com.et'}`
+  const appUrl = `${process.env.FRONTEND_BASE_URL || 'https://afri-logistics.com'}`
 
   const roleMsg = data.recipientRole === 'shipper'
     ? `Your shipment <strong style="color:#1a1a2e;">${data.referenceCode}</strong> has a new status update.`
@@ -383,7 +383,7 @@ export interface OrderPlacedEmailData {
 }
 
 export async function sendOrderPlacedEmail(to: string, data: OrderPlacedEmailData) {
-  const appUrl = process.env.FRONTEND_BASE_URL || 'https://africa-logistics.lula.com.et'
+  const appUrl = process.env.FRONTEND_BASE_URL || 'https://afri-logistics.com'
 
   const html = buildStyledEmail({
     title: `Order Confirmed ${data.referenceCode} — Afri Logistics`,
