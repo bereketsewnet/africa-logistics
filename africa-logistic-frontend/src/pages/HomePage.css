@@ -1757,7 +1757,7 @@
    ══════════════════════════════════════════════ */
 
 [data-theme="light"] .hp-root {
-  --bg: #f2f6ff;
+  --bg: #ffffff;
   --surf: rgba(255, 255, 255, .82);
   --surf-h: rgba(255, 255, 255, .99);
   --border: rgba(0, 0, 0, .08);
@@ -1856,10 +1856,12 @@
 }
 
 /* Hero */
+[data-theme="light"] .hp-hero {
+  background: #ffffff;
+}
+
 [data-theme="light"] .hp-hero-grid {
-  background-image:
-    linear-gradient(rgba(0, 0, 0, .04) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(0, 0, 0, .04) 1px, transparent 1px);
+  opacity: 0;
 }
 
 [data-theme="light"] .hp-hero-grid::after {
@@ -1867,15 +1869,15 @@
 }
 
 [data-theme="light"] .hp-glow-1 {
-  background: radial-gradient(circle, rgba(97, 148, 31, .30) 0%, transparent 65%);
+  background: radial-gradient(circle, rgba(97, 148, 31, .12) 0%, transparent 65%);
 }
 
 [data-theme="light"] .hp-glow-2 {
-  background: radial-gradient(circle, rgba(62, 97, 19, .20) 0%, transparent 65%);
+  background: radial-gradient(circle, rgba(62, 97, 19, .08) 0%, transparent 65%);
 }
 
 [data-theme="light"] .hp-glow-3 {
-  background: radial-gradient(circle, rgba(62, 97, 19, .15) 0%, transparent 65%);
+  background: radial-gradient(circle, rgba(62, 97, 19, .06) 0%, transparent 65%);
 }
 
 [data-theme="light"] .hp-hero-ring {
@@ -1892,7 +1894,7 @@
 }
 
 [data-theme="light"] .hp-hero-badge {
-  color: #0e7490;
+  color: #3e6113;
   background: rgba(97, 148, 31, .09);
   border-color: rgba(97, 148, 31, .3);
 }
@@ -1904,6 +1906,26 @@
 
 [data-theme="light"] .hp-hero p.sub {
   color: #475569;
+}
+
+/* ── Light mode CTA buttons: clean green, NO dark overlay ── */
+[data-theme="light"] .hp-btn-cta1 {
+  background: linear-gradient(135deg, #61941f, #71ad25);
+  box-shadow: 0 8px 30px rgba(97, 148, 31, .20);
+  color: #fff;
+}
+
+[data-theme="light"] .hp-btn-cta1:hover {
+  box-shadow: 0 16px 44px rgba(97, 148, 31, .30);
+}
+
+[data-theme="light"] .hp-nav-cta {
+  background: linear-gradient(135deg, #61941f, #71ad25);
+  box-shadow: 0 4px 18px rgba(97, 148, 31, .18);
+}
+
+[data-theme="light"] .hp-mobile-cta {
+  background: linear-gradient(135deg, #61941f, #71ad25);
 }
 
 [data-theme="light"] .hp-btn-cta2 {
@@ -2004,7 +2026,7 @@
 }
 
 [data-theme="light"] .hp-badge {
-  color: #0e7490;
+  color: #3e6113;
   background: rgba(97, 148, 31, .09);
   border-color: rgba(97, 148, 31, .30);
 }
@@ -2153,7 +2175,7 @@
 /* Footer */
 [data-theme="light"] .hp-footer {
   border-top-color: rgba(0, 0, 0, .08);
-  background: linear-gradient(to bottom, rgba(230, 238, 255, .98), #dce8ff);
+  background: linear-gradient(to bottom, rgba(240, 244, 248, .98), #e8f5e1);
 }
 
 [data-theme="light"] .hp-footer-brand p {

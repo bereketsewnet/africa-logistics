@@ -66,9 +66,9 @@ export default function LanguageToggle({ compact = false }: Props) {
   }
 
   const getBg = () => {
-    if (isAmharic) return 'linear-gradient(135deg, rgba(0,150,80,0.25), rgba(252,209,22,0.18), rgba(239,51,64,0.18))'
-    if (isOromo) return 'linear-gradient(135deg, rgba(0,0,0,0.25), rgba(239,51,64,0.18), rgba(255,255,255,0.18))'
-    return 'rgba(255,255,255,0.07)'
+    if (isAmharic) return 'linear-gradient(135deg, rgba(0,150,80,0.12), rgba(252,209,22,0.10), rgba(239,51,64,0.10))'
+    if (isOromo) return 'linear-gradient(135deg, rgba(0,0,0,0.06), rgba(239,51,64,0.10), rgba(255,255,255,0.85))'
+    return 'var(--adm-foot-btn-bg)'
   }
   
   const getDotColor = () => {
@@ -88,7 +88,7 @@ export default function LanguageToggle({ compact = false }: Props) {
         gap: '0.35rem',
         padding: '0.38rem 0.75rem',
         borderRadius: 99,
-        border: '1px solid rgba(255,255,255,0.15)',
+        border: '1px solid var(--adm-foot-btn-brd)',
         background: getBg(),
         cursor: 'pointer',
         fontFamily: 'inherit',

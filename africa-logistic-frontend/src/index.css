@@ -77,6 +77,10 @@ body,
   overflow-x: hidden;
 }
 
+[data-theme="light"] .aurora-bg {
+  background: #ffffff !important;
+}
+
 .aurora-bg::before,
 .aurora-bg::after {
   content: '';
@@ -1078,8 +1082,8 @@ body,
 
 /* Light theme values — applied when data-theme="light" is on <html> */
 [data-theme="light"] {
-  --clr-bg: #f0f4f8;
-  --clr-surface: rgba(255, 255, 255, 0.75);
+  --clr-bg: #ffffff;
+  --clr-surface: rgba(255, 255, 255, 0.85);
   --clr-border: rgba(0, 0, 0, 0.10);
   --clr-accent: #61941f;
   --clr-accent2: #3e6113;
@@ -1092,20 +1096,20 @@ body,
   /* Admin panel light-mode overrides */
   --adm-nav-lbl: rgba(0, 0, 0, 0.38);
   --adm-nav-hr: rgba(0, 0, 0, 0.09);
-  --adm-nav-active-bg: rgba(2, 132, 199, 0.10);
-  --adm-nav-active-brd: rgba(2, 132, 199, 0.22);
+  --adm-nav-active-bg: rgba(97, 148, 31, 0.10);
+  --adm-nav-active-brd: rgba(97, 148, 31, 0.22);
   --adm-foot-btn-bg: rgba(0, 0, 0, 0.04);
   --adm-foot-btn-brd: rgba(0, 0, 0, 0.10);
   --adm-brand-brd: rgba(0, 0, 0, 0.08);
   --adm-tab-bg: rgba(0, 0, 0, 0.05);
   --adm-menu-btn-brd: rgba(0, 0, 0, 0.14);
-  --adm-toast-bg: rgba(2, 132, 199, 0.10);
-  --adm-toast-brd: rgba(2, 132, 199, 0.22);
+  --adm-toast-bg: rgba(97, 148, 31, 0.10);
+  --adm-toast-brd: rgba(97, 148, 31, 0.22);
 
   /* Floating chat widget light overrides */
   --chat-fab-bg: rgba(255, 255, 255, 0.95);
-  --chat-panel-bg: rgba(248, 250, 255, 0.98);
-  --chat-dot-brd: rgba(248, 250, 255, 0.98);
+  --chat-panel-bg: rgba(255, 255, 255, 0.98);
+  --chat-dot-brd: rgba(255, 255, 255, 0.98);
   --chat-bot-bg: rgba(0, 0, 0, 0.04);
   --chat-bot-brd: rgba(0, 0, 0, 0.07);
   --chat-close-bg: rgba(0, 0, 0, 0.05);
@@ -1137,7 +1141,7 @@ body,
 
 [data-theme="light"] .glass:hover {
   box-shadow:
-    0 0 0 1px rgba(2, 132, 199, 0.20),
+    0 0 0 1px rgba(97, 148, 31, 0.20),
     0 12px 40px rgba(0, 0, 0, 0.13),
     inset 0 1px 0 rgba(255, 255, 255, 0.90);
 }
@@ -1145,6 +1149,89 @@ body,
 [data-theme="light"] .glass-inner {
   background: rgba(0, 0, 0, 0.025);
   border-color: rgba(0, 0, 0, 0.07);
+}
+
+/* ── btn-primary: clean green, NO dark #283e0c band ── */
+[data-theme="light"] .btn-primary {
+  background: linear-gradient(135deg, #61941f, #71ad25) !important;
+  background-size: 100% 100% !important;
+  animation: none !important;
+  color: #fff !important;
+}
+
+[data-theme="light"] .btn-primary:hover:not(:disabled) {
+  box-shadow: 0 8px 32px rgba(97, 148, 31, 0.25) !important;
+}
+
+[data-theme="light"] .btn-primary::after {
+  background: linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.25) 50%, transparent 100%) !important;
+}
+
+/* ── otp-box: clean light styling ── */
+[data-theme="light"] .otp-box {
+  background: #ffffff !important;
+  border-color: rgba(0, 0, 0, 0.15) !important;
+  color: #0f172a !important;
+}
+
+[data-theme="light"] .otp-box.filled {
+  background: rgba(97, 148, 31, 0.08) !important;
+}
+
+/* ── divider lines: light gray ── */
+[data-theme="light"] .divider::before,
+[data-theme="light"] .divider::after {
+  background: rgba(0, 0, 0, 0.10) !important;
+}
+
+/* ── spinner: light border ── */
+[data-theme="light"] .spinner {
+  border-color: rgba(0, 0, 0, 0.15) !important;
+  border-top-color: #61941f !important;
+}
+
+/* ── step-dots: light dots ── */
+[data-theme="light"] .step-dot {
+  background: rgba(0, 0, 0, 0.12) !important;
+}
+
+[data-theme="light"] .step-dot.active {
+  background: #61941f !important;
+}
+
+/* ── strength-track: light bar ── */
+[data-theme="light"] .strength-track {
+  background: rgba(0, 0, 0, 0.08) !important;
+}
+
+/* ── alert-error: clean red tint ── */
+[data-theme="light"] .alert-error {
+  background: rgba(239, 68, 68, 0.08) !important;
+  border-color: rgba(239, 68, 68, 0.20) !important;
+  color: #991b1b !important;
+}
+
+[data-theme="light"] .alert-success {
+  background: rgba(22, 163, 74, 0.08) !important;
+  color: #166534 !important;
+}
+
+[data-theme="light"] .alert-info {
+  background: rgba(97, 148, 31, 0.08) !important;
+  color: #3e6113 !important;
+}
+
+/* ── success-ring: clean green ── */
+[data-theme="light"] .success-ring {
+  background: rgba(97, 148, 31, 0.08) !important;
+  border-color: rgba(97, 148, 31, 0.30) !important;
+  box-shadow: 0 0 32px rgba(97, 148, 31, 0.12) !important;
+}
+
+/* ── modal-backdrop: lighter in light mode ── */
+[data-theme="light"] .modal-backdrop {
+  background: rgba(0, 0, 0, 0.35) !important;
+  backdrop-filter: blur(4px) !important;
 }
 
 /* Input overrides */
@@ -1158,8 +1245,8 @@ body,
 [data-theme="light"] .input-wrap input:focus,
 [data-theme="light"] .input-wrap select:focus {
   border-color: var(--clr-accent);
-  background: rgba(2, 132, 199, 0.04);
-  box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.12);
+  background: rgba(97, 148, 31, 0.04);
+  box-shadow: 0 0 0 3px rgba(97, 148, 31, 0.12);
 }
 
 /* OTP boxes */
@@ -1182,17 +1269,16 @@ body,
 
 /* Badge */
 [data-theme="light"] .badge-cyan {
-  background: rgba(2, 132, 199, 0.10);
-  border-color: rgba(2, 132, 199, 0.25);
+  background: rgba(97, 148, 31, 0.10);
+  border-color: rgba(97, 148, 31, 0.25);
 }
 
-/* Aurora orbs: lighter and barely visible in light mode */
-[data-theme="light"] .aurora-bg::before {
-  opacity: 0.08;
-}
-
+/* Aurora orbs: COMPLETELY HIDDEN in light mode */
+[data-theme="light"] .aurora-bg::before,
 [data-theme="light"] .aurora-bg::after {
-  opacity: 0.08;
+  opacity: 0 !important;
+  display: none !important;
+  animation: none !important;
 }
 
 /* Divider */
@@ -1224,14 +1310,20 @@ body,
 }
 
 [data-theme="light"] .alert-info {
-  background: rgba(2, 132, 199, 0.08);
-  color: #075985;
+  background: rgba(97, 148, 31, 0.08);
+  color: #3e6113;
 }
 
 /* Phone field */
 [data-theme="light"] .phone-field-wrap .PhoneInput {
   background: rgba(255, 255, 255, 0.90);
   border-color: rgba(0, 0, 0, 0.14);
+}
+
+[data-theme="light"] .phone-field-wrap .PhoneInput:focus-within {
+  border-color: var(--clr-accent);
+  background: rgba(97, 148, 31, 0.04);
+  box-shadow: 0 0 0 3px rgba(97, 148, 31, 0.12);
 }
 
 [data-theme="light"] .phone-field-wrap .PhoneInputInput {
@@ -1261,9 +1353,9 @@ body,
 
 [data-theme="light"] .dock-btn-active {
   color: var(--clr-accent) !important;
-  background: rgba(2, 132, 199, 0.12) !important;
-  outline: 1px solid rgba(2, 132, 199, 0.22);
-  box-shadow: 0 0 14px rgba(2, 132, 199, 0.08);
+  background: rgba(97, 148, 31, 0.12) !important;
+  outline: 1px solid rgba(97, 148, 31, 0.22);
+  box-shadow: 0 0 14px rgba(97, 148, 31, 0.08);
 }
 
 [data-theme="light"] .dock-toggle-btn {
@@ -1277,11 +1369,418 @@ body,
   box-shadow: 0 8px 40px rgba(0, 0, 0, 0.10), inset 0 1px 0 rgba(255, 255, 255, 0.95);
 }
 
+/* ══════════════════════════════════════════════════════════════
+   LIGHT-MODE INLINE STYLE OVERRIDES
+   Components use hardcoded dark-theme rgba(255,255,255,...)
+   inline styles that look like black smudges on white backgrounds.
+   These attribute selectors neutralize them in light mode.
+   ══════════════════════════════════════════════════════════════ */
+
+/* ── All elements with dark-glass background inline styles ── */
+[data-theme="light"] div[style*="rgba(255,255,255,0.04)"],
+[data-theme="light"] div[style*="rgba(255,255,255,0.03)"],
+[data-theme="light"] div[style*="rgba(255,255,255,0.02)"],
+[data-theme="light"] div[style*="rgba(255,255,255,0.015)"],
+[data-theme="light"] div[style*="rgba(255,255,255,0.025)"],
+[data-theme="light"] div[style*="rgba(255,255,255,0.06)"],
+[data-theme="light"] div[style*="rgba(255,255,255,0.08)"],
+[data-theme="light"] div[style*="rgba(255,255,255,0.07)"],
+[data-theme="light"] div[style*="rgba(255,255,255,0.12)"],
+[data-theme="light"] div[style*="rgba(255,255,255,0.1)"] {
+  background-color: #ffffff !important;
+  border-color: rgba(0, 0, 0, 0.08) !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06), 0 4px 12px rgba(0, 0, 0, 0.04) !important;
+  color: #0f172a !important;
+}
+
+/* ── Inputs, selects, textareas with dark inline styles ── */
+[data-theme="light"] input[style*="rgba(255,255,255"],
+[data-theme="light"] select[style*="rgba(255,255,255"],
+[data-theme="light"] textarea[style*="rgba(255,255,255"] {
+  background-color: #ffffff !important;
+  border-color: rgba(0, 0, 0, 0.14) !important;
+  color: #0f172a !important;
+  color-scheme: light !important;
+}
+
+/* ── Mode switcher / tab containers with dark inline styles ── */
+[data-theme="light"] div[style*="background: 'rgba(255,255,255,0.04)'"],
+[data-theme="light"] div[style*="background:'rgba(255,255,255,0.04)'"],
+[data-theme="light"] div[style*="background: 'rgba(255,255,255,0.04)'"][style*="border"],
+[data-theme="light"] div[style*="rgba(255,255,255,0.07)"][style*="border"] {
+  background: rgba(0, 0, 0, 0.04) !important;
+  border-color: rgba(0, 0, 0, 0.08) !important;
+}
+
+/* ── Buttons with dark inline styles ── */
+[data-theme="light"] button[style*="rgba(255,255,255,0.04"],
+[data-theme="light"] button[style*="rgba(255,255,255,0.05"],
+[data-theme="light"] button[style*="rgba(255,255,255,0.06"],
+[data-theme="light"] button[style*="rgba(255,255,255,0.03"],
+[data-theme="light"] button[style*="rgba(255,255,255,0.02"],
+[data-theme="light"] button[style*="rgba(255,255,255,0.08"],
+[data-theme="light"] button[style*="rgba(255,255,255,0.12"] {
+  background-color: rgba(255, 255, 255, 0.90) !important;
+  border-color: rgba(0, 0, 0, 0.10) !important;
+  color: #0f172a !important;
+}
+
+/* ── Dark option elements → white ── */
+[data-theme="light"] option[style*="#0f172a"],
+[data-theme="light"] option[style*="#080b16"],
+[data-theme="light"] option[style*="#0d1117"],
+[data-theme="light"] option[style*="#0d1526"] {
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+}
+
+/* Also fix all <option> elements globally in light mode */
+[data-theme="light"] select option {
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+}
+
+[data-theme="light"] select {
+  color-scheme: light;
+  background-color: #ffffff;
+  color: #0f172a;
+}
+
+/* ── Dark dropdown/autocomplete menus ── */
+[data-theme="light"] div[style*="background:'#0d1526'"],
+[data-theme="light"] div[style*="background: '#0d1526'"],
+[data-theme="light"] div[style*="background:'#080b16'"],
+[data-theme="light"] div[style*="background: '#080b16'"] {
+  background-color: #ffffff !important;
+  border-color: rgba(0, 0, 0, 0.10) !important;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12) !important;
+}
+
+/* ── Modal overlays: lighten dark overlays ── */
+[data-theme="light"] div[style*="rgba(0,0,0,0.72"],
+[data-theme="light"] div[style*="rgba(0,0,0,0.8)"],
+[data-theme="light"] div[style*="rgba(0,0,0,0.6)"],
+[data-theme="light"] div[style*="rgba(0,0,0,0.88)"] {
+  background-color: rgba(0, 0, 0, 0.35) !important;
+}
+
+/* ── Heavy box-shadows → lighten ── */
+[data-theme="light"] div[style*="rgba(0,0,0,0.7)"],
+[data-theme="light"] div[style*="rgba(0,0,0,0.5)"],
+[data-theme="light"] div[style*="rgba(0,0,0,0.6)"] {
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.10) !important;
+}
+
+/* ── Star rating empty strokes ── */
+[data-theme="light"] svg[style*="rgba(255,255,255,0.2)"] {
+  stroke: rgba(0, 0, 0, 0.15) !important;
+}
+
+/* ── Dashed borders on dark backgrounds ── */
+[data-theme="light"] div[style*="rgba(255,255,255,0.15"],
+[data-theme="light"] div[style*="rgba(255,255,255,0.18"] {
+  border-color: rgba(0, 0, 0, 0.12) !important;
+  background-color: rgba(0, 0, 0, 0.02) !important;
+}
+
+/* ── Toggle switches with dark backgrounds ── */
+[data-theme="light"] div[style*="background: '#000'"],
+[data-theme="light"] div[style*="background:'#000'"] {
+  background-color: rgba(0, 0, 0, 0.15) !important;
+}
+
+/* ── Separator lines with dark rgba ── */
+[data-theme="light"] div[style*="rgba(255,255,255,0.1)"],
+[data-theme="light"] hr[style*="rgba(255,255,255"] {
+  border-color: rgba(0, 0, 0, 0.08) !important;
+  background-color: rgba(0, 0, 0, 0.08) !important;
+}
+
+/* ── Table row stripes ── */
+[data-theme="light"] tr[style*="rgba(255,255,255,0.015"],
+[data-theme="light"] tr[style*="rgba(255, 255, 255, 0.015"] {
+  background-color: #f8fafc !important;
+}
+
+/* ── Inline border-bottom lines ── */
+[data-theme="light"] div[style*="borderBottom"][style*="rgba(255,255,255"] {
+  border-bottom-color: rgba(0, 0, 0, 0.08) !important;
+}
+
+[data-theme="light"] div[style*="borderTop"][style*="rgba(255,255,255"] {
+  border-top-color: rgba(0, 0, 0, 0.08) !important;
+}
+
+/* ── Recharts CartesianGrid strokes ── */
+[data-theme="light"] .recharts-cartesian-grid line[stroke*="rgba(255,255,255"] {
+  stroke: rgba(0, 0, 0, 0.06) !important;
+}
+
+/* ── Toggle knob shadows ── */
+[data-theme="light"] div[style*="boxShadow"][style*="rgba(0,0,0,0.4)"] {
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15) !important;
+}
+
+/* ── Language toggle dark backgrounds ── */
+[data-theme="light"] .LanguageToggle,
+[data-theme="light"] [class*="lang-toggle"] {
+  border-color: rgba(0, 0, 0, 0.12) !important;
+}
+
+/* ── Image zoom overlay ── */
+[data-theme="light"] div[style*="rgba(0,0,0,0.88)"] {
+  background-color: rgba(0, 0, 0, 0.5) !important;
+}
+
+/* ── WalletDashboard injected CSS class overrides ── */
+[data-theme="light"] .wlt-stat-chip {
+  background: #ffffff !important;
+  border: 1px solid rgba(0, 0, 0, 0.08) !important;
+}
+[data-theme="light"] .wlt-tx-row {
+  background: #ffffff !important;
+  border: 1px solid rgba(0, 0, 0, 0.06) !important;
+}
+[data-theme="light"] .wlt-tx-row:hover {
+  background: #f8fafc !important;
+}
+[data-theme="light"] .wlt-wd-card {
+  background: #ffffff !important;
+  border: 1px solid rgba(0, 0, 0, 0.06) !important;
+}
+[data-theme="light"] .wlt-wd-card:hover {
+  background: #f8fafc !important;
+}
+[data-theme="light"] .wlt-prog-bar {
+  background: rgba(0, 0, 0, 0.07) !important;
+}
+[data-theme="light"] .wlt-img-thumb {
+  border: 1px solid rgba(0, 0, 0, 0.1) !important;
+}
+[data-theme="light"] .wlt-drop-zone {
+  border: 1.5px dashed rgba(0, 0, 0, 0.15) !important;
+}
+[data-theme="light"] .wlt-tx-amount {
+  border-top: 1px solid rgba(0, 0, 0, 0.06) !important;
+}
+
+/* ── Aurora: removed (handled by earlier override) ── */
+[data-theme="light"] .aurora-orb {
+  opacity: 0 !important;
+  display: none !important;
+  animation: none !important;
+}
+
+/* ── Admin sidebar light override ── */
+[data-theme="light"] aside div[style*="rgba(255,255,255"],
+[data-theme="light"] aside nav[style*="rgba(255,255,255"] {
+  background-color: transparent !important;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   REMAINING DARK ELEMENT FIXES — Round 2
+   ══════════════════════════════════════════════════════════════ */
+
+/* ── React serialized rgba with spaces (after commas) ── */
+[data-theme="light"] div[style*="rgba(255, 255, 255, 0.04)"],
+[data-theme="light"] div[style*="rgba(255, 255, 255, 0.03)"],
+[data-theme="light"] div[style*="rgba(255, 255, 255, 0.02)"],
+[data-theme="light"] div[style*="rgba(255, 255, 255, 0.015)"],
+[data-theme="light"] div[style*="rgba(255, 255, 255, 0.025)"],
+[data-theme="light"] div[style*="rgba(255, 255, 255, 0.06)"],
+[data-theme="light"] div[style*="rgba(255, 255, 255, 0.08)"],
+[data-theme="light"] div[style*="rgba(255, 255, 255, 0.07)"],
+[data-theme="light"] div[style*="rgba(255, 255, 255, 0.12)"],
+[data-theme="light"] div[style*="rgba(255, 255, 255, 0.1)"],
+[data-theme="light"] div[style*="rgba(255, 255, 255, 0.045)"],
+[data-theme="light"] div[style*="rgba(255, 255, 255, 0.14)"],
+[data-theme="light"] div[style*="rgba(255, 255, 255, 0.15)"],
+[data-theme="light"] div[style*="rgba(255, 255, 255, 0.16)"],
+[data-theme="light"] div[style*="rgba(255, 255, 255, 0.18)"],
+[data-theme="light"] div[style*="rgba(255, 255, 255, 0.5)"] {
+  background-color: #ffffff !important;
+  border-color: rgba(0, 0, 0, 0.08) !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06), 0 4px 12px rgba(0, 0, 0, 0.04) !important;
+  color: #0f172a !important;
+}
+
+/* ── Inputs/selects/textareas with React-spaced rgba ── */
+[data-theme="light"] input[style*="rgba(255, 255, 255"],
+[data-theme="light"] select[style*="rgba(255, 255, 255"],
+[data-theme="light"] textarea[style*="rgba(255, 255, 255"] {
+  background-color: #ffffff !important;
+  border-color: rgba(0, 0, 0, 0.14) !important;
+  color: #0f172a !important;
+  color-scheme: light !important;
+}
+
+/* ── Buttons with React-spaced rgba ── */
+[data-theme="light"] button[style*="rgba(255, 255, 255"] {
+  background-color: rgba(0, 0, 0, 0.04) !important;
+  border-color: rgba(0, 0, 0, 0.10) !important;
+  color: #0f172a !important;
+}
+
+/* ── Dark hex backgrounds: #0f172a, #080b14, #080b16, #0d1526, #0d1117 ── */
+[data-theme="light"] div[style*="#0f172a"],
+[data-theme="light"] div[style*="#080b14"],
+[data-theme="light"] div[style*="#080b16"],
+[data-theme="light"] div[style*="#0d1526"],
+[data-theme="light"] div[style*="#0d1117"],
+[data-theme="light"] div[style*="#0c1220"],
+[data-theme="light"] div[style*="#080b16"],
+[data-theme="light"] nav[style*="#080b16"],
+[data-theme="light"] nav[style*="#0d1526"] {
+  background-color: #ffffff !important;
+  border-color: rgba(0, 0, 0, 0.10) !important;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12) !important;
+  color: #0f172a !important;
+}
+
+/* ── More dark hex backgrounds with spaces ── */
+[data-theme="light"] div[style*="background: '#0f172a'"],
+[data-theme="light"] div[style*="background:'#0f172a'"],
+[data-theme="light"] div[style*="background: '#080b14'"],
+[data-theme="light"] div[style*="background:'#080b14'"],
+[data-theme="light"] div[style*="background: '#080b16'"],
+[data-theme="light"] div[style*="background:'#080b16'"],
+[data-theme="light"] div[style*="background: '#0d1526'"],
+[data-theme="light"] div[style*="background:'#0d1526'"],
+[data-theme="light"] div[style*="background: '#0d1117'"],
+[data-theme="light"] div[style*="background:'#0d1117'"] {
+  background-color: #ffffff !important;
+  border-color: rgba(0, 0, 0, 0.10) !important;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12) !important;
+}
+
+/* ── Recharts tooltip dark backgrounds ── */
+[data-theme="light"] .recharts-tooltip-wrapper [style*="#171b28"],
+[data-theme="light"] .recharts-tooltip-wrapper [style*="#1a1f2e"],
+[data-theme="light"] div[style*="#171b28"],
+[data-theme="light"] div[style*="#1a1f2e"] {
+  background-color: #ffffff !important;
+  border-color: rgba(0, 0, 0, 0.10) !important;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.10) !important;
+  color: #0f172a !important;
+}
+
+/* ── Recharts default tooltip styling ── */
+[data-theme="light"] .recharts-default-tooltip {
+  background-color: #ffffff !important;
+  border-color: rgba(0, 0, 0, 0.10) !important;
+  border-radius: 10px !important;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.10) !important;
+}
+
+[data-theme="light"] .recharts-default-tooltip .recharts-tooltip-label {
+  color: #0f172a !important;
+}
+
+[data-theme="light"] .recharts-default-tooltip .recharts-tooltip-item {
+  color: #334155 !important;
+}
+
+/* ── colorScheme: 'dark' force override on ALL inputs in light mode ── */
+[data-theme="light"] input,
+[data-theme="light"] textarea {
+  color-scheme: light !important;
+}
+
+/* ── All remaining dark rgba(0,0,0,...) backgrounds (non-overlay) ── */
+[data-theme="light"] div[style*="rgba(0,0,0,0.25)"],
+[data-theme="light"] div[style*="rgba(0,0,0,0.3)"],
+[data-theme="light"] div[style*="rgba(0,0,0,0.35)"],
+[data-theme="light"] div[style*="rgba(0,0,0,0.4)"] {
+  background-color: rgba(0, 0, 0, 0.06) !important;
+  border-color: rgba(0, 0, 0, 0.08) !important;
+}
+
+/* ── Dark box-shadow values: lighten all ── */
+[data-theme="light"] div[style*="boxShadow"][style*="rgba(0,0,0"],
+[data-theme="light"] div[style*="box-shadow"][style*="rgba(0,0,0"] {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08), 0 4px 16px rgba(0, 0, 0, 0.04) !important;
+}
+
+/* ── Dark drop-shadow filter values ── */
+[data-theme="light"] [style*="drop-shadow"][style*="rgba(0,0,0"] {
+  filter: none !important;
+}
+
+/* ── Aurora background: COMPLETELY HIDE in light mode ── */
+[data-theme="light"] .aurora-bg::before,
+[data-theme="light"] .aurora-bg::after {
+  opacity: 0 !important;
+  display: none !important;
+  animation: none !important;
+}
+[data-theme="light"] .aurora-orb {
+  opacity: 0 !important;
+  display: none !important;
+  animation: none !important;
+}
+
+/* ── Hero section glows: hide dark gradient blobs ── */
+[data-theme="light"] .hp-glow-1,
+[data-theme="light"] .hp-glow-2,
+[data-theme="light"] .hp-glow-3 {
+  opacity: 0.15 !important;
+}
+
+/* ── Maintenance page light override ── */
+[data-theme="light"] div[style*="radial-gradient"][style*="#0f172a"],
+[data-theme="light"] div[style*="radial-gradient"][style*="#020617"] {
+  background: linear-gradient(135deg, #e8f5e1 0%, #ffffff 50%, #f0fdf4 100%) !important;
+}
+
+/* ── Any remaining white-on-dark text colors ── */
+[data-theme="light"] div[style*="color: '#fff'"],
+[data-theme="light"] div[style*="color:'#fff'"],
+[data-theme="light"] div[style*="color: '#e2e8f0'"],
+[data-theme="light"] div[style*="color:'#e2e8f0'"],
+[data-theme="light"] div[style*="color: '#f1f5f9'"],
+[data-theme="light"] div[style*="color:'#f1f5f9'"],
+[data-theme="light"] div[style*="color: '#94a3b8'"],
+[data-theme="light"] div[style*="color:'#94a3b8'"] {
+  color: #0f172a !important;
+}
+
+/* ── Dark SVG fill/stroke in inline-styled SVGs ── */
+[data-theme="light"] svg[style*="rgba(255,255,255"] {
+  color: #64748b !important;
+}
+
+/* ── Dark border-color on any element ── */
+[data-theme="light"] *[style*="borderColor: 'rgba(255,255,255"],
+[data-theme="light"] *[style*="border-color: rgba(255,255,255"],
+[data-theme="light"] *[style*="border: '1px solid rgba(255,255,255"],
+[data-theme="light"] *[style*="border: '1px dashed rgba(255,255,255"],
+[data-theme="light"] *[style*="border: \"1px solid rgba(255,255,255"] {
+  border-color: rgba(0, 0, 0, 0.08) !important;
+}
+
+/* ── Dark borderBottom/borderTop on any element ── */
+[data-theme="light"] *[style*="borderBottom"][style*="rgba(255,255,255"],
+[data-theme="light"] *[style*="borderTop"][style*="rgba(255,255,255"] {
+  border-color: rgba(0, 0, 0, 0.08) !important;
+}
+
+/* ── Global: any element with dark bg set inline ── */
+[data-theme="light"] *[style*="background-color: 'rgba(0,0,0"] {
+  background-color: rgba(0, 0, 0, 0.06) !important;
+}
+
+/* ── Ensure body/html are pure white in light ── */
+[data-theme="light"] body,
+[data-theme="light"] html,
+[data-theme="light"] #root {
+  background: #ffffff !important;
+}
+
 /* System auto using prefers-color-scheme — applies light when user OS is light */
 @media (prefers-color-scheme: light) {
   [data-theme="system"] {
-    --clr-bg: #f0f4f8;
-    --clr-surface: rgba(255, 255, 255, 0.75);
+    --clr-bg: #ffffff;
+    --clr-surface: rgba(255, 255, 255, 0.85);
     --clr-border: rgba(0, 0, 0, 0.10);
     --clr-accent: #61941f;
     --clr-accent2: #3e6113;
@@ -1299,7 +1798,7 @@ body,
   }
 
   [data-theme="system"] .glass {
-    background: rgba(255, 255, 255, 0.80);
+    background: rgba(255, 255, 255, 0.85);
     border-color: rgba(0, 0, 0, 0.09);
     box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.04), 0 12px 40px rgba(0, 0, 0, 0.10), inset 0 1px 0 rgba(255, 255, 255, 0.90);
   }
@@ -1335,6 +1834,100 @@ body,
     background: rgba(255, 255, 255, 0.90) !important;
     border-bottom-color: rgba(0, 0, 0, 0.08) !important;
   }
+
+  /* System theme inline style overrides (same as light mode) */
+  [data-theme="system"] div[style*="rgba(255,255,255,0.04"],
+  [data-theme="system"] div[style*="rgba(255,255,255,0.03"],
+  [data-theme="system"] div[style*="rgba(255,255,255,0.02"],
+  [data-theme="system"] div[style*="rgba(255,255,255,0.015"],
+  [data-theme="system"] div[style*="rgba(255,255,255,0.06"],
+  [data-theme="system"] div[style*="rgba(255,255,255,0.07"],
+  [data-theme="system"] div[style*="rgba(255,255,255,0.08"],
+  [data-theme="system"] div[style*="rgba(255,255,255,0.12"],
+  [data-theme="system"] div[style*="rgba(255,255,255,0.1)"] {
+    background-color: #ffffff !important;
+    border-color: rgba(0, 0, 0, 0.08) !important;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06), 0 4px 12px rgba(0, 0, 0, 0.04) !important;
+    color: #0f172a !important;
+  }
+
+  [data-theme="system"] input[style*="rgba(255,255,255"],
+  [data-theme="system"] select[style*="rgba(255,255,255"],
+  [data-theme="system"] textarea[style*="rgba(255,255,255"] {
+    background-color: #ffffff !important;
+    border-color: rgba(0, 0, 0, 0.14) !important;
+    color: #0f172a !important;
+  }
+
+  [data-theme="system"] button[style*="rgba(255,255,255"] {
+    background-color: rgba(0, 0, 0, 0.04) !important;
+    border-color: rgba(0, 0, 0, 0.10) !important;
+    color: #0f172a !important;
+  }
+
+  [data-theme="system"] option[style*="#0f172a"],
+  [data-theme="system"] option[style*="#080b16"],
+  [data-theme="system"] option[style*="#0d1117"],
+  [data-theme="system"] option[style*="#0d1526"] {
+    background-color: #ffffff !important;
+    color: #0f172a !important;
+  }
+
+  [data-theme="system"] div[style*="rgba(0,0,0,0.72"],
+  [data-theme="system"] div[style*="rgba(0,0,0,0.8)"],
+  [data-theme="system"] div[style*="rgba(0,0,0,0.6)"] {
+    background-color: rgba(0, 0, 0, 0.35) !important;
+  }
+
+  [data-theme="system"] .aurora-bg::before,
+  [data-theme="system"] .aurora-bg::after {
+    opacity: 0.03;
+  }
+
+  [data-theme="system"] .aurora-orb {
+    opacity: 0.05;
+  }
+
+  [data-theme="system"] .wlt-stat-chip,
+  [data-theme="system"] .wlt-tx-row,
+  [data-theme="system"] .wlt-wd-card {
+    background: #ffffff !important;
+    border-color: rgba(0, 0, 0, 0.06) !important;
+  }
+
+  /* System theme: Recharts tooltips */
+  [data-theme="system"] .recharts-default-tooltip {
+    background-color: #ffffff !important;
+    border-color: rgba(0, 0, 0, 0.10) !important;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.10) !important;
+  }
+
+  [data-theme="system"] div[style*="#171b28"],
+  [data-theme="system"] div[style*="#1a1f2e"] {
+    background-color: #ffffff !important;
+    border-color: rgba(0, 0, 0, 0.10) !important;
+    color: #0f172a !important;
+  }
+
+  [data-theme="system"] input,
+  [data-theme="system"] textarea {
+    color-scheme: light !important;
+  }
+
+  [data-theme="system"] div[style*="#0f172a"],
+  [data-theme="system"] div[style*="#080b14"],
+  [data-theme="system"] div[style*="#080b16"],
+  [data-theme="system"] div[style*="#0d1526"],
+  [data-theme="system"] div[style*="#0d1117"] {
+    background-color: #ffffff !important;
+    color: #0f172a !important;
+  }
+
+  [data-theme="system"] body,
+  [data-theme="system"] html,
+  [data-theme="system"] #root {
+    background: #ffffff !important;
+  }
 }
 
 /* ── Force dark rendering for all select/option elements ── */
@@ -1349,6 +1942,20 @@ select option {
   color: #e2e8f0;
 }
 
+/* ── Override forced-dark selects in light mode ── */
+[data-theme="light"] select,
+[data-theme="system"] select {
+  color-scheme: light;
+  background-color: #ffffff;
+  color: #0f172a;
+}
+
+[data-theme="light"] select option,
+[data-theme="system"] select option {
+  background-color: #ffffff;
+  color: #0f172a;
+}
+
 /* ══════════════════════════════════════════════
    SPLASH / LOADING SCREEN
    ══════════════════════════════════════════════ */
@@ -1359,7 +1966,7 @@ select option {
 }
 
 [data-theme="light"] .splash-bg {
-  background: radial-gradient(ellipse at 30% 40%, #dde8ff 0%, #edf2ff 60%);
+  background: radial-gradient(ellipse at 30% 40%, #e8f5e1 0%, #ffffff 60%);
 }
 
 .splash-aurora-1 {
@@ -1367,7 +1974,7 @@ select option {
 }
 
 [data-theme="light"] .splash-aurora-1 {
-  background: radial-gradient(ellipse, rgba(99, 102, 241, 0.10) 0%, transparent 70%);
+  background: radial-gradient(ellipse, rgba(62, 97, 19, 0.12) 0%, transparent 70%);
 }
 
 .splash-aurora-2 {
@@ -1375,7 +1982,7 @@ select option {
 }
 
 [data-theme="light"] .splash-aurora-2 {
-  background: radial-gradient(ellipse, rgba(2, 132, 199, 0.10) 0%, transparent 70%);
+  background: radial-gradient(ellipse, rgba(97, 148, 31, 0.10) 0%, transparent 70%);
 }
 
 .splash-subtitle {
@@ -1383,7 +1990,7 @@ select option {
 }
 
 [data-theme="light"] .splash-subtitle {
-  color: rgba(2, 132, 199, 0.8);
+  color: rgba(97, 148, 31, 0.8);
 }
 
 .splash-progress-track {
@@ -1633,7 +2240,7 @@ select option {
 [data-theme="light"] {
   --kpi-cyan: #61941f;
   --kpi-purple: #3e6113;
-  --kpi-sky: #2563eb;
+  --kpi-sky: #61941f;
   --kpi-green: #16a34a;
   --kpi-gold: #d97706;
   --kpi-orange: #ea580c;
@@ -1643,7 +2250,7 @@ select option {
   :root {
     --kpi-cyan: #61941f;
     --kpi-purple: #3e6113;
-    --kpi-sky: #2563eb;
+    --kpi-sky: #61941f;
     --kpi-green: #16a34a;
     --kpi-gold: #d97706;
     --kpi-orange: #ea580c;
@@ -1652,7 +2259,7 @@ select option {
   [data-theme="system"] {
     --kpi-cyan: #61941f;
     --kpi-purple: #3e6113;
-    --kpi-sky: #2563eb;
+    --kpi-sky: #61941f;
     --kpi-green: #16a34a;
     --kpi-gold: #d97706;
     --kpi-orange: #ea580c;
