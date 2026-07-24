@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import HomePage             from './pages/HomePage'
 import LoginPage            from './pages/LoginPage'
 import RegisterPage         from './pages/RegisterPage'
@@ -10,6 +10,28 @@ import ForgotPasswordPage   from './pages/ForgotPasswordPage'
 import VerifyEmailPage      from './pages/VerifyEmailPage'
 import ProtectedRoute       from './components/ProtectedRoute'
 import { configApi } from './lib/apiClient'
+
+/**
+ * Belt-and-suspenders SEO guard. robots.txt already disallows crawling of
+ * every system/auth route, but since this is a single-page app serving one
+ * index.html (statically marked "index, follow" for the public homepage),
+ * this keeps a <meta name="robots"> in sync with the current route so a
+ * crawler that somehow renders a disallowed route still sees "noindex".
+ * Purely a meta tag — never touches visible page content.
+ */
+function RouteSeoGuard() {
+  const { pathname } = useLocation()
+  useEffect(() => {
+    let tag = document.querySelector('meta[name="robots"]')
+    if (!tag) {
+      tag = document.createElement('meta')
+      tag.setAttribute('name', 'robots')
+      document.head.appendChild(tag)
+    }
+    tag.setAttribute('content', pathname === '/' ? 'index, follow, max-image-preview:large' : 'noindex, nofollow')
+  }, [pathname])
+  return null
+}
 
 export default function App() {
   const [maintenance, setMaintenance] = useState<{ enabled: boolean; message: string }>({ enabled: false, message: '' })
@@ -46,6 +68,7 @@ export default function App() {
 
   return (
     <BrowserRouter>
+      <RouteSeoGuard />
       <Routes>
         <Route path="/"                element={<HomePage />} />
         <Route path="/login"           element={<LoginPage />} />       

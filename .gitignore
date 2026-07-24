@@ -5,6 +5,7 @@
 
 # ── Node modules ───────────────────────────────────────────────
 **/node_modules/
+**/reference-image-temp/
 
 # ── Build outputs ──────────────────────────────────────────────
 **/dist/

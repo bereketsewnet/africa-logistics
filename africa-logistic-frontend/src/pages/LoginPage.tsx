@@ -7,6 +7,7 @@ import apiClient from '../lib/apiClient'
 import PhoneField from '../components/PhoneField'
 import { normalisePhone } from '../lib/normalisePhone'
 import { useThemeLogo } from '../lib/useThemeLogo'
+import { TELEGRAM_MINI_APP_URL } from '../lib/telegram'
 import {
   LuEye, LuEyeOff, LuTriangleAlert,
   LuLogIn, LuPhone, LuMail,
@@ -229,7 +230,7 @@ export default function LoginPage() {
           <div className="telegram-desktop-only">
             <div className="divider" style={{ margin: '0.95rem 0' }}>{tr('login_or_continue')}</div>
             <a
-              href="https://t.me/afri_logistics_bot/start"
+              href={TELEGRAM_MINI_APP_URL}
               target="_blank"
               rel="noopener noreferrer"
               style={{ textDecoration: 'none', display: 'block' }}

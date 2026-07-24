@@ -1428,6 +1428,7 @@ function AdminCrossBorderSection() {
 const IconYouTube = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M23.5 6.2a3 3 0 0 0-2.1-2.1C19.5 3.6 12 3.6 12 3.6s-7.5 0-9.4.5A3 3 0 0 0 .5 6.2C0 8.1 0 12 0 12s0 3.9.5 5.8a3 3 0 0 0 2.1 2.1c1.9.5 9.4.5 9.4.5s7.5 0 9.4-.5a3 3 0 0 0 2.1-2.1C24 15.9 24 12 24 12s0-3.9-.5-5.8zM9.6 15.6V8.4l6.3 3.6-6.3 3.6z" /></svg>
 const IconTikTok = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M19.6 3.3a4.8 4.8 0 0 1-2.8-.9 4.8 4.8 0 0 1-1.8-3.1h-3.3v13.9a2.3 2.3 0 0 1-2.3 2.2 2.3 2.3 0 0 1-2.3-2.3 2.3 2.3 0 0 1 2.3-2.3c.2 0 .4 0 .6.1V7.6a5.7 5.7 0 0 0-.6 0 5.6 5.6 0 0 0-5.6 5.6 5.6 5.6 0 0 0 5.6 5.6 5.6 5.6 0 0 0 5.6-5.6V8.6a8.1 8.1 0 0 0 4.7 1.5V6.8a4.8 4.8 0 0 1-1.9-.4v-.1z" style={{ fill: 'currentColor' }} /></svg>
 const IconInstagram = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2.2c3.2 0 3.6 0 4.9.1 3.3.1 4.8 1.7 4.9 4.9.1 1.3.1 1.6.1 4.8s0 3.6-.1 4.8c-.1 3.2-1.6 4.8-4.9 4.9-1.3.1-1.6.1-4.9.1s-3.6 0-4.8-.1C3.7 21.6 2.2 20 2.1 16.8 2 15.6 2 15.2 2 12s0-3.6.1-4.8C2.2 3.9 3.8 2.2 7.2 2.1 8.4 2 8.8 2.2 12 2.2zm0-2.2C8.7 0 8.3 0 7 .1 2.7.3.3 2.7.1 7 0 8.3 0 8.7 0 12s0 3.7.1 5c.2 4.3 2.6 6.7 6.9 6.9C8.3 24 8.7 24 12 24s3.7 0 5-.1c4.3-.2 6.7-2.6 6.9-6.9.1-1.3.1-1.7.1-5s0-3.7-.1-5c-.2-4.3-2.6-6.7-6.9-6.9C15.7 0 15.3 0 12 0zm0 5.8a6.2 6.2 0 1 0 0 12.4A6.2 6.2 0 0 0 12 5.8zm0 10.2a4 4 0 1 1 0-8 4 4 0 0 1 0 8zm6.4-11.8a1.4 1.4 0 1 0 0 2.8 1.4 1.4 0 0 0 0-2.8z" /></svg>
+const IconFacebook = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M22 12a10 10 0 1 0-11.6 9.9v-7H7.9V12h2.5V9.8c0-2.5 1.5-3.9 3.8-3.9 1.1 0 2.2.2 2.2.2v2.4h-1.2c-1.2 0-1.6.8-1.6 1.6V12h2.7l-.4 2.9h-2.3v7A10 10 0 0 0 22 12z" /></svg>
 const IconX = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M18.3 1h3.1l-6.8 7.8L22.7 23h-6.3l-4.9-6.4L5.9 23H2.8l7.3-8.3L1.3 1h6.4l4.5 5.8L18.3 1zm-1.1 19.8h1.7L7.4 2.8H5.6l11.6 18z" /></svg>
 const IconLinkedIn = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M20.4 20.4H17v-5.6c0-1.3 0-3-1.8-3s-2.1 1.4-2.1 2.9v5.7H9.5V9h3.3v1.6h.1c.5-.9 1.6-1.8 3.3-1.8 3.5 0 4.2 2.3 4.2 5.3v6.3zM5.3 7.4A2 2 0 1 1 5.3 3.5a2 2 0 0 1 0 3.9zm1.7 13H3.6V9h3.4v11.4zM22.2 0H1.8C.8 0 0 .8 0 1.8v20.4C0 23.2.8 24 1.8 24h20.4c1 0 1.8-.8 1.8-1.8V1.8C24 .8 23.2 0 22.2 0z" /></svg>
 const IconWhatsApp = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M20.5 3.5A12 12 0 0 0 3.5 20.5L2 22l1.5-5.5A12 12 0 0 0 20.5 3.5zM12 22a10 10 0 1 1 0-20A10 10 0 0 1 12 22zM8 8.5c.2-.5.5-1 1-1.2.3-.1.6-.1.8 0 .2.2.7 1.4.8 1.5.1.2.1.4 0 .6-.1.2-.4.6-.5.7-.1.2-.3.4-.1.7.2.4.8 1.3 1.6 2 .8.8 1.6 1.2 2 1.4.3.1.5 0 .7-.2.2-.2.6-.7.8-.9.2-.2.4-.2.7-.1.3.1 1.3.6 1.5.8.2.2.2.3.2.5s-.3 1.1-1 1.6c-.6.4-1.5.7-2.6.3-1-.3-2.3-1-3.6-2.3-1.3-1.3-2-2.6-2.3-3.6-.3-1-.1-1.9.2-2.4z" /></svg>
@@ -1437,8 +1438,8 @@ function AdminContactInfoSection() {
   const { t: tr } = useLanguage()
   const [form, setForm] = useState({
     phone1: '', phone2: '', email1: '', email2: '', po_box: '',
-    youtube_url: '', tiktok_url: '', instagram_url: '', x_url: '',
-    linkedin_url: '', whatsapp_number: '', telegram_url: '',
+    youtube_url: '', tiktok_url: '', facebook_url: '', instagram_url: '', x_url: '',
+    linkedin_url: '', whatsapp_number: '', whatsapp_url: '', telegram_url: '',
   })
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -1457,10 +1458,12 @@ function AdminContactInfoSection() {
           po_box: c.po_box ?? '',
           youtube_url: c.youtube_url ?? '',
           tiktok_url: c.tiktok_url ?? '',
+          facebook_url: c.facebook_url ?? '',
           instagram_url: c.instagram_url ?? '',
           x_url: c.x_url ?? '',
           linkedin_url: c.linkedin_url ?? '',
           whatsapp_number: c.whatsapp_number ?? '',
+          whatsapp_url: c.whatsapp_url ?? '',
           telegram_url: c.telegram_url ?? '',
         })
       })
@@ -1526,10 +1529,12 @@ function AdminContactInfoSection() {
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(240px,1fr))', gap: '0.75rem' }}>
               <Field label={tr('ci_label_youtube')} icon={<span style={{ color: '#ff0000' }}><IconYouTube /></span>} fkey="youtube_url" placeholder="https://youtube.com/@channel" />
               <Field label={tr('ci_label_tiktok')} icon={<span style={{ color: '#e0e0e0' }}><IconTikTok /></span>} fkey="tiktok_url" placeholder="https://tiktok.com/@handle" />
+              <Field label="Facebook" icon={<span style={{ color: '#1877f2' }}><IconFacebook /></span>} fkey="facebook_url" placeholder="https://facebook.com/page" />
               <Field label={tr('ci_label_instagram')} icon={<span style={{ color: '#c13584' }}><IconInstagram /></span>} fkey="instagram_url" placeholder="https://instagram.com/handle" />
               <Field label={tr('ci_label_x')} icon={<span style={{ color: '#e0e0e0' }}><IconX /></span>} fkey="x_url" placeholder="https://x.com/handle" />
               <Field label={tr('ci_label_linkedin')} icon={<span style={{ color: '#0077b5' }}><IconLinkedIn /></span>} fkey="linkedin_url" placeholder="https://linkedin.com/company/..." />
               <Field label={tr('ci_label_whatsapp')} icon={<span style={{ color: '#25d366' }}><IconWhatsApp /></span>} fkey="whatsapp_number" placeholder="+251 9XX XXX XXX" />
+              <Field label="WhatsApp direct link" icon={<span style={{ color: '#25d366' }}><IconWhatsApp /></span>} fkey="whatsapp_url" placeholder="https://wa.me/message/..." />
               <Field label={tr('ci_label_telegram')} icon={<span style={{ color: '#229ed9' }}><IconTelegram /></span>} fkey="telegram_url" placeholder="https://t.me/channel" />
             </div>
           </div>

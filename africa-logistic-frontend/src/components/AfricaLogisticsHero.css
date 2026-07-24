@@ -1,0 +1,709 @@
+/* ============================================================
+   Africa Logistics — Public Hero
+   Scoped, self-contained styles (prefix: alh-)
+   Kept independent of the global index.css resets/overrides so
+   the hero always renders like the reference design (dark card).
+   ============================================================ */
+
+.alh-frame {
+  --alh-chrome-bg: #f4f6f4;
+  --alh-chrome-fg: #0b1015;
+  --alh-chrome-btn-bg: #030506;
+  --alh-chrome-btn-fg: #ffffff;
+  --alh-chrome-track: #e5e5e5;
+  --alh-fillet: 20px;
+  min-height: 100vh;
+  background: var(--alh-chrome-bg);
+  padding: 20px;
+  font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+  box-sizing: border-box;
+  transition: background 0.25s ease;
+}
+
+/* Dark mode — the frame, logo cutout and slider widget switch off white
+   together instead of the hero card, which stays dark year-round (it's
+   a photographic section). All three share these same variables so they
+   always read as one continuous surface. */
+html[data-theme="dark"] .alh-frame {
+  --alh-chrome-bg: #0b0f14;
+  --alh-chrome-fg: #f4f6f4;
+  --alh-chrome-btn-bg: #f4f6f4;
+  --alh-chrome-btn-fg: #0b0f14;
+  --alh-chrome-track: rgba(255, 255, 255, 0.15);
+}
+
+.alh-card {
+  position: relative;
+  isolation: isolate;
+  min-height: calc(100vh - 40px);
+  overflow: hidden;
+  border-radius: 21px;
+  background: #061117;
+  color: #fff;
+}
+
+/* Carousel slides — stacked <img> layers that cross-fade. */
+.alh-bg {
+  position: absolute;
+  inset: 0;
+  z-index: -2;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: 63% center;
+  opacity: 0;
+  transform: scale(1.03);
+  transition: opacity 1.1s ease, transform 6s ease;
+  pointer-events: none;
+}
+
+.alh-bg.is-active {
+  opacity: 1;
+  transform: scale(1.08); /* slow Ken-Burns drift while a slide is shown */
+}
+
+.alh-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background:
+    linear-gradient(90deg, rgba(2, 10, 14, 0.82) 0%, rgba(2, 11, 15, 0.5) 34%, rgba(1, 8, 11, 0.06) 66%),
+    linear-gradient(0deg, rgba(1, 8, 11, 0.88) 0%, rgba(1, 8, 11, 0.12) 40%, rgba(1, 8, 11, 0.1) 100%);
+}
+
+/* ── Header ── */
+.alh-header {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: 25px 27px 0;
+}
+
+/* Nav pill */
+.alh-nav {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 5px;
+  border-radius: 13px;
+  border: 1px solid rgba(147, 189, 87, 0.28);
+  background: rgba(12, 23, 27, 0.72);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.3);
+}
+
+.alh-nav a {
+  padding: 11px 17px;
+  border-radius: 9px;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1;
+  white-space: nowrap;
+  text-decoration: none;
+  color: rgba(255, 255, 255, 0.85);
+  transition: background 0.18s, color 0.18s;
+}
+
+.alh-nav a:hover {
+  background: rgba(99, 154, 28, 0.5);
+  color: #fff;
+}
+
+.alh-nav a.alh-active {
+  background: #639a1c;
+  color: #fff;
+}
+
+/* Logo cutout */
+.alh-logo {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 202px;
+  height: 72px;
+  /* Tab hanging from the top edge: top corners flush/square, bottom
+     corners rounded to match the card radius (original design). */
+  border-radius: 0 0 21px 21px;
+  background: var(--alh-chrome-bg);
+  text-decoration: none;
+  transition: background 0.25s ease;
+}
+
+.alh-logo img {
+  height: 52px;
+  width: auto;
+  object-fit: contain;
+  display: block;
+}
+
+/* Concave fillets: where the tab's sides meet the card's top edge, the
+   chrome colour flares outward and curves in, so the tab reads as if it
+   grew out of the top edge instead of a rectangle stuck on top. Each
+   pseudo is a small square filled with chrome, with a transparent
+   quarter-circle bitten out of the corner facing the card interior. */
+.alh-logo::before,
+.alh-logo::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  width: var(--alh-fillet);
+  height: var(--alh-fillet);
+  pointer-events: none;
+}
+
+.alh-logo::before {
+  left: calc(-1 * var(--alh-fillet));
+  background: radial-gradient(circle at bottom left,
+      transparent 0 calc(var(--alh-fillet) - 0.5px),
+      var(--alh-chrome-bg) var(--alh-fillet));
+}
+
+.alh-logo::after {
+  right: calc(-1 * var(--alh-fillet));
+  background: radial-gradient(circle at bottom right,
+      transparent 0 calc(var(--alh-fillet) - 0.5px),
+      var(--alh-chrome-bg) var(--alh-fillet));
+}
+
+/* Hamburger — shown whenever the nav is in compact mode (see .alh-compact).
+   Default position is top-left (where the nav pill would sit) for the
+   wide-screen compact case; the mobile media query moves it to the right. */
+.alh-burger {
+  display: none;
+  position: absolute;
+  left: 22px;
+  top: 20px;
+  z-index: 30;
+  width: 42px;
+  height: 42px;
+  padding: 11px 10px;
+  border-radius: 11px;
+  border: 1px solid rgba(146, 190, 82, 0.72);
+  background: rgba(3, 14, 14, 0.58);
+  cursor: pointer;
+}
+
+.alh-burger span {
+  display: block;
+  height: 2px;
+  border-radius: 2px;
+  background: #b8e476;
+  transition: transform 0.2s, opacity 0.2s;
+}
+
+.alh-burger span + span {
+  margin-top: 4px;
+}
+
+.alh-burger.alh-open span:nth-child(1) { transform: translateY(6px) rotate(45deg); }
+.alh-burger.alh-open span:nth-child(2) { opacity: 0; }
+.alh-burger.alh-open span:nth-child(3) { transform: translateY(-6px) rotate(-45deg); }
+
+/* Right actions */
+.alh-actions {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  margin-left: auto; /* keep the action cluster on the right in every mode */
+}
+
+.alh-lang-wrap {
+  position: relative;
+}
+
+.alh-icon-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 39px;
+  padding: 0 11px;
+  border-radius: 11px;
+  border: 1px solid rgba(146, 190, 82, 0.62);
+  background: rgba(3, 14, 14, 0.42);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  transition: transform 0.18s, border-color 0.18s, background 0.18s;
+}
+
+.alh-icon-btn.alh-square {
+  width: 39px;
+  padding: 0;
+  color: #aedb65;
+}
+
+.alh-icon-btn.alh-square svg {
+  width: 18px;
+  height: 18px;
+}
+
+.alh-icon-btn .alh-dot {
+  width: 15px;
+  height: 15px;
+  flex-shrink: 0;
+  color: #9bd044;
+}
+
+.alh-icon-btn:hover {
+  transform: translateY(-1px);
+  border-color: #a4d75c;
+  background: rgba(97, 147, 34, 0.28);
+}
+
+.alh-lang-menu {
+  position: absolute;
+  right: 0;
+  top: 46px;
+  z-index: 30;
+  width: 130px;
+  padding: 6px;
+  border-radius: 11px;
+  border: 1px solid rgba(163, 209, 91, 0.37);
+  background: rgba(6, 19, 21, 0.96);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.4);
+}
+
+.alh-lang-menu button {
+  display: block;
+  width: 100%;
+  padding: 8px;
+  border: none;
+  background: none;
+  border-radius: 7px;
+  text-align: left;
+  font-size: 13px;
+  color: #fff;
+  cursor: pointer;
+}
+
+.alh-lang-menu button:hover {
+  background: rgba(102, 153, 49, 0.48);
+}
+
+.alh-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 17px;
+  border-radius: 11px;
+  font-size: 14px;
+  font-weight: 500;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background 0.18s, transform 0.18s;
+}
+
+.alh-btn-outline {
+  border: 1px solid #639a1c;
+  background: transparent;
+  color: #8bc34a;
+}
+
+.alh-btn-outline:hover {
+  background: rgba(99, 154, 28, 0.14);
+}
+
+.alh-btn-solid {
+  min-width: 108px;
+  border: 1px solid #639a1c;
+  background: #639a1c;
+  color: #fff;
+}
+
+.alh-btn-solid:hover {
+  background: #71a921;
+}
+
+/* ── Hero copy ── */
+.alh-copy {
+  position: relative;
+  margin: 224px 0 0 30px;
+  max-width: 560px;
+}
+
+.alh-copy h1 {
+  margin: 0;
+  font-size: 44px;
+  line-height: 1.02;
+  font-weight: 700;
+  letter-spacing: -1.4px;
+  color: #fff;
+}
+
+.alh-copy p {
+  margin: 12px 0 0;
+  max-width: 460px;
+  font-size: 17px;
+  line-height: 1.35;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.alh-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 13px;
+  margin-top: 27px;
+  padding: 9px 21px;
+  border-radius: 28px;
+  border: 2px solid #6b9c2e;
+  font-size: 20px;
+  font-weight: 600;
+  color: #fff;
+  text-decoration: none;
+  transition: background 0.2s;
+}
+
+.alh-cta:hover {
+  background: rgba(107, 156, 46, 0.12);
+}
+
+.alh-cta .alh-arrow {
+  font-size: 32px;
+  line-height: 0.7;
+  color: #8bc34a;
+  transition: transform 0.2s;
+}
+
+.alh-cta:hover .alh-arrow {
+  transform: translateX(4px);
+}
+
+/* ── Feature columns ── */
+.alh-features {
+  position: absolute;
+  left: 30px;
+  right: 255px;
+  bottom: 38px;
+  display: flex;
+  gap: 75px;
+}
+
+.alh-features article {
+  min-width: 200px;
+}
+
+.alh-features h2 {
+  margin: 0 0 9px;
+  font-size: 25px;
+  font-weight: 700;
+  letter-spacing: -0.7px;
+  color: #fff;
+}
+
+.alh-features p {
+  margin: 0;
+  font-size: 17px;
+  line-height: 1.3;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+/* ── Slider control ──
+   Shares the same chrome background/foreground as the frame + logo so
+   it reads as one continuous surface, in both light and dark theme. */
+.alh-slider {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 235px;
+  height: 76px;
+  /* Fills the card's bottom-right corner: only the inner (top-left)
+     corner is rounded. The other three sit flush with the card edges,
+     and the card's overflow:hidden clips the bottom-right to the card
+     corner — no radius of its own (original design). */
+  border-radius: 22px 0 0 0;
+  background: var(--alh-chrome-bg);
+  color: var(--alh-chrome-fg);
+  transition: background 0.25s ease, color 0.25s ease;
+}
+
+/* Concave fillets: where the widget's top edge meets the card's right
+   edge, and where its left edge meets the card's bottom edge, the chrome
+   flares out and curves in — same technique as the logo tab, so the
+   widget reads as if it grew out of the card's corner. */
+.alh-slider::before,
+.alh-slider::after {
+  content: "";
+  position: absolute;
+  width: var(--alh-fillet);
+  height: var(--alh-fillet);
+  pointer-events: none;
+}
+
+.alh-slider::before {
+  top: calc(-1 * var(--alh-fillet));
+  right: 0;
+  background: radial-gradient(circle at top left,
+      transparent 0 calc(var(--alh-fillet) - 0.5px),
+      var(--alh-chrome-bg) var(--alh-fillet));
+}
+
+.alh-slider::after {
+  bottom: 0;
+  left: calc(-1 * var(--alh-fillet));
+  background: radial-gradient(circle at top left,
+      transparent 0 calc(var(--alh-fillet) - 0.5px),
+      var(--alh-chrome-bg) var(--alh-fillet));
+}
+
+.alh-slider-inner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 100%;
+  padding-left: 13px;
+}
+
+.alh-slider-inner button {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 50%;
+  background: var(--alh-chrome-btn-bg);
+  color: var(--alh-chrome-btn-fg);
+  font-size: 20px;
+  cursor: pointer;
+  transition: background 0.18s;
+}
+
+.alh-slider-inner button:hover {
+  background: #639a1c;
+  color: #fff;
+}
+
+.alh-progress {
+  width: 115px;
+  height: 5px;
+  margin-left: 2px;
+  border-radius: 3px;
+  overflow: hidden;
+  background: var(--alh-chrome-track);
+}
+
+/* Fills 0→100% over the slide interval; remounted (key=slide) each change
+   so the animation restarts in sync with the active background. */
+.alh-progress i {
+  display: block;
+  height: 100%;
+  width: 0;
+  border-radius: 3px;
+  background: #639a1c;
+  animation: alh-slide-fill linear forwards;
+}
+
+@keyframes alh-slide-fill {
+  from { width: 0; }
+  to { width: 100%; }
+}
+
+.alh-slider .alh-count {
+  font-size: 24px;
+  font-weight: 500;
+}
+
+/* ============================================================
+   Nav compaction (hamburger) — .alh-compact
+   ------------------------------------------------------------
+   This class ONLY swaps the horizontal nav pill for a hamburger +
+   dropdown. It is applied by AfricaLogisticsHero.tsx, which measures
+   the nav pill's real width for the active language (Afaan Oromo /
+   Amharic labels run longer than English) and toggles it — before
+   first paint — whenever the pill would overlap the centered logo.
+
+   Crucially it does NOT touch the CONTENT layout (features grid, copy
+   size, logo position, action alignment, card height). Those are driven
+   purely by viewport width in the media query below — so a WIDE screen
+   showing a long language gets just a small hamburger while keeping the
+   full desktop hero, instead of collapsing into the phone layout.
+   ============================================================ */
+.alh-compact .alh-nav {
+  position: absolute;
+  left: 14px;
+  top: 66px;
+  z-index: 20;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 2px;
+  width: 260px;
+  max-width: calc(100vw - 28px);
+  border-radius: 13px;
+  background: rgba(12, 23, 27, 0.96);
+  transform: translateY(-8px);
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.2s, transform 0.2s;
+}
+
+.alh-compact .alh-nav.alh-nav-open {
+  transform: translateY(0);
+  opacity: 1;
+  visibility: visible;
+}
+
+.alh-compact .alh-burger {
+  display: grid;
+}
+
+/* ============================================================
+   Content layout for tablet / phone — viewport-width driven
+   (independent of nav compaction). Real narrow screens get the
+   stacked phone hero: logo to the left, actions below, copy scaled
+   down, features flowing in a 2-column grid below the copy, smaller
+   slider. Wide screens never hit this, so a long-language hamburger
+   there keeps the desktop hero intact.
+   ============================================================ */
+@media (max-width: 1023px) {
+  .alh-frame {
+    padding: 10px;
+    --alh-fillet: 16px;
+  }
+
+  .alh-card {
+    min-height: 760px;
+    border-radius: 16px;
+  }
+
+  .alh-header {
+    padding: 16px 14px 0;
+  }
+
+  .alh-logo {
+    left: 14px;
+    transform: none;
+    width: 160px;
+    height: 60px;
+    border-radius: 0 0 16px 16px;
+  }
+
+  .alh-logo img {
+    height: 40px;
+  }
+
+  /* On phones the logo sits on the left, so move the hamburger to the right. */
+  .alh-burger {
+    left: auto;
+    right: 14px;
+    top: 15px;
+  }
+
+  .alh-actions {
+    margin-top: 56px;
+    margin-right: 48px;
+    margin-left: auto;
+    gap: 8px;
+  }
+
+  .alh-copy {
+    margin: 172px 0 0 20px;
+  }
+
+  .alh-copy h1 {
+    font-size: 34px;
+    letter-spacing: -1px;
+  }
+
+  .alh-copy p {
+    font-size: 15px;
+  }
+
+  .alh-cta {
+    font-size: 18px;
+    padding: 9px 19px;
+  }
+
+  /* Features flow in normal document order *below* the copy instead of
+     being absolutely pinned. Absolute pinning assumed the short English
+     headline (2 lines); longer translations wrap to 4 lines and grew the
+     copy into the pinned features. Flowing lets the card grow to fit any
+     language; the bottom margin keeps them clear of the slider widget. */
+  .alh-features {
+    position: static;
+    left: auto;
+    right: auto;
+    bottom: auto;
+    margin: 40px 20px 92px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 18px 13px;
+  }
+
+  .alh-features article {
+    min-width: 0;
+  }
+
+  .alh-features h2 {
+    font-size: 18px;
+    margin-bottom: 4px;
+  }
+
+  .alh-features p {
+    font-size: 13px;
+  }
+
+  .alh-slider {
+    width: 184px;
+    height: 66px;
+    border-radius: 18px 0 0 0;
+  }
+
+  .alh-slider-inner button {
+    width: 29px;
+    height: 29px;
+    font-size: 17px;
+  }
+
+  .alh-progress {
+    width: 73px;
+  }
+
+  .alh-slider .alh-count {
+    font-size: 21px;
+  }
+}
+
+@media (max-width: 600px) {
+  .alh-features article:nth-child(3) {
+    display: none;
+  }
+}
+
+/* "Create Order" is the secondary CTA; drop it once the header gets tight
+   so the action cluster never crowds the centred logo (Sign In remains).
+   Covers both the compact-nav desktop range and phones. */
+@media (max-width: 1200px) {
+  .alh-create-order {
+    display: none;
+  }
+}
+
+/* Hidden nav probe — always rendered in desktop-pill styling so its
+   content width can be measured regardless of the visible nav's mode. */
+.alh-nav-probe {
+  position: fixed;
+  top: -9999px;
+  left: -9999px;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 5px;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.alh-nav-probe span {
+  padding: 11px 17px;
+  font-size: 14px;
+  font-weight: 500;
+  white-space: nowrap;
+}

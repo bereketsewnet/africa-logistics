@@ -7,6 +7,7 @@ import apiClient from '../lib/apiClient'
 import PhoneField from '../components/PhoneField'
 import { normalisePhone } from '../lib/normalisePhone'
 import { useThemeLogo } from '../lib/useThemeLogo'
+import { TELEGRAM_MINI_APP_URL } from '../lib/telegram'
 import {
   LuTruck, LuEye, LuEyeOff, LuTriangleAlert, LuPackage, LuSmartphone,
   LuArrowRight, LuCheck, LuCar,
@@ -261,10 +262,17 @@ export default function RegisterPage() {
                   : <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>{tr('reg_send_otp')} <LuArrowRight size={16} /></span>}
               </button>
               <div className="divider">{tr('reg_or')}</div>
-              <button type="button" className="btn-telegram">
-                <SiTelegram size={20} />
-                {tr('reg_telegram')}
-              </button>
+              <a
+                href={TELEGRAM_MINI_APP_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{ textDecoration: 'none', display: 'block' }}
+              >
+                <button type="button" className="btn-telegram" style={{ width: '100%' }}>
+                  <SiTelegram size={20} />
+                  {tr('reg_telegram')}
+                </button>
+              </a>
             </form>
           )}
 

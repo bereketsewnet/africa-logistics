@@ -384,8 +384,8 @@ export const adminOrderApi = {
 
   updateContactInfo: (data: {
     phone1?: string; phone2?: string; email1?: string; email2?: string; po_box?: string
-    youtube_url?: string; tiktok_url?: string; instagram_url?: string; x_url?: string
-    linkedin_url?: string; whatsapp_number?: string; telegram_url?: string
+    youtube_url?: string; tiktok_url?: string; facebook_url?: string; instagram_url?: string; x_url?: string
+    linkedin_url?: string; whatsapp_number?: string; whatsapp_url?: string; telegram_url?: string
   }) => apiClient.put('/admin/settings/contact', data),
 
   getAiSettings: () =>
@@ -445,6 +445,9 @@ export const configApi = {
     apiClient.get('/config/contact-info'),
   getAiStatus: () =>
     apiClient.get('/config/ai-status'),
+  // Public marketing contact form → stores a submission and notifies admins.
+  submitContact: (data: { name: string; request: string; email: string; phone: string }) =>
+    apiClient.post('/config/contact-message', data),
 }
 
 // ─── Car Owner API ────────────────────────────────────────────────────────────

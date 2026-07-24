@@ -14,6 +14,8 @@
 import fp from 'fastify-plugin'
 import { FastifyInstance } from 'fastify'
 import mysql from 'mysql2/promise'
+import bcrypt from 'bcrypt'
+import { randomUUID } from 'crypto'
 
 // We use fastify-plugin (fp) so the decoration is not scoped —
 // it's available everywhere in the app, not just in this plugin's scope.
@@ -787,15 +789,34 @@ export default fp(async function dbPlugin(fastify: FastifyInstance) {
         po_box        VARCHAR(60)  NULL,
         youtube_url   VARCHAR(255) NULL,
         tiktok_url    VARCHAR(255) NULL,
+        facebook_url  VARCHAR(255) NULL,
         instagram_url VARCHAR(255) NULL,
         x_url         VARCHAR(255) NULL,
         linkedin_url  VARCHAR(255) NULL,
         whatsapp_number VARCHAR(30) NULL,
+        whatsapp_url  VARCHAR(255) NULL,
         telegram_url  VARCHAR(255) NULL,
         updated_at    TIMESTAMP    DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     `)
     await conn.query(`INSERT IGNORE INTO company_contact (id) VALUES (1)`)
+    await addColIfMissing('company_contact', 'facebook_url', 'VARCHAR(255) NULL AFTER tiktok_url')
+    await addColIfMissing('company_contact', 'whatsapp_url', 'VARCHAR(255) NULL AFTER whatsapp_number')
+
+    // ─── Contact Submissions (public marketing contact form) ────────────────
+    await conn.query(`
+      CREATE TABLE IF NOT EXISTS contact_submissions (
+        id         CHAR(36)     NOT NULL PRIMARY KEY,
+        name       VARCHAR(120) NOT NULL,
+        email      VARCHAR(160) NOT NULL,
+        phone      VARCHAR(40)  NOT NULL,
+        message    TEXT         NULL,
+        ip         VARCHAR(64)  NULL,
+        is_read    TINYINT(1)   NOT NULL DEFAULT 0,
+        created_at TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        INDEX idx_contact_created (created_at)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    `)
 
     // ─── AI Assistance Settings ─────────────────────────────────────────────
     await conn.query(`
@@ -874,6 +895,31 @@ export default fp(async function dbPlugin(fastify: FastifyInstance) {
     const [dpsRows] = await conn.query(`SELECT 1 FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='orders' AND COLUMN_NAME='driver_payout_status'`) as any
     if ((dpsRows as any[]).length === 0) {
       await conn.query(`ALTER TABLE orders ADD COLUMN driver_payout_status ENUM('PENDING','WALLET_PAID','BANK_TRANSFERRED') NOT NULL DEFAULT 'PENDING'`)
+    }
+
+    // ─── Demo login accounts (idempotent) ────────────────────────────────────
+    // The public LoginPage has one quick-login button per role (Admin, Shipper,
+    // Driver, Cashier, Dispatcher, Car Owner) that fills in a fixed phone number
+    // + password. Only the Admin account existed in the DB, so every other demo
+    // button failed with "Invalid credentials." — the account it pointed to was
+    // never seeded. INSERT IGNORE + the UNIQUE phone_number/email constraints
+    // make this safe to run on every startup: existing accounts (including a
+    // renamed/edited Admin) are left untouched, missing ones are created once.
+    const demoPasswordHash = await bcrypt.hash('Admin1234', 12)
+    const demoAccounts = [
+      { role_id: 2, phone: '+251900000001', email: 'shipper.demo@africalogistics.com.et', first: 'Demo', last: 'Shipper' },
+      { role_id: 3, phone: '+251965500639', email: 'driver.demo@africalogistics.com.et', first: 'Demo', last: 'Driver' },
+      { role_id: 4, phone: '+251911104182', email: 'cashier.demo@africalogistics.com.et', first: 'Demo', last: 'Cashier' },
+      { role_id: 5, phone: '+251928664558', email: 'dispatcher.demo@africalogistics.com.et', first: 'Demo', last: 'Dispatcher' },
+      { role_id: 6, phone: '+251912000001', email: 'carowner.demo@africalogistics.com.et', first: 'Demo', last: 'CarOwner' },
+    ]
+    for (const acc of demoAccounts) {
+      await conn.query(
+        `INSERT IGNORE INTO users
+           (id, role_id, phone_number, email, password_hash, first_name, last_name, is_phone_verified, is_email_verified, is_active)
+         VALUES (?, ?, ?, ?, ?, ?, ?, 1, 1, 1)`,
+        [randomUUID(), acc.role_id, acc.phone, acc.email, demoPasswordHash, acc.first, acc.last]
+      )
     }
 
     conn.release() // Return the connection back to the pool

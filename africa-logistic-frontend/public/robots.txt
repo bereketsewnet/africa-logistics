@@ -1,0 +1,16 @@
+# Africa Logistics — robots.txt
+# The public marketing site (/) is a single-page app and is fully crawlable.
+# Everything below is authenticated/system UI and must not be indexed.
+
+User-agent: *
+Allow: /
+
+Disallow: /login
+Disallow: /register
+Disallow: /forgot-password
+Disallow: /verify-email
+Disallow: /dashboard
+Disallow: /admin
+Disallow: /car-dashboard
+
+Sitemap: https://afri-logistics.com/sitemap.xml

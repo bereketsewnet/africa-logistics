@@ -2926,7 +2926,17 @@ export async function adminGetContactInfoHandler(
 
   const db = request.server.db
   const [rows] = await db.query<any[]>(`SELECT * FROM company_contact WHERE id = 1 LIMIT 1`)
-  return reply.send({ success: true, contact: rows[0] ?? {} })
+  const contact = rows[0] ?? {}
+  return reply.send({
+    success: true,
+    contact: {
+      ...contact,
+      tiktok_url: contact.tiktok_url || 'https://tiktok.com/@afrilogistics2',
+      facebook_url: contact.facebook_url || 'https://www.facebook.com/share/18uywoV22c/',
+      whatsapp_url: contact.whatsapp_url || 'https://wa.me/message/A7WFYICJ2T5KH1',
+      telegram_url: contact.telegram_url || 'https://t.me/AfriLogisticsOfficial',
+    },
+  })
 }
 
 /**
@@ -2941,7 +2951,7 @@ export async function adminUpdateContactInfoHandler(
   if (caller.role_id !== 1) return reply.status(403).send({ message: 'Super-admin access required.' })
 
   const body = (request.body as any) ?? {}
-  const allowed = ['phone1', 'phone2', 'email1', 'email2', 'po_box', 'youtube_url', 'tiktok_url', 'instagram_url', 'x_url', 'linkedin_url', 'whatsapp_number', 'telegram_url']
+  const allowed = ['phone1', 'phone2', 'email1', 'email2', 'po_box', 'youtube_url', 'tiktok_url', 'facebook_url', 'instagram_url', 'x_url', 'linkedin_url', 'whatsapp_number', 'whatsapp_url', 'telegram_url']
   const sets: string[] = []
   const vals: any[] = []
   for (const key of allowed) {

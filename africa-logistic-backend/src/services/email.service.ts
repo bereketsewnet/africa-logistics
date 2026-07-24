@@ -18,10 +18,13 @@ const EMAIL_LOGO_PATH = path.resolve(__dirname, `../assets/${EMAIL_LOGO_FILENAME
 const EMAIL_LOGO_AVAILABLE = fs.existsSync(EMAIL_LOGO_PATH)
 
 function getTransporter() {
-  const host = process.env.SMTP_HOST
-  const port = process.env.SMTP_PORT ? Number(process.env.SMTP_PORT) : undefined
-  const user = process.env.SMTP_USER
-  const pass = process.env.SMTP_PASS
+  // COMPANY_SMTP_* takes precedence so the production mailbox can be changed
+  // without disturbing legacy/development SMTP settings.
+  const host = process.env.COMPANY_SMTP_HOST || process.env.SMTP_HOST
+  const portValue = process.env.COMPANY_SMTP_PORT || process.env.SMTP_PORT
+  const port = portValue ? Number(portValue) : undefined
+  const user = process.env.COMPANY_SMTP_USER || process.env.SMTP_USER
+  const pass = process.env.COMPANY_SMTP_PASS || process.env.SMTP_PASS
 
   const isPlaceholder = !host || !user || !pass ||
     user.includes('your-email') || pass.includes('your-') || pass.length < 8
@@ -40,7 +43,7 @@ function getTransporter() {
 
 export async function sendEmail(opts: EmailOptions) {
   const transporter = getTransporter()
-  const from = process.env.SMTP_FROM || process.env.SMTP_USER || 'no-reply@afri-logistics.com'
+  const from = process.env.COMPANY_SMTP_FROM || process.env.SMTP_FROM || process.env.SMTP_USER || 'no-reply@afri-logistics.com'
 
   if (!transporter) {
     console.log('─────────────────────────────────────────')
@@ -484,4 +487,3 @@ export async function sendOrderPlacedEmail(to: string, data: OrderPlacedEmailDat
     ].join('\n'),
   })
 }
-
