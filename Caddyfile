@@ -20,3 +20,24 @@ backend.afri-logistics.com {
         reverse_proxy africa_backend:3000
     }
 }
+
+# ─── TV Remote ─────────────────────────────────────────────────────────────
+remote.bernos.systems {
+    reverse_proxy 172.17.0.1:6622
+}
+
+# ─── ALEF DELTA ERP ─────────────────────────────────────────────────────────
+erp-api.alefdelta.com {
+    encode zstd gzip
+    reverse_proxy alef_erp_backend:80
+}
+
+erp-staff.alefdelta.com {
+    encode zstd gzip
+    reverse_proxy alef_erp_staff:80
+}
+
+erp-member.alefdelta.com {
+    encode zstd gzip
+    reverse_proxy alef_erp_member_portal:80
+}

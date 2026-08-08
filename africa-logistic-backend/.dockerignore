@@ -1,0 +1,12 @@
+# The Dockerfile only copies package*.json, tsconfig.json and src/ —
+# everything else here just bloats the build context sent to the daemon.
+node_modules
+dist
+.git
+.gitignore
+.env
+.env.*
+.vscode
+.DS_Store
+npm-debug.log*
+*.md

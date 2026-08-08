@@ -1,0 +1,12 @@
+# Not needed inside the image — the Dockerfile only copies dist/ and
+# nginx.conf — but Docker still sends the whole build context to the
+# daemon unless it's excluded here, so this keeps builds fast.
+node_modules
+.git
+.gitignore
+.env
+.env.*
+.vscode
+.DS_Store
+npm-debug.log*
+*.md

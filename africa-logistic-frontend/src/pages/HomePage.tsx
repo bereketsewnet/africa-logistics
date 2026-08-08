@@ -179,7 +179,7 @@ function About() {
 
           <Reveal dir="right" delay={0.12}>
             <div className="hp-about-media">
-              <div className="hp-about-img hp-about-img--1" role="img" aria-label="Africa Logistics operations" />
+              <div className="hp-about-img hp-about-img--1" role="img" aria-label="Afri Logistics operations" />
               <div className="hp-about-img hp-about-img--2" role="img" aria-label="Port terminal operations" />
             </div>
           </Reveal>
@@ -334,7 +334,7 @@ function Apps() {
             target="_blank"
             rel="noopener noreferrer"
             className="hp-apps"
-            aria-label="Open the Africa Logistics Telegram Mini App"
+            aria-label="Open the Afri Logistics Telegram Mini App"
           >
             <div className="hp-apps-inner">
               <div className="hp-apps-text">
@@ -582,8 +582,8 @@ function Footer() {
       <div className="hp-container">
         <div className="hp-footer-grid">
           <div className="hp-footer-brand">
-            <a href="#home" className="hp-logo" aria-label="Africa Logistics home" style={{ textDecoration: 'none' }}>
-              <img src={logoImg} alt="Africa Logistics" className="hp-logo-img hp-logo-img--footer" />
+            <a href="#home" className="hp-logo" aria-label="Afri Logistics home" style={{ textDecoration: 'none' }}>
+              <img src={logoImg} alt="Afri Logistics" className="hp-logo-img hp-logo-img--footer" />
             </a>
             <p>{t('ft_brand_blurb')}</p>
           </div>
@@ -601,7 +601,7 @@ function Footer() {
           ))}
         </div>
         <div className="hp-footer-bottom">
-          <p>© {new Date().getFullYear()} Africa Logistics. {t('ft_rights')}</p>
+          <p>© {new Date().getFullYear()} Afri Logistics. {t('ft_rights')}</p>
           <p>{t('ft_tagline')}</p>
           <p className="hp-footer-credit">
             Made with 🧡 by{' '}

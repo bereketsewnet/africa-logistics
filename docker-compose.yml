@@ -89,10 +89,14 @@ services:
       - africa_frontend
     networks:
       - africa_net
+      - alef_erp_net
 
 networks:
   africa_net:
     driver: bridge
+  alef_erp_net:
+    external: true
+    name: aelf_erp_alef-erp-network
 
 volumes:
   mysql_data:

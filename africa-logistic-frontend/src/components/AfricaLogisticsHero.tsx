@@ -129,7 +129,7 @@ export default function AfricaLogisticsHero({
         ))}
       </div>
 
-      <section className="alh-card" aria-label="Africa Logistics introduction">
+      <section className="alh-card" aria-label="Afri Logistics introduction">
         {/* Background carousel + dark overlay */}
         {heroSlides.map((src, i) => (
           <img
@@ -166,8 +166,8 @@ export default function AfricaLogisticsHero({
           </nav>
 
           {/* Logo cutout */}
-          <a href="#home" className="alh-logo" aria-label="Africa Logistics home">
-            <img src={logoImg} alt="Africa Logistics" />
+          <a href="#home" className="alh-logo" aria-label="Afri Logistics home">
+            <img src={logoImg} alt="Afri Logistics" />
           </a>
 
           {/* Hamburger (mobile) */}
@@ -235,7 +235,7 @@ export default function AfricaLogisticsHero({
             {t('hero_intro_title_2') || 'in Every Mile.'}
           </h1>
           <p>
-            {t('hero_intro_sub') || "Africa Logistics is Ethiopia's premier logistics company specializing in local and cross-country delivery services."}
+            {t('hero_intro_sub') || "Afri Logistics is Ethiopia's premier logistics company specializing in local and cross-country delivery services."}
           </p>
           <a href="#start" className="alh-cta">
             {t('hp_get_started') || 'Get Started'}
