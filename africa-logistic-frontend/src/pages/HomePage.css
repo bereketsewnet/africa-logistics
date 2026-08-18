@@ -435,7 +435,7 @@
   vertical-align: middle;
 }
 
-/* ═══ Apps CTA band — the whole card links to the Telegram Mini App ═══ */
+/* ═══ Apps CTA band — Android download + Telegram Mini App ═══ */
 .hp-apps {
   position: relative;
   display: block;
@@ -443,7 +443,6 @@
   border-radius: 26px;
   background: linear-gradient(120deg, var(--green), var(--green-d));
   box-shadow: 0 24px 70px rgba(62, 97, 19, .35);
-  text-decoration: none;
   transition: transform .3s var(--ease), box-shadow .3s;
 }
 
@@ -512,6 +511,82 @@
   margin: 0;
 }
 
+.hp-apps-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 22px;
+}
+
+.hp-apps-btn {
+  min-height: 50px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 10px 17px;
+  border-radius: 13px;
+  border: 1px solid rgba(255, 255, 255, .28);
+  text-decoration: none;
+  font-family: inherit;
+  transition: transform .2s var(--ease), background .2s, box-shadow .2s;
+}
+
+.hp-apps-btn:hover {
+  transform: translateY(-2px);
+}
+
+.hp-apps-btn:focus-visible {
+  outline: 3px solid rgba(255, 255, 255, .75);
+  outline-offset: 3px;
+}
+
+.hp-apps-btn svg {
+  width: 21px;
+  height: 21px;
+  flex-shrink: 0;
+}
+
+.hp-apps-btn span {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  line-height: 1.2;
+}
+
+.hp-apps-btn strong {
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.hp-apps-btn small {
+  margin-top: 3px;
+  font-size: 10px;
+  font-weight: 600;
+  opacity: .72;
+}
+
+.hp-apps-btn--android {
+  color: var(--green-d);
+  background: #fff;
+  box-shadow: 0 9px 24px rgba(0, 0, 0, .18);
+}
+
+.hp-apps-btn--android:hover {
+  background: #f7fee7;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, .24);
+}
+
+.hp-apps-btn--telegram {
+  color: #fff;
+  background: rgba(20, 126, 180, .78);
+  border-color: rgba(255, 255, 255, .32);
+}
+
+.hp-apps-btn--telegram:hover {
+  background: #229ed9;
+}
+
 /* Phone mockup — keeps its full size but its *layout footprint* is
    squeezed with symmetric negative margins, so the card stays short while
    the phone visually overflows past both the top and bottom edges for a
@@ -552,15 +627,12 @@
   display: grid;
   place-items: center;
   background: #fff;
-  border: 3px solid #229ed9;
+  border: 3px solid var(--green);
   box-shadow: 0 6px 18px rgba(0, 0, 0, .3);
-}
-
-.hp-apps-phone-badge svg {
-  width: 20px;
-  height: 20px;
-  color: #229ed9;
-  margin-left: -1px;
+  color: var(--green-d);
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: .04em;
 }
 
 /* ═══ Team ═══ */
@@ -1032,6 +1104,7 @@
   .hp-svc-icon { display: none; }
   .hp-apps-inner { flex-direction: column; text-align: center; padding: 30px 24px 0; }
   .hp-apps-text { max-width: none; }
+  .hp-apps-actions { justify-content: center; }
   .hp-apps-phone-wrap { align-self: center; margin: 0 0 -64px; }
   .hp-apps-phone { width: 148px; transform: rotate(-4deg); }
   .hp-apps:hover .hp-apps-phone { transform: rotate(-2deg) translateY(-8px); }
@@ -1040,6 +1113,7 @@
 }
 
 @media (max-width: 479px) {
+  .hp-apps-btn { width: 100%; }
   .hp-container { padding: 0 16px; }
   .hp-section { padding: 60px 16px; }
   .hp-why-grid { grid-template-columns: 1fr; }

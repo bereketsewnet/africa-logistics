@@ -31,7 +31,7 @@ services:
     container_name: africa_adminer
     restart: always
     ports:
-      - "0.0.0.0:8080:8080"
+      - "127.0.0.1:8080:8080"
     depends_on:
       mysql:
         condition: service_healthy
@@ -90,6 +90,7 @@ services:
     networks:
       - africa_net
       - alef_erp_net
+      - alefdelta_net
 
 networks:
   africa_net:
@@ -97,6 +98,9 @@ networks:
   alef_erp_net:
     external: true
     name: aelf_erp_alef-erp-network
+  alefdelta_net:
+    external: true
+    name: alefdelta_network
 
 volumes:
   mysql_data:

@@ -197,7 +197,9 @@ export const translations: Record<Lang, Record<string, string>> = {
     apps_badge: 'Telegram Mini App',
     apps_title1: 'Apps for Your',
     apps_title2: 'Convenience',
-    apps_desc: 'Access our services on the go with our Telegram Mini App — fast, simple, and no download required.',
+    apps_desc: 'Choose our Android app for a native mobile experience, or continue instantly with the Telegram Mini App.',
+    apps_download_android: 'Download Android App',
+    apps_android_size: 'Android APK',
     apps_open_telegram: 'Open Telegram Mini App',
     apps_android_soon: 'Android app coming soon',
 
@@ -2374,7 +2376,9 @@ export const translations: Record<Lang, Record<string, string>> = {
     "apps_badge": "Appii Xiqqaa Telegram",
     "apps_title1": "Appii Mijaawaa",
     "apps_title2": "Isiniif",
-    "apps_desc": "Tajaajila keenya Appii Xiqqaa Telegram keenyaan argadhaa — saffisaa, salphaa, buufuu hin barbaachisu.",
+    "apps_desc": "Muuxannoo moobaayilaa fooyya'aadhaaf appii Android keenya filadhaa, yookaan Appii Xiqqaa Telegram battalumatti fayyadamaa.",
+    "apps_download_android": "Appii Android Buufadhu",
+    "apps_android_size": "Android APK",
     "apps_open_telegram": "Appii Xiqqaa Telegram Baniif",
     "apps_android_soon": "Appiin Android dhiyeenyatti dhufa",
 
@@ -4296,7 +4300,9 @@ export const translations: Record<Lang, Record<string, string>> = {
     apps_badge: 'የቴሌግራም ሚኒ አፕ',
     apps_title1: 'ለምቾትዎ',
     apps_title2: 'መተግበሪያዎች',
-    apps_desc: 'በቴሌግራም ሚኒ አፕአችን አገልግሎቶቻችንን በሂደት ላይ ያግኙ — ፈጣን፣ ቀላል፣ ማውረድ ሳያስፈልግ።',
+    apps_desc: 'ለተሻለ የሞባይል ተሞክሮ የአንድሮይድ መተግበሪያችንን ይምረጡ፣ ወይም በቴሌግራም ሚኒ አፕ ወዲያውኑ ይቀጥሉ።',
+    apps_download_android: 'የአንድሮይድ መተግበሪያ ያውርዱ',
+    apps_android_size: 'Android APK',
     apps_open_telegram: 'የቴሌግራም ሚኒ አፕ ይክፈቱ',
     apps_android_soon: 'የAndroid መተግበሪያ በቅርቡ ይመጣል',
 

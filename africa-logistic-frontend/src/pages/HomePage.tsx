@@ -5,7 +5,7 @@ import {
   MapPin, Phone, Mail, Send,
   ShieldCheck, Cpu, HeartHandshake, Settings2, Zap, Sparkles,
   Map as MapIcon, UserPlus, Handshake, Wallet,
-  Smartphone, UserCog,
+  Smartphone, UserCog, Download,
 } from 'lucide-react'
 import { useThemeLogo } from '../lib/useThemeLogo'
 import { configApi } from '../lib/apiClient'
@@ -329,28 +329,45 @@ function Apps() {
     <section className="hp-section">
       <div className="hp-container">
         <Reveal dir="scale">
-          <a
-            href={TELEGRAM_MINI_APP_URL}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="hp-apps"
-            aria-label="Open the Afri Logistics Telegram Mini App"
-          >
+          <div className="hp-apps">
             <div className="hp-apps-inner">
               <div className="hp-apps-text">
                 <div className="hp-apps-icon"><Smartphone /></div>
                 <h2>{t('apps_title1')} {t('apps_title2')}</h2>
                 <p>{t('apps_desc')}</p>
+                <div className="hp-apps-actions">
+                  <a
+                    href="/downloads/afri-logistics-android.apk"
+                    download="Afri-Logistics-Android.apk"
+                    className="hp-apps-btn hp-apps-btn--android"
+                    aria-label={`${t('apps_download_android')} — ${t('apps_android_size')}`}
+                  >
+                    <Download aria-hidden="true" />
+                    <span>
+                      <strong>{t('apps_download_android')}</strong>
+                      <small>{t('apps_android_size')}</small>
+                    </span>
+                  </a>
+                  <a
+                    href={TELEGRAM_MINI_APP_URL}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="hp-apps-btn hp-apps-btn--telegram"
+                    aria-label={t('apps_open_telegram')}
+                  >
+                    <IconTelegram aria-hidden="true" />
+                    <span><strong>{t('apps_open_telegram')}</strong></span>
+                  </a>
+                </div>
               </div>
 
-              {/* Phone mockup floats above the card; the whole card links
-                  directly to the Telegram Mini App. */}
+              {/* Decorative phone mockup; downloads start only from the CTA. */}
               <div className="hp-apps-phone-wrap">
                 <img src={phoneMockup} alt="" className="hp-apps-phone" />
-                <span className="hp-apps-phone-badge"><IconTelegram /></span>
+                <span className="hp-apps-phone-badge" aria-hidden="true">APK</span>
               </div>
             </div>
-          </a>
+          </div>
         </Reveal>
       </div>
     </section>

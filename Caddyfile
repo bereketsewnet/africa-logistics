@@ -41,3 +41,41 @@ erp-member.alefdelta.com {
     encode zstd gzip
     reverse_proxy alef_erp_member_portal:80
 }
+
+# ─── ALEF DELTA SACCO ─────────────────────────────────────────────────────────────────────
+sacco-api.alefdelta.com {
+    encode zstd gzip
+    reverse_proxy alefdelta_api:4000
+}
+
+sacco-mp.alefdelta.com {
+    encode zstd gzip
+    reverse_proxy alefdelta_member_portal:80
+}
+
+corebank.alefdelta.com {
+    encode zstd gzip
+    reverse_proxy alefdelta_frontend:80
+}
+
+sacco-registration.alefdelta.com {
+    redir https://sacco-mp.alefdelta.com/auth/register permanent
+}
+
+# ─── Dineos AI Agent ────────────────────────────────────────────────────────
+dineos-agent.lula.com.et {
+    encode zstd gzip
+    request_body {
+        max_size 20MB
+    }
+
+    redir /miniapp /miniapp/ 308
+
+    handle_path /miniapp/* {
+        reverse_proxy dineos_miniapp:80
+    }
+
+    handle {
+        reverse_proxy dineos_api:8765
+    }
+}

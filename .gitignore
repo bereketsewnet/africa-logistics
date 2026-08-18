@@ -11,6 +11,9 @@
 **/dist/
 **/build/
 
+# Large deployable binaries stay directly on the production VPS.
+africa-logistic-frontend/public/downloads/*.apk
+
 # ── Uploads (runtime data, not source) ─────────────────────────
 africa-logistic-backend/uploads/
 
