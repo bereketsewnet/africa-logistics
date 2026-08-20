@@ -26,3 +26,7 @@ africa-logistic-backend/uploads/
 Thumbs.db
 .vscode/
 .idea/
+
+# Browser-test output
+**/playwright-report/
+**/test-results/

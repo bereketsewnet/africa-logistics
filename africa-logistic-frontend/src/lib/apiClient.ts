@@ -47,7 +47,10 @@ apiClient.interceptors.request.use((config) => {
 apiClient.interceptors.response.use(
   (response) => response, // Pass successful responses through
   (error) => {
-    if (error.response?.status === 401) {
+    // Redirect only when an existing authenticated session has expired. A
+    // normal failed login also returns 401, but there is no stored session in
+    // that case and the page must remain mounted so it can show the error.
+    if (error.response?.status === 401 && localStorage.getItem('auth_token')) {
       localStorage.removeItem('auth_token')
       window.location.href = '/login'
     }

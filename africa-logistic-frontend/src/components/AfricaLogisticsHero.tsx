@@ -74,9 +74,25 @@ export default function AfricaLogisticsHero({
   const heroSlides = [backgroundImage, '/images/hero-2.webp', '/images/hero-3.webp']
   const SLIDE_MS = 6000
   const [slide, setSlide] = useState(0)
+  const [secondarySlidesReady, setSecondarySlidesReady] = useState(false)
   const goSlide = useCallback((dir: number) => {
+    setSecondarySlidesReady(true)
     setSlide(s => (s + dir + heroSlides.length) % heroSlides.length)
   }, [heroSlides.length])
+  // Do not let decorative carousel images compete with the first paint. They
+  // begin downloading only after the initial page resources have completed.
+  useEffect(() => {
+    let timer: ReturnType<typeof setTimeout> | undefined
+    const queueSecondarySlides = () => {
+      timer = setTimeout(() => setSecondarySlidesReady(true), 3500)
+    }
+    if (document.readyState === 'complete') queueSecondarySlides()
+    else window.addEventListener('load', queueSecondarySlides, { once: true })
+    return () => {
+      window.removeEventListener('load', queueSecondarySlides)
+      if (timer) clearTimeout(timer)
+    }
+  }, [])
   useEffect(() => {
     const id = setTimeout(() => setSlide(s => (s + 1) % heroSlides.length), SLIDE_MS)
     return () => clearTimeout(id)
@@ -134,10 +150,13 @@ export default function AfricaLogisticsHero({
         {heroSlides.map((src, i) => (
           <img
             key={i}
-            src={src}
+            src={i === 0 || secondarySlidesReady ? src : undefined}
             alt=""
             aria-hidden="true"
             className={`alh-bg${i === slide ? ' is-active' : ''}`}
+            loading={i === 0 ? 'eager' : 'lazy'}
+            fetchPriority={i === 0 ? 'high' : 'low'}
+            decoding="async"
             onError={e => {
               if (e.currentTarget.src.indexOf(backgroundImage) === -1) e.currentTarget.src = backgroundImage
             }}

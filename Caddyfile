@@ -1,6 +1,10 @@
 # ─── Afri Logistics — Frontend ──────────────────────────────────────────────
 # Canonical frontend domain
 afri-logistics.com {
+    # Compress at the public edge. The reverse proxy otherwise normalizes the
+    # upstream response and was sending multi-megabyte JS files uncompressed.
+    encode zstd gzip
+
     handle_path /uploads/* {
         root * /srv/uploads
         file_server

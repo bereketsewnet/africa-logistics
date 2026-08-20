@@ -1,5 +1,6 @@
 import { useRef, useEffect, useState, useCallback } from 'react'
 import { Link } from 'react-router-dom'
+import { isAxiosError } from 'axios'
 import {
   Truck, Package, Globe2, Warehouse, Route, Users,
   MapPin, Phone, Mail, Send,
@@ -363,7 +364,13 @@ function Apps() {
 
               {/* Decorative phone mockup; downloads start only from the CTA. */}
               <div className="hp-apps-phone-wrap">
-                <img src={phoneMockup} alt="" className="hp-apps-phone" />
+                <img
+                  src={phoneMockup}
+                  alt=""
+                  className="hp-apps-phone"
+                  loading="lazy"
+                  decoding="async"
+                />
                 <span className="hp-apps-phone-badge" aria-hidden="true">APK</span>
               </div>
             </div>
@@ -410,6 +417,8 @@ function Team() {
                       src={`/images/team/${m.slug}.webp`}
                       alt={m.name}
                       className="hp-team-photo"
+                      loading="lazy"
+                      decoding="async"
                       onError={e => { e.currentTarget.style.display = 'none' }}
                     />
                     <span className="hp-team-role-icon"><m.icon /></span>
@@ -439,7 +448,7 @@ function Contact() {
 
   useEffect(() => {
     configApi.getContactInfo()
-      .then(r => setInfo((r.data as any).contact ?? {}))
+      .then(r => setInfo((r.data as { contact?: ContactInfo }).contact ?? {}))
       .catch(() => { })
       .finally(() => setLoading(false))
   }, [])
@@ -476,8 +485,11 @@ function Contact() {
       await configApi.submitContact(form)
       setStatus('success'); setMsg(t('contact_success'))
       setForm({ name: '', request: '', email: '', phone: '' })
-    } catch (err: any) {
-      setStatus('error'); setMsg(err?.response?.data?.message || t('contact_error'))
+    } catch (err: unknown) {
+      const errorMessage = isAxiosError<{ message?: string }>(err)
+        ? err.response?.data?.message
+        : undefined
+      setStatus('error'); setMsg(errorMessage || t('contact_error'))
     }
   }
 

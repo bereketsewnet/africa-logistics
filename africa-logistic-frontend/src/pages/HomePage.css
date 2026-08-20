@@ -186,12 +186,20 @@
    the gradient (2nd layer) shows, so the section never looks broken. */
 .hp-about-img--1 {
   aspect-ratio: 4 / 3;
-  background-image: url('/images/about-1.webp'), linear-gradient(135deg, #71ad25, #2c4a10);
+  background-image: linear-gradient(135deg, #71ad25, #2c4a10);
 }
 
 .hp-about-img--2 {
   aspect-ratio: 16 / 8;
   margin-left: 36px;
+  background-image: linear-gradient(135deg, #3e6113, #0c2c14);
+}
+
+.hp-reveal-right.visible .hp-about-img--1 {
+  background-image: url('/images/about-1.webp'), linear-gradient(135deg, #71ad25, #2c4a10);
+}
+
+.hp-reveal-right.visible .hp-about-img--2 {
   background-image: url('/images/about-2.webp'), linear-gradient(135deg, #3e6113, #0c2c14);
 }
 
@@ -210,8 +218,12 @@
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
-  background-image: url('/images/why-choose.webp'), linear-gradient(160deg, #71ad25, #223c0d 70%);
+  background-image: linear-gradient(160deg, #71ad25, #223c0d 70%);
   box-shadow: 0 24px 60px rgba(0, 0, 0, .3);
+}
+
+.hp-reveal-left.visible .hp-why-media {
+  background-image: url('/images/why-choose.webp'), linear-gradient(160deg, #71ad25, #223c0d 70%);
 }
 
 .hp-why-grid {
@@ -457,11 +469,14 @@
   inset: 0;
   border-radius: inherit;
   overflow: hidden;
-  background-image: url('/images/apps-bg.webp');
   background-size: cover;
   background-position: center;
   opacity: .18;
   pointer-events: none;
+}
+
+.hp-reveal-scale.visible .hp-apps::before {
+  background-image: url('/images/apps-bg.webp');
 }
 
 .hp-apps-inner {

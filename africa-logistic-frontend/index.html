@@ -20,7 +20,65 @@
 
   <!-- ── Performance ── -->
   <link rel="preconnect" href="https://backend.afri-logistics.com" />
-  <link rel="preload" as="image" href="/bg.webp" fetchpriority="high" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="preload" as="style"
+    href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&amp;display=swap"
+    onload="this.onload=null;this.rel='stylesheet'" />
+  <noscript><link rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&amp;display=swap" /></noscript>
+  <script>
+    // The SPA uses one index for every route. Preload the hero only on the
+    // public homepage so login/dashboard users do not pay for it.
+    if (window.location.pathname === '/') {
+      const heroPreload = document.createElement('link')
+      heroPreload.rel = 'preload'
+      heroPreload.as = 'image'
+      heroPreload.href = '/bg.webp'
+      heroPreload.fetchPriority = 'high'
+      document.head.appendChild(heroPreload)
+    }
+  </script>
+
+  <!-- Visible immediately, before the JavaScript bundle has downloaded. -->
+  <style>
+    .startup-loader {
+      min-height: 100vh;
+      min-height: 100dvh;
+      display: grid;
+      place-content: center;
+      justify-items: center;
+      gap: 14px;
+      background: linear-gradient(145deg, #f8fbf5 0%, #edf5e5 100%);
+      color: #31520f;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    .startup-loader__mark {
+      display: grid;
+      place-items: center;
+      width: 58px;
+      height: 58px;
+      border-radius: 17px;
+      color: #fff;
+      background: linear-gradient(135deg, #71ad25, #3e6113);
+      box-shadow: 0 14px 34px rgba(62, 97, 19, .24);
+      font-size: 19px;
+      font-weight: 800;
+      letter-spacing: -.5px;
+    }
+    .startup-loader__spinner {
+      width: 26px;
+      height: 26px;
+      border: 3px solid rgba(97, 148, 31, .2);
+      border-top-color: #61941f;
+      border-radius: 50%;
+      animation: startup-spin .7s linear infinite;
+    }
+    .startup-loader__label { font-size: 14px; font-weight: 650; }
+    @keyframes startup-spin { to { transform: rotate(360deg); } }
+    @media (prefers-reduced-motion: reduce) {
+      .startup-loader__spinner { animation-duration: 1.5s; }
+    }
+  </style>
 
   <!-- ── Open Graph / Facebook ── -->
   <meta property="og:type" content="website" />
@@ -93,7 +151,13 @@
 </head>
 
 <body>
-  <div id="root"></div>
+  <div id="root">
+    <main class="startup-loader" role="status" aria-live="polite">
+      <span class="startup-loader__mark" aria-hidden="true">AL</span>
+      <span class="startup-loader__spinner" aria-hidden="true"></span>
+      <span class="startup-loader__label">Loading Afri Logistics…</span>
+    </main>
+  </div>
   <script type="module" src="/src/main.tsx"></script>
 </body>
 

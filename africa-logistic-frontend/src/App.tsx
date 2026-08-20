@@ -1,15 +1,29 @@
-import { useEffect, useState } from 'react'
+import { lazy, Suspense, useEffect, useState } from 'react'
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
-import HomePage             from './pages/HomePage'
-import LoginPage            from './pages/LoginPage'
-import RegisterPage         from './pages/RegisterPage'
-import DashboardPage        from './pages/DashboardPage'
-import AdminDashboardPage   from './pages/AdminDashboardPage'
-import CarOwnerDashboard    from './pages/CarOwnerDashboard'
-import ForgotPasswordPage   from './pages/ForgotPasswordPage'
-import VerifyEmailPage      from './pages/VerifyEmailPage'
 import ProtectedRoute       from './components/ProtectedRoute'
 import { configApi } from './lib/apiClient'
+
+// Keep the first download small: users only fetch the page they visit. Heavy
+// dashboard dependencies (maps, charts and PDF generation) are no longer part
+// of the public homepage/login startup bundle.
+const HomePage = lazy(() => import('./pages/HomePage'))
+const LoginPage = lazy(() => import('./pages/LoginPage'))
+const RegisterPage = lazy(() => import('./pages/RegisterPage'))
+const DashboardPage = lazy(() => import('./pages/DashboardPage'))
+const AdminDashboardPage = lazy(() => import('./pages/AdminDashboardPage'))
+const CarOwnerDashboard = lazy(() => import('./pages/CarOwnerDashboard'))
+const ForgotPasswordPage = lazy(() => import('./pages/ForgotPasswordPage'))
+const VerifyEmailPage = lazy(() => import('./pages/VerifyEmailPage'))
+
+function RouteLoader() {
+  return (
+    <main className="startup-loader" role="status" aria-live="polite">
+      <span className="startup-loader__mark" aria-hidden="true">AL</span>
+      <span className="startup-loader__spinner" aria-hidden="true" />
+      <span className="startup-loader__label">Loading Afri Logistics…</span>
+    </main>
+  )
+}
 
 /**
  * Belt-and-suspenders SEO guard. robots.txt already disallows crawling of
@@ -69,38 +83,40 @@ export default function App() {
   return (
     <BrowserRouter>
       <RouteSeoGuard />
-      <Routes>
-        <Route path="/"                element={<HomePage />} />
-        <Route path="/login"           element={<LoginPage />} />       
-        <Route path="/register"        element={<RegisterPage />} />
-        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-        <Route path="/verify-email"    element={<VerifyEmailPage />} />
-        <Route
-          path="/dashboard"
-          element={
-            <ProtectedRoute allowedRoles={[2, 3]}>
-              <DashboardPage />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/admin"
-          element={
-            <ProtectedRoute allowedRoles={[1, 4, 5]}>
-              <AdminDashboardPage />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/car-dashboard"
-          element={
-            <ProtectedRoute allowedRoles={[6]}>
-              <CarOwnerDashboard />
-            </ProtectedRoute>
-          }
-        />
-        <Route path="*" element={<Navigate to="/login" replace />} />
-      </Routes>
+      <Suspense fallback={<RouteLoader />}>
+        <Routes>
+          <Route path="/"                element={<HomePage />} />
+          <Route path="/login"           element={<LoginPage />} />
+          <Route path="/register"        element={<RegisterPage />} />
+          <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+          <Route path="/verify-email"    element={<VerifyEmailPage />} />
+          <Route
+            path="/dashboard"
+            element={
+              <ProtectedRoute allowedRoles={[2, 3]}>
+                <DashboardPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin"
+            element={
+              <ProtectedRoute allowedRoles={[1, 4, 5]}>
+                <AdminDashboardPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/car-dashboard"
+            element={
+              <ProtectedRoute allowedRoles={[6]}>
+                <CarOwnerDashboard />
+              </ProtectedRoute>
+            }
+          />
+          <Route path="*" element={<Navigate to="/login" replace />} />
+        </Routes>
+      </Suspense>
     </BrowserRouter>
   )
 }

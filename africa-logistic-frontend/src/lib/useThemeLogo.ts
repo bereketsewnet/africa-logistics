@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
-import logoDark from '../assets/logo_dark.png'
-import logoLight from '../assets/logo_light.png'
+import logoDark from '../assets/logo_dark.webp'
+import logoLight from '../assets/logo_light.webp'
 
 function resolveLogo(): string {
   const t = document.documentElement.getAttribute('data-theme')

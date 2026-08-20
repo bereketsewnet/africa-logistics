@@ -10,7 +10,6 @@ import './index.css'
     localStorage.getItem('login-theme')
   document.documentElement.setAttribute('data-theme', (stored ?? 'light').toLowerCase())
 })()
-import 'leaflet/dist/leaflet.css'
 import App from './App.tsx'
 import { AuthProvider } from './context/AuthContext.tsx'
 import { LanguageProvider } from './context/LanguageContext.tsx'
