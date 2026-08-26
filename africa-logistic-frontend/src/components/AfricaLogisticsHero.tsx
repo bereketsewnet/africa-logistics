@@ -256,10 +256,10 @@ export default function AfricaLogisticsHero({
           <p>
             {t('hero_intro_sub') || "Afri Logistics is Ethiopia's premier logistics company specializing in local and cross-country delivery services."}
           </p>
-          <a href="#start" className="alh-cta">
+          <Link to="/register" className="alh-cta">
             {t('hp_get_started') || 'Get Started'}
             <span className="alh-arrow">&rarr;</span>
-          </a>
+          </Link>
         </div>
 
         {/* ═══ Feature columns ═══ */}
