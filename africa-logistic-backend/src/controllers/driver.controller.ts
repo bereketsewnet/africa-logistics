@@ -613,9 +613,14 @@ export async function verifyDeliveryOtpHandler(
     const { sendEmail } = await import('../services/email.service.js')
 
     // Calculate final price including any approved charges/tips
-    // Check order assignment
-    if (!order.shipper_id || !order.driver_id) {
-      throw new Error('Order missing shipper or driver assignment')
+    // A driver is always required at delivery. A shipper is only required when
+    // wallet settlement is still pending (guest/offline receipt orders may not
+    // have one).
+    if (!order.driver_id) {
+      throw new Error('Order missing driver assignment')
+    }
+    if (order.payment_status !== 'SETTLED' && !order.shipper_id) {
+      throw new Error('Unpaid order missing shipper assignment')
     }
 
     const pricing = await calculateFinalOrderPrice(
@@ -625,17 +630,20 @@ export async function verifyDeliveryOtpHandler(
       order.driver_id
     )
 
-    // Settle payment (deduct from shipper, credit to driver)
-    const { shipperTransactionId, driverTransactionId } = await settleOrderPayment(
-      request.server.db,
-      order.id,
-      order.shipper_id,
-      order.driver_id,
-      pricing.shipperCost,
-      pricing.driverEarning,
-      pricing.commission,
-      order.reference_code
-    )
+    // Receipt-backed admin/staff orders are already settled outside the wallet.
+    // Only shipper-placed, still-unpaid orders should debit the shipper wallet.
+    if (order.payment_status !== 'SETTLED') {
+      await settleOrderPayment(
+        request.server.db,
+        order.id,
+        order.shipper_id!,
+        order.driver_id,
+        pricing.shipperCost,
+        pricing.driverEarning,
+        pricing.commission,
+        order.reference_code
+      )
+    }
 
     // Generate invoice number and save record
     const invoiceNumber = generateInvoiceNumber()

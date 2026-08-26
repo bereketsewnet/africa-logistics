@@ -1168,22 +1168,11 @@ export async function adminCreateOrderOnBehalfHandler(
   const pickupOtp = generateOtp()
   const deliveryOtp = generateOtp()
 
-  // For registered shippers, require enough wallet balance to cover the order.
-  if (shipper_id) {
-    const { validateOrderPayment } = await import('../services/payment.service.js')
-    const paymentValidation = await validateOrderPayment(request.server.db, shipper_id, quote.estimated_price)
-
-    if (!paymentValidation.hasSufficientBalance) {
-      return reply.status(402).send({
-        success: false,
-        message: `Insufficient wallet balance. You need ${paymentValidation.shortfall.toFixed(2)} ETB more.`,
-        current_balance: paymentValidation.currentBalance,
-        required_balance: quote.estimated_price,
-        shortfall: paymentValidation.shortfall,
-        action: 'RECHARGE_WALLET',
-      })
-    }
-  }
+  // This is an operations workflow performed by an authorized admin/staff
+  // member and must not block on or debit the selected customer's wallet.
+  // Orders placed directly by a shipper continue to enforce wallet balance in
+  // placeOrderHandler. Admin-created orders remain UNPAID unless staff attach a
+  // valid payment receipt below.
 
   // Save optional media files
   let cargoImageUrl: string | null = null
@@ -1233,6 +1222,18 @@ export async function adminCreateOrderOnBehalfHandler(
     hsCode: hs_code ?? null,
     shipperTin: shipper_tin ?? null,
   })
+
+  // A receipt uploaded by authorized operations staff confirms that this order
+  // was paid outside the in-app wallet. Without a successfully saved receipt,
+  // createOrder's safe default remains UNPAID.
+  if (paymentReceiptUrl) {
+    await request.server.db.query(
+      `UPDATE orders
+          SET payment_status = 'SETTLED', final_price = estimated_price, updated_by = ?
+        WHERE id = ?`,
+      [admin.id, orderId]
+    )
+  }
 
   // Optionally assign driver right away
   if (driver_id) {

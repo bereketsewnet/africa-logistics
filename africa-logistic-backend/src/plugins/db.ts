@@ -121,7 +121,9 @@ export default fp(async function dbPlugin(fastify: FastifyInstance) {
                                    'CUSTOMS_CLEARED','DELIVERED','COMPLETED',
                                    'CANCELLED','FAILED') DEFAULT 'PENDING',
         pickup_otp_hash         VARCHAR(255) NOT NULL,
+        pickup_otp              VARCHAR(6) NULL,
         delivery_otp_hash       VARCHAR(255) NOT NULL,
+        delivery_otp            VARCHAR(6) NULL,
         pickup_otp_verified_at  TIMESTAMP NULL,
         delivery_otp_verified_at TIMESTAMP NULL,
         invoice_url             VARCHAR(255),
@@ -282,6 +284,18 @@ export default fp(async function dbPlugin(fastify: FastifyInstance) {
     await addColIfMissing('orders',        'guest_email',          'VARCHAR(200) NULL')
     await addColIfMissing('orders',        'internal_notes',       'TEXT NULL')
     await addColIfMissing('orders',        'updated_by',           'CHAR(36) NULL')
+    // OTPs are shown to authorized operations staff while the hashes are used
+    // for verification. Older production databases only had the hash columns.
+    await addColIfMissing('orders',        'pickup_otp',            'VARCHAR(6) NULL AFTER pickup_otp_hash')
+    await addColIfMissing('orders',        'delivery_otp',          'VARCHAR(6) NULL AFTER delivery_otp_hash')
+    // The fleet workflow grew after the original vehicles table was deployed.
+    // Keep this migration idempotent so an empty/older database returns []
+    // instead of failing every order form with an unknown-column SQL error.
+    await addColIfMissing('vehicles',      'vehicle_images',        'JSON NULL AFTER vehicle_photo_url')
+    await addColIfMissing('vehicles',      'libre_url',             'VARCHAR(500) NULL AFTER vehicle_images')
+    await addColIfMissing('vehicles',      'is_approved',           'TINYINT(1) NOT NULL DEFAULT 1 AFTER is_active')
+    await addColIfMissing('vehicles',      'submitted_by_driver_id','CHAR(36) NULL AFTER is_approved')
+    await addColIfMissing('vehicles',      'driver_submission_status', "ENUM('PENDING','APPROVED','REJECTED') NULL AFTER submitted_by_driver_id")
     // Chat channel separation: 'main' = shipper+driver visible, 'driver' = admin↔driver only
     await addColIfMissing('order_messages', 'channel',             "VARCHAR(20) NOT NULL DEFAULT 'main'")
     // ─── Module 10: Cross-Border & Customs columns ────────────────────────────

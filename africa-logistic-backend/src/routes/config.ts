@@ -59,9 +59,10 @@ export default async function configRoutes(fastify: FastifyInstance) {
     const [rows] = await fastify.db.query<any[]>(
       'SELECT phone1, phone2, email1, email2, po_box, youtube_url, tiktok_url, facebook_url, instagram_url, x_url, linkedin_url, whatsapp_number, whatsapp_url, telegram_url FROM company_contact WHERE id = 1 LIMIT 1'
     )
-    const contact = { ...COMPANY_CONTACT_DEFAULTS, ...(rows[0] ?? {}) }
-    for (const key of Object.keys(contact) as Array<keyof typeof contact>) {
-      if (contact[key] == null || contact[key] === '') contact[key] = COMPANY_CONTACT_DEFAULTS[key] ?? contact[key]
+    const contact: Record<string, unknown> = { ...COMPANY_CONTACT_DEFAULTS, ...(rows[0] ?? {}) }
+    const defaults: Record<string, string> = COMPANY_CONTACT_DEFAULTS
+    for (const key of Object.keys(contact)) {
+      if (contact[key] == null || contact[key] === '') contact[key] = defaults[key] ?? contact[key]
     }
     return reply.send({ success: true, contact })
   })

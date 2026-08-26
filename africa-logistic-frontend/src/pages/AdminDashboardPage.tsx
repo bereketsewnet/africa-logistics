@@ -4382,6 +4382,7 @@ function AdminOrdersSection({ initialDriverFilter, initialStatusFilter }: { init
   const [coStep, setCoStep] = useState<'form' | 'confirm'>('form')
   const [coSaving, setCoSaving] = useState(false)
   const [coErr, setCoErr] = useState('')
+  const [coFleetNotice, setCoFleetNotice] = useState('')
   // Optional image uploads
   const [coCargoImage, setCoCargoImage] = useState<string | null>(null)
   const [coPaymentReceipt, setCoPaymentReceipt] = useState<string | null>(null)
@@ -4626,29 +4627,48 @@ function AdminOrdersSection({ initialDriverFilter, initialStatusFilter }: { init
 
   const openCreateOrder = async () => {
     setCoForm({ shipper_id: '', shipper_search: '', country_code: '', cargo_type_id: '', vehicle_type: '', estimated_weight_kg: '', pickup_address: '', pickup_lat: '', pickup_lng: '', pickup_country_code: '', delivery_address: '', delivery_lat: '', delivery_lng: '', delivery_country_code: '', special_instructions: '', driver_id: '', vehicle_id: '' })
-    setCoQuote(null); setCoStep('form'); setCoErr('')
+    setCoQuote(null); setCoStep('form'); setCoErr(''); setCoFleetNotice('')
     setCoCargoImage(null); setCoPaymentReceipt(null)
     setCoIsCrossBorder(false); setCoDeliveryCountryId(''); setCoHsCode(''); setCoShipperTin('')
     setCreateOrderModal(true)
-    // Load shippers + cargo types + drivers/vehicles if not loaded
+    // Core order data must load; fleet assignment data is optional.
     try {
-      const [sh, ct, dr, vh, ctry] = await Promise.all([
+      const [sh, ct, ctry] = await Promise.all([
         adminOrderApi.getShippers(),
         apiClient.get('/orders/cargo-types'),
-        apiClient.get('/admin/drivers?filter=verified'),
-        apiClient.get('/admin/vehicles'),
         configApi.getCountries(),
       ])
-      setShippers((sh.data.users ?? []).filter((u: any) => u.role_id === 2))
-      setCargoTypesForCreate(ct.data.cargo_types ?? [])
-      setDrivers(dr.data.drivers ?? [])
-      setVehicles((vh.data.vehicles ?? []).filter((v: any) => v.is_active))
+      const nextShippers = (sh.data.users ?? []).filter((u: any) => u.role_id === 2)
+      const nextCargoTypes = ct.data.cargo_types ?? []
+      setShippers(nextShippers)
+      setCargoTypesForCreate(nextCargoTypes)
       const countries = ctry.data.countries ?? []
       setCoCountries(countries)
       if (countries[0]?.iso_code) {
         setCoForm(f => ({ ...f, country_code: String(countries[0].iso_code).toLowerCase() }))
       }
-    } catch { setCoErr('Failed to load data') }
+      if (nextShippers.length === 0) setCoErr('No shipper/customer accounts are registered yet. Register a shipper or use Guest Orders.')
+      else if (nextCargoTypes.length === 0) setCoErr('No cargo types are configured yet. Add a cargo type before creating an order.')
+      else if (countries.length === 0) setCoErr('No service countries are configured yet. Add a country before creating an order.')
+    } catch { setCoErr('Could not load customers, cargo types, or countries. Please retry.') }
+
+    const [driverResult, vehicleResult] = await Promise.allSettled([
+      apiClient.get('/admin/drivers?filter=verified'),
+      apiClient.get('/admin/vehicles'),
+    ])
+    const nextDrivers = driverResult.status === 'fulfilled' ? (driverResult.value.data.drivers ?? []) : []
+    const nextVehicles = vehicleResult.status === 'fulfilled'
+      ? (vehicleResult.value.data.vehicles ?? []).filter((v: any) => v.is_active)
+      : []
+    setDrivers(nextDrivers)
+    setVehicles(nextVehicles)
+    if (driverResult.status === 'rejected' || vehicleResult.status === 'rejected') {
+      setCoFleetNotice('Driver or vehicle assignments are temporarily unavailable. You can still create the order unassigned.')
+    } else if (nextDrivers.length === 0 && nextVehicles.length === 0) {
+      setCoFleetNotice('No verified drivers or active fleet vehicles are registered yet. You can create the order unassigned.')
+    } else if (nextVehicles.length === 0) {
+      setCoFleetNotice('No active fleet vehicles are registered yet. Vehicle assignment is optional.')
+    }
   }
 
   const getCoQuote = async () => {
@@ -4712,16 +4732,12 @@ function AdminOrdersSection({ initialDriverFilter, initialStatusFilter }: { init
         hs_code: coIsCrossBorder && coHsCode ? coHsCode : undefined,
         shipper_tin: coIsCrossBorder && coShipperTin ? coShipperTin : undefined,
       })
-      showToast(`Order ${data.order?.reference_code ?? ''} created! Pickup OTP: ${data.otps?.pickup_otp}`)
+      showToast(`Order ${data.order?.reference_code ?? ''} created · Payment: ${data.order?.payment_status ?? (coPaymentReceipt ? 'SETTLED' : 'UNPAID')} · Pickup OTP: ${data.otps?.pickup_otp}`)
       setCreateOrderModal(false)
       loadOrders(page, statusFilter, search)
     } catch (e: any) {
       const data = e.response?.data
-      if (e.response?.status === 402 && data?.shortfall !== undefined) {
-        setCoErr(`Insufficient wallet balance. Shortfall: ${Number(data.shortfall).toFixed(2)} ETB. Please recharge the shipper wallet first.`)
-      } else {
-        setCoErr(data?.message ?? 'Failed to create order')
-      }
+      setCoErr(data?.message ?? 'Failed to create order')
     }
     finally { setCoSaving(false) }
   }
@@ -5443,6 +5459,7 @@ function AdminOrdersSection({ initialDriverFilter, initialStatusFilter }: { init
               <button onClick={() => setCreateOrderModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--clr-muted)' }}><LuX size={18} /></button>
             </div>
             {coErr && <div className="alert alert-error" style={{ marginBottom: '0.75rem' }}><LuTriangleAlert size={13} /> {coErr}</div>}
+            {coFleetNotice && <div className="alert" style={{ marginBottom: '0.75rem', color: 'var(--clr-text)', border: '1px solid rgba(97,148,31,0.28)', background: 'rgba(97,148,31,0.08)' }}><LuCircleCheck size={13} /> {coFleetNotice}</div>}
 
             {coStep === 'form' ? (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
@@ -5648,6 +5665,9 @@ function AdminOrdersSection({ initialDriverFilter, initialStatusFilter }: { init
                     {coPaymentReceipt && <div style={{ flex: 1, padding: '0.5rem 0.75rem', borderRadius: 8, background: 'rgba(97, 148, 31,0.06)', border: '1px solid rgba(97, 148, 31,0.15)', fontSize: '0.75rem', color: 'var(--clr-accent)', display: 'flex', alignItems: 'center', gap: '0.4rem' }}><LuFileText size={13} /> {tr('aord_receipt_attached')}</div>}
                   </div>
                 )}
+                <div style={{ padding: '0.55rem 0.75rem', borderRadius: 8, background: coPaymentReceipt ? 'rgba(74,222,128,0.08)' : 'rgba(251,191,36,0.08)', border: `1px solid ${coPaymentReceipt ? 'rgba(74,222,128,0.24)' : 'rgba(251,191,36,0.24)'}`, fontSize: '0.76rem', fontWeight: 700, color: coPaymentReceipt ? 'var(--kpi-green)' : 'var(--kpi-gold)' }}>
+                  Payment: {coPaymentReceipt ? 'SETTLED — receipt attached' : 'UNPAID — no receipt attached'}
+                </div>
                 <div style={{ display: 'flex', gap: '0.5rem' }}>
                   <button onClick={() => setCoStep('form')} className="btn-outline" style={{ flex: 1 }}>{tr('aord_back')}</button>
                   <button onClick={placeCoOrder} disabled={coSaving || !coForm.shipper_id} className="btn-primary" style={{ flex: 2 }}>
@@ -6075,6 +6095,7 @@ function AdminGuestOrdersSection() {
   const [gStep, setGStep] = useState<'form' | 'confirm'>('form')
   const [gSaving, setGSaving] = useState(false)
   const [gErr, setGErr] = useState('')
+  const [gFleetNotice, setGFleetNotice] = useState('')
 
   // ── Loaders ─────────────────────────────────────────────────────────────────
   const load = useCallback(async (pg = page, q = search) => {
@@ -6103,22 +6124,39 @@ function AdminGuestOrdersSection() {
     setGForm({ guest_name: '', guest_phone: '', guest_email: '', country_code: '', cargo_type_id: '', vehicle_type: '', estimated_weight_kg: '', pickup_address: '', pickup_lat: '', pickup_lng: '', pickup_country_code: '', delivery_address: '', delivery_lat: '', delivery_lng: '', delivery_country_code: '', special_instructions: '', driver_id: '', vehicle_id: '' })
     setGCargoImage(null); setGPaymentReceipt(null); setGIsCrossBorder(false)
     setGDeliveryCountryId(''); setGHsCode(''); setGShipperTin('')
-    setGQuote(null); setGStep('form'); setGErr('')
+    setGQuote(null); setGStep('form'); setGErr(''); setGFleetNotice('')
     setCreateModal(true)
     try {
-      const [ct, dr, vh, ctry] = await Promise.all([
+      const [ct, ctry] = await Promise.all([
         apiClient.get('/orders/cargo-types'),
-        apiClient.get('/admin/drivers?filter=verified'),
-        apiClient.get('/admin/vehicles'),
         configApi.getCountries(),
       ])
-      setCargoTypes(ct.data.cargo_types ?? [])
-      setDrivers(dr.data.drivers ?? [])
-      setVehicles((vh.data.vehicles ?? []).filter((v: any) => v.is_active))
+      const nextCargoTypes = ct.data.cargo_types ?? []
+      setCargoTypes(nextCargoTypes)
       const ctryList = ctry.data.countries ?? []
       setCountries(ctryList)
       if (ctryList[0]?.iso_code) setGForm(f => ({ ...f, country_code: String(ctryList[0].iso_code).toLowerCase() }))
-    } catch { setGErr('Failed to load data') }
+      if (nextCargoTypes.length === 0) setGErr('No cargo types are configured yet. Add a cargo type before creating an order.')
+      else if (ctryList.length === 0) setGErr('No service countries are configured yet. Add a country before creating an order.')
+    } catch { setGErr('Could not load cargo types or countries. Please retry.') }
+
+    const [driverResult, vehicleResult] = await Promise.allSettled([
+      apiClient.get('/admin/drivers?filter=verified'),
+      apiClient.get('/admin/vehicles'),
+    ])
+    const nextDrivers = driverResult.status === 'fulfilled' ? (driverResult.value.data.drivers ?? []) : []
+    const nextVehicles = vehicleResult.status === 'fulfilled'
+      ? (vehicleResult.value.data.vehicles ?? []).filter((v: any) => v.is_active)
+      : []
+    setDrivers(nextDrivers)
+    setVehicles(nextVehicles)
+    if (driverResult.status === 'rejected' || vehicleResult.status === 'rejected') {
+      setGFleetNotice('Driver or vehicle assignments are temporarily unavailable. You can still create this guest order unassigned.')
+    } else if (nextDrivers.length === 0 && nextVehicles.length === 0) {
+      setGFleetNotice('No verified drivers or active fleet vehicles are registered yet. You can create this guest order unassigned.')
+    } else if (nextVehicles.length === 0) {
+      setGFleetNotice('No active fleet vehicles are registered yet. Vehicle assignment is optional.')
+    }
   }
 
   const getGuestQuote = async () => {
@@ -6165,7 +6203,7 @@ function AdminGuestOrdersSection() {
         hs_code: gIsCrossBorder && gHsCode ? gHsCode : undefined,
         shipper_tin: gIsCrossBorder && gShipperTin ? gShipperTin : undefined,
       })
-      showToast(`Guest order ${data.order?.reference_code ?? ''} created! Pickup OTP: ${data.otps?.pickup_otp}`)
+      showToast(`Guest order ${data.order?.reference_code ?? ''} created · Payment: ${data.order?.payment_status ?? (gPaymentReceipt ? 'SETTLED' : 'UNPAID')} · Pickup OTP: ${data.otps?.pickup_otp}`)
       setCreateModal(false)
       load(1, search)
     } catch (e: any) {
@@ -6369,6 +6407,7 @@ function AdminGuestOrdersSection() {
               <button onClick={() => setCreateModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--clr-muted)' }}><LuX size={18} /></button>
             </div>
             {gErr && <div className="alert alert-error" style={{ marginBottom: '0.75rem' }}><LuTriangleAlert size={13} /> {gErr}</div>}
+            {gFleetNotice && <div className="alert" style={{ marginBottom: '0.75rem', color: 'var(--clr-text)', border: '1px solid rgba(97,148,31,0.28)', background: 'rgba(97,148,31,0.08)' }}><LuCircleCheck size={13} /> {gFleetNotice}</div>}
 
             {gStep === 'form' ? (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
@@ -6547,6 +6586,9 @@ function AdminGuestOrdersSection() {
                     Guest: {gForm.guest_name} · {gForm.guest_phone || '—'} · {gForm.guest_email || '—'}
                   </div>
                 )}
+                <div style={{ padding: '0.55rem 0.75rem', borderRadius: 8, background: gPaymentReceipt ? 'rgba(74,222,128,0.08)' : 'rgba(251,191,36,0.08)', border: `1px solid ${gPaymentReceipt ? 'rgba(74,222,128,0.24)' : 'rgba(251,191,36,0.24)'}`, fontSize: '0.76rem', fontWeight: 700, color: gPaymentReceipt ? 'var(--kpi-green)' : 'var(--kpi-gold)' }}>
+                  Payment: {gPaymentReceipt ? 'SETTLED — receipt attached' : 'UNPAID — no receipt attached'}
+                </div>
                 <div style={{ display: 'flex', gap: '0.5rem' }}>
                   <button onClick={() => setGStep('form')} className="btn-outline" style={{ flex: 1 }}>{tr('aord_back')}</button>
                   <button onClick={placeGuestOrder} disabled={gSaving} className="btn-primary" style={{ flex: 2 }}>
