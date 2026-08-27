@@ -4,6 +4,8 @@ import {
   coRegisterVehicleHandler,
   coDeleteVehicleHandler,
   coGetVehicleHandler,
+  coListEligibleDriversHandler,
+  coAssignDriverHandler,
   adminListCarOwnerVehiclesHandler,
   adminReviewCarOwnerVehicleHandler,
   adminAssignDriverToCarOwnerVehicleHandler,
@@ -44,6 +46,20 @@ export default async function carOwnerRoutes(fastify: FastifyInstance) {
     }, coRegisterVehicleHandler)
     // DELETE /api/car-owner/vehicles/:id
     co.delete('/api/car-owner/vehicles/:id', coDeleteVehicleHandler)
+    // GET /api/car-owner/vehicles/:id/eligible-drivers — approved vehicle only
+    co.get('/api/car-owner/vehicles/:id/eligible-drivers', coListEligibleDriversHandler)
+    // PATCH /api/car-owner/vehicles/:id/assign-driver — owner assignment
+    co.patch('/api/car-owner/vehicles/:id/assign-driver', {
+      schema: {
+        body: {
+          type: 'object',
+          required: ['driver_id'],
+          properties: {
+            driver_id: { type: ['string', 'null'] },
+          },
+        },
+      },
+    }, coAssignDriverHandler)
   })
 
   // ── Admin car-owner management routes ──────────────────────────────────────

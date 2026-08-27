@@ -8,12 +8,12 @@ import { useLanguage } from '../context/LanguageContext'
 import {
   LuCar, LuPlus, LuLogOut, LuUser, LuClipboardList, LuCheck,
   LuTriangleAlert, LuRefreshCw, LuTrash2, LuX, LuClock,
-  LuSun, LuMoon,
+  LuSun, LuMoon, LuBadgeCheck, LuFileText, LuSearch, LuUserCheck,
 } from 'react-icons/lu'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface CarOwnerVehicle {
-  id: number
+  id: string
   plate_number: string
   vehicle_type: string
   model: string | null
@@ -23,10 +23,30 @@ interface CarOwnerVehicle {
   description: string | null
   status: 'PENDING' | 'APPROVED' | 'REJECTED'
   admin_note: string | null
+  assigned_driver_id: string | null
   assigned_driver_name: string | null
   assigned_driver_phone: string | null
   created_at: string
 }
+
+interface EligibleDriver {
+  id: string
+  first_name: string
+  last_name: string | null
+  profile_photo_url: string | null
+  status: 'AVAILABLE' | 'ON_JOB' | 'OFFLINE'
+  rating: number | null
+  total_trips: number
+  national_id_url: string
+  license_url: string
+  national_id_status: 'APPROVED'
+  license_status: 'APPROVED'
+  is_currently_assigned: number
+}
+
+const API_UPLOAD_BASE = ((import.meta.env.VITE_API_BASE_URL as string | undefined) ?? '').replace(/\/api\/?$/, '')
+const absoluteUploadUrl = (url: string | null) => !url ? '' : url.startsWith('http') ? url : `${API_UPLOAD_BASE}${url.startsWith('/') ? '' : '/'}${url}`
+const isPdfDocument = (url: string) => url.toLowerCase().split('?')[0].endsWith('.pdf')
 
 // ─── Status badge ─────────────────────────────────────────────────────────────
 function StatusBadge({ status }: { status: CarOwnerVehicle['status'] }) {
@@ -47,6 +67,22 @@ function StatusBadge({ status }: { status: CarOwnerVehicle['status'] }) {
       {status === 'REJECTED' && <LuX size={11}/>}
       {s.label}
     </span>
+  )
+}
+
+function DriverDocument({ label, url }: { label: string; url: string }) {
+  const fullUrl = absoluteUploadUrl(url)
+  return (
+    <a href={fullUrl} target="_blank" rel="noopener noreferrer" style={{ minWidth: 0, textDecoration: 'none', color: 'inherit' }}>
+      <div style={{ height: 92, borderRadius: 9, overflow: 'hidden', background: 'rgba(0,0,0,0.18)', border: '1px solid rgba(255,255,255,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        {isPdfDocument(url) ? (
+          <LuFileText size={28} style={{ color: 'var(--clr-accent)' }} />
+        ) : (
+          <img src={fullUrl} alt={`${label} document`} loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+        )}
+      </div>
+      <span style={{ display: 'block', marginTop: 5, fontSize: '0.68rem', color: 'var(--clr-muted)', textAlign: 'center' }}>{label} · View</span>
+    </a>
   )
 }
 
@@ -89,8 +125,18 @@ export default function CarOwnerDashboard() {
   const [formOk, setFormOk] = useState(false)
 
   // delete confirm
-  const [deletingId, setDeletingId] = useState<number | null>(null)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
   const [deleteLoading, setDeleteLoading] = useState(false)
+
+  // owner driver assignment
+  const [assignVehicle, setAssignVehicle] = useState<CarOwnerVehicle | null>(null)
+  const [eligibleDrivers, setEligibleDrivers] = useState<EligibleDriver[]>([])
+  const [driversLoading, setDriversLoading] = useState(false)
+  const [driversError, setDriversError] = useState('')
+  const [driverSearch, setDriverSearch] = useState('')
+  const [selectedDriverId, setSelectedDriverId] = useState<string | null>(null)
+  const [assignSaving, setAssignSaving] = useState(false)
+  const [assignmentMessage, setAssignmentMessage] = useState('')
 
   async function loadVehicles() {
     setLoading(true); setErr('')
@@ -139,7 +185,7 @@ export default function CarOwnerDashboard() {
     }
   }
 
-  async function handleDelete(id: number) {
+  async function handleDelete(id: string) {
     setDeleteLoading(true)
     try {
       await carOwnerApi.deleteVehicle(String(id))
@@ -152,12 +198,54 @@ export default function CarOwnerDashboard() {
     }
   }
 
+  async function openDriverAssignment(vehicle: CarOwnerVehicle) {
+    if (vehicle.status !== 'APPROVED') return
+    setAssignVehicle(vehicle)
+    setEligibleDrivers([])
+    setDriversError('')
+    setDriverSearch('')
+    setSelectedDriverId(vehicle.assigned_driver_id)
+    setDriversLoading(true)
+    try {
+      const { data } = await carOwnerApi.listEligibleDrivers(vehicle.id)
+      const drivers = data.drivers ?? []
+      setEligibleDrivers(drivers)
+      const currentIsEligible = vehicle.assigned_driver_id && drivers.some((driver: EligibleDriver) => driver.id === vehicle.assigned_driver_id)
+      setSelectedDriverId(currentIsEligible ? vehicle.assigned_driver_id : drivers[0]?.id ?? null)
+    } catch (e: any) {
+      setDriversError(e.response?.data?.message || 'Failed to load verified drivers.')
+    } finally {
+      setDriversLoading(false)
+    }
+  }
+
+  async function saveDriverAssignment(driverId: string | null) {
+    if (!assignVehicle) return
+    setAssignSaving(true)
+    setDriversError('')
+    try {
+      const { data } = await carOwnerApi.assignDriver(assignVehicle.id, driverId)
+      setAssignmentMessage(data.message || (driverId ? 'Driver assigned successfully.' : 'Driver unassigned.'))
+      setAssignVehicle(null)
+      await loadVehicles()
+      setTimeout(() => setAssignmentMessage(''), 3500)
+    } catch (e: any) {
+      setDriversError(e.response?.data?.message || 'Failed to update the driver assignment.')
+    } finally {
+      setAssignSaving(false)
+    }
+  }
+
   async function handleLogout() {
     await logout()
     navigate('/login')
   }
 
   const fullName = [user?.first_name, user?.last_name].filter(Boolean).join(' ') || t('car_owner_badge')
+  const filteredDrivers = eligibleDrivers.filter(driver =>
+    `${driver.first_name} ${driver.last_name ?? ''}`.toLowerCase().includes(driverSearch.trim().toLowerCase())
+  )
+  const selectedDriver = eligibleDrivers.find(driver => driver.id === selectedDriverId) ?? null
 
   return (
     <div className="aurora-bg">
@@ -208,6 +296,12 @@ export default function CarOwnerDashboard() {
               </div>
             </div>
           </div>
+
+          {assignmentMessage && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.55rem', color: '#34d399', fontSize: '0.84rem', background: 'rgba(52,211,153,0.1)', border: '1px solid rgba(52,211,153,0.22)', padding: '0.7rem 0.9rem', borderRadius: 10 }}>
+              <LuCheck size={15} /> {assignmentMessage}
+            </div>
+          )}
 
           {/* ── Register Vehicle Button / Form ───────────────────────────── */}
           {!showForm ? (
@@ -343,6 +437,14 @@ export default function CarOwnerDashboard() {
                       ) : (
                         <span style={{ fontSize: '0.75rem', color: 'var(--clr-muted)', background: 'var(--adm-tab-bg)', padding: '0.2rem 0.55rem', borderRadius: 6 }}>{t('no_driver_yet')}</span>
                       )}
+                      {v.status === 'APPROVED' && (
+                        <button
+                          onClick={() => openDriverAssignment(v)}
+                          style={{ background: 'rgba(97,148,31,0.1)', border: '1px solid rgba(97,148,31,0.28)', borderRadius: 7, padding: '0.38rem 0.65rem', color: 'var(--clr-accent)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.75rem', fontWeight: 700, fontFamily: 'inherit' }}
+                        >
+                          <LuUserCheck size={13} /> {v.assigned_driver_id ? 'Change Driver' : 'Choose Driver'}
+                        </button>
+                      )}
                       {v.status === 'PENDING' && (
                         <button
                           onClick={() => setDeletingId(v.id)}
@@ -380,14 +482,99 @@ export default function CarOwnerDashboard() {
                 <ol style={{ margin: 0, paddingLeft: '1.1rem', color: 'var(--clr-muted)', fontSize: '0.8rem', lineHeight: 1.7 }}>
                   <li>Register your vehicle with plate number and type.</li>
                   <li>Admin reviews and approves or rejects your vehicle.</li>
-                  <li>Once approved, admin can assign a qualified driver to your vehicle.</li>
-                  <li>You can see the assigned driver details here.</li>
+                  <li>After approval, choose an available verified driver for your vehicle.</li>
+                  <li>Review the approved ID and driving-license documents, then confirm the assignment.</li>
                 </ol>
               </div>
             </div>
           </div>
         </div>
       </div>
+
+      {/* ── Owner Driver Assignment Modal ─────────────────────────────── */}
+      {assignVehicle && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.68)', backdropFilter: 'blur(5px)', zIndex: 9999, display: 'grid', placeItems: 'center', padding: '1rem' }}>
+          <div className="glass" role="dialog" aria-modal="true" aria-labelledby="choose-driver-title" style={{ width: 'min(720px,100%)', maxHeight: '92vh', overflowY: 'auto', padding: '1.25rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '0.75rem', marginBottom: '0.85rem' }}>
+              <div>
+                <p id="choose-driver-title" style={{ fontWeight: 800, fontSize: '1rem', color: 'var(--clr-text)', margin: 0 }}>Choose a Verified Driver</p>
+                <p style={{ color: 'var(--clr-muted)', fontSize: '0.76rem', margin: '0.25rem 0 0' }}>{assignVehicle.plate_number} · {assignVehicle.vehicle_type}</p>
+              </div>
+              <button type="button" onClick={() => setAssignVehicle(null)} disabled={assignSaving} aria-label="Close" style={{ border: 'none', background: 'transparent', color: 'var(--clr-muted)', cursor: 'pointer', padding: 3 }}><LuX size={18} /></button>
+            </div>
+
+            <div style={{ padding: '0.65rem 0.75rem', borderRadius: 9, background: 'rgba(59,130,246,0.07)', border: '1px solid rgba(59,130,246,0.18)', color: 'var(--clr-muted)', fontSize: '0.72rem', lineHeight: 1.5, marginBottom: '0.8rem' }}>
+              Only admin-verified drivers with approved National ID and driving-license documents are shown. Private phone, email, address, and unrelated documents are hidden.
+            </div>
+
+            {driversLoading ? (
+              <div style={{ padding: '2.25rem', textAlign: 'center', color: 'var(--clr-muted)', fontSize: '0.84rem' }}><span className="spinner" style={{ marginRight: '0.5rem' }} />Loading verified drivers…</div>
+            ) : driversError && eligibleDrivers.length === 0 ? (
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.5rem', color: '#f87171', fontSize: '0.8rem', background: 'rgba(248,113,113,0.08)', border: '1px solid rgba(248,113,113,0.2)', padding: '0.7rem 0.8rem', borderRadius: 9 }}><LuTriangleAlert size={14} style={{ flexShrink: 0, marginTop: 1 }} />{driversError}</div>
+            ) : eligibleDrivers.length === 0 ? (
+              <div style={{ padding: '2rem 1rem', textAlign: 'center', color: 'var(--clr-muted)' }}>
+                <LuUser size={30} style={{ opacity: 0.45, marginBottom: '0.55rem' }} />
+                <p style={{ fontSize: '0.84rem', fontWeight: 700, color: 'var(--clr-text)', margin: 0 }}>No verified drivers are currently available</p>
+                <p style={{ fontSize: '0.74rem', margin: '0.3rem 0 0' }}>A driver may already be assigned to another vehicle or still be waiting for document approval.</p>
+              </div>
+            ) : (
+              <div style={{ display: 'grid', gap: '0.75rem' }}>
+                <div style={{ position: 'relative' }}>
+                  <LuSearch size={14} style={{ position: 'absolute', left: 11, top: '50%', transform: 'translateY(-50%)', color: 'var(--clr-muted)', pointerEvents: 'none' }} />
+                  <input value={driverSearch} onChange={event => setDriverSearch(event.target.value)} placeholder="Search driver by name" style={{ width: '100%', boxSizing: 'border-box', padding: '0.62rem 0.75rem 0.62rem 2rem', borderRadius: 9, border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.04)', color: 'var(--clr-text)', fontFamily: 'inherit', outline: 'none', fontSize: '0.8rem' }} />
+                </div>
+
+                <div role="radiogroup" aria-label="Eligible verified drivers" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(145px,1fr))', gap: '0.45rem', maxHeight: 145, overflowY: 'auto', padding: '0.15rem 0.2rem 0.15rem 0' }}>
+                  {filteredDrivers.map(driver => {
+                    const selected = selectedDriverId === driver.id
+                    return (
+                      <button key={driver.id} type="button" role="radio" aria-checked={selected} onClick={() => { setSelectedDriverId(driver.id); setDriversError('') }} style={{ minHeight: 44, padding: '0.55rem 0.65rem', borderRadius: 9, cursor: 'pointer', background: selected ? 'rgba(97,148,31,0.14)' : 'rgba(255,255,255,0.03)', border: `1px solid ${selected ? 'rgba(97,148,31,0.52)' : 'rgba(255,255,255,0.09)'}`, color: selected ? 'var(--clr-accent)' : 'var(--clr-text)', fontFamily: 'inherit', fontSize: '0.76rem', fontWeight: selected ? 800 : 650, lineHeight: 1.3 }}>
+                        {driver.first_name} {driver.last_name ?? ''}
+                        {driver.is_currently_assigned === 1 && <span style={{ display: 'block', marginTop: 2, fontSize: '0.62rem', color: '#34d399' }}>Currently assigned</span>}
+                      </button>
+                    )
+                  })}
+                </div>
+
+                {filteredDrivers.length === 0 && <p style={{ margin: 0, padding: '0.75rem', textAlign: 'center', color: 'var(--clr-muted)', fontSize: '0.78rem' }}>No driver matches your search.</p>}
+
+                {selectedDriver && (
+                  <div style={{ padding: '0.9rem', borderRadius: 12, background: 'rgba(97,148,31,0.07)', border: '1px solid rgba(97,148,31,0.24)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.7rem', marginBottom: '0.7rem' }}>
+                      <div style={{ width: 46, height: 46, borderRadius: '50%', flexShrink: 0, overflow: 'hidden', background: 'linear-gradient(135deg,var(--clr-accent2),var(--clr-accent))', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff' }}>
+                        {selectedDriver.profile_photo_url ? <img src={absoluteUploadUrl(selectedDriver.profile_photo_url)} alt="" loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <LuUser size={20} />}
+                      </div>
+                      <div style={{ minWidth: 0 }}>
+                        <p style={{ margin: 0, color: 'var(--clr-text)', fontSize: '0.9rem', fontWeight: 800 }}>{selectedDriver.first_name} {selectedDriver.last_name ?? ''}</p>
+                        <div style={{ display: 'flex', gap: '0.3rem', flexWrap: 'wrap', marginTop: 5 }}>
+                          {['Verified', assignVehicle.vehicle_type, 'ID approved', 'License approved'].map(tag => <span key={tag} style={{ borderRadius: 99, padding: '0.12rem 0.45rem', fontSize: '0.62rem', fontWeight: 750, color: '#34d399', background: 'rgba(52,211,153,0.09)', border: '1px solid rgba(52,211,153,0.2)' }}>{tag}</span>)}
+                        </div>
+                      </div>
+                      <LuBadgeCheck size={20} style={{ color: '#34d399', marginLeft: 'auto', flexShrink: 0 }} />
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2,minmax(0,1fr))', gap: '0.6rem' }}>
+                      <DriverDocument label="National ID" url={selectedDriver.national_id_url} />
+                      <DriverDocument label="Driving License" url={selectedDriver.license_url} />
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {driversError && eligibleDrivers.length > 0 && (
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.5rem', color: '#f87171', fontSize: '0.78rem', background: 'rgba(248,113,113,0.08)', border: '1px solid rgba(248,113,113,0.2)', padding: '0.65rem 0.75rem', borderRadius: 9, marginTop: '0.75rem' }}><LuTriangleAlert size={13} style={{ flexShrink: 0, marginTop: 1 }} />{driversError}</div>
+            )}
+
+            <div style={{ display: 'flex', gap: '0.55rem', justifyContent: 'flex-end', flexWrap: 'wrap', marginTop: '1rem' }}>
+              {assignVehicle.assigned_driver_id && (
+                <button type="button" onClick={() => saveDriverAssignment(null)} disabled={assignSaving} style={{ padding: '0.65rem 0.8rem', borderRadius: 9, border: '1px solid rgba(248,113,113,0.25)', background: 'rgba(248,113,113,0.08)', color: '#f87171', cursor: assignSaving ? 'not-allowed' : 'pointer', fontFamily: 'inherit', fontWeight: 650, fontSize: '0.78rem' }}>Unassign Driver</button>
+              )}
+              <button type="button" onClick={() => setAssignVehicle(null)} disabled={assignSaving} style={{ padding: '0.65rem 0.9rem', borderRadius: 9, border: '1px solid var(--adm-foot-btn-brd)', background: 'var(--adm-foot-btn-bg)', color: 'var(--clr-muted)', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 650, fontSize: '0.8rem' }}>Cancel</button>
+              <button type="button" className="btn-primary" onClick={() => saveDriverAssignment(selectedDriverId)} disabled={assignSaving || driversLoading || !selectedDriverId} style={{ padding: '0.65rem 1rem', opacity: assignSaving || driversLoading || !selectedDriverId ? 0.6 : 1 }}><LuUserCheck size={14} /> {assignSaving ? 'Saving…' : 'Assign Selected Driver'}</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Delete Confirm Modal ────────────────────────────────────────── */}
       {deletingId !== null && (

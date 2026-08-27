@@ -485,6 +485,10 @@ export const carOwnerApi = {
   }) => apiClient.post('/car-owner/vehicles', data),
   deleteVehicle: (id: string) =>
     apiClient.delete(`/car-owner/vehicles/${id}`),
+  listEligibleDrivers: (vehicleId: string) =>
+    apiClient.get(`/car-owner/vehicles/${vehicleId}/eligible-drivers`),
+  assignDriver: (vehicleId: string, driverId: string | null) =>
+    apiClient.patch(`/car-owner/vehicles/${vehicleId}/assign-driver`, { driver_id: driverId }),
 }
 
 // ─── Admin Car Owner API ──────────────────────────────────────────────────────
