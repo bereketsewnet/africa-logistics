@@ -31,6 +31,7 @@ export default function ManualPaymentPage({ onSuccess }: ManualPaymentPageProps)
   const [banksLoading, setBanksLoading] = useState(true)
   const [banksError, setBanksError] = useState('')
   const [copiedBankId, setCopiedBankId] = useState<number | null>(null)
+  const selectedBank = bankAccounts.find(bank => bank.id === selectedBankId) ?? null
 
   useEffect(() => {
     let mounted = true
@@ -99,7 +100,6 @@ export default function ManualPaymentPage({ onSuccess }: ManualPaymentPageProps)
       return
     }
 
-    const selectedBank = bankAccounts.find(bank => bank.id === selectedBankId)
     if (!selectedBank) {
       setError('Please select a company bank account.')
       return
@@ -212,33 +212,71 @@ export default function ManualPaymentPage({ onSuccess }: ManualPaymentPageProps)
               <LuTriangleAlert size={16} style={{ flexShrink: 0, marginTop: 1 }} /> {banksError}
             </div>
           ) : (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))', gap: '0.7rem' }}>
-              {bankAccounts.map(bank => {
-                const selected = selectedBankId === bank.id
-                return (
-                  <div key={bank.id} onClick={() => { setSelectedBankId(bank.id); setError('') }} role="radio" aria-checked={selected} tabIndex={0}
-                    onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); setSelectedBankId(bank.id) } }}
-                    style={{ position: 'relative', cursor: 'pointer', padding: '0.85rem', borderRadius: 12, background: selected ? 'rgba(97,148,31,0.11)' : 'rgba(255,255,255,0.03)', border: `1px solid ${selected ? 'rgba(97,148,31,0.45)' : 'rgba(255,255,255,0.09)'}`, boxShadow: selected ? '0 0 0 2px rgba(97,148,31,0.08)' : 'none', outline: 'none', transition: 'all 0.18s' }}>
-                    <div style={{ display: 'flex', gap: '0.65rem', alignItems: 'center', marginBottom: '0.6rem' }}>
-                      <div style={{ width: 42, height: 42, borderRadius: 9, flexShrink: 0, overflow: 'hidden', background: '#fff', border: '1px solid rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        {bank.logo_url ? <img src={logoUrl(bank.logo_url)} alt={`${bank.bank_name} logo`} style={{ width: '100%', height: '100%', objectFit: 'contain' }} /> : <LuLandmark size={19} style={{ color: 'var(--clr-accent)' }} />}
-                      </div>
-                      <div style={{ minWidth: 0, flex: 1 }}>
-                        <p style={{ fontWeight: 800, fontSize: '0.85rem', color: 'var(--clr-text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{bank.bank_name}</p>
-                        <p style={{ fontSize: '0.68rem', color: 'var(--clr-muted)', marginTop: 2 }}>{bank.account_holder_name}</p>
-                      </div>
-                      <span style={{ width: 17, height: 17, borderRadius: '50%', border: `2px solid ${selected ? 'var(--clr-accent)' : 'rgba(148,163,184,0.45)'}`, background: selected ? 'var(--clr-accent)' : 'transparent', boxShadow: selected ? 'inset 0 0 0 3px var(--clr-bg)' : 'none', flexShrink: 0 }} />
+            <div style={{ display: 'grid', gap: '0.75rem' }}>
+              <div
+                role="radiogroup"
+                aria-label="Company bank accounts"
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))',
+                  gap: '0.45rem',
+                  maxHeight: 150,
+                  overflowY: 'auto',
+                  padding: '0.15rem 0.2rem 0.15rem 0',
+                }}
+              >
+                {bankAccounts.map(bank => {
+                  const selected = selectedBankId === bank.id
+                  return (
+                    <button
+                      key={bank.id}
+                      type="button"
+                      role="radio"
+                      aria-checked={selected}
+                      onClick={() => { setSelectedBankId(bank.id); setError('') }}
+                      title={bank.bank_name}
+                      style={{
+                        minHeight: 42,
+                        padding: '0.55rem 0.7rem',
+                        borderRadius: 9,
+                        cursor: 'pointer',
+                        background: selected ? 'rgba(97,148,31,0.14)' : 'rgba(255,255,255,0.03)',
+                        border: `1px solid ${selected ? 'rgba(97,148,31,0.55)' : 'rgba(255,255,255,0.09)'}`,
+                        color: selected ? 'var(--clr-accent)' : 'var(--clr-text)',
+                        fontFamily: 'inherit',
+                        fontSize: '0.76rem',
+                        fontWeight: selected ? 800 : 650,
+                        lineHeight: 1.3,
+                        overflowWrap: 'anywhere',
+                        transition: 'background 0.18s, border-color 0.18s, color 0.18s',
+                      }}
+                    >
+                      {bank.bank_name}
+                    </button>
+                  )
+                })}
+              </div>
+
+              {selectedBank && (
+                <div style={{ padding: '0.85rem', borderRadius: 12, background: 'rgba(97,148,31,0.08)', border: '1px solid rgba(97,148,31,0.28)' }}>
+                  <div style={{ display: 'flex', gap: '0.7rem', alignItems: 'center', marginBottom: '0.65rem' }}>
+                    <div style={{ width: 44, height: 44, borderRadius: 9, flexShrink: 0, overflow: 'hidden', background: '#fff', border: '1px solid rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      {selectedBank.logo_url ? <img src={logoUrl(selectedBank.logo_url)} alt={`${selectedBank.bank_name} logo`} style={{ width: '100%', height: '100%', objectFit: 'contain' }} /> : <LuLandmark size={20} style={{ color: 'var(--clr-accent)' }} />}
                     </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', padding: '0.5rem 0.55rem', borderRadius: 8, background: 'rgba(0,0,0,0.13)' }}>
-                      <span style={{ flex: 1, fontFamily: 'monospace', fontSize: '0.86rem', fontWeight: 800, color: 'var(--clr-accent)', wordBreak: 'break-all' }}>{bank.account_number}</span>
-                      <button type="button" onClick={event => { event.stopPropagation(); copyAccountNumber(bank) }} title="Copy account number" style={{ border: 'none', background: 'transparent', color: copiedBankId === bank.id ? 'var(--kpi-green)' : 'var(--clr-muted)', cursor: 'pointer', padding: 3, display: 'flex' }}>
-                        {copiedBankId === bank.id ? <LuCheck size={15} /> : <LuCopy size={15} />}
-                      </button>
+                    <div style={{ minWidth: 0 }}>
+                      <p style={{ fontWeight: 800, fontSize: '0.88rem', color: 'var(--clr-text)', lineHeight: 1.3 }}>{selectedBank.bank_name}</p>
+                      <p style={{ fontSize: '0.7rem', color: 'var(--clr-muted)', marginTop: 3 }}>{selectedBank.account_holder_name}</p>
                     </div>
-                    {bank.description && <p style={{ fontSize: '0.7rem', lineHeight: 1.45, color: 'var(--clr-muted)', marginTop: '0.55rem' }}>{bank.description}</p>}
                   </div>
-                )
-              })}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', padding: '0.55rem 0.65rem', borderRadius: 8, background: 'rgba(0,0,0,0.13)' }}>
+                    <span style={{ flex: 1, fontFamily: 'monospace', fontSize: '0.9rem', fontWeight: 800, color: 'var(--clr-accent)', wordBreak: 'break-all' }}>{selectedBank.account_number}</span>
+                    <button type="button" onClick={() => copyAccountNumber(selectedBank)} title="Copy account number" aria-label={`Copy ${selectedBank.bank_name} account number`} style={{ border: 'none', background: 'transparent', color: copiedBankId === selectedBank.id ? 'var(--kpi-green)' : 'var(--clr-muted)', cursor: 'pointer', padding: 4, display: 'flex' }}>
+                      {copiedBankId === selectedBank.id ? <LuCheck size={16} /> : <LuCopy size={16} />}
+                    </button>
+                  </div>
+                  {selectedBank.description && <p style={{ fontSize: '0.72rem', lineHeight: 1.45, color: 'var(--clr-muted)', marginTop: '0.6rem' }}>{selectedBank.description}</p>}
+                </div>
+              )}
             </div>
           )}
         </div>
