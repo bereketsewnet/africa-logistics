@@ -499,10 +499,14 @@ export async function getPendingManualPayments(
        u.first_name,
        u.last_name,
        u.email,
-       w.balance
+       w.balance,
+       cba.bank_name AS deposit_bank_name,
+       cba.account_number AS deposit_account_number,
+       cba.account_holder_name AS deposit_account_holder_name
      FROM manual_payment_records mpr
      JOIN wallets w ON w.id = mpr.wallet_id
      JOIN users u ON u.id = w.user_id
+     LEFT JOIN company_bank_accounts cba ON cba.id = mpr.bank_account_id
      ${whereClause}
      ORDER BY mpr.submitted_at DESC
      LIMIT ? OFFSET ?`,

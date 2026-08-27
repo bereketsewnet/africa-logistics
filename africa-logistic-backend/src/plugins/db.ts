@@ -542,6 +542,27 @@ export default fp(async function dbPlugin(fastify: FastifyInstance) {
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     `)
 
+    // ─── Company Bank Accounts ────────────────────────────────────────────────
+    // Managed by authorized staff and shown to authenticated shippers/drivers
+    // when they submit an Add Funds bank-transfer proof.
+    await conn.query(`
+      CREATE TABLE IF NOT EXISTS company_bank_accounts (
+        id                  INT          NOT NULL AUTO_INCREMENT PRIMARY KEY,
+        bank_name           VARCHAR(120) NOT NULL,
+        account_number      VARCHAR(100) NOT NULL,
+        account_holder_name VARCHAR(160) NOT NULL,
+        logo_url            VARCHAR(500) NULL,
+        description         TEXT         NULL,
+        is_active           TINYINT(1)   NOT NULL DEFAULT 1,
+        created_by          CHAR(36)     NULL,
+        updated_by          CHAR(36)     NULL,
+        created_at          TIMESTAMP    DEFAULT CURRENT_TIMESTAMP,
+        updated_at          TIMESTAMP    DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        UNIQUE KEY uq_company_bank_account (bank_name, account_number),
+        INDEX idx_company_bank_active (is_active)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    `)
+
     // ─── Manual Payment Records (Admin) ────────────────────────────────────────
     await conn.query(`
       CREATE TABLE IF NOT EXISTS manual_payment_records (
@@ -551,6 +572,7 @@ export default fp(async function dbPlugin(fastify: FastifyInstance) {
         action_type     ENUM('DEPOSIT','WITHDRAWAL','REFUND','ADJUSTMENT') NOT NULL,
         reason          VARCHAR(500)  NOT NULL,
         proof_image_url VARCHAR(500),
+        bank_account_id INT NULL,
         submitted_by    CHAR(36)      NOT NULL,
         approved_by     CHAR(36),
         status          ENUM('PENDING','APPROVED','REJECTED') DEFAULT 'PENDING',
@@ -567,6 +589,7 @@ export default fp(async function dbPlugin(fastify: FastifyInstance) {
         CONSTRAINT mpr_fk_transaction FOREIGN KEY (transaction_id) REFERENCES wallet_transactions(id) ON DELETE SET NULL
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     `)
+    await addColIfMissing('manual_payment_records', 'bank_account_id', 'INT NULL AFTER proof_image_url')
 
     // ─── Performance Metrics (for bonuses) ─────────────────────────────────────
     await conn.query(`

@@ -25,6 +25,7 @@ import {
   getInvoicesHandler,
   downloadInvoiceHandler,
   submitManualPaymentHandler,
+  getActiveBankAccountsHandler,
 } from '../controllers/profile.controller.js'
 import {
   submitWithdrawalHandler,
@@ -143,6 +144,9 @@ export default async function profileRoutes(fastify: FastifyInstance) {
    * Query: limit=50, offset=0
    */
   fastify.get('/wallet/transactions', getTransactionHistoryHandler)
+
+  /** GET /api/profile/wallet/bank-accounts — configured company deposit accounts. */
+  fastify.get('/wallet/bank-accounts', getActiveBankAccountsHandler)
 
   /**
    * GET /api/profile/invoices

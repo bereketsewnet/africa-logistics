@@ -397,6 +397,23 @@ export const adminOrderApi = {
   updateAiSettings: (data: { ai_enabled?: boolean; customer_id?: string; api_key?: string }) =>
     apiClient.put('/admin/settings/ai', data),
 
+  // ── Company bank accounts shown in shipper/driver Add Funds ────────────
+  listBankAccounts: () =>
+    apiClient.get('/admin/bank-accounts'),
+
+  createBankAccount: (data: {
+    bank_name: string; account_number: string; account_holder_name: string
+    description?: string; is_active?: boolean; logo_base64?: string
+  }) => apiClient.post('/admin/bank-accounts', data),
+
+  updateBankAccount: (id: number, data: {
+    bank_name?: string; account_number?: string; account_holder_name?: string
+    description?: string; is_active?: boolean; logo_base64?: string; remove_logo?: boolean
+  }) => apiClient.put(`/admin/bank-accounts/${id}`, data),
+
+  deleteBankAccount: (id: number) =>
+    apiClient.delete(`/admin/bank-accounts/${id}`),
+
   // ── Withdrawal Requests ───────────────────────────────────────────────────
   listWithdrawalRequests: (params?: { status?: string; limit?: number; offset?: number }) =>
     apiClient.get('/admin/withdrawal-requests', { params }),
@@ -415,6 +432,9 @@ export const walletApi = {
 
   getTransactions: (params?: { limit?: number; offset?: number }) =>
     apiClient.get('/profile/wallet/transactions', { params }),
+
+  getBankAccounts: () =>
+    apiClient.get('/profile/wallet/bank-accounts'),
 
   submitWithdrawal: (data: {
     amount: number

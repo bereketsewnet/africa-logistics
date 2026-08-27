@@ -99,6 +99,27 @@ function saveFile(base64Data: string, subDir: string, baseName: string): string 
   return `/uploads/${subDir}/${filename}`
 }
 
+function saveBankLogo(base64Data: string, accountId: string): string {
+  const match = base64Data.match(/^data:(image\/(?:jpeg|jpg|png|webp));base64,([A-Za-z0-9+/=]+)$/)
+  if (!match) throw new Error('Bank logo must be a JPG, PNG, or WebP image.')
+  const bytes = Buffer.from(match[2], 'base64')
+  if (bytes.length === 0 || bytes.length > 2 * 1024 * 1024) {
+    throw new Error('Bank logo must be smaller than 2MB.')
+  }
+  return saveFile(base64Data, 'bank-logos', `bank_${accountId}`)
+}
+
+function deleteBankLogo(logoUrl: string | null | undefined): void {
+  if (!logoUrl?.startsWith('/uploads/bank-logos/')) return
+  const filename = path.basename(logoUrl)
+  const target = path.join(process.cwd(), 'uploads', 'bank-logos', filename)
+  try {
+    if (fs.existsSync(target)) fs.unlinkSync(target)
+  } catch {
+    // A stale logo file must never block a bank-account update/delete.
+  }
+}
+
 // keep old name as alias
 const saveVehiclePhoto = (b64: string, id: string) => saveFile(b64, 'vehicles', id)
 
@@ -1612,6 +1633,10 @@ export async function getPendingPaymentsHandler(
         amount: Number(r.amount),
         action_type: r.action_type,
         reason: r.reason,
+        bank_account_id: r.bank_account_id,
+        deposit_bank_name: r.deposit_bank_name || null,
+        deposit_account_number: r.deposit_account_number || null,
+        deposit_account_holder_name: r.deposit_account_holder_name || null,
         proof_image_url: r.proof_image_url,
         status: r.status,
         submitted_at: r.submitted_at,
@@ -2967,6 +2992,142 @@ export async function adminUpdateContactInfoHandler(
   await request.server.db.query(`UPDATE company_contact SET ${sets.join(', ')} WHERE id = ?`, vals)
   const [rows] = await request.server.db.query<any[]>(`SELECT * FROM company_contact WHERE id = 1 LIMIT 1`)
   return reply.send({ success: true, contact: rows[0] })
+}
+
+// ─── Company Bank Information ────────────────────────────────────────────────
+
+interface BankAccountBody {
+  bank_name?: string
+  account_number?: string
+  account_holder_name?: string
+  description?: string | null
+  is_active?: boolean
+  logo_base64?: string
+  remove_logo?: boolean
+}
+
+/** GET /api/admin/bank-accounts — list active and inactive company accounts. */
+export async function adminListBankAccountsHandler(
+  request: FastifyRequest,
+  reply: FastifyReply
+) {
+  const [rows] = await request.server.db.query<any[]>(
+    `SELECT id, bank_name, account_number, account_holder_name, logo_url,
+            description, is_active, created_at, updated_at
+       FROM company_bank_accounts
+      ORDER BY is_active DESC, bank_name ASC, id ASC`
+  )
+  return reply.send({ success: true, bank_accounts: rows, total: rows.length })
+}
+
+/** POST /api/admin/bank-accounts — create a company deposit account. */
+export async function adminCreateBankAccountHandler(
+  request: FastifyRequest<{ Body: BankAccountBody }>,
+  reply: FastifyReply
+) {
+  const admin = request.user as { id: string }
+  const body = request.body ?? {}
+  const bankName = body.bank_name?.trim()
+  const accountNumber = body.account_number?.trim()
+  const holderName = body.account_holder_name?.trim()
+  if (!bankName || !accountNumber || !holderName) {
+    return reply.status(400).send({ success: false, message: 'Bank name, account number, and account holder name are required.' })
+  }
+  if (bankName.length > 120 || accountNumber.length > 100 || holderName.length > 160) {
+    return reply.status(400).send({ success: false, message: 'One or more bank fields are too long.' })
+  }
+
+  let logoUrl: string | null = null
+  try {
+    // Validate and persist the logo before the database write so a bad upload can
+    // never leave behind a partially-created bank account.
+    if (body.logo_base64) logoUrl = saveBankLogo(body.logo_base64, uuidv4())
+    const [result] = await request.server.db.query<any>(
+      `INSERT INTO company_bank_accounts
+         (bank_name, account_number, account_holder_name, logo_url, description, is_active, created_by, updated_by)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      [bankName, accountNumber, holderName, logoUrl, body.description?.trim() || null, body.is_active === false ? 0 : 1, admin.id, admin.id]
+    )
+    const id = Number(result.insertId)
+    const [[account]] = await request.server.db.query<any[]>('SELECT * FROM company_bank_accounts WHERE id = ?', [id])
+    return reply.status(201).send({ success: true, message: 'Bank account created.', bank_account: account })
+  } catch (err: any) {
+    if (logoUrl) deleteBankLogo(logoUrl)
+    if (err?.code === 'ER_DUP_ENTRY') {
+      return reply.status(409).send({ success: false, message: 'This bank account is already configured.' })
+    }
+    if (err instanceof Error && err.message.startsWith('Bank logo')) {
+      return reply.status(400).send({ success: false, message: err.message })
+    }
+    request.server.log.error(err)
+    return reply.status(500).send({ success: false, message: 'Failed to create bank account.' })
+  }
+}
+
+/** PUT /api/admin/bank-accounts/:id — update details, active state, or logo. */
+export async function adminUpdateBankAccountHandler(
+  request: FastifyRequest<{ Params: { id: string }; Body: BankAccountBody }>,
+  reply: FastifyReply
+) {
+  const admin = request.user as { id: string }
+  const id = Number(request.params.id)
+  if (!Number.isInteger(id) || id <= 0) return reply.status(400).send({ success: false, message: 'Invalid bank account id.' })
+
+  const [[existing]] = await request.server.db.query<any[]>('SELECT * FROM company_bank_accounts WHERE id = ?', [id])
+  if (!existing) return reply.status(404).send({ success: false, message: 'Bank account not found.' })
+
+  const body = request.body ?? {}
+  const sets: string[] = []
+  const values: any[] = []
+  const addText = (column: string, value: string | undefined, max: number, required = false) => {
+    if (value === undefined) return
+    const clean = value.trim()
+    if (required && !clean) throw new Error(`${column} is required.`)
+    if (clean.length > max) throw new Error(`${column} is too long.`)
+    sets.push(`${column} = ?`)
+    values.push(clean || null)
+  }
+
+  let nextLogoUrl: string | null | undefined
+  try {
+    addText('bank_name', body.bank_name, 120, true)
+    addText('account_number', body.account_number, 100, true)
+    addText('account_holder_name', body.account_holder_name, 160, true)
+    addText('description', body.description ?? undefined, 5000)
+    if (body.is_active !== undefined) { sets.push('is_active = ?'); values.push(body.is_active ? 1 : 0) }
+    if (body.remove_logo) nextLogoUrl = null
+    if (body.logo_base64) nextLogoUrl = saveBankLogo(body.logo_base64, String(id))
+    if (nextLogoUrl !== undefined) { sets.push('logo_url = ?'); values.push(nextLogoUrl) }
+    if (sets.length === 0) return reply.status(400).send({ success: false, message: 'No valid fields provided.' })
+    sets.push('updated_by = ?')
+    values.push(admin.id, id)
+    await request.server.db.query(`UPDATE company_bank_accounts SET ${sets.join(', ')} WHERE id = ?`, values)
+    if (nextLogoUrl !== undefined && existing.logo_url && existing.logo_url !== nextLogoUrl) deleteBankLogo(existing.logo_url)
+    const [[account]] = await request.server.db.query<any[]>('SELECT * FROM company_bank_accounts WHERE id = ?', [id])
+    return reply.send({ success: true, message: 'Bank account updated.', bank_account: account })
+  } catch (err: any) {
+    if (nextLogoUrl && nextLogoUrl !== existing.logo_url) deleteBankLogo(nextLogoUrl)
+    if (err?.code === 'ER_DUP_ENTRY') return reply.status(409).send({ success: false, message: 'This bank account is already configured.' })
+    if (err instanceof Error && (err.message.includes('required') || err.message.includes('too long') || err.message.startsWith('Bank logo'))) {
+      return reply.status(400).send({ success: false, message: err.message.replaceAll('_', ' ') })
+    }
+    request.server.log.error(err)
+    return reply.status(500).send({ success: false, message: 'Failed to update bank account.' })
+  }
+}
+
+/** DELETE /api/admin/bank-accounts/:id — remove a company deposit account. */
+export async function adminDeleteBankAccountHandler(
+  request: FastifyRequest<{ Params: { id: string } }>,
+  reply: FastifyReply
+) {
+  const id = Number(request.params.id)
+  if (!Number.isInteger(id) || id <= 0) return reply.status(400).send({ success: false, message: 'Invalid bank account id.' })
+  const [[existing]] = await request.server.db.query<any[]>('SELECT logo_url FROM company_bank_accounts WHERE id = ?', [id])
+  if (!existing) return reply.status(404).send({ success: false, message: 'Bank account not found.' })
+  await request.server.db.query('DELETE FROM company_bank_accounts WHERE id = ?', [id])
+  deleteBankLogo(existing.logo_url)
+  return reply.send({ success: true, message: 'Bank account deleted.' })
 }
 
 // ─── AI Assistance Settings ───────────────────────────────────────────────────

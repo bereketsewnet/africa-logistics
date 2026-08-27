@@ -94,6 +94,10 @@ import {
   adminUpdateContactInfoHandler,
   adminGetAiSettingsHandler,
   adminUpdateAiSettingsHandler,
+  adminListBankAccountsHandler,
+  adminCreateBankAccountHandler,
+  adminUpdateBankAccountHandler,
+  adminDeleteBankAccountHandler,
   adminOrderReportHandler,
   adminFinanceReportHandler,
   adminDriverReportHandler,
@@ -151,7 +155,7 @@ export default async function adminRoutes(fastify: FastifyInstance) {
   if (url.includes('/staff-roles')) return null
 
     if (url.includes('/role-management') || url.includes('/roles')) return 'roles.manage'
-    if (url.includes('/system-config') || url.includes('/countries') || url.includes('/vehicle-types')) return 'settings.manage'
+    if (url.includes('/system-config') || url.includes('/countries') || url.includes('/vehicle-types') || url.includes('/bank-accounts')) return 'settings.manage'
     if (url.includes('/notification-settings')) return 'notifications.manage'
     if (url.includes('/pricing-rules')) return 'pricing.manage'
     if (url.includes('/cargo-types')) return 'cargo.manage'
@@ -533,4 +537,8 @@ export default async function adminRoutes(fastify: FastifyInstance) {
   fastify.put('/settings/contact',    adminUpdateContactInfoHandler)
   fastify.get('/settings/ai',         adminGetAiSettingsHandler)
   fastify.put('/settings/ai',         adminUpdateAiSettingsHandler)
+  fastify.get('/bank-accounts',       adminListBankAccountsHandler)
+  fastify.post('/bank-accounts',      adminCreateBankAccountHandler)
+  fastify.put('/bank-accounts/:id',   adminUpdateBankAccountHandler)
+  fastify.delete('/bank-accounts/:id', adminDeleteBankAccountHandler)
 }

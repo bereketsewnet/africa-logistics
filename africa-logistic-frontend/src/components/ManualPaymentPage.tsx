@@ -1,6 +1,18 @@
-import { useState } from 'react'
-import apiClient from '../lib/apiClient'
-import { LuUpload, LuTriangleAlert, LuCheck, LuCamera, LuFileText } from 'react-icons/lu'
+import { useEffect, useState } from 'react'
+import apiClient, { walletApi } from '../lib/apiClient'
+import { LuUpload, LuTriangleAlert, LuCheck, LuCamera, LuFileText, LuLandmark, LuCopy } from 'react-icons/lu'
+
+interface CompanyBankAccount {
+  id: number
+  bank_name: string
+  account_number: string
+  account_holder_name: string
+  logo_url: string | null
+  description: string | null
+}
+
+const API_UPLOAD_BASE = ((import.meta.env.VITE_API_BASE_URL as string | undefined) ?? '').replace(/\/api\/?$/, '')
+const logoUrl = (url: string | null) => !url ? '' : url.startsWith('http') ? url : `${API_UPLOAD_BASE}${url.startsWith('/') ? '' : '/'}${url}`
 
 interface ManualPaymentPageProps {
   onSuccess?: () => void
@@ -14,7 +26,41 @@ export default function ManualPaymentPage({ onSuccess }: ManualPaymentPageProps)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState(false)
   const [successAmount, setSuccessAmount] = useState('')
-  const [paymentMethod, setPaymentMethod] = useState('Bank Transfer')
+  const [bankAccounts, setBankAccounts] = useState<CompanyBankAccount[]>([])
+  const [selectedBankId, setSelectedBankId] = useState<number | null>(null)
+  const [banksLoading, setBanksLoading] = useState(true)
+  const [banksError, setBanksError] = useState('')
+  const [copiedBankId, setCopiedBankId] = useState<number | null>(null)
+
+  useEffect(() => {
+    let mounted = true
+    walletApi.getBankAccounts()
+      .then(({ data }) => {
+        if (!mounted) return
+        const accounts = data.bank_accounts ?? []
+        setBankAccounts(accounts)
+        setSelectedBankId(accounts[0]?.id ?? null)
+        setBanksError(accounts.length === 0 ? 'No company bank accounts are currently available. Please contact support.' : '')
+      })
+      .catch((err: any) => {
+        if (!mounted) return
+        setBankAccounts([])
+        setSelectedBankId(null)
+        setBanksError(err.response?.data?.message ?? 'Could not load company bank accounts. Please retry.')
+      })
+      .finally(() => { if (mounted) setBanksLoading(false) })
+    return () => { mounted = false }
+  }, [])
+
+  const copyAccountNumber = async (bank: CompanyBankAccount) => {
+    try {
+      await navigator.clipboard.writeText(bank.account_number)
+      setCopiedBankId(bank.id)
+      setTimeout(() => setCopiedBankId(null), 1800)
+    } catch {
+      setError('Could not copy the account number. Please copy it manually.')
+    }
+  }
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -53,12 +99,19 @@ export default function ManualPaymentPage({ onSuccess }: ManualPaymentPageProps)
       return
     }
 
+    const selectedBank = bankAccounts.find(bank => bank.id === selectedBankId)
+    if (!selectedBank) {
+      setError('Please select a company bank account.')
+      return
+    }
+
     setLoading(true)
 
     try {
       await apiClient.post('/profile/wallet/manual-payment', {
         amount: Number(amount),
-        payment_method: paymentMethod,
+        bank_account_id: selectedBank.id,
+        payment_method: `${selectedBank.bank_name} (${selectedBank.account_number})`,
         proof_image: previewUrl || undefined,
       })
       setSuccessAmount(amount)
@@ -147,27 +200,47 @@ export default function ManualPaymentPage({ onSuccess }: ManualPaymentPageProps)
           </select>
         </div>
 
-        {/* Payment Method */}
+        {/* Company bank accounts */}
         <div>
-          <label style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--clr-text)', display: 'block', marginBottom: '0.5rem' }}>
-            Payment Method
+          <label style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--clr-text)', display: 'block', marginBottom: '0.65rem' }}>
+            Deposit to a Company Bank Account <span style={{ color: 'var(--clr-danger)' }}>*</span>
           </label>
-          <select
-            value={paymentMethod}
-            onChange={(e) => setPaymentMethod(e.target.value)}
-            required
-            style={{
-              width: '100%', padding: '0.85rem 1rem', background: 'rgba(255,255,255,0.04)',
-              border: '1px solid rgba(255,255,255,0.08)', borderRadius: '10px',
-              color: 'var(--clr-text)', fontSize: '1rem', fontFamily: 'inherit',
-              outline: 'none', cursor: 'pointer'
-            }}
-          >
-            <option value="Bank Transfer">Bank Transfer</option>
-            <option value="CBE Birr">CBE Birr</option>
-            <option value="Telebirr">Telebirr</option>
-            <option value="Other">Other</option>
-          </select>
+          {banksLoading ? (
+            <div style={{ padding: '1rem', borderRadius: 10, border: '1px solid rgba(255,255,255,0.08)', color: 'var(--clr-muted)', fontSize: '0.84rem', textAlign: 'center' }}>Loading company bank accounts…</div>
+          ) : banksError ? (
+            <div style={{ padding: '0.85rem 1rem', borderRadius: 10, border: '1px solid rgba(251,191,36,0.25)', background: 'rgba(251,191,36,0.07)', color: 'var(--kpi-gold)', fontSize: '0.82rem', display: 'flex', gap: '0.55rem', alignItems: 'flex-start' }}>
+              <LuTriangleAlert size={16} style={{ flexShrink: 0, marginTop: 1 }} /> {banksError}
+            </div>
+          ) : (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))', gap: '0.7rem' }}>
+              {bankAccounts.map(bank => {
+                const selected = selectedBankId === bank.id
+                return (
+                  <div key={bank.id} onClick={() => { setSelectedBankId(bank.id); setError('') }} role="radio" aria-checked={selected} tabIndex={0}
+                    onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); setSelectedBankId(bank.id) } }}
+                    style={{ position: 'relative', cursor: 'pointer', padding: '0.85rem', borderRadius: 12, background: selected ? 'rgba(97,148,31,0.11)' : 'rgba(255,255,255,0.03)', border: `1px solid ${selected ? 'rgba(97,148,31,0.45)' : 'rgba(255,255,255,0.09)'}`, boxShadow: selected ? '0 0 0 2px rgba(97,148,31,0.08)' : 'none', outline: 'none', transition: 'all 0.18s' }}>
+                    <div style={{ display: 'flex', gap: '0.65rem', alignItems: 'center', marginBottom: '0.6rem' }}>
+                      <div style={{ width: 42, height: 42, borderRadius: 9, flexShrink: 0, overflow: 'hidden', background: '#fff', border: '1px solid rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        {bank.logo_url ? <img src={logoUrl(bank.logo_url)} alt={`${bank.bank_name} logo`} style={{ width: '100%', height: '100%', objectFit: 'contain' }} /> : <LuLandmark size={19} style={{ color: 'var(--clr-accent)' }} />}
+                      </div>
+                      <div style={{ minWidth: 0, flex: 1 }}>
+                        <p style={{ fontWeight: 800, fontSize: '0.85rem', color: 'var(--clr-text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{bank.bank_name}</p>
+                        <p style={{ fontSize: '0.68rem', color: 'var(--clr-muted)', marginTop: 2 }}>{bank.account_holder_name}</p>
+                      </div>
+                      <span style={{ width: 17, height: 17, borderRadius: '50%', border: `2px solid ${selected ? 'var(--clr-accent)' : 'rgba(148,163,184,0.45)'}`, background: selected ? 'var(--clr-accent)' : 'transparent', boxShadow: selected ? 'inset 0 0 0 3px var(--clr-bg)' : 'none', flexShrink: 0 }} />
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', padding: '0.5rem 0.55rem', borderRadius: 8, background: 'rgba(0,0,0,0.13)' }}>
+                      <span style={{ flex: 1, fontFamily: 'monospace', fontSize: '0.86rem', fontWeight: 800, color: 'var(--clr-accent)', wordBreak: 'break-all' }}>{bank.account_number}</span>
+                      <button type="button" onClick={event => { event.stopPropagation(); copyAccountNumber(bank) }} title="Copy account number" style={{ border: 'none', background: 'transparent', color: copiedBankId === bank.id ? 'var(--kpi-green)' : 'var(--clr-muted)', cursor: 'pointer', padding: 3, display: 'flex' }}>
+                        {copiedBankId === bank.id ? <LuCheck size={15} /> : <LuCopy size={15} />}
+                      </button>
+                    </div>
+                    {bank.description && <p style={{ fontSize: '0.7rem', lineHeight: 1.45, color: 'var(--clr-muted)', marginTop: '0.55rem' }}>{bank.description}</p>}
+                  </div>
+                )
+              })}
+            </div>
+          )}
         </div>
 
         {/* File Upload */}
@@ -287,13 +360,13 @@ export default function ManualPaymentPage({ onSuccess }: ManualPaymentPageProps)
         {/* Submit Button */}
         <button
           type="submit"
-          disabled={loading || !amount || !proof}
+          disabled={loading || banksLoading || !selectedBankId || !amount || !proof}
           style={{
             padding: '1rem', background: 'linear-gradient(135deg,#3e6113,#71ad25)',
             border: 'none', borderRadius: '10px', color: '#fff',
-            fontWeight: 700, cursor: loading || !amount || !proof ? 'not-allowed' : 'pointer',
+            fontWeight: 700, cursor: loading || banksLoading || !selectedBankId || !amount || !proof ? 'not-allowed' : 'pointer',
             fontSize: '1rem', fontFamily: 'inherit', transition: 'all 0.3s',
-            opacity: loading || !amount || !proof ? 0.6 : 1,
+            opacity: loading || banksLoading || !selectedBankId || !amount || !proof ? 0.6 : 1,
             display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.75rem'
           }}
           className="hover-lift"

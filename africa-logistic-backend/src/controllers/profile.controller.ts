@@ -703,12 +703,12 @@ export async function downloadInvoiceHandler(request: FastifyRequest, reply: Fas
  * Body: { amount, payment_method, proof_image (base64) }
  */
 export async function submitManualPaymentHandler(
-  request: FastifyRequest<{ Body: { amount: number; payment_method: string; proof_image?: string } }>,
+  request: FastifyRequest<{ Body: { amount: number; payment_method?: string; bank_account_id?: number; proof_image?: string } }>,
   reply: FastifyReply
 ) {
   const caller = request.user as { id: string }
   const db = request.server.db
-  const { amount, payment_method, proof_image } = request.body
+  const { amount, payment_method, bank_account_id, proof_image } = request.body
 
   // Allowed preset amounts
   const ALLOWED_AMOUNTS = [100, 200, 500, 1000, 2000, 5000, 10000, 20000, 50000]
@@ -717,11 +717,24 @@ export async function submitManualPaymentHandler(
     return reply.status(400).send({ message: `Amount must be one of: ${ALLOWED_AMOUNTS.join(', ')} ETB` })
   }
 
-  if (!payment_method?.trim()) {
-    return reply.status(400).send({ message: 'payment_method is required' })
-  }
-
   try {
+    let selectedBank: any | null = null
+    if (bank_account_id !== undefined) {
+      const id = Number(bank_account_id)
+      if (!Number.isInteger(id) || id <= 0) return reply.status(400).send({ success: false, message: 'Select a valid company bank account.' })
+      const [[bank]] = await db.query<any[]>(
+        `SELECT id, bank_name, account_number, account_holder_name
+           FROM company_bank_accounts WHERE id = ? AND is_active = 1 LIMIT 1`,
+        [id]
+      )
+      if (!bank) return reply.status(400).send({ success: false, message: 'The selected bank account is no longer available.' })
+      selectedBank = bank
+    } else if (!payment_method?.trim()) {
+      // Backward compatibility for existing mobile clients while new clients
+      // submit bank_account_id from the configured company bank list.
+      return reply.status(400).send({ success: false, message: 'Select a company bank account.' })
+    }
+
     const { getOrCreateWallet } = await import('../services/wallet.service.js')
     const wallet = await getOrCreateWallet(db, caller.id)
 
@@ -734,10 +747,20 @@ export async function submitManualPaymentHandler(
     const recordId = randomUUID()
 
     await db.query(
-      `INSERT INTO manual_payment_records 
-       (id, wallet_id, amount, action_type, reason, proof_image_url, submitted_by, status)
-       VALUES (?, ?, ?, 'DEPOSIT', ?, ?, ?, 'PENDING')`,
-      [recordId, wallet.id, amount, `Manual deposit via ${payment_method}`, proofUrl, caller.id]
+      `INSERT INTO manual_payment_records
+       (id, wallet_id, amount, action_type, reason, proof_image_url, bank_account_id, submitted_by, status)
+       VALUES (?, ?, ?, 'DEPOSIT', ?, ?, ?, ?, 'PENDING')`,
+      [
+        recordId,
+        wallet.id,
+        amount,
+        selectedBank
+          ? `Manual deposit via ${selectedBank.bank_name} (${selectedBank.account_number})`
+          : `Manual deposit via ${payment_method!.trim()}`,
+        proofUrl,
+        selectedBank?.id ?? null,
+        caller.id,
+      ]
     )
 
     return reply.status(201).send({
@@ -749,4 +772,22 @@ export async function submitManualPaymentHandler(
     request.server.log.error(err)
     return reply.status(500).send({ success: false, message: 'Failed to submit payment' })
   }
+}
+
+/** GET /api/profile/wallet/bank-accounts — active company deposit options. */
+export async function getActiveBankAccountsHandler(
+  request: FastifyRequest,
+  reply: FastifyReply
+) {
+  const caller = request.user as { role_id: number }
+  if (![2, 3].includes(caller.role_id)) {
+    return reply.status(403).send({ success: false, message: 'Bank deposit options are available to shippers and drivers.' })
+  }
+  const [rows] = await request.server.db.query<any[]>(
+    `SELECT id, bank_name, account_number, account_holder_name, logo_url, description
+       FROM company_bank_accounts
+      WHERE is_active = 1
+      ORDER BY bank_name ASC, id ASC`
+  )
+  return reply.send({ success: true, bank_accounts: rows, total: rows.length })
 }

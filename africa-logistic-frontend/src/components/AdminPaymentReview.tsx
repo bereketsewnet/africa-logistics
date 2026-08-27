@@ -18,6 +18,10 @@ interface ManualPayment {
   amount: number
   action_type: string
   reason: string
+  bank_account_id: number | null
+  deposit_bank_name: string | null
+  deposit_account_number: string | null
+  deposit_account_holder_name: string | null
   proof_image_url: string | null
   status: 'PENDING' | 'APPROVED' | 'REJECTED'
   submitted_at: string
@@ -456,6 +460,27 @@ export default function AdminPaymentReview() {
               </p>
             </div>
           </div>
+          {selectedPayment.deposit_bank_name && (
+            <div style={{
+              padding: '1rem', borderRadius: '10px',
+              background: 'rgba(97, 148, 31, 0.06)',
+              border: '1px solid rgba(97, 148, 31, 0.18)',
+              display: 'grid', gap: '0.5rem'
+            }}>
+              <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--clr-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                Deposit account selected by user
+              </p>
+              <p style={{ margin: 0, color: 'var(--clr-text)', fontWeight: 700 }}>
+                {selectedPayment.deposit_bank_name}
+              </p>
+              <p style={{ margin: 0, color: 'var(--clr-text)', fontFamily: 'monospace', overflowWrap: 'anywhere' }}>
+                {selectedPayment.deposit_account_number}
+              </p>
+              <p style={{ margin: 0, color: 'var(--clr-muted)', fontSize: '0.9rem' }}>
+                Account holder: {selectedPayment.deposit_account_holder_name}
+              </p>
+            </div>
+          )}
         </div>
 
         {/* Proof Image */}
