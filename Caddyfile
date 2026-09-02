@@ -83,3 +83,27 @@ dineos-agent.lula.com.et {
         reverse_proxy dineos_api:8765
     }
 }
+
+# ─── The Oracle AI Platform ─────────────────────────────────────────────────
+theoracle.lula.com.et {
+    encode zstd gzip
+
+    request_body {
+        max_size 25MB
+    }
+
+    header {
+        X-Content-Type-Options nosniff
+        Referrer-Policy strict-origin-when-cross-origin
+        -Server
+    }
+
+    @oracle_api path /api/* /docs* /redoc* /openapi.json
+    handle @oracle_api {
+        reverse_proxy oracle_backend:8000
+    }
+
+    handle {
+        reverse_proxy oracle_frontend:80
+    }
+}
