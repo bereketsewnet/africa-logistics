@@ -10,3 +10,6 @@ node_modules
 .DS_Store
 npm-debug.log*
 *.md
+# Vite has already copied this APK into dist/downloads/ before Docker builds.
+# Docker still receives the deployable dist copy, but not a duplicate source copy.
+/public/downloads/
