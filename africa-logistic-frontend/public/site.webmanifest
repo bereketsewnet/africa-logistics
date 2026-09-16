@@ -1,0 +1,18 @@
+{
+  "name": "Afri Logistics",
+  "short_name": "Afri Logistics",
+  "description": "Local and cross-country delivery and logistics services in Ethiopia.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#f8fbf5",
+  "theme_color": "#080b14",
+  "icons": [
+    {
+      "src": "/favicon.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

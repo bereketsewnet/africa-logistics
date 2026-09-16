@@ -3,7 +3,11 @@ import type { Pool } from 'mysql2/promise'
 
 type TwilioCredentials = { accountSid: string; authToken: string; from: string }
 
-const encryptionKey = () => crypto.createHash('sha256').update(process.env.CONFIG_ENCRYPTION_KEY || process.env.JWT_SECRET || 'afri-logistics-config-key').digest()
+const encryptionKey = () => {
+  const material = process.env.CONFIG_ENCRYPTION_KEY || process.env.JWT_SECRET
+  if (!material) throw new Error('A configuration encryption key is required.')
+  return crypto.createHash('sha256').update(material).digest()
+}
 const encrypt = (value: string) => {
   const iv = crypto.randomBytes(12)
   const cipher = crypto.createCipheriv('aes-256-gcm', encryptionKey(), iv)

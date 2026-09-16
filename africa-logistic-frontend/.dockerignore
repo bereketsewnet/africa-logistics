@@ -1,15 +1,7 @@
-# Not needed inside the image — the Dockerfile only copies dist/ and
-# nginx.conf — but Docker still sends the whole build context to the
-# daemon unless it's excluded here, so this keeps builds fast.
+# The Docker build produces dist itself. Do not send local build output,
+# dependencies, or Git history as Docker context.
 node_modules
+dist
 .git
 .gitignore
-.env
-.env.*
-.vscode
-.DS_Store
-npm-debug.log*
-*.md
-# Vite has already copied this APK into dist/downloads/ before Docker builds.
-# Docker still receives the deployable dist copy, but not a duplicate source copy.
-/public/downloads/
+*.log

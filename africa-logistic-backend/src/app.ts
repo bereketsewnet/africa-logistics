@@ -6,6 +6,17 @@ import dotenv from 'dotenv'
 // Load .env variables FIRST — before anything else reads process.env
 dotenv.config()
 
+// Never allow a production API to start with a guessed/default signing key.
+// JWT_SECRET signs every session; CONFIG_ENCRYPTION_KEY protects credentials
+// configured from the admin settings page (for example Twilio).
+const jwtSecret = process.env.JWT_SECRET
+if (!jwtSecret || jwtSecret.length < 32) {
+  throw new Error('JWT_SECRET must be set to a strong value of at least 32 characters.')
+}
+if (process.env.NODE_ENV === 'production' && (!process.env.CONFIG_ENCRYPTION_KEY || process.env.CONFIG_ENCRYPTION_KEY.length < 32)) {
+  throw new Error('CONFIG_ENCRYPTION_KEY must be set to a strong value of at least 32 characters in production.')
+}
+
 const app = Fastify({ logger: true, bodyLimit: 52428800, pluginTimeout: 60000 }) // 50 MB – needed for multi-image base64 uploads; 60s plugin timeout for DB init+seeding
 
 // ─── 1. CORS ──────────────────────────────────────────────────────────────────
@@ -41,7 +52,7 @@ app.register(cors, {
 // Register @fastify/jwt with our secret key from .env.
 // This adds:  fastify.jwt.sign(payload)  and  request.jwtVerify()
 app.register(jwt, {
-  secret: process.env.JWT_SECRET || 'fallback-secret-change-me',
+  secret: jwtSecret,
 })
 
 // Add fastify.authenticate — a reusable hook to protect routes.

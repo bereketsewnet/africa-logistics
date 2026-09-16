@@ -45,23 +45,6 @@ export default function LoginPage() {
     document.documentElement.setAttribute('data-theme', next.toLowerCase())
   }
 
-  const demoAccounts = [
-    { label: 'Admin', phone: '+251911000001', password: 'Admin1234' },
-    { label: 'Shipper', phone: '+251900000001', password: 'Admin1234' },
-    { label: 'Driver', phone: '+251965500639', password: 'Admin1234' },
-    { label: 'Cashier', phone: '+251911104182', password: 'Admin1234' },
-    { label: 'Dispatcher', phone: '+251928664558', password: 'Admin1234' },
-    { label: 'Car Owner', phone: '+251912000001', password: 'Admin1234' },
-  ]
-
-  const fillDemo = (phoneValue: string, passwordValue: string) => {
-    setLoginMode('phone')
-    setEmail('')
-    setPhone(phoneValue)
-    setPassword(passwordValue)
-    setError('')
-  }
-
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
     e.stopPropagation()
@@ -246,35 +229,6 @@ export default function LoginPage() {
             </a>
           </div>
 
-          <div style={{ marginTop: '0.85rem' }}>
-            <p style={{ fontSize: '0.72rem', color: 'var(--clr-muted)', margin: '0 0 0.45rem', fontWeight: 600 }}>
-              {tr('login_demo_title')}
-            </p>
-            <div style={{ display: 'flex', gap: '0.45rem', overflowX: 'auto', paddingBottom: '0.15rem' }}>
-              {demoAccounts.map(account => (
-                <button
-                  key={account.label}
-                  type="button"
-                  onClick={() => fillDemo(account.phone, account.password)}
-                  style={{
-                    whiteSpace: 'nowrap',
-                    padding: '0.42rem 0.78rem',
-                    borderRadius: 999,
-                    border: '1px solid rgba(62,97,19,0.32)',
-                    background: 'rgba(62,97,19,0.12)',
-                    color: '#c4b5fd',
-                    fontSize: '0.73rem',
-                    fontWeight: 700,
-                    cursor: 'pointer',
-                    fontFamily: 'inherit',
-                    flexShrink: 0,
-                  }}
-                >
-                  {account.label}
-                </button>
-              ))}
-            </div>
-          </div>
 
           {/* Register link */}
           <p style={{ textAlign: 'center', color: 'var(--clr-muted)', fontSize: '0.84rem', marginTop: '0.85rem' }}>

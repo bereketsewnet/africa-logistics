@@ -36,6 +36,19 @@ export default fp(async function dbPlugin(fastify: FastifyInstance) {
   try {
     const conn = await pool.getConnection()
     fastify.log.info('✅ MySQL database connected successfully.')
+
+    // A newly imported production schema intentionally contains no users or
+    // roles. Keep the role IDs stable because they are used throughout the API
+    // and by database foreign keys.
+    await conn.query(`
+      INSERT IGNORE INTO roles (id, role_name, description) VALUES
+        (1, 'Admin',      'Full system administrator'),
+        (2, 'Shipper',    'Customer who creates delivery orders'),
+        (3, 'Driver',     'Driver who fulfils assigned deliveries'),
+        (4, 'Cashier',    'Finance/cashier role handling payment approvals and wallet operations'),
+        (5, 'Dispatcher', 'Operations dispatcher handling order assignment and dispatch flow'),
+        (6, 'CarOwner',   'Car owner who registers vehicles for driver assignment')
+    `)
     // Ensure auxiliary tables for email/phone verification exist
     await conn.query(`
       CREATE TABLE IF NOT EXISTS email_verifications (
@@ -805,13 +818,6 @@ export default fp(async function dbPlugin(fastify: FastifyInstance) {
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     `)
 
-    // Ensure staff roles exist — 4=Cashier (finance), 5=Dispatcher (operations).
-    await conn.query(`
-      INSERT IGNORE INTO roles (id, role_name, description) VALUES
-        (4, 'Cashier',    'Finance/cashier role handling payment approvals and wallet operations'),
-        (5, 'Dispatcher', 'Operations dispatcher handling order assignment and dispatch flow')
-    `).catch(() => {})
-
     await conn.query(`
       INSERT IGNORE INTO permissions (permission_key, label, description) VALUES
         ('overview.view',       'Overview Access',            'View admin overview dashboard widgets and totals'),
@@ -907,12 +913,6 @@ export default fp(async function dbPlugin(fastify: FastifyInstance) {
     `)
     await conn.query(`INSERT IGNORE INTO ai_assistance_settings (id) VALUES (1)`)
 
-    // ─── Car Owner Role (6) ──────────────────────────────────────────────────
-    await conn.query(`
-      INSERT IGNORE INTO roles (id, role_name, description) VALUES
-        (6, 'CarOwner', 'Car owner who registers vehicles for driver assignment')
-    `).catch(() => {})
-
     // ─── Car Owner Vehicles ──────────────────────────────────────────────────
     await conn.query(`
       CREATE TABLE IF NOT EXISTS car_owner_vehicles (
@@ -974,29 +974,33 @@ export default fp(async function dbPlugin(fastify: FastifyInstance) {
       await conn.query(`ALTER TABLE orders ADD COLUMN driver_payout_status ENUM('PENDING','WALLET_PAID','BANK_TRANSFERRED') NOT NULL DEFAULT 'PENDING'`)
     }
 
-    // ─── Demo login accounts (idempotent) ────────────────────────────────────
-    // The public LoginPage has one quick-login button per role (Admin, Shipper,
-    // Driver, Cashier, Dispatcher, Car Owner) that fills in a fixed phone number
-    // + password. Only the Admin account existed in the DB, so every other demo
-    // button failed with "Invalid credentials." — the account it pointed to was
-    // never seeded. INSERT IGNORE + the UNIQUE phone_number/email constraints
-    // make this safe to run on every startup: existing accounts (including a
-    // renamed/edited Admin) are left untouched, missing ones are created once.
-    const demoPasswordHash = await bcrypt.hash('Admin1234', 12)
-    const demoAccounts = [
-      { role_id: 2, phone: '+251900000001', email: 'shipper.demo@africalogistics.com.et', first: 'Demo', last: 'Shipper' },
-      { role_id: 3, phone: '+251965500639', email: 'driver.demo@africalogistics.com.et', first: 'Demo', last: 'Driver' },
-      { role_id: 4, phone: '+251911104182', email: 'cashier.demo@africalogistics.com.et', first: 'Demo', last: 'Cashier' },
-      { role_id: 5, phone: '+251928664558', email: 'dispatcher.demo@africalogistics.com.et', first: 'Demo', last: 'Dispatcher' },
-      { role_id: 6, phone: '+251912000001', email: 'carowner.demo@africalogistics.com.et', first: 'Demo', last: 'CarOwner' },
-    ]
-    for (const acc of demoAccounts) {
-      await conn.query(
+    // ─── Initial production administrator ───────────────────────────────────
+    // This is intentionally the only user seeded by a clean deployment. The
+    // INSERT IGNORE makes later restarts safe: it never overwrites an admin's
+    // password or profile after the account has been created once.
+    const initialAdminPhone = process.env.INITIAL_ADMIN_PHONE?.trim()
+    const initialAdminPassword = process.env.INITIAL_ADMIN_PASSWORD
+    const initialAdminFirstName = process.env.INITIAL_ADMIN_FIRST_NAME?.trim() || 'Abdi'
+    const initialAdminLastName = process.env.INITIAL_ADMIN_LAST_NAME?.trim() || ''
+    if (initialAdminPassword && !initialAdminPhone) {
+      throw new Error('INITIAL_ADMIN_PHONE must be set when INITIAL_ADMIN_PASSWORD is set for the production bootstrap.')
+    }
+    // Leaving the phone value in .env after first login is safe. Removing only
+    // INITIAL_ADMIN_PASSWORD disables this one-time bootstrap on later restarts.
+    if (initialAdminPhone && initialAdminPassword) {
+      if (!/^\+[1-9]\d{6,19}$/.test(initialAdminPhone)) {
+        throw new Error('INITIAL_ADMIN_PHONE must use E.164 format, for example +251904734191.')
+      }
+      const initialAdminPasswordHash = await bcrypt.hash(initialAdminPassword, 12)
+      const [result] = await conn.query<any>(
         `INSERT IGNORE INTO users
-           (id, role_id, phone_number, email, password_hash, first_name, last_name, is_phone_verified, is_email_verified, is_active)
-         VALUES (?, ?, ?, ?, ?, ?, ?, 1, 1, 1)`,
-        [randomUUID(), acc.role_id, acc.phone, acc.email, demoPasswordHash, acc.first, acc.last]
+           (id, role_id, phone_number, password_hash, first_name, last_name, is_phone_verified, is_email_verified, is_active)
+         VALUES (?, 1, ?, ?, ?, ?, 1, 0, 1)`,
+        [randomUUID(), initialAdminPhone, initialAdminPasswordHash, initialAdminFirstName, initialAdminLastName]
       )
+      if (result.affectedRows === 1) {
+        fastify.log.info({ phone: initialAdminPhone }, 'Initial production administrator created.')
+      }
     }
 
     conn.release() // Return the connection back to the pool

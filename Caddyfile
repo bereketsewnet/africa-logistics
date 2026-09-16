@@ -5,6 +5,14 @@ afri-logistics.com {
     # upstream response and was sending multi-megabyte JS files uncompressed.
     encode zstd gzip
 
+    header {
+        -Server
+        X-Content-Type-Options nosniff
+        Referrer-Policy strict-origin-when-cross-origin
+        Permissions-Policy "camera=(), microphone=(), geolocation=(self)"
+        Strict-Transport-Security "max-age=31536000; includeSubDomains"
+    }
+
     handle_path /uploads/* {
         root * /srv/uploads
         file_server
@@ -16,6 +24,12 @@ afri-logistics.com {
 # /uploads/* is served as static files from the shared Docker volume.
 # All other paths are proxied to the Fastify backend.
 backend.afri-logistics.com {
+    header {
+        -Server
+        X-Content-Type-Options nosniff
+        Referrer-Policy no-referrer
+        Strict-Transport-Security "max-age=31536000; includeSubDomains"
+    }
     handle_path /uploads/* {
         root * /srv/uploads
         file_server
