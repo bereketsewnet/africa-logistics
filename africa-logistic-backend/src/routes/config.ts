@@ -67,6 +67,18 @@ export default async function configRoutes(fastify: FastifyInstance) {
     return reply.send({ success: true, contact })
   })
 
+  // ─── GET /api/config/documentation ─────────────────────────────────────────
+  // Public-only fields for the homepage documentation/video carousel.
+  fastify.get('/documentation', async (_request, reply) => {
+    const [rows] = await fastify.db.query<any[]>(
+      `SELECT id, title, description, link_url, image_url, updated_at
+         FROM public_documentation
+        WHERE is_active = 1
+        ORDER BY updated_at DESC, id DESC`
+    )
+    return reply.send({ success: true, documentation: rows })
+  })
+
   // ─── POST /api/config/contact-message ───────────────────────────────────────
   // Public marketing contact form. Stores the submission and alerts admins.
   fastify.post('/contact-message', async (request, reply) => {

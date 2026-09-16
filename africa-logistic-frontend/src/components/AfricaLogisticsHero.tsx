@@ -16,6 +16,7 @@ const navItems: { key: string; fallback: string; href: string }[] = [
   { key: 'svc_badge', fallback: 'Our Services', href: '#services' },
   { key: 'team_badge', fallback: 'Our Team', href: '#team' },
   { key: 'contact_us_badge', fallback: 'Contact Us', href: '#contact' },
+  { key: 'hp_menu_docs', fallback: 'Documentation', href: '#documentation' },
 ]
 
 const featureKeys: { titleKey: string; titleFallback: string; descKey: string; descFallback: string }[] = [

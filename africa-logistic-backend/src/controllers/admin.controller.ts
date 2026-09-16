@@ -120,6 +120,27 @@ function deleteBankLogo(logoUrl: string | null | undefined): void {
   }
 }
 
+function saveDocumentationImage(base64Data: string, documentationId: string): string {
+  const match = base64Data.match(/^data:(image\/(?:jpeg|jpg|png|webp));base64,([A-Za-z0-9+/=]+)$/)
+  if (!match) throw new Error('Documentation image must be a JPG, PNG, or WebP image.')
+  const bytes = Buffer.from(match[2], 'base64')
+  if (bytes.length === 0 || bytes.length > 2 * 1024 * 1024) {
+    throw new Error('Documentation image must be smaller than 2MB.')
+  }
+  return saveFile(base64Data, 'documentation', `documentation_${documentationId}`)
+}
+
+function deleteDocumentationImage(imageUrl: string | null | undefined): void {
+  if (!imageUrl?.startsWith('/uploads/documentation/')) return
+  const filename = path.basename(imageUrl)
+  const target = path.join(process.cwd(), 'uploads', 'documentation', filename)
+  try {
+    if (fs.existsSync(target)) fs.unlinkSync(target)
+  } catch {
+    // A stale asset must never block an admin operation.
+  }
+}
+
 // keep old name as alias
 const saveVehiclePhoto = (b64: string, id: string) => saveFile(b64, 'vehicles', id)
 
@@ -3128,6 +3149,169 @@ export async function adminDeleteBankAccountHandler(
   await request.server.db.query('DELETE FROM company_bank_accounts WHERE id = ?', [id])
   deleteBankLogo(existing.logo_url)
   return reply.send({ success: true, message: 'Bank account deleted.' })
+}
+
+// ─── Public Documentation Library ────────────────────────────────────────────
+
+interface DocumentationBody {
+  title?: string
+  description?: string | null
+  link_url?: string
+  image_base64?: string
+  remove_image?: boolean
+  is_active?: boolean
+}
+
+function normalizeDocumentationUrl(value: string): string {
+  const candidate = value.trim()
+  if (!candidate || candidate.length > 2048) throw new Error('A valid documentation link is required.')
+  let parsed: URL
+  try {
+    parsed = new URL(candidate)
+  } catch {
+    throw new Error('Please provide a valid documentation link.')
+  }
+  if (!['http:', 'https:'].includes(parsed.protocol)) {
+    throw new Error('Documentation links must start with http:// or https://.')
+  }
+  return parsed.toString()
+}
+
+function documentationError(reply: FastifyReply, error: unknown) {
+  if (error instanceof Error && (
+    error.message.includes('required') ||
+    error.message.includes('valid documentation link') ||
+    error.message.includes('must start') ||
+    error.message.includes('too long') ||
+    error.message.startsWith('Documentation image')
+  )) {
+    return reply.status(400).send({ success: false, message: error.message })
+  }
+  return null
+}
+
+/** GET /api/admin/documentation — list all public documentation entries. */
+export async function adminListDocumentationHandler(
+  request: FastifyRequest,
+  reply: FastifyReply
+) {
+  const [rows] = await request.server.db.query<any[]>(
+    `SELECT id, title, description, link_url, image_url, is_active, created_at, updated_at
+       FROM public_documentation
+      ORDER BY is_active DESC, updated_at DESC, id DESC`
+  )
+  return reply.send({ success: true, documentation: rows, total: rows.length })
+}
+
+/** POST /api/admin/documentation — add an item to the homepage library. */
+export async function adminCreateDocumentationHandler(
+  request: FastifyRequest<{ Body: DocumentationBody }>,
+  reply: FastifyReply
+) {
+  const admin = request.user as { id: string }
+  const body = request.body ?? {}
+  const title = body.title?.trim()
+  if (!title) return reply.status(400).send({ success: false, message: 'Documentation title is required.' })
+  if (title.length > 180) return reply.status(400).send({ success: false, message: 'Documentation title is too long.' })
+
+  let imageUrl: string | null = null
+  try {
+    const linkUrl = normalizeDocumentationUrl(body.link_url ?? '')
+    const description = body.description?.trim() || null
+    if (description && description.length > 5000) throw new Error('Documentation description is too long.')
+    if (body.image_base64) imageUrl = saveDocumentationImage(body.image_base64, uuidv4())
+
+    const [result] = await request.server.db.query<any>(
+      `INSERT INTO public_documentation
+         (title, description, link_url, image_url, is_active, created_by, updated_by)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [title, description, linkUrl, imageUrl, body.is_active === false ? 0 : 1, admin.id, admin.id]
+    )
+    const [[documentation]] = await request.server.db.query<any[]>(
+      'SELECT * FROM public_documentation WHERE id = ?', [Number(result.insertId)]
+    )
+    return reply.status(201).send({ success: true, message: 'Documentation entry created.', documentation })
+  } catch (error) {
+    if (imageUrl) deleteDocumentationImage(imageUrl)
+    const handled = documentationError(reply, error)
+    if (handled) return handled
+    request.server.log.error(error)
+    return reply.status(500).send({ success: false, message: 'Failed to create documentation entry.' })
+  }
+}
+
+/** PUT /api/admin/documentation/:id — edit an existing documentation entry. */
+export async function adminUpdateDocumentationHandler(
+  request: FastifyRequest<{ Params: { id: string }; Body: DocumentationBody }>,
+  reply: FastifyReply
+) {
+  const admin = request.user as { id: string }
+  const id = Number(request.params.id)
+  if (!Number.isInteger(id) || id <= 0) return reply.status(400).send({ success: false, message: 'Invalid documentation id.' })
+
+  const [[existing]] = await request.server.db.query<any[]>(
+    'SELECT * FROM public_documentation WHERE id = ?', [id]
+  )
+  if (!existing) return reply.status(404).send({ success: false, message: 'Documentation entry not found.' })
+
+  const body = request.body ?? {}
+  const sets: string[] = []
+  const values: unknown[] = []
+  let nextImageUrl: string | null | undefined
+  try {
+    if (body.title !== undefined) {
+      const title = body.title.trim()
+      if (!title) throw new Error('Documentation title is required.')
+      if (title.length > 180) throw new Error('Documentation title is too long.')
+      sets.push('title = ?'); values.push(title)
+    }
+    if (body.link_url !== undefined) {
+      sets.push('link_url = ?'); values.push(normalizeDocumentationUrl(body.link_url))
+    }
+    if (body.description !== undefined) {
+      const description = body.description?.trim() || null
+      if (description && description.length > 5000) throw new Error('Documentation description is too long.')
+      sets.push('description = ?'); values.push(description)
+    }
+    if (body.is_active !== undefined) { sets.push('is_active = ?'); values.push(body.is_active ? 1 : 0) }
+    if (body.remove_image) nextImageUrl = null
+    if (body.image_base64) nextImageUrl = saveDocumentationImage(body.image_base64, String(id))
+    if (nextImageUrl !== undefined) { sets.push('image_url = ?'); values.push(nextImageUrl) }
+    if (!sets.length) return reply.status(400).send({ success: false, message: 'No valid fields provided.' })
+
+    sets.push('updated_by = ?')
+    values.push(admin.id, id)
+    await request.server.db.query(`UPDATE public_documentation SET ${sets.join(', ')} WHERE id = ?`, values)
+    if (nextImageUrl !== undefined && existing.image_url && existing.image_url !== nextImageUrl) {
+      deleteDocumentationImage(existing.image_url)
+    }
+    const [[documentation]] = await request.server.db.query<any[]>(
+      'SELECT * FROM public_documentation WHERE id = ?', [id]
+    )
+    return reply.send({ success: true, message: 'Documentation entry updated.', documentation })
+  } catch (error) {
+    if (nextImageUrl && nextImageUrl !== existing.image_url) deleteDocumentationImage(nextImageUrl)
+    const handled = documentationError(reply, error)
+    if (handled) return handled
+    request.server.log.error(error)
+    return reply.status(500).send({ success: false, message: 'Failed to update documentation entry.' })
+  }
+}
+
+/** DELETE /api/admin/documentation/:id — delete the entry and its uploaded image. */
+export async function adminDeleteDocumentationHandler(
+  request: FastifyRequest<{ Params: { id: string } }>,
+  reply: FastifyReply
+) {
+  const id = Number(request.params.id)
+  if (!Number.isInteger(id) || id <= 0) return reply.status(400).send({ success: false, message: 'Invalid documentation id.' })
+  const [[existing]] = await request.server.db.query<any[]>(
+    'SELECT image_url FROM public_documentation WHERE id = ?', [id]
+  )
+  if (!existing) return reply.status(404).send({ success: false, message: 'Documentation entry not found.' })
+  await request.server.db.query('DELETE FROM public_documentation WHERE id = ?', [id])
+  deleteDocumentationImage(existing.image_url)
+  return reply.send({ success: true, message: 'Documentation entry deleted.' })
 }
 
 // ─── AI Assistance Settings ───────────────────────────────────────────────────

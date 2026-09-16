@@ -7,6 +7,7 @@ import {
   ShieldCheck, Cpu, HeartHandshake, Settings2, Zap, Sparkles,
   Map as MapIcon, UserPlus, Handshake, Wallet,
   Smartphone, UserCog, Download,
+  BookOpen, Search, ArrowUpRight,
 } from 'lucide-react'
 import { useThemeLogo } from '../lib/useThemeLogo'
 import { configApi } from '../lib/apiClient'
@@ -574,6 +575,94 @@ function Contact() {
 }
 
 /* ═══════════════════════════════════════════════
+   Documentation — public cards managed from Admin Settings
+   ═══════════════════════════════════════════════ */
+interface PublicDocumentationEntry {
+  id: number
+  title: string
+  description: string | null
+  link_url: string
+  image_url: string | null
+}
+
+const DOCUMENTATION_DEFAULT_IMAGE = '/images/documentation-default.svg'
+const DOCUMENTATION_UPLOAD_BASE = ((import.meta.env.VITE_API_BASE_URL as string | undefined) ?? '').replace(/\/api\/?$/, '')
+const documentationImageUrl = (imageUrl: string | null) => !imageUrl
+  ? DOCUMENTATION_DEFAULT_IMAGE
+  : imageUrl.startsWith('http') ? imageUrl : `${DOCUMENTATION_UPLOAD_BASE}${imageUrl.startsWith('/') ? '' : '/'}${imageUrl}`
+
+function Documentation() {
+  const [entries, setEntries] = useState<PublicDocumentationEntry[]>([])
+  const [loading, setLoading] = useState(true)
+  const [searchOpen, setSearchOpen] = useState(false)
+  const [query, setQuery] = useState('')
+
+  useEffect(() => {
+    configApi.getDocumentation()
+      .then(response => setEntries((response.data as { documentation?: PublicDocumentationEntry[] }).documentation ?? []))
+      .catch(() => setEntries([]))
+      .finally(() => setLoading(false))
+  }, [])
+
+  const normalizedQuery = query.trim().toLocaleLowerCase()
+  const visibleEntries = normalizedQuery
+    ? entries.filter(entry => `${entry.title} ${entry.description ?? ''}`.toLocaleLowerCase().includes(normalizedQuery))
+    : entries
+
+  // Empty libraries intentionally do not add a blank marketing section. It will
+  // appear automatically as soon as an admin publishes the first entry.
+  if (loading || entries.length === 0) return null
+
+  return (
+    <section id="documentation" className="hp-section hp-docs-section">
+      <div className="hp-container">
+        <div className="hp-docs-head">
+          <Reveal>
+            <div className="hp-badge"><BookOpen /> Documentation</div>
+            <h2 className="hp-section-title">Helpful resources,<br /><span className="hp-gradient-text">ready when you are.</span></h2>
+            <p className="hp-section-sub">Explore our guides, updates, and video resources to make every shipment easier.</p>
+          </Reveal>
+          <div
+            className={`hp-docs-search ${searchOpen || query ? 'is-open' : ''}`}
+            onMouseEnter={() => setSearchOpen(true)}
+            onMouseLeave={() => { if (!query) setSearchOpen(false) }}
+          >
+            <button type="button" className="hp-docs-search-toggle" onClick={() => setSearchOpen(open => !open)} aria-label="Search documentation" title="Search documentation"><Search /></button>
+            <input
+              className="hp-docs-search-input"
+              value={query}
+              onChange={event => setQuery(event.target.value)}
+              placeholder="Search documentation…"
+              aria-label="Search documentation"
+              tabIndex={searchOpen || Boolean(query) ? 0 : -1}
+            />
+          </div>
+        </div>
+        {visibleEntries.length ? (
+          <div className="hp-docs-rail" role="list" aria-label="Documentation resources">
+            {visibleEntries.map((entry, index) => (
+              <a key={entry.id} href={entry.link_url} target="_blank" rel="noopener noreferrer" className="hp-doc-card" role="listitem" aria-label={`Open ${entry.title}`}>
+                <div className="hp-doc-card-image-wrap">
+                  <img className="hp-doc-card-image" src={documentationImageUrl(entry.image_url)} alt="" loading={index > 0 ? 'lazy' : 'eager'} onError={event => { event.currentTarget.src = DOCUMENTATION_DEFAULT_IMAGE }} />
+                  <span className="hp-doc-card-open"><ArrowUpRight /></span>
+                </div>
+                <div className="hp-doc-card-body">
+                  <h3>{entry.title}</h3>
+                  {entry.description && <p>{entry.description}</p>}
+                  <span>Open resource <ArrowUpRight /></span>
+                </div>
+              </a>
+            ))}
+          </div>
+        ) : (
+          <div className="hp-docs-empty">No resources match “{query.trim()}”. Try another search.</div>
+        )}
+      </div>
+    </section>
+  )
+}
+
+/* ═══════════════════════════════════════════════
    Footer
    ═══════════════════════════════════════════════ */
 function Footer() {
@@ -587,6 +676,7 @@ function Footer() {
         { label: t('about_us_badge'), href: '#about' },
         { label: t('svc_badge'), href: '#services' },
         { label: t('contact_us_badge'), href: '#contact' },
+        { label: t('hp_menu_docs'), href: '#documentation' },
       ],
     },
     {
@@ -659,6 +749,7 @@ export default function HomePage() {
         <Apps />
         <Team />
         <Contact />
+        <Documentation />
         <Footer />
       </div>
     </>

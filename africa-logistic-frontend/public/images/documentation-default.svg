@@ -1,0 +1,32 @@
+<svg width="960" height="540" viewBox="0 0 960 540" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="75" y1="36" x2="904" y2="524" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#122B1A"/>
+      <stop offset=".56" stop-color="#356D18"/>
+      <stop offset="1" stop-color="#73AD26"/>
+    </linearGradient>
+    <linearGradient id="paper" x1="456" y1="102" x2="652" y2="424" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#fff"/>
+      <stop offset="1" stop-color="#DCEFD0"/>
+    </linearGradient>
+    <filter id="shadow" x="290" y="51" width="389" height="414" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="18" stdDeviation="20" flood-color="#07150B" flood-opacity=".36"/>
+    </filter>
+  </defs>
+  <rect width="960" height="540" rx="28" fill="url(#bg)"/>
+  <path d="M0 407C198 323 289 477 493 399C673 330 790 231 960 275V540H0V407Z" fill="#B8E466" fill-opacity=".12"/>
+  <circle cx="125" cy="104" r="128" fill="#A6D653" fill-opacity=".12"/>
+  <circle cx="870" cy="483" r="182" fill="#0A2112" fill-opacity=".24"/>
+  <g filter="url(#shadow)">
+    <path d="M352 95C352 79.536 364.536 67 380 67H560L649 156V409C649 424.464 636.464 437 621 437H380C364.536 437 352 424.464 352 409V95Z" fill="url(#paper)"/>
+    <path d="M560 67V140C560 148.837 567.163 156 576 156H649L560 67Z" fill="#9FD447"/>
+    <rect x="404" y="191" width="190" height="15" rx="7.5" fill="#538A26" fill-opacity=".82"/>
+    <rect x="404" y="232" width="142" height="12" rx="6" fill="#173720" fill-opacity=".25"/>
+    <rect x="404" y="263" width="190" height="12" rx="6" fill="#173720" fill-opacity=".19"/>
+    <rect x="404" y="294" width="165" height="12" rx="6" fill="#173720" fill-opacity=".19"/>
+    <circle cx="602" cy="352" r="46" fill="#73AD26"/>
+    <path d="M592 330.5C592 326.746 596.108 324.444 599.311 326.407L628.954 344.576C632.013 346.451 632.013 350.896 628.954 352.771L599.311 370.94C596.108 372.903 592 370.601 592 366.847V330.5Z" fill="white"/>
+  </g>
+  <text x="72" y="419" fill="white" font-family="Arial, sans-serif" font-size="32" font-weight="700">AFRI LOGISTICS</text>
+  <text x="72" y="457" fill="#DDF3C5" font-family="Arial, sans-serif" font-size="21" font-weight="500">Documentation &amp; video guides</text>
+</svg>

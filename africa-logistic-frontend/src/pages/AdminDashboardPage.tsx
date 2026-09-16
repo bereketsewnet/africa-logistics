@@ -14,6 +14,7 @@ import 'leaflet/dist/leaflet.css'
 import AdminPaymentReview from '../components/AdminPaymentReview'
 import AdminWalletAdjustment from '../components/AdminWalletAdjustment'
 import AdminBankInformation from '../components/AdminBankInformation'
+import AdminDocumentationLibrary from '../components/AdminDocumentationLibrary'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import { useThemeLogo } from '../lib/useThemeLogo'
@@ -185,7 +186,7 @@ interface Stats {
   total_users: number; total_admins: number; total_shippers: number
   total_drivers: number; active_users: number; new_today: number
 }
-type AdminSection = 'overview' | 'drivers' | 'shippers' | 'staff' | 'verify-drivers' | 'vehicles' | 'orders' | 'live-drivers' | 'guest-orders' | 'cargo-types' | 'pricing-rules' | 'profile' | 'payments' | 'wallet-adjustment' | 'notif-settings' | 'settings' | 'vehicle-types' | 'countries' | 'maintenance-mode' | 'role-management' | 'security-events' | 'cross-border' | 'reports' | 'contact-info' | 'ai-settings' | 'bank-information' | 'car-owners'
+type AdminSection = 'overview' | 'drivers' | 'shippers' | 'staff' | 'verify-drivers' | 'vehicles' | 'orders' | 'live-drivers' | 'guest-orders' | 'cargo-types' | 'pricing-rules' | 'profile' | 'payments' | 'wallet-adjustment' | 'notif-settings' | 'settings' | 'vehicle-types' | 'countries' | 'maintenance-mode' | 'role-management' | 'security-events' | 'cross-border' | 'reports' | 'contact-info' | 'ai-settings' | 'bank-information' | 'documentation' | 'car-owners'
 type ProfileTab = 'profile' | 'security' | 'contact'
 
 interface DriverRow {
@@ -1845,6 +1846,7 @@ function AdminSettingsHub({ onNav }: { onNav: (s: AdminSection) => void }) {
     { id: 'maintenance-mode', icon: <LuWrench size={22} />, label: tr('sb_st_maintenance'), desc: 'Activate maintenance kill-switch and manage app version string.', accent: 'rgba(239,68,68,0.10)' },
     { id: 'contact-info', icon: <LuPhone size={22} />, label: tr('sb_st_contact'), desc: tr('sh_desc_contact'), accent: 'rgba(16,185,129,0.10)' },
     { id: 'bank-information', icon: <LuLandmark size={22} />, label: tr('sb_st_bank'), desc: tr('sh_desc_bank'), accent: 'rgba(59,130,246,0.10)' },
+    { id: 'documentation', icon: <LuFileText size={22} />, label: 'Documentation', desc: 'Manage public guides, video links, and supporting resources.', accent: 'rgba(20,184,166,0.10)' },
     { id: 'ai-settings', icon: <LuLink size={22} />, label: tr('sb_st_ai'), desc: tr('sh_desc_ai'), accent: 'rgba(168,85,247,0.12)' },
   ]
   return (
@@ -7509,7 +7511,7 @@ export default function AdminDashboardPage() {
     { id: 'profile' as AdminSection, icon: <LuUser size={16} />, label: 'My Profile' },
   ]
 
-  const SETTINGS_SUBSECTIONS: AdminSection[] = ['cargo-types', 'pricing-rules', 'vehicle-types', 'countries', 'notif-settings', 'role-management', 'maintenance-mode', 'contact-info', 'bank-information', 'ai-settings']
+  const SETTINGS_SUBSECTIONS: AdminSection[] = ['cargo-types', 'pricing-rules', 'vehicle-types', 'countries', 'notif-settings', 'role-management', 'maintenance-mode', 'contact-info', 'bank-information', 'documentation', 'ai-settings']
 
   useEffect(() => {
     if (!navItems.length) return
@@ -7539,6 +7541,7 @@ export default function AdminDashboardPage() {
     'reports': { icon: <LuChartBar size={16} />, label: tr('sb_st_reports') },
     'contact-info': { icon: <LuPhone size={16} />, label: tr('sb_st_contact') },
     'bank-information': { icon: <LuLandmark size={16} />, label: tr('sb_st_bank') },
+    'documentation': { icon: <LuFileText size={16} />, label: 'Documentation' },
     'ai-settings': { icon: <LuLink size={16} />, label: tr('sb_st_ai') },
     'car-owners': { icon: <LuCar size={16} />, label: tr('sb_st_car_owners') },
     'settings': { icon: <LuSettings size={16} />, label: tr('sb_st_settings') },
@@ -7724,6 +7727,7 @@ export default function AdminDashboardPage() {
           {section === 'reports' && <AdminReportsSection allowedTabs={reportTabsForRole} />}
           {section === 'contact-info' && <AdminContactInfoSection />}
           {section === 'bank-information' && <AdminBankInformation />}
+          {section === 'documentation' && <AdminDocumentationLibrary />}
           {section === 'ai-settings' && <AdminAiSettingsSection />}
           {section === 'profile' && <ProfileSection adminTheme={adminTheme} onThemeChange={handleAdminThemeChange} />}
           {section === 'payments' && <AdminPaymentReview />}

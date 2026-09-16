@@ -414,6 +414,22 @@ export const adminOrderApi = {
   deleteBankAccount: (id: number) =>
     apiClient.delete(`/admin/bank-accounts/${id}`),
 
+  // ── Public Documentation Library ────────────────────────────────────────
+  listDocumentation: () =>
+    apiClient.get('/admin/documentation'),
+
+  createDocumentation: (data: {
+    title: string; link_url: string; description?: string; is_active?: boolean; image_base64?: string
+  }) => apiClient.post('/admin/documentation', data),
+
+  updateDocumentation: (id: number, data: {
+    title?: string; link_url?: string; description?: string; is_active?: boolean
+    image_base64?: string; remove_image?: boolean
+  }) => apiClient.put(`/admin/documentation/${id}`, data),
+
+  deleteDocumentation: (id: number) =>
+    apiClient.delete(`/admin/documentation/${id}`),
+
   // ── Withdrawal Requests ───────────────────────────────────────────────────
   listWithdrawalRequests: (params?: { status?: string; limit?: number; offset?: number }) =>
     apiClient.get('/admin/withdrawal-requests', { params }),
@@ -466,6 +482,8 @@ export const configApi = {
     apiClient.get('/config/maintenance'),
   getContactInfo: () =>
     apiClient.get('/config/contact-info'),
+  getDocumentation: () =>
+    apiClient.get('/config/documentation'),
   getAiStatus: () =>
     apiClient.get('/config/ai-status'),
   // Public marketing contact form → stores a submission and notifies admins.

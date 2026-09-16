@@ -98,6 +98,10 @@ import {
   adminCreateBankAccountHandler,
   adminUpdateBankAccountHandler,
   adminDeleteBankAccountHandler,
+  adminListDocumentationHandler,
+  adminCreateDocumentationHandler,
+  adminUpdateDocumentationHandler,
+  adminDeleteDocumentationHandler,
   adminOrderReportHandler,
   adminFinanceReportHandler,
   adminDriverReportHandler,
@@ -155,7 +159,7 @@ export default async function adminRoutes(fastify: FastifyInstance) {
   if (url.includes('/staff-roles')) return null
 
     if (url.includes('/role-management') || url.includes('/roles')) return 'roles.manage'
-    if (url.includes('/system-config') || url.includes('/countries') || url.includes('/vehicle-types') || url.includes('/bank-accounts')) return 'settings.manage'
+    if (url.includes('/system-config') || url.includes('/countries') || url.includes('/vehicle-types') || url.includes('/bank-accounts') || url.includes('/documentation')) return 'settings.manage'
     if (url.includes('/notification-settings')) return 'notifications.manage'
     if (url.includes('/pricing-rules')) return 'pricing.manage'
     if (url.includes('/cargo-types')) return 'cargo.manage'
@@ -541,4 +545,10 @@ export default async function adminRoutes(fastify: FastifyInstance) {
   fastify.post('/bank-accounts',      adminCreateBankAccountHandler)
   fastify.put('/bank-accounts/:id',   adminUpdateBankAccountHandler)
   fastify.delete('/bank-accounts/:id', adminDeleteBankAccountHandler)
+
+  // ── Public Documentation Library ──────────────────────────────────────────
+  fastify.get('/documentation',       adminListDocumentationHandler)
+  fastify.post('/documentation',      adminCreateDocumentationHandler)
+  fastify.put('/documentation/:id',   adminUpdateDocumentationHandler)
+  fastify.delete('/documentation/:id', adminDeleteDocumentationHandler)
 }

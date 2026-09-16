@@ -563,6 +563,27 @@ export default fp(async function dbPlugin(fastify: FastifyInstance) {
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     `)
 
+    // ─── Public Documentation Library ────────────────────────────────────────
+    // Managed from Admin Settings and displayed on the public marketing site.
+    // Image files are stored locally under uploads/documentation; entries remain
+    // usable without an image because the frontend supplies a branded fallback.
+    await conn.query(`
+      CREATE TABLE IF NOT EXISTS public_documentation (
+        id          INT           NOT NULL AUTO_INCREMENT PRIMARY KEY,
+        title       VARCHAR(180)  NOT NULL,
+        description TEXT          NULL,
+        link_url    VARCHAR(2048) NOT NULL,
+        image_url   VARCHAR(500)  NULL,
+        is_active   TINYINT(1)    NOT NULL DEFAULT 1,
+        created_by  CHAR(36)      NULL,
+        updated_by  CHAR(36)      NULL,
+        created_at  TIMESTAMP     DEFAULT CURRENT_TIMESTAMP,
+        updated_at  TIMESTAMP     DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        INDEX idx_public_documentation_active (is_active),
+        INDEX idx_public_documentation_updated (updated_at)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    `)
+
     // ─── Manual Payment Records (Admin) ────────────────────────────────────────
     await conn.query(`
       CREATE TABLE IF NOT EXISTS manual_payment_records (
