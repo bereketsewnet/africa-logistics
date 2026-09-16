@@ -816,8 +816,17 @@ export default function DashboardPage() {
     if (!normalised) { setPhoneError('Enter a valid phone number'); return }
     setPhoneError(''); setPhoneLoading(true)
     try {
-      await authApi.requestPhoneChange(normalised)
-      setPhoneStep('otp')
+      const { data } = await authApi.requestPhoneChange(normalised)
+      if (data.phone_updated) {
+        updateUser({ phone_number: normalised, is_phone_verified: 1 })
+        setPhoneSuccess(true)
+        setTimeout(() => {
+          setPhoneSuccess(false); setShowPhoneForm(false)
+          setPhoneStep('input'); setNewPhone(''); setPhoneOtp('')
+        }, 2500)
+      } else {
+        setPhoneStep('otp')
+      }
     } catch (err: any) {
       setPhoneError(err.response?.data?.message || 'Failed to send OTP.')
     } finally {
@@ -1192,10 +1201,10 @@ export default function DashboardPage() {
                     ) : phoneStep === 'input' ? (
                       <form onSubmit={handleRequestPhoneOtp} style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }} className="step-enter">
                         {phoneError && <div className="alert alert-error"><LuTriangleAlert size={14} /> {phoneError}</div>}
-                        <p style={{ fontSize: '0.8rem', color: 'var(--clr-muted)' }}>{tr('enter_new_phone_desc')}</p>
+                        <p style={{ fontSize: '0.8rem', color: 'var(--clr-muted)' }}>Update your phone number. SMS OTP is skipped while the company SMS service is unavailable.</p>
                         <PhoneField value={newPhone} onChange={setNewPhone} id="new-phone" />
                         <button type="submit" className="btn-primary" disabled={phoneLoading}>
-                          {phoneLoading ? <Spinner text={tr('sending_otp')} /> : tr('send_otp_to_new')}
+                          {phoneLoading ? <Spinner text={tr('sending_otp')} /> : 'Update phone number'}
                         </button>
                       </form>
                     ) : (

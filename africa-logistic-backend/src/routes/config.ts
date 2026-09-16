@@ -53,6 +53,17 @@ export default async function configRoutes(fastify: FastifyInstance) {
     })
   })
 
+  // ─── GET /api/config/auth-options ─────────────────────────────────────────
+  // Public registration UX must know whether a live SMS OTP provider is active.
+  // The default is deliberately off until the company enables the provider.
+  fastify.get('/auth-options', async (_request, reply) => {
+    const [rows] = await fastify.db.query<any[]>(
+      "SELECT config_value FROM system_config WHERE config_key = 'phone_otp_enabled' LIMIT 1"
+    )
+    const raw = String(rows[0]?.config_value ?? '0').toLowerCase()
+    return reply.send({ success: true, phone_otp_enabled: raw === '1' || raw === 'true' })
+  })
+
   // ─── GET /api/config/contact-info ────────────────────────────────────────────
   // Returns company contact info for the Help & Support page.
   fastify.get('/contact-info', async (_request, reply) => {

@@ -446,6 +446,13 @@ export default fp(async function dbPlugin(fastify: FastifyInstance) {
         CONSTRAINT dr_fk_order   FOREIGN KEY (order_id)   REFERENCES orders(id)
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     `)
+    // Reporting reads these fields on every shipper report. Ensure a database
+    // created by an older release receives the fields instead of failing the
+    // complete report with an SQL "unknown column" error.
+    await addColIfMissing('driver_ratings', 'shipper_id', 'CHAR(36) NULL')
+    await addColIfMissing('driver_ratings', 'stars', 'TINYINT NULL')
+    await addColIfMissing('driver_ratings', 'created_at', 'TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP')
+    await addColIfMissing('driver_ratings', 'is_deleted', 'TINYINT(1) NOT NULL DEFAULT 0')
 
     // ─── Financial Engine: Wallets (Double-Entry Ledger) ─────────────────────
     await conn.query(`
@@ -731,8 +738,20 @@ export default fp(async function dbPlugin(fastify: FastifyInstance) {
         ('maintenance_mode',    '0'),
         ('maintenance_message', 'The platform is currently under maintenance. We will be back shortly.'),
         ('app_version',         '1.0.0'),
+        ('phone_otp_enabled',   '0'),
         ('withdrawal_commission_rate', '15')
     `)
+    await conn.query(`
+      CREATE TABLE IF NOT EXISTS twilio_settings (
+        id           TINYINT       NOT NULL PRIMARY KEY,
+        account_sid  TEXT          NULL,
+        auth_token   TEXT          NULL,
+        phone_number VARCHAR(32)   NULL,
+        updated_by   CHAR(36)      NULL,
+        updated_at   TIMESTAMP     DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    `)
+    await conn.query('INSERT IGNORE INTO twilio_settings (id) VALUES (1)')
 
     // ─── Withdrawal Requests ──────────────────────────────────────────────────
     await conn.query(`

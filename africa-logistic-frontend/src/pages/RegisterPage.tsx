@@ -3,7 +3,7 @@ import type { FormEvent, KeyboardEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useLanguage } from '../context/LanguageContext'
-import apiClient from '../lib/apiClient'
+import apiClient, { configApi } from '../lib/apiClient'
 import PhoneField from '../components/PhoneField'
 import { normalisePhone } from '../lib/normalisePhone'
 import { useThemeLogo } from '../lib/useThemeLogo'
@@ -126,12 +126,15 @@ export default function RegisterPage() {
 
   // Step 2
   const [otp, setOtp] = useState('')
+  const [otpRequired, setOtpRequired] = useState(false)
 
   // Step 3
   const [firstName, setFirstName] = useState('')
   const [lastName, setLastName] = useState('')
   const [roleId, setRoleId] = useState<2 | 3 | 6>(2)
   const [password, setPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [email, setEmail] = useState('')
   const [showPw, setShowPw] = useState(false)
 
   const [error, setError] = useState('')
@@ -142,6 +145,11 @@ export default function RegisterPage() {
   )
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', regTheme.toLowerCase())
+  }, [])
+  useEffect(() => {
+    configApi.getAuthOptions()
+      .then(response => setOtpRequired(Boolean(response.data.phone_otp_enabled)))
+      .catch(() => setOtpRequired(false))
   }, [])
   const toggleRegTheme = () => {
     const next: 'LIGHT' | 'DARK' = regTheme === 'LIGHT' ? 'DARK' : 'LIGHT'
@@ -160,9 +168,11 @@ export default function RegisterPage() {
     setError('')
     setLoading(true)
     try {
-      await apiClient.post('/auth/register/request-otp', { phone_number: normalisePhone(phone) })
-      setStep(2)
-      startTimer()
+      const { data } = await apiClient.post('/auth/register/request-otp', { phone_number: normalisePhone(phone) })
+      const required = Boolean(data.otp_required)
+      setOtpRequired(required)
+      setStep(required ? 2 : 3)
+      if (required) startTimer()
     } catch (err: any) {
       setError(err.response?.data?.message || tr('reg_otp_fail'))
     } finally {
@@ -181,16 +191,19 @@ export default function RegisterPage() {
   /* Step 3 → create account */
   const handleCreate = async (e: FormEvent) => {
     e.preventDefault()
+    if (password !== confirmPassword) { setError('Passwords do not match.'); return }
+    if (password.length < 6) { setError('Password must be at least 6 characters.'); return }
     setError('')
     setLoading(true)
     try {
       const { data } = await apiClient.post('/auth/register/verify', {
         phone_number: normalisePhone(phone),
-        otp: otp.replace(/\D/g, ''),
+        ...(otpRequired ? { otp: otp.replace(/\D/g, '') } : {}),
         new_password: password,
         role_id: roleId,
         first_name: firstName,
         last_name: lastName,
+        ...(email.trim() ? { email: email.trim() } : {}),
       })
       await login(data.token)
       navigate('/dashboard')
@@ -201,7 +214,7 @@ export default function RegisterPage() {
     }
   }
 
-  const stepTitle = [tr('reg_step1_title'), tr('reg_step2_title'), tr('reg_step3_title')][step - 1]
+  const stepTitle = step === 1 ? tr('reg_step1_title') : step === 2 ? tr('reg_step2_title') : tr('reg_step3_title')
 
   return (
     <div className="aurora-bg">
@@ -236,7 +249,7 @@ export default function RegisterPage() {
 
           {/* Step dots */}
           <div className="step-dots" style={{ marginBottom: '1.75rem' }}>
-            {[1, 2, 3].map(n => (
+            {(otpRequired ? [1, 2, 3] : [1, 3]).map(n => (
               <div key={n} className={`step-dot${step === n ? ' active' : step > n ? ' done' : ''}`} />
             ))}
           </div>
@@ -258,8 +271,8 @@ export default function RegisterPage() {
               </div>
               <button type="submit" className="btn-primary" disabled={loading}>
                 {loading
-                  ? <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}><span className="spinner" /> {tr('reg_sending_otp')}</span>
-                  : <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>{tr('reg_send_otp')} <LuArrowRight size={16} /></span>}
+                  ? <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}><span className="spinner" /> Checking phone number…</span>
+                  : <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>Continue <LuArrowRight size={16} /></span>}
               </button>
               <div className="divider">{tr('reg_or')}</div>
               <a
@@ -277,7 +290,7 @@ export default function RegisterPage() {
           )}
 
           {/* ── STEP 2: OTP ── */}
-          {step === 2 && (
+          {step === 2 && otpRequired && (
             <form key="s2" className="step-enter" onSubmit={handleVerifyOtp}
               style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
               <div className="alert alert-info" style={{ fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
@@ -313,6 +326,11 @@ export default function RegisterPage() {
           {step === 3 && (
             <form key="s3" className="step-enter" onSubmit={handleCreate}
               style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              {!otpRequired && (
+                <div className="alert alert-success" style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.82rem' }}>
+                  <LuCheck size={15} /> Phone number verified. SMS OTP is currently unavailable, so it was skipped.
+                </div>
+              )}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
                 <div className="input-wrap">
                   <input id="fn" type="text" placeholder=" " value={firstName}
@@ -324,6 +342,11 @@ export default function RegisterPage() {
                     onChange={e => setLastName(e.target.value)} autoComplete="family-name" />
                   <label htmlFor="ln">{tr('reg_last_name')}</label>
                 </div>
+              </div>
+
+              <div className="input-wrap">
+                <input id="reg-email" type="email" placeholder=" " value={email} onChange={e => setEmail(e.target.value)} autoComplete="email" />
+                <label htmlFor="reg-email">Email address (optional)</label>
               </div>
 
               {/* Role selector */}
@@ -353,6 +376,12 @@ export default function RegisterPage() {
                   ))}
                 </div>
               </div>
+
+              <div className="input-wrap">
+                <input id="confirm-pw" type={showPw ? 'text' : 'password'} placeholder=" " value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} required minLength={6} autoComplete="new-password" />
+                <label htmlFor="confirm-pw">Confirm password</label>
+              </div>
+              {confirmPassword && confirmPassword !== password && <p style={{ marginTop: '-0.55rem', color: '#f87171', fontSize: '0.75rem' }}>Passwords do not match.</p>}
 
               {/* Password */}
               <div>

@@ -335,8 +335,13 @@ export const adminOrderApi = {
   // ── System Config (8.3) ───────────────────────────────────────────────────
   getSystemConfig: () =>
     apiClient.get('/admin/system-config'),
-  updateSystemConfig: (data: { maintenance_mode?: boolean; maintenance_message?: string; app_version?: string }) =>
+  updateSystemConfig: (data: { maintenance_mode?: boolean; maintenance_message?: string; app_version?: string; phone_otp_enabled?: boolean }) =>
     apiClient.put('/admin/system-config', data),
+
+  getTwilioSettings: () =>
+    apiClient.get('/admin/settings/twilio'),
+  updateTwilioSettings: (data: { account_sid?: string; auth_token?: string; phone_number?: string }) =>
+    apiClient.put('/admin/settings/twilio', data),
 
   // ── RBAC Role Management (9.4) ───────────────────────────────────────────
   getMyPermissions: () =>
@@ -480,6 +485,8 @@ export const configApi = {
     apiClient.get('/config/countries'),
   getMaintenance: () =>
     apiClient.get('/config/maintenance'),
+  getAuthOptions: () =>
+    apiClient.get('/config/auth-options'),
   getContactInfo: () =>
     apiClient.get('/config/contact-info'),
   getDocumentation: () =>

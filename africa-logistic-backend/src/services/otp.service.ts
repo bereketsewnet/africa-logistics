@@ -11,27 +11,12 @@
  */
 
 import twilio from 'twilio'
+import type { Pool } from 'mysql2/promise'
+import { getTwilioCredentials } from './twilio-settings.service.js'
 
 // ─── Twilio Client ────────────────────────────────────────────────────────────
 // Lazily initialized so the server can start even without Twilio creds
 // (useful during local dev when you haven't set up Twilio yet).
-let twilioClient: ReturnType<typeof twilio> | null = null
-
-function getTwilioClient(): ReturnType<typeof twilio> {
-  if (!twilioClient) {
-    const accountSid = process.env.TWILIO_ACCOUNT_SID
-    const authToken = process.env.TWILIO_AUTH_TOKEN
-
-    if (!accountSid || !authToken || accountSid.startsWith('ACxxxxx')) {
-      throw new Error(
-        'Twilio credentials are not configured. ' +
-        'Set TWILIO_ACCOUNT_SID and TWILIO_AUTH_TOKEN in your .env file.'
-      )
-    }
-    twilioClient = twilio(accountSid, authToken)
-  }
-  return twilioClient
-}
 
 // ─── In-Memory OTP Store ──────────────────────────────────────────────────────
 interface OtpRecord {
@@ -52,7 +37,7 @@ const OTP_TTL_MS = 10 * 60 * 1000 // 10 minutes
  *
  * @param phoneNumber  The recipient's phone in E.164 format (+251911234567)
  */
-export async function generateAndSendOtp(phoneNumber: string): Promise<void> {
+export async function generateAndSendOtp(phoneNumber: string, db: Pool): Promise<void> {
   // Generate a random 6-digit number (100000–999999)
   const otp = Math.floor(100000 + Math.random() * 900000).toString()
 
@@ -62,22 +47,12 @@ export async function generateAndSendOtp(phoneNumber: string): Promise<void> {
     expiresAt: Date.now() + OTP_TTL_MS,
   })
 
-  // ── Development fallback ──────────────────────────────────────────────────
-  // If Twilio is not configured, print the OTP to the console so you can
-  // still test registration without SMS credits.
-  const sid = process.env.TWILIO_ACCOUNT_SID
-  if (!sid || sid.startsWith('ACxxxxx')) {
-    console.log('─────────────────────────────────────────')
-    console.log(`📱 OTP for ${phoneNumber}: ${otp}  (dev mode — Twilio not configured)`)
-    console.log('─────────────────────────────────────────')
-    return
-  }
-
-  // ── Production: Send real SMS via Twilio ──────────────────────────────────
-  const client = getTwilioClient()
+  const credentials = await getTwilioCredentials(db)
+  if (!credentials) throw new Error('Twilio is not configured. Add the Account SID, Auth Token, and sender number in Admin Settings before enabling SMS OTP.')
+  const client = twilio(credentials.accountSid, credentials.authToken)
   await client.messages.create({
     body: `Your Afri Logistics verification code is: ${otp}. It expires in 10 minutes.`,
-    from: process.env.TWILIO_PHONE_NUMBER!,
+    from: credentials.from,
     to: phoneNumber,
   })
 }

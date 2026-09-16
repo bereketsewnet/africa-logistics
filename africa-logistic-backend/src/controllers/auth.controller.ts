@@ -31,7 +31,7 @@ import path from 'path'
 // ─── Request Body Types ───────────────────────────────────────────────────────
 
 interface RequestOtpBody    { phone_number: string }
-interface VerifyOtpBody     { phone_number: string; otp: string; new_password: string; role_id?: number; first_name?: string; last_name?: string }
+interface VerifyOtpBody     { phone_number: string; otp?: string; new_password: string; role_id?: number; first_name?: string; last_name?: string; email?: string }
 interface LoginBody         { phone_number: string; password: string }
 interface LoginEmailBody         { email: string; password: string }
 interface ForgotPasswordEmailBody { email: string }
@@ -47,6 +47,18 @@ interface ResetPasswordEmailBody { token: string; new_password: string }
 
 // ─── Handlers ─────────────────────────────────────────────────────────────────
 
+async function isPhoneOtpEnabled(request: FastifyRequest): Promise<boolean> {
+  const [rows] = await request.server.db.query<any[]>(
+    "SELECT config_value FROM system_config WHERE config_key = 'phone_otp_enabled' LIMIT 1"
+  )
+  const value = String(rows[0]?.config_value ?? '0').toLowerCase()
+  return value === '1' || value === 'true'
+}
+
+function isValidE164Phone(value: unknown): value is string {
+  return typeof value === 'string' && /^\+[1-9]\d{6,19}$/.test(value)
+}
+
 /**
  * POST /api/auth/register/request-otp
  * Step 1 of registration: check phone doesn't exist, then send OTP via Twilio.
@@ -56,7 +68,9 @@ export async function requestOtpHandler(
   reply:   FastifyReply
 ) {
   const { phone_number } = request.body
+  if (!isValidE164Phone(phone_number)) return reply.status(400).send({ success: false, message: 'Please provide a valid phone number with country code.' })
 
+  const otpEnabled = await isPhoneOtpEnabled(request)
   const ipLimit = consumeWindowLimit(`auth:register:request:ip:${request.ip}`, 15, 15 * 60 * 1000)
   if (!ipLimit.allowed) {
     return reply
@@ -81,9 +95,19 @@ export async function requestOtpHandler(
     })
   }
 
+  // SMS OTP is deliberately opt-in. When unavailable, this endpoint still
+  // validates the phone's availability so registration can safely continue.
+  if (!otpEnabled) {
+    return reply.send({
+      success: true,
+      otp_required: false,
+      message: 'Phone verification is currently unavailable. Continue to create your account.',
+    })
+  }
+
   // Generate OTP and send it via Twilio SMS (or console.log in dev mode)
   try {
-    await generateAndSendOtp(phone_number)
+    await generateAndSendOtp(phone_number, request.server.db)
   } catch (err: any) {
     request.server.log.error({ err }, 'Failed to send OTP')
     return reply.status(503).send({ success: false, message: 'Unable to send OTP at this time. Please try again later.' })
@@ -91,6 +115,7 @@ export async function requestOtpHandler(
 
   return reply.send({
     success: true,
+    otp_required: true,
     message: `OTP sent to ${phone_number}. It expires in 10 minutes.`,
   })
 }
@@ -112,49 +137,72 @@ export async function verifyOtpHandler(
     last_name  = '',
   } = request.body
 
-  const otpKey = `auth:register:verify:phone:${phone_number}`
-  const lock = getOtpLockState(otpKey)
-  if (lock.locked) {
-    return reply
-      .status(429)
-      .header('Retry-After', String(lock.retryAfterSeconds))
-      .send({ success: false, message: 'Too many failed OTP attempts. Please try again later.' })
-  }
+  if (!isValidE164Phone(phone_number)) return reply.status(400).send({ success: false, message: 'Please provide a valid phone number with country code.' })
 
   // Validate role_id — only 2 (Shipper), 3 (Driver), 6 (CarOwner) allowed for self-registration
   if (![2, 3, 6].includes(role_id)) {
     return reply.status(400).send({ success: false, message: 'Invalid role_id. Use 2 (Shipper), 3 (Driver), or 6 (CarOwner).' })
   }
 
-  // Verify the OTP submitted by the user
-  const isValid = verifyOtp(phone_number, otp)
-  if (!isValid) {
-    const state = recordOtpFailure(otpKey, 5, 15 * 60 * 1000, 30 * 60 * 1000)
-    if (state.locked) {
+  const otpEnabled = await isPhoneOtpEnabled(request)
+  if (otpEnabled) {
+    const otpKey = `auth:register:verify:phone:${phone_number}`
+    const lock = getOtpLockState(otpKey)
+    if (lock.locked) {
       return reply
         .status(429)
-        .header('Retry-After', String(state.retryAfterSeconds))
-        .send({ success: false, message: 'Too many failed OTP attempts. Verification is temporarily locked.' })
+        .header('Retry-After', String(lock.retryAfterSeconds))
+        .send({ success: false, message: 'Too many failed OTP attempts. Please try again later.' })
     }
-    return reply.status(400).send({
-      success: false,
-      message: 'Invalid or expired OTP. Please request a new one.',
-    })
+    const isValid = verifyOtp(phone_number, otp ?? '')
+    if (!isValid) {
+      const state = recordOtpFailure(otpKey, 5, 15 * 60 * 1000, 30 * 60 * 1000)
+      if (state.locked) {
+        return reply
+          .status(429)
+          .header('Retry-After', String(state.retryAfterSeconds))
+          .send({ success: false, message: 'Too many failed OTP attempts. Verification is temporarily locked.' })
+      }
+      return reply.status(400).send({ success: false, message: 'Invalid or expired OTP. Please request a new one.' })
+    }
+    clearOtpFailures(otpKey)
   }
 
-  clearOtpFailures(otpKey)
+  const email = request.body.email?.trim().toLowerCase() || null
+  if (email && (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 160)) {
+    return reply.status(400).send({ success: false, message: 'Please provide a valid email address.' })
+  }
 
   // Hash the password with bcrypt (12 salt rounds = secure but not slow)
   const passwordHash = await bcrypt.hash(new_password, 12)
 
   // Create the user in the database
-  const userId = await createUser(request.server.db, {
-    phoneNumber:  phone_number,
-    passwordHash,
-    roleId:       role_id,
-    firstName:    first_name,
-    lastName:     last_name,
-  })
+  let userId: string
+  try {
+    userId = await createUser(request.server.db, {
+      phoneNumber: phone_number, passwordHash, roleId: role_id,
+      firstName: first_name, lastName: last_name, email,
+    })
+  } catch (err: any) {
+    if (err?.code === 'ER_DUP_ENTRY') return reply.status(409).send({ success: false, message: 'This phone number or email address is already registered.' })
+    request.server.log.error({ err }, 'Failed to create registration account')
+    return reply.status(500).send({ success: false, message: 'Unable to create the account. Please try again.' })
+  }
+
+  // An email is optional. A failure to dispatch its verification message never
+  // prevents a valid phone-based account from being created or logged in.
+  let emailVerificationSent = false
+  if (email) {
+    try {
+      const token = crypto.randomBytes(24).toString('hex')
+      const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().slice(0, 19).replace('T', ' ')
+      await createEmailVerification(request.server.db, userId, email, token, expiresAt)
+      await sendVerificationEmail(email, token)
+      emailVerificationSent = true
+    } catch (err) {
+      request.server.log.error({ err }, 'Registration email verification dispatch failed')
+    }
+  }
 
   notifyAdminsOfEvent(
     request.server.db,
@@ -171,8 +219,11 @@ export async function verifyOtpHandler(
 
   return reply.status(201).send({
     success: true,
-    message: 'Account created successfully.',
+    message: email && !emailVerificationSent
+      ? 'Account created. Your email was saved; its verification message could not be sent yet.'
+      : email ? 'Account created. Check your email to verify it for email sign-in.' : 'Account created successfully.',
     token,
+    email_verification_sent: emailVerificationSent,
     user: { id: userId, phone_number, role_id },
   })
 }
@@ -428,15 +479,27 @@ export async function requestPhoneChangeHandler(
   request: any,
   reply: FastifyReply
 ) {
-  const userId = (request.user as { id: string }).id
+  const user = request.user as { id: string; role_id: number }
+  const userId = user.id
   const { new_phone } = request.body
+  if (!isValidE164Phone(new_phone)) return reply.status(400).send({ success: false, message: 'Please provide a valid phone number with country code.' })
+  if (![2, 3, 6].includes(user.role_id)) {
+    return reply.status(403).send({ success: false, message: 'Staff phone numbers can only be changed by an administrator.' })
+  }
   // Ensure not used by another user
   const [rows] = await request.server.db.query('SELECT id FROM users WHERE phone_number = ? LIMIT 1', [new_phone])
   if ((rows as any[]).length > 0) return reply.status(409).send({ success: false, message: 'Phone already in use.' })
 
+  const otpEnabled = await isPhoneOtpEnabled(request)
+  if (!otpEnabled) {
+    await updateUserPhone(request.server.db, userId, new_phone)
+    await request.server.db.query('DELETE FROM phone_change_requests WHERE user_id = ?', [userId])
+    return reply.send({ success: true, phone_updated: true, message: 'Phone number updated and verified. SMS OTP is currently unavailable.' })
+  }
+
   // Generate OTP and send to new phone
   try {
-    await generateAndSendOtp(new_phone)
+    await generateAndSendOtp(new_phone, request.server.db)
   } catch (err: any) {
     request.server.log.error({ err }, 'Failed to send OTP for phone change')
     return reply.status(503).send({ success: false, message: 'Unable to send OTP at this time. Please try again later.' })
@@ -456,8 +519,16 @@ export async function verifyPhoneChangeHandler(
   request: any,
   reply: FastifyReply
 ) {
-  const userId = (request.user as { id: string }).id
+  const user = request.user as { id: string; role_id: number }
+  const userId = user.id
   const { new_phone, otp } = request.body
+  if (!isValidE164Phone(new_phone)) return reply.status(400).send({ success: false, message: 'Please provide a valid phone number with country code.' })
+  if (![2, 3, 6].includes(user.role_id)) {
+    return reply.status(403).send({ success: false, message: 'Staff phone numbers can only be changed by an administrator.' })
+  }
+  if (!await isPhoneOtpEnabled(request)) {
+    return reply.status(409).send({ success: false, message: 'SMS OTP is disabled. Submit the new phone number again to update it directly.' })
+  }
   // Check there is a pending request
   const reqRecord: any = await findPhoneChangeRequest(request.server.db, userId, new_phone)
   if (!reqRecord) return reply.status(400).send({ success: false, message: 'No pending phone change request.' })
@@ -652,6 +723,12 @@ export async function forgotPasswordRequestOtpHandler(
 ) {
   const { phone_number } = request.body
 
+  if (!isValidE164Phone(phone_number)) return reply.status(400).send({ success: false, message: 'Please provide a valid phone number with country code.' })
+
+  if (!await isPhoneOtpEnabled(request)) {
+    return reply.status(503).send({ success: false, message: 'Phone OTP recovery is currently unavailable. Use a verified email address to reset your password.' })
+  }
+
   const ipLimit = consumeWindowLimit(`auth:forgot:request:ip:${request.ip}`, 15, 15 * 60 * 1000)
   if (!ipLimit.allowed) {
     return reply
@@ -674,7 +751,7 @@ export async function forgotPasswordRequestOtpHandler(
   }
 
   try {
-    await generateAndSendOtp(phone_number)
+    await generateAndSendOtp(phone_number, request.server.db)
   } catch (err: any) {
     request.server.log.error({ err }, 'Failed to send forgot-password OTP')
     return reply.status(503).send({ success: false, message: 'Unable to send OTP at this time. Please try again later.' })
@@ -692,6 +769,12 @@ export async function forgotPasswordResetHandler(
   reply: FastifyReply
 ) {
   const { phone_number, otp, new_password } = request.body
+
+  if (!isValidE164Phone(phone_number)) return reply.status(400).send({ success: false, message: 'Please provide a valid phone number with country code.' })
+
+  if (!await isPhoneOtpEnabled(request)) {
+    return reply.status(503).send({ success: false, message: 'Phone OTP recovery is currently unavailable. Use a verified email address to reset your password.' })
+  }
 
   const otpKey = `auth:forgot:verify:phone:${phone_number}`
   const lock = getOtpLockState(otpKey)

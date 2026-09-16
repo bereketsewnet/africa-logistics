@@ -105,18 +105,20 @@ export async function createUser(
     roleId:        number
     firstName:     string
     lastName:      string
+    email?:        string | null
   }
 ): Promise<string> {
   const userId = uuidv4() // Generate a UUID for the new user
 
   await db.query<ResultSetHeader>(
     `INSERT INTO users
-       (id, role_id, phone_number, password_hash, first_name, last_name, is_phone_verified, is_active)
-     VALUES (?, ?, ?, ?, ?, ?, TRUE, TRUE)`,
+       (id, role_id, phone_number, email, password_hash, first_name, last_name, is_phone_verified, is_email_verified, is_active)
+     VALUES (?, ?, ?, ?, ?, ?, ?, TRUE, FALSE, TRUE)`,
     [
       userId,
       data.roleId,
       data.phoneNumber,
+      data.email ?? null,
       data.passwordHash,
       data.firstName,
       data.lastName,

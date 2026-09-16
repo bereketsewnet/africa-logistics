@@ -147,8 +147,8 @@ export default function ShipperReportPage() {
     try {
       const { data } = await orderApi.getReport({ from: f, to: t })
       setReport(data.report)
-    } catch {
-      setError(tr('srpt_error'))
+    } catch (err: any) {
+      setError(err.response?.data?.message || tr('srpt_error'))
     } finally {
       setLoading(false)
     }

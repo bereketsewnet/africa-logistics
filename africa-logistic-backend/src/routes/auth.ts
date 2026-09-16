@@ -53,12 +53,12 @@ export default async function authRoutes(fastify: FastifyInstance) {
   }, requestOtpHandler)
 
   // ── POST /api/auth/register/verify ─────────────────────────────────────────
-  // Step 2: User submits OTP + password → account created, JWT returned
+  // Creates an account. OTP is required only while the SMS OTP setting is on.
   fastify.post('/api/auth/register/verify', {
     schema: {
       body: {
         type: 'object',
-        required: ['phone_number', 'otp', 'new_password'],
+        required: ['phone_number', 'new_password'],
         properties: {
           phone_number:  { type: 'string', minLength: 7, maxLength: 20 },
           otp:           { type: 'string', minLength: 6, maxLength: 6, pattern: '^[0-9]{6}$' },
@@ -66,6 +66,7 @@ export default async function authRoutes(fastify: FastifyInstance) {
           role_id:       { type: 'number', enum: [2, 3, 6] },     // 2=Shipper, 3=Driver, 6=CarOwner
           first_name:    { type: 'string', minLength: 1, maxLength: 100 },
           last_name:     { type: 'string', maxLength: 100 },
+          email:         { type: 'string', format: 'email', maxLength: 160 },
         },
       },
     },

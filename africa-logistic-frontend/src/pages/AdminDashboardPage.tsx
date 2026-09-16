@@ -186,7 +186,7 @@ interface Stats {
   total_users: number; total_admins: number; total_shippers: number
   total_drivers: number; active_users: number; new_today: number
 }
-type AdminSection = 'overview' | 'drivers' | 'shippers' | 'staff' | 'verify-drivers' | 'vehicles' | 'orders' | 'live-drivers' | 'guest-orders' | 'cargo-types' | 'pricing-rules' | 'profile' | 'payments' | 'wallet-adjustment' | 'notif-settings' | 'settings' | 'vehicle-types' | 'countries' | 'maintenance-mode' | 'role-management' | 'security-events' | 'cross-border' | 'reports' | 'contact-info' | 'ai-settings' | 'bank-information' | 'documentation' | 'car-owners'
+type AdminSection = 'overview' | 'drivers' | 'shippers' | 'staff' | 'verify-drivers' | 'vehicles' | 'orders' | 'live-drivers' | 'guest-orders' | 'cargo-types' | 'pricing-rules' | 'profile' | 'payments' | 'wallet-adjustment' | 'notif-settings' | 'settings' | 'vehicle-types' | 'countries' | 'maintenance-mode' | 'phone-otp-settings' | 'role-management' | 'security-events' | 'cross-border' | 'reports' | 'contact-info' | 'ai-settings' | 'bank-information' | 'documentation' | 'car-owners'
 type ProfileTab = 'profile' | 'security' | 'contact'
 
 interface DriverRow {
@@ -742,7 +742,7 @@ function AdminCountriesSection() {
 
 function AdminMaintenanceSection() {
   const { t: tr } = useLanguage()
-  const [config, setConfig] = useState({ maintenance_mode: false, maintenance_message: '', app_version: '' })
+  const [config, setConfig] = useState({ maintenance_mode: false, maintenance_message: '', app_version: '', phone_otp_enabled: false })
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [toast, setToast] = useState('')
@@ -751,7 +751,7 @@ function AdminMaintenanceSection() {
   useEffect(() => {
     apiClient.get('/admin/system-config').then(r => {
       const c = r.data.config ?? {}
-      setConfig({ maintenance_mode: !!c.maintenance_mode, maintenance_message: c.maintenance_message ?? '', app_version: c.app_version ?? '' })
+      setConfig({ maintenance_mode: !!c.maintenance_mode, maintenance_message: c.maintenance_message ?? '', app_version: c.app_version ?? '', phone_otp_enabled: !!c.phone_otp_enabled })
     }).catch(() => { }).finally(() => setLoading(false))
   }, [])
 
@@ -811,6 +811,80 @@ function AdminMaintenanceSection() {
       {toast && <div style={{ position: 'fixed', bottom: '1.25rem', right: '1.25rem', zIndex: 200, background: 'rgba(97, 148, 31,0.12)', border: '1px solid rgba(97, 148, 31,0.25)', color: 'var(--clr-text)', padding: '0.65rem 1.1rem', borderRadius: 12, fontSize: '0.85rem', fontWeight: 600, backdropFilter: 'blur(12px)' }}>{toast}</div>}
     </div>
   )
+}
+
+// ─── Admin Phone OTP Settings ────────────────────────────────────────────────
+
+function AdminPhoneOtpSettingsSection() {
+  const [enabled, setEnabled] = useState(false)
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [savingTwilio, setSavingTwilio] = useState(false)
+  const [message, setMessage] = useState('')
+  const [accountSid, setAccountSid] = useState('')
+  const [authToken, setAuthToken] = useState('')
+  const [senderNumber, setSenderNumber] = useState('')
+  const [configured, setConfigured] = useState(false)
+
+  useEffect(() => {
+    Promise.all([apiClient.get('/admin/system-config'), apiClient.get('/admin/settings/twilio')])
+      .then(([configResponse, twilioResponse]) => {
+        setEnabled(Boolean(configResponse.data.config?.phone_otp_enabled))
+        const settings = twilioResponse.data.settings ?? {}
+        setAccountSid(settings.account_sid ?? '')
+        setSenderNumber(settings.phone_number ?? '')
+        setConfigured(Boolean(settings.configured))
+      })
+      .catch((error: any) => setMessage(error.response?.data?.message || 'Unable to load SMS OTP settings.'))
+      .finally(() => setLoading(false))
+  }, [])
+
+  const saveTwilio = async () => {
+    setSavingTwilio(true); setMessage('')
+    try {
+      const { data } = await apiClient.put('/admin/settings/twilio', { account_sid: accountSid.trim(), auth_token: authToken.trim(), phone_number: senderNumber.trim() })
+      const settings = data.settings ?? {}
+      setAccountSid(settings.account_sid ?? accountSid)
+      setAuthToken('')
+      setSenderNumber(settings.phone_number ?? senderNumber)
+      setConfigured(Boolean(settings.configured))
+      setMessage(settings.configured ? 'Twilio credentials saved securely. You can now enable SMS OTP.' : 'Twilio details saved. Add the missing Account SID, Auth Token, or sender number before enabling SMS OTP.')
+    } catch (error: any) { setMessage(error.response?.data?.message || 'Unable to save Twilio settings.') }
+    finally { setSavingTwilio(false) }
+  }
+
+  const save = async () => {
+    if (enabled && !configured) { setMessage('Save the Twilio Account SID, Auth Token, and sender phone number first.'); return }
+    setSaving(true); setMessage('')
+    try {
+      await apiClient.put('/admin/system-config', { phone_otp_enabled: enabled })
+      setMessage(enabled ? 'SMS phone OTP has been enabled.' : 'SMS phone OTP has been disabled. Phone changes now skip SMS and are marked verified.')
+    } catch (error: any) {
+      setMessage(error.response?.data?.message || 'Unable to save the SMS OTP setting.')
+    } finally { setSaving(false) }
+  }
+
+  return <div style={{ display: 'flex', flexDirection: 'column', gap: '1.15rem' }}>
+    <div><h2 style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--clr-text)', display: 'flex', alignItems: 'center', gap: '0.45rem' }}><LuSmartphone size={18} /> SMS Phone OTP</h2><p style={{ fontSize: '0.78rem', color: 'var(--clr-muted)', marginTop: '0.25rem' }}>Control SMS verification for self-registration and phone-number updates.</p></div>
+    {loading ? <LoadingSpinner /> : <>
+      <div className="glass-inner" style={{ padding: '1rem' }}>
+        <p style={{ fontWeight: 700, fontSize: '0.9rem', color: 'var(--clr-text)' }}>Twilio account configuration</p>
+        <p style={{ fontSize: '0.75rem', color: 'var(--clr-muted)', lineHeight: 1.5, marginTop: '0.3rem', marginBottom: '0.85rem' }}>Get the Account SID and Auth Token from <a href="https://console.twilio.com" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--clr-accent)' }}>Twilio Console</a>. They are encrypted before being stored and the token is never shown again.</p>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
+          <div className="input-wrap"><input id="twilio-sid" type="text" placeholder=" " value={accountSid} onChange={event => setAccountSid(event.target.value)} autoComplete="off" /><label htmlFor="twilio-sid">Twilio Account SID *</label></div>
+          <div className="input-wrap"><input id="twilio-token" type="password" placeholder=" " value={authToken} onChange={event => setAuthToken(event.target.value)} autoComplete="new-password" /><label htmlFor="twilio-token">Twilio Auth Token *</label></div>
+          <div className="input-wrap"><input id="twilio-sender" type="tel" placeholder=" " value={senderNumber} onChange={event => setSenderNumber(event.target.value)} autoComplete="off" /><label htmlFor="twilio-sender">Twilio sender phone number *</label></div>
+          <button onClick={saveTwilio} disabled={savingTwilio} className="btn-outline" style={{ alignSelf: 'flex-start', padding: '0.48rem 0.9rem' }}>{savingTwilio ? 'Saving credentials…' : 'Save Twilio Credentials'}</button>
+        </div>
+      </div>
+      <div className="glass-inner" style={{ padding: '1rem', border: `1px solid ${enabled ? 'rgba(251,191,36,0.25)' : 'rgba(148,163,184,0.18)'}`, background: enabled ? 'rgba(251,191,36,0.08)' : 'rgba(148,163,184,0.06)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}><div style={{ flex: 1 }}><p style={{ fontWeight: 700, fontSize: '0.9rem', color: enabled ? 'var(--kpi-gold)' : 'var(--clr-text)' }}>{enabled ? 'SMS OTP enabled' : configured ? 'SMS OTP ready to enable' : 'SMS OTP unavailable — configure Twilio first'}</p><p style={{ fontSize: '0.75rem', color: 'var(--clr-muted)', lineHeight: 1.5, marginTop: '0.25rem' }}>{enabled ? 'Registration and phone changes require a valid SMS code.' : configured ? 'Twilio is configured. Turn this on only after confirming your Twilio account can send messages.' : 'Enter the Twilio Account SID, Auth Token, and sender number above. OTP cannot be enabled until all are saved.'}</p></div><button onClick={() => setEnabled(value => !value)} disabled={!configured && !enabled} aria-label="Toggle SMS phone OTP" style={{ flexShrink: 0, width: 48, height: 26, borderRadius: 13, border: 'none', cursor: !configured && !enabled ? 'not-allowed' : 'pointer', opacity: !configured && !enabled ? 0.45 : 1, background: enabled ? 'var(--kpi-gold)' : 'rgba(255,255,255,0.12)', position: 'relative', transition: 'background 0.2s' }}><span style={{ position: 'absolute', top: 4, left: enabled ? 24 : 4, width: 18, height: 18, borderRadius: '50%', background: enabled ? '#000' : 'rgba(255,255,255,0.5)', transition: 'left 0.18s', boxShadow: '0 1px 3px rgba(0,0,0,0.4)' }} /></button></div>
+      </div>
+      <div style={{ padding: '0.75rem 0.9rem', borderRadius: 10, background: 'rgba(59,130,246,0.07)', border: '1px solid rgba(59,130,246,0.18)', color: 'var(--clr-muted)', fontSize: '0.75rem', lineHeight: 1.5 }}>Staff phone numbers are never self-service editable. Keep this disabled until the SMS provider, sender ID, and billing are fully configured.</div>
+      {message && <div className={message.startsWith('Unable') ? 'alert alert-error' : 'alert alert-success'}>{message}</div>}
+      <button onClick={save} disabled={saving} className="btn-primary" style={{ alignSelf: 'flex-start', padding: '0.55rem 1.2rem' }}>{saving ? 'Saving…' : 'Save SMS OTP Setting'}</button>
+    </>}
+  </div>
 }
 
 // ─── Admin Role Management Section (9.4) ────────────────────────────────────
@@ -1844,6 +1918,7 @@ function AdminSettingsHub({ onNav }: { onNav: (s: AdminSection) => void }) {
     { id: 'notif-settings', icon: <LuBell size={22} />, label: tr('sb_st_notif'), desc: tr('sh_desc_notif'), accent: 'rgba(250,204,21,0.10)' },
     { id: 'role-management', icon: <LuKey size={22} />, label: tr('sb_st_roles'), desc: tr('sh_desc_roles'), accent: 'rgba(14,165,233,0.10)' },
     { id: 'maintenance-mode', icon: <LuWrench size={22} />, label: tr('sb_st_maintenance'), desc: 'Activate maintenance kill-switch and manage app version string.', accent: 'rgba(239,68,68,0.10)' },
+    { id: 'phone-otp-settings', icon: <LuSmartphone size={22} />, label: 'SMS Phone OTP', desc: 'Enable or disable SMS verification for registrations and phone updates.', accent: 'rgba(251,191,36,0.10)' },
     { id: 'contact-info', icon: <LuPhone size={22} />, label: tr('sb_st_contact'), desc: tr('sh_desc_contact'), accent: 'rgba(16,185,129,0.10)' },
     { id: 'bank-information', icon: <LuLandmark size={22} />, label: tr('sb_st_bank'), desc: tr('sh_desc_bank'), accent: 'rgba(59,130,246,0.10)' },
     { id: 'documentation', icon: <LuFileText size={22} />, label: 'Documentation', desc: 'Manage public guides, video links, and supporting resources.', accent: 'rgba(20,184,166,0.10)' },
@@ -2898,7 +2973,10 @@ function ProfileSection({ adminTheme, onThemeChange }: { adminTheme: 'LIGHT' | '
             )}
           </SectionRow>
           <Divider />
-          <SectionRow title={tr('prf_phone_section')} sub={user?.phone_number ?? ''} open={showPhoneForm} onToggle={() => { setShowPhoneForm(v => !v); setPhoneError(''); setPhoneSuccess(false); setPhoneStep('input'); setPhoneOtp(''); setNewPhone('') }} toggleLabel={showPhoneForm ? tr('prf_phone_cancel') : tr('prf_phone_change')}>
+          <SectionRow title={tr('prf_phone_section')} sub={user?.phone_number ?? ''} open={showPhoneForm} onToggle={() => {
+            if ([1, 4, 5].includes(user?.role_id ?? 0)) return
+            setShowPhoneForm(v => !v); setPhoneError(''); setPhoneSuccess(false); setPhoneStep('input'); setPhoneOtp(''); setNewPhone('')
+          }} toggleLabel={[1, 4, 5].includes(user?.role_id ?? 0) ? 'Managed by administrator' : (showPhoneForm ? tr('prf_phone_cancel') : tr('prf_phone_change'))}>
             {phoneSuccess ? (
               <div className="alert alert-success step-enter" style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}><LuCheck size={13} /> {tr('prf_phone_success')}</div>
             ) : phoneStep === 'input' ? (
@@ -7511,7 +7589,7 @@ export default function AdminDashboardPage() {
     { id: 'profile' as AdminSection, icon: <LuUser size={16} />, label: 'My Profile' },
   ]
 
-  const SETTINGS_SUBSECTIONS: AdminSection[] = ['cargo-types', 'pricing-rules', 'vehicle-types', 'countries', 'notif-settings', 'role-management', 'maintenance-mode', 'contact-info', 'bank-information', 'documentation', 'ai-settings']
+  const SETTINGS_SUBSECTIONS: AdminSection[] = ['cargo-types', 'pricing-rules', 'vehicle-types', 'countries', 'notif-settings', 'role-management', 'maintenance-mode', 'phone-otp-settings', 'contact-info', 'bank-information', 'documentation', 'ai-settings']
 
   useEffect(() => {
     if (!navItems.length) return
@@ -7535,6 +7613,7 @@ export default function AdminDashboardPage() {
     'countries': { icon: <LuGlobe size={16} />, label: tr('sb_st_countries') },
     'notif-settings': { icon: <LuBell size={16} />, label: tr('sb_st_notif') },
     'maintenance-mode': { icon: <LuWrench size={16} />, label: tr('sb_st_maintenance') },
+    'phone-otp-settings': { icon: <LuSmartphone size={16} />, label: 'SMS Phone OTP' },
     'role-management': { icon: <LuKey size={16} />, label: tr('sb_st_roles') },
     'security-events': { icon: <LuShieldCheck size={16} />, label: tr('sb_st_security') },
     'cross-border': { icon: <LuGlobe size={16} />, label: tr('sb_st_cross') },
@@ -7720,6 +7799,7 @@ export default function AdminDashboardPage() {
           {section === 'vehicle-types' && <AdminVehicleTypesSection />}
           {section === 'countries' && <AdminCountriesSection />}
           {section === 'maintenance-mode' && <AdminMaintenanceSection />}
+          {section === 'phone-otp-settings' && <AdminPhoneOtpSettingsSection />}
           {section === 'role-management' && <AdminRoleManagementSection onPermissionsSaved={reloadPermissions} />}
           {section === 'security-events' && <AdminSecurityEventsSection />}
           {section === 'cross-border' && <AdminCrossBorderSection />}

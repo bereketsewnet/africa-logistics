@@ -98,6 +98,8 @@ import {
   adminCreateBankAccountHandler,
   adminUpdateBankAccountHandler,
   adminDeleteBankAccountHandler,
+  adminGetTwilioSettingsHandler,
+  adminUpdateTwilioSettingsHandler,
   adminListDocumentationHandler,
   adminCreateDocumentationHandler,
   adminUpdateDocumentationHandler,
@@ -541,6 +543,8 @@ export default async function adminRoutes(fastify: FastifyInstance) {
   fastify.put('/settings/contact',    adminUpdateContactInfoHandler)
   fastify.get('/settings/ai',         adminGetAiSettingsHandler)
   fastify.put('/settings/ai',         adminUpdateAiSettingsHandler)
+  fastify.get('/settings/twilio',     adminGetTwilioSettingsHandler)
+  fastify.put('/settings/twilio',     adminUpdateTwilioSettingsHandler)
   fastify.get('/bank-accounts',       adminListBankAccountsHandler)
   fastify.post('/bank-accounts',      adminCreateBankAccountHandler)
   fastify.put('/bank-accounts/:id',   adminUpdateBankAccountHandler)

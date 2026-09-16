@@ -1,14 +1,16 @@
 import { useState, useEffect, type FormEvent } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { useNavigate } from 'react-router-dom'
-import { carOwnerApi, configApi } from '../lib/apiClient'
+import { authApi, carOwnerApi, configApi } from '../lib/apiClient'
 import { useThemeLogo } from '../lib/useThemeLogo'
+import PhoneField from '../components/PhoneField'
+import { normalisePhone } from '../lib/normalisePhone'
 import LanguageToggle from '../components/LanguageToggle'
 import { useLanguage } from '../context/LanguageContext'
 import {
   LuCar, LuPlus, LuLogOut, LuUser, LuClipboardList, LuCheck,
   LuTriangleAlert, LuRefreshCw, LuTrash2, LuX, LuClock,
-  LuSun, LuMoon, LuBadgeCheck, LuFileText, LuSearch, LuUserCheck,
+  LuSun, LuMoon, LuBadgeCheck, LuFileText, LuSearch, LuUserCheck, LuPhone,
 } from 'react-icons/lu'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -88,7 +90,7 @@ function DriverDocument({ label, url }: { label: string; url: string }) {
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 export default function CarOwnerDashboard() {
-  const { user, logout } = useAuth()
+  const { user, logout, updateUser } = useAuth()
   const navigate = useNavigate()
   const { t } = useLanguage()
   const logoImg = useThemeLogo()
@@ -137,6 +139,17 @@ export default function CarOwnerDashboard() {
   const [selectedDriverId, setSelectedDriverId] = useState<string | null>(null)
   const [assignSaving, setAssignSaving] = useState(false)
   const [assignmentMessage, setAssignmentMessage] = useState('')
+
+  // Car owners are self-service users, so their phone follows the same rules as
+  // shippers and drivers. When the company SMS service is off, the API updates
+  // and verifies it immediately; if enabled later, this card shows the OTP step.
+  const [showPhoneForm, setShowPhoneForm] = useState(false)
+  const [newPhone, setNewPhone] = useState('')
+  const [phoneOtp, setPhoneOtp] = useState('')
+  const [phoneStep, setPhoneStep] = useState<'input' | 'otp'>('input')
+  const [phoneLoading, setPhoneLoading] = useState(false)
+  const [phoneError, setPhoneError] = useState('')
+  const [phoneSuccess, setPhoneSuccess] = useState('')
 
   async function loadVehicles() {
     setLoading(true); setErr('')
@@ -241,6 +254,39 @@ export default function CarOwnerDashboard() {
     navigate('/login')
   }
 
+  async function requestPhoneChange(e: FormEvent) {
+    e.preventDefault()
+    const phone = normalisePhone(newPhone)
+    if (!phone) { setPhoneError('Enter a valid phone number.'); return }
+    setPhoneLoading(true); setPhoneError('')
+    try {
+      const { data } = await authApi.requestPhoneChange(phone)
+      if (data.phone_updated) {
+        updateUser({ phone_number: phone, is_phone_verified: 1 })
+        setPhoneSuccess(data.message || 'Phone number updated and verified.')
+        setNewPhone('')
+      } else {
+        setPhoneStep('otp')
+      }
+    } catch (e: any) {
+      setPhoneError(e.response?.data?.message || 'Unable to update phone number.')
+    } finally { setPhoneLoading(false) }
+  }
+
+  async function verifyPhoneChange(e: FormEvent) {
+    e.preventDefault()
+    const phone = normalisePhone(newPhone)
+    setPhoneLoading(true); setPhoneError('')
+    try {
+      await authApi.verifyPhoneChange(phone, phoneOtp)
+      updateUser({ phone_number: phone, is_phone_verified: 1 })
+      setPhoneSuccess('Phone number updated and verified.')
+      setNewPhone(''); setPhoneOtp(''); setPhoneStep('input')
+    } catch (e: any) {
+      setPhoneError(e.response?.data?.message || 'Invalid OTP.')
+    } finally { setPhoneLoading(false) }
+  }
+
   const fullName = [user?.first_name, user?.last_name].filter(Boolean).join(' ') || t('car_owner_badge')
   const filteredDrivers = eligibleDrivers.filter(driver =>
     `${driver.first_name} ${driver.last_name ?? ''}`.toLowerCase().includes(driverSearch.trim().toLowerCase())
@@ -302,6 +348,26 @@ export default function CarOwnerDashboard() {
               <LuCheck size={15} /> {assignmentMessage}
             </div>
           )}
+
+          <div className="glass" style={{ padding: '1rem 1.2rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.8rem', flexWrap: 'wrap' }}>
+              <div><p style={{ color: 'var(--clr-text)', fontWeight: 700, fontSize: '0.88rem', margin: 0, display: 'flex', alignItems: 'center', gap: '0.35rem' }}><LuPhone size={14} /> Phone number</p><p style={{ color: 'var(--clr-muted)', fontSize: '0.76rem', marginTop: '0.22rem' }}>{user?.phone_number}</p></div>
+              <button className="btn-outline" onClick={() => { setShowPhoneForm(open => !open); setPhoneError(''); setPhoneSuccess(''); setPhoneStep('input'); setPhoneOtp('') }} style={{ fontSize: '0.76rem', padding: '0.42rem 0.75rem' }}>{showPhoneForm ? 'Cancel' : 'Change phone'}</button>
+            </div>
+            {showPhoneForm && <div style={{ marginTop: '0.9rem', borderTop: '1px solid rgba(255,255,255,0.09)', paddingTop: '0.9rem' }}>
+              {phoneSuccess ? <div className="alert alert-success" style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}><LuCheck size={14} /> {phoneSuccess}</div> : phoneStep === 'input' ? <form onSubmit={requestPhoneChange} style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
+                {phoneError && <div className="alert alert-error"><LuTriangleAlert size={14} /> {phoneError}</div>}
+                <p style={{ color: 'var(--clr-muted)', fontSize: '0.76rem', lineHeight: 1.45 }}>SMS OTP is currently unavailable, so eligible accounts can update their phone number directly. If SMS OTP is enabled later, we will ask for the code here.</p>
+                <PhoneField id="car-owner-new-phone" value={newPhone} onChange={setNewPhone} />
+                <button className="btn-primary" type="submit" disabled={phoneLoading} style={{ alignSelf: 'flex-start', padding: '0.5rem 0.85rem' }}>{phoneLoading ? 'Updating…' : 'Update phone number'}</button>
+              </form> : <form onSubmit={verifyPhoneChange} style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
+                {phoneError && <div className="alert alert-error"><LuTriangleAlert size={14} /> {phoneError}</div>}
+                <p style={{ color: 'var(--clr-muted)', fontSize: '0.76rem' }}>Enter the 6-digit code sent to {normalisePhone(newPhone)}.</p>
+                <div className="input-wrap"><input id="car-owner-phone-otp" type="text" inputMode="numeric" placeholder=" " maxLength={6} value={phoneOtp} onChange={event => setPhoneOtp(event.target.value.replace(/\D/g, ''))} required /><label htmlFor="car-owner-phone-otp">6-digit OTP</label></div>
+                <div style={{ display: 'flex', gap: '0.5rem' }}><button type="button" className="btn-outline" onClick={() => setPhoneStep('input')}>Back</button><button className="btn-primary" type="submit" disabled={phoneLoading || phoneOtp.length < 6}>{phoneLoading ? 'Verifying…' : 'Verify & update'}</button></div>
+              </form>}
+            </div>}
+          </div>
 
           {/* ── Register Vehicle Button / Form ───────────────────────────── */}
           {!showForm ? (

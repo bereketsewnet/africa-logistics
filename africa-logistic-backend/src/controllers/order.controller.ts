@@ -506,16 +506,23 @@ export async function getShipperReportHandler(
     LIMIT 10
   `, [user.id, fromStr, toStr])
 
-  const [ratingRows] = await db.query<any[]>(`
-    SELECT
-      COUNT(*) AS ratings_given,
-      ROUND(AVG(stars), 2) AS avg_stars_given
-    FROM driver_ratings
-    WHERE shipper_id = ?
-      AND is_deleted = 0
-      AND created_at BETWEEN ? AND ?
-  `, [user.id, fromStr, toStr])
-  const ratings = ratingRows[0] ?? {}
+  // Feedback is supplementary. A legacy installation may not have the ratings
+  // table/columns yet; the rest of the shipper's report must still load.
+  let ratings: any = {}
+  try {
+    const [ratingRows] = await db.query<any[]>(`
+      SELECT
+        COUNT(*) AS ratings_given,
+        ROUND(AVG(stars), 2) AS avg_stars_given
+      FROM driver_ratings
+      WHERE shipper_id = ?
+        AND is_deleted = 0
+        AND created_at BETWEEN ? AND ?
+    `, [user.id, fromStr, toStr])
+    ratings = ratingRows[0] ?? {}
+  } catch (err) {
+    request.server.log.warn({ err }, 'shipper report: ratings data unavailable; returning report without feedback metrics')
+  }
 
   return reply.send({
     success: true,

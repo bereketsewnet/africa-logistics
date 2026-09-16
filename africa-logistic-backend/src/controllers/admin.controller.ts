@@ -82,6 +82,7 @@ async function sendRejectionSms(phone: string, message: string): Promise<void> {
 
 import fs from 'fs'
 import path from 'path'
+import { getTwilioCredentials, getTwilioSettingsStatus, updateTwilioSettings } from '../services/twilio-settings.service.js'
 
 function saveFile(base64Data: string, subDir: string, baseName: string): string {
   const match = base64Data.match(/^data:([a-zA-Z0-9+/]+\/[a-zA-Z0-9+/]+);base64,(.+)$/)
@@ -2387,7 +2388,7 @@ export async function adminUpdateCountryHandler(
 // ─── SYSTEM CONFIG (8.3 Maintenance Mode + App Versioning) ───────────────────
 // ─────────────────────────────────────────────────────────────────────────────
 
-const ALLOWED_CONFIG_KEYS = ['maintenance_mode', 'maintenance_message', 'app_version'] as const
+const ALLOWED_CONFIG_KEYS = ['maintenance_mode', 'maintenance_message', 'app_version', 'phone_otp_enabled'] as const
 
 /** GET /api/admin/system-config */
 export async function adminGetSystemConfigHandler(
@@ -2397,7 +2398,7 @@ export async function adminGetSystemConfigHandler(
   const [rows] = await db.query<any[]>('SELECT config_key, config_value FROM system_config')
   const config: Record<string, string | boolean> = {}
   for (const row of rows) {
-    if (row.config_key === 'maintenance_mode') {
+    if (row.config_key === 'maintenance_mode' || row.config_key === 'phone_otp_enabled') {
       config[row.config_key] = row.config_value === '1' || row.config_value === 'true'
     } else {
       config[row.config_key] = row.config_value ?? ''
@@ -2413,6 +2414,9 @@ export async function adminUpdateSystemConfigHandler(
 ) {
   const db = request.server.db
   const body = request.body ?? {}
+  if (body.phone_otp_enabled === true && !await getTwilioCredentials(db)) {
+    return reply.status(400).send({ success: false, message: 'Configure the Twilio Account SID, Auth Token, and sender phone number before enabling SMS OTP.' })
+  }
   for (const key of ALLOWED_CONFIG_KEYS) {
     if (body[key] === undefined) continue
     const val = typeof body[key] === 'boolean' ? (body[key] ? '1' : '0') : String(body[key])
@@ -2423,6 +2427,28 @@ export async function adminUpdateSystemConfigHandler(
     )
   }
   return reply.send({ success: true, message: 'Configuration updated.' })
+}
+
+/** GET /api/admin/settings/twilio — masked SMS provider settings, super-admin only. */
+export async function adminGetTwilioSettingsHandler(request: FastifyRequest, reply: FastifyReply) {
+  if ((request.user as any).role_id !== 1) return reply.status(403).send({ success: false, message: 'Super-admin access required.' })
+  return reply.send({ success: true, settings: await getTwilioSettingsStatus(request.server.db) })
+}
+
+/** PUT /api/admin/settings/twilio — securely save Twilio credentials, super-admin only. */
+export async function adminUpdateTwilioSettingsHandler(request: FastifyRequest, reply: FastifyReply) {
+  const caller = request.user as any
+  if (caller.role_id !== 1) return reply.status(403).send({ success: false, message: 'Super-admin access required.' })
+  const body = (request.body ?? {}) as { account_sid?: string; auth_token?: string; phone_number?: string }
+  if (body.phone_number !== undefined && body.phone_number.trim() && !/^\+[1-9]\d{6,19}$/.test(body.phone_number.trim())) {
+    return reply.status(400).send({ success: false, message: 'Twilio sender number must use international format, for example +1234567890.' })
+  }
+  try {
+    await updateTwilioSettings(request.server.db, body, caller.id)
+    return reply.send({ success: true, message: 'Twilio settings saved.', settings: await getTwilioSettingsStatus(request.server.db) })
+  } catch (err: any) {
+    return reply.status(400).send({ success: false, message: err.message || 'Unable to save Twilio settings.' })
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
