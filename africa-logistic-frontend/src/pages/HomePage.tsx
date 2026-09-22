@@ -47,6 +47,21 @@ const IconTelegram = (p: SvgProps) => (
     <path d="M21.9 4.3 18.7 19.4c-.2 1-.9 1.3-1.8.8l-4.9-3.6-2.4 2.3c-.3.3-.5.5-1 .5l.3-4.9 9-8.1c.4-.3-.1-.5-.6-.2L6 12.7l-4.7-1.5c-1-.3-1-1 .2-1.5l18.4-7.1c.9-.3 1.6.2 1.3 1.6z" />
   </svg>
 )
+const IconYoutube = (p: SvgProps) => (
+  <svg viewBox="0 0 24 24" fill="currentColor" {...p}>
+    <path d="M23.5 6.2a3 3 0 0 0-2.1-2.1C19.5 3.6 12 3.6 12 3.6s-7.5 0-9.4.5A3 3 0 0 0 .5 6.2 31 31 0 0 0 0 12a31 31 0 0 0 .5 5.8 3 3 0 0 0 2.1 2.1c1.9.5 9.4.5 9.4.5s7.5 0 9.4-.5a3 3 0 0 0 2.1-2.1A31 31 0 0 0 24 12a31 31 0 0 0-.5-5.8ZM9.6 15.6V8.4L15.8 12l-6.2 3.6Z" />
+  </svg>
+)
+const IconX = (p: SvgProps) => (
+  <svg viewBox="0 0 24 24" fill="currentColor" {...p}>
+    <path d="M18.2 2h3.7l-8.1 9.2L23.3 22h-7.5l-5.9-7.7L3.2 22H-.5l8.7-9.9L-.9 2h7.7l5.3 7 6.1-7Zm-1.3 18.1H19L5.7 3.8H3.5l13.4 16.3Z" />
+  </svg>
+)
+const IconLinkedIn = (p: SvgProps) => (
+  <svg viewBox="0 0 24 24" fill="currentColor" {...p}>
+    <path d="M5.3 7.8H1.1V21h4.2V7.8ZM3.2 1.2A2.4 2.4 0 1 0 3.2 6a2.4 2.4 0 0 0 0-4.8ZM21 13.4c0-4-2.1-5.9-5-5.9a4.4 4.4 0 0 0-4 2.2V7.8H7.8V21H12v-6.5c0-1.7.3-3.4 2.5-3.4 2.2 0 2.2 2 2.2 3.5V21H21v-7.6Z" />
+  </svg>
+)
 
 /* ─── Types ─── */
 interface ContactInfo {
@@ -439,23 +454,16 @@ function Team() {
 /* ═══════════════════════════════════════════════
    Contact — info + working form
    ═══════════════════════════════════════════════ */
-function Contact() {
+function Contact({ info, loading }: { info: ContactInfo; loading: boolean }) {
   const { t } = useLanguage()
-  const [info, setInfo] = useState<ContactInfo>({})
-  const [loading, setLoading] = useState(true)
   const [form, setForm] = useState({ name: '', request: '', email: '', phone: '' })
   const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle')
   const [msg, setMsg] = useState('')
 
-  useEffect(() => {
-    configApi.getContactInfo()
-      .then(r => setInfo((r.data as { contact?: ContactInfo }).contact ?? {}))
-      .catch(() => { })
-      .finally(() => setLoading(false))
-  }, [])
-
-  const phone = info.phone1 || '+251 91 155 5575'
-  const email = info.email1 || 'info@afri-logistics.com'
+  const configuredPhones = [info.phone1, info.phone2].map(value => value?.trim()).filter((value): value is string => Boolean(value))
+  const configuredEmails = [info.email1, info.email2].map(value => value?.trim()).filter((value): value is string => Boolean(value))
+  const phones = configuredPhones.length ? Array.from(new Set(configuredPhones)) : ['+251 91 155 5575']
+  const emails = configuredEmails.length ? Array.from(new Set(configuredEmails)) : ['info@afri-logistics.com']
   const address = info.po_box || 'Adama Gadaa Street, Adama, Ethiopia'
 
   const socials: Array<{ label: string; icon: React.ComponentType<SvgProps>; url?: string }> = [
@@ -468,9 +476,9 @@ function Contact() {
   const activeSocials = socials.filter((social): social is { label: string; icon: React.ComponentType<SvgProps>; url: string } => Boolean(social.url))
 
   const cards = [
-    { icon: Phone, color: '#71ad25', title: t('contact_call'), value: phone, href: `tel:${phone.replace(/\s/g, '')}` },
-    { icon: Mail, color: '#8fc94a', title: t('contact_email_us'), value: email, href: `mailto:${email}` },
-    { icon: MapPin, color: '#34d399', title: t('contact_visit'), value: address, href: null as string | null },
+    { icon: Phone, color: '#71ad25', title: t('contact_call'), entries: phones.map(value => ({ value, href: `tel:${value.replace(/[^\d+]/g, '')}` })) },
+    { icon: Mail, color: '#8fc94a', title: t('contact_email_us'), entries: emails.map(value => ({ value, href: `mailto:${value}` })) },
+    { icon: MapPin, color: '#34d399', title: t('contact_visit'), entries: [{ value: address, href: null as string | null }] },
   ]
 
   const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
@@ -516,9 +524,11 @@ function Contact() {
                 </div>
                 <div className="hp-contact-card-body">
                   <h3>{c.title}</h3>
-                  {c.href
-                    ? <a href={c.href}>{c.value}</a>
-                    : <span>{c.value}</span>}
+                  <div className="hp-contact-card-values">
+                    {c.entries.map((entry, index) => entry.href
+                      ? <a key={`${entry.value}-${index}`} href={entry.href}>{entry.value}</a>
+                      : <span key={`${entry.value}-${index}`}>{entry.value}</span>)}
+                  </div>
                 </div>
               </div>
             ))}
@@ -665,7 +675,7 @@ function Documentation() {
 /* ═══════════════════════════════════════════════
    Footer
    ═══════════════════════════════════════════════ */
-function Footer() {
+function Footer({ info }: { info: ContactInfo }) {
   const { t } = useLanguage()
   const logoImg = useThemeLogo()
   const groups: { title: string; items: { label: string; href: string; route?: boolean }[] }[] = [
@@ -696,6 +706,26 @@ function Footer() {
       ],
     },
   ]
+
+  const configuredPhones = [info.phone1, info.phone2].map(value => value?.trim()).filter((value): value is string => Boolean(value))
+  const configuredEmails = [info.email1, info.email2].map(value => value?.trim()).filter((value): value is string => Boolean(value))
+  const phones = configuredPhones.length ? Array.from(new Set(configuredPhones)) : ['+251 91 155 5575']
+  const emails = configuredEmails.length ? Array.from(new Set(configuredEmails)) : ['info@afri-logistics.com']
+  const address = info.po_box?.trim() || 'Adama Gadaa Street, Adama, Ethiopia'
+  const whatsappUrl = info.whatsapp_url?.trim()
+    || (info.whatsapp_number?.trim() ? `https://wa.me/${info.whatsapp_number.replace(/\D/g, '')}` : 'https://wa.me/message/A7WFYICJ2T5KH1')
+  const socialLinks: Array<{ label: string; url?: string; icon: React.ComponentType<SvgProps> }> = [
+    { label: 'YouTube', url: info.youtube_url?.trim(), icon: IconYoutube },
+    { label: 'TikTok', url: info.tiktok_url?.trim() || 'https://tiktok.com/@afrilogistics2', icon: IconTikTok },
+    { label: 'Facebook', url: info.facebook_url?.trim() || 'https://www.facebook.com/share/18uywoV22c/', icon: IconFacebook },
+    { label: 'Instagram', url: info.instagram_url?.trim(), icon: IconInstagram },
+    { label: 'X', url: info.x_url?.trim(), icon: IconX },
+    { label: 'LinkedIn', url: info.linkedin_url?.trim(), icon: IconLinkedIn },
+    { label: 'WhatsApp', url: whatsappUrl, icon: IconWhatsApp },
+    { label: 'Telegram', url: info.telegram_url?.trim() || 'https://t.me/AfriLogisticsOfficial', icon: IconTelegram },
+  ]
+  const activeSocialLinks = socialLinks.filter((link): link is { label: string; url: string; icon: React.ComponentType<SvgProps> } => Boolean(link.url))
+
   return (
     <footer className="hp-footer">
       <div className="hp-container">
@@ -718,6 +748,35 @@ function Footer() {
               </ul>
             </div>
           ))}
+          <div className="hp-footer-col hp-footer-contact">
+            <h4>{t('contact_us_badge')}</h4>
+            <ul className="hp-footer-contact-list">
+              {phones.map((phone, index) => (
+                <li key={`${phone}-${index}`}>
+                  <Phone aria-hidden="true" />
+                  <a href={`tel:${phone.replace(/[^\d+]/g, '')}`}>{phone}</a>
+                </li>
+              ))}
+              {emails.map((email, index) => (
+                <li key={`${email}-${index}`}>
+                  <Mail aria-hidden="true" />
+                  <a href={`mailto:${email}`}>{email}</a>
+                </li>
+              ))}
+              <li>
+                <MapPin aria-hidden="true" />
+                <span>{address}</span>
+              </li>
+            </ul>
+            <div className="hp-footer-socials" aria-label={t('contact_find_us')}>
+              {activeSocialLinks.map(({ label, url, icon: SocialIcon }) => (
+                <a key={label} href={url} target="_blank" rel="noopener noreferrer" aria-label={label} title={label}>
+                  <SocialIcon aria-hidden="true" />
+                  <span>{label}</span>
+                </a>
+              ))}
+            </div>
+          </div>
         </div>
         <div className="hp-footer-bottom">
           <p>© {new Date().getFullYear()} Afri Logistics. {t('ft_rights')}</p>
@@ -736,6 +795,16 @@ function Footer() {
    Root
    ═══════════════════════════════════════════════ */
 export default function HomePage() {
+  const [contactInfo, setContactInfo] = useState<ContactInfo>({})
+  const [contactLoading, setContactLoading] = useState(true)
+
+  useEffect(() => {
+    configApi.getContactInfo()
+      .then(response => setContactInfo((response.data as { contact?: ContactInfo }).contact ?? {}))
+      .catch(() => setContactInfo({}))
+      .finally(() => setContactLoading(false))
+  }, [])
+
   return (
     <>
       <style>{`html { scroll-behavior: smooth; }`}</style>
@@ -748,9 +817,9 @@ export default function HomePage() {
         <NewFeatures />
         <Apps />
         <Team />
-        <Contact />
+        <Contact info={contactInfo} loading={contactLoading} />
         <Documentation />
-        <Footer />
+        <Footer info={contactInfo} />
       </div>
     </>
   )

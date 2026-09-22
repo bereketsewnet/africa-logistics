@@ -83,6 +83,7 @@ async function sendRejectionSms(phone: string, message: string): Promise<void> {
 import fs from 'fs'
 import path from 'path'
 import { getTwilioCredentials, getTwilioSettingsStatus, updateTwilioSettings } from '../services/twilio-settings.service.js'
+import { DELETED_STAFF_USER_ID } from '../plugins/db.js'
 
 function saveFile(base64Data: string, subDir: string, baseName: string): string {
   const match = base64Data.match(/^data:([a-zA-Z0-9+/]+\/[a-zA-Z0-9+/]+);base64,(.+)$/)
@@ -186,8 +187,9 @@ export async function adminGetUsersHandler(
     LEFT JOIN roles r ON r.id = u.role_id
     LEFT JOIN driver_profiles dp ON dp.user_id = u.id
     LEFT JOIN wallets w ON w.user_id = u.id
+    WHERE u.id <> ?
     ORDER BY u.created_at DESC
-  `)
+  `, [DELETED_STAFF_USER_ID])
 
   const today = new Date()
   today.setHours(0, 0, 0, 0)
@@ -239,6 +241,71 @@ export async function adminToggleActiveHandler(
   await db.query('UPDATE users SET is_active = ? WHERE id = ?', [newActive, id])
 
   return reply.send({ id, is_active: newActive })
+}
+
+/**
+ * GET /api/admin/users/:id/deletion-impact
+ * Exactly what deleting this account would remove, so the confirmation dialog
+ * can show real numbers instead of a generic warning.
+ */
+export async function adminUserDeletionImpactHandler(
+  request: FastifyRequest<{ Params: { id: string } }>,
+  reply: FastifyReply,
+) {
+  const caller = request.user as { id: string; role_id: number }
+  if (caller.role_id !== 1) {
+    return reply.status(403).send({ success: false, message: 'Only a super admin can delete an account.' })
+  }
+
+  const { getUserDeletionImpact } = await import('../services/staff-deletion.service.js')
+  const impact = await getUserDeletionImpact(request.server.db, request.params.id)
+  if (!impact) return reply.status(404).send({ success: false, message: 'User not found.' })
+
+  return reply.send({ success: true, impact })
+}
+
+/**
+ * DELETE /api/admin/users/:id
+ *
+ * Permanently removes an account. Staff and admins keep their approval trail;
+ * shippers, drivers and car owners are fully erased, with their orders either
+ * deleted alongside them (`delete_orders`) or detached and kept as records.
+ * See staff-deletion.service.ts for how each reference is handled.
+ */
+export async function adminDeleteUserHandler(
+  request: FastifyRequest<{ Params: { id: string }; Querystring: { delete_orders?: string } }>,
+  reply: FastifyReply,
+) {
+  const caller = request.user as { id: string; role_id: number }
+  // Deleting an account is irreversible, so it stays with the super admin.
+  if (caller.role_id !== 1) {
+    return reply.status(403).send({ success: false, message: 'Only a super admin can delete an account.' })
+  }
+
+  const { hardDeleteUser } = await import('../services/staff-deletion.service.js')
+  const deleteOrders = request.query?.delete_orders === '1' || request.query?.delete_orders === 'true'
+
+  try {
+    const result = await hardDeleteUser(request.server.db, request.params.id, caller.id, { deleteOrders })
+    if (!result.ok) {
+      return reply.status(result.status).send({ success: false, message: result.message })
+    }
+
+    const parts: string[] = []
+    if (result.deletedOrders > 0)   parts.push(`${result.deletedOrders} order(s) deleted`)
+    if (result.detachedOrders > 0)  parts.push(`${result.detachedOrders} order(s) kept without an owner`)
+    if (result.preservedRecords > 0) parts.push(`${result.preservedRecords} record(s) kept without a name`)
+
+    return reply.send({
+      success: true,
+      message: parts.length
+        ? `${result.deletedName} deleted. ${parts.join(', ')}.`
+        : `${result.deletedName} deleted.`,
+    })
+  } catch (err: any) {
+    request.server.log.error({ err }, 'User hard delete failed')
+    return reply.status(500).send({ success: false, message: 'Could not delete this account. Suspend it instead.' })
+  }
 }
 
 // ─── Driver Verification Handlers ─────────────────────────────────────────────
@@ -775,6 +842,7 @@ import {
   updateOrderInternalNotes,
   assignOrderToDriver,
   cancelOrder,
+  hardDeleteOrder,
   notifyOrderStatus,
   listAllCargoTypes,
   createCargoType,
@@ -1128,7 +1196,38 @@ export async function adminCancelOrderHandler(
   await cancelOrder(request.server.db, order.id, admin.id)
   wsManager.broadcast(order.id, 'STATUS_CHANGED', { status: 'CANCELLED' })
 
-  return reply.send({ success: true, message: 'Order cancelled.' })
+  return reply.send({ success: true, message: 'Order cancelled. Driver and vehicle released.' })
+}
+
+/**
+ * DELETE /api/admin/orders/:id
+ * Permanently removes a cancelled order for everyone. Only cancelled orders
+ * qualify — an active or delivered order carries operational and financial
+ * history that must not disappear.
+ */
+export async function adminDeleteOrderHandler(
+  request: FastifyRequest<{ Params: { id: string } }>,
+  reply: FastifyReply
+) {
+  const admin = request.user as any
+  if (admin?.role_id !== 1) {
+    return reply.status(403).send({ success: false, message: 'Only a super admin can delete an order.' })
+  }
+
+  const order = await getOrderById(request.server.db, request.params.id)
+  if (!order) return reply.status(404).send({ success: false, message: 'Order not found.' })
+  if (order.status !== 'CANCELLED') {
+    return reply.status(400).send({ success: false, message: 'Only cancelled orders can be deleted.' })
+  }
+
+  try {
+    const removed = await hardDeleteOrder(request.server.db, order.id)
+    if (!removed) return reply.status(409).send({ success: false, message: 'Order could not be deleted.' })
+    return reply.send({ success: true, message: `Order ${order.reference_code} deleted permanently.` })
+  } catch (err: any) {
+    request.server.log.error({ err }, 'Order hard delete failed')
+    return reply.status(500).send({ success: false, message: 'Could not delete this order.' })
+  }
 }
 
 // ─── Admin Create Order On Behalf ─────────────────────────────────────────────
@@ -1576,6 +1675,93 @@ export async function adminUpdateOrderPriceHandler(
   )
 
   return reply.send({ success: true, message: `Price updated to ${final_price} ETB.` })
+}
+
+/**
+ * PATCH /api/admin/orders/:id/pricing
+ *
+ * Corrects the distance and base fare on a single order. The map route is an
+ * estimate and sometimes disagrees with the road the driver actually takes, so
+ * anyone with order management may fix the numbers per order.
+ *
+ * Only the distance and base-fare parts of the price are recalculated; weight
+ * charges, extra fees and any cross-border uplift already priced into the order
+ * are carried across untouched.
+ */
+export async function adminUpdateOrderPricingHandler(
+  request: FastifyRequest<{
+    Params: { id: string }
+    Body: { distance_km?: number; base_fare?: number; notes?: string }
+  }>,
+  reply: FastifyReply
+) {
+  const admin = request.user as any
+  const db = request.server.db
+  const { notes } = request.body ?? {}
+
+  const order = await getOrderById(db, request.params.id)
+  if (!order) return reply.status(404).send({ success: false, message: 'Order not found.' })
+
+  if (order.payment_status === 'SETTLED') {
+    return reply.status(409).send({ success: false, message: 'This order is already paid and its price can no longer be changed.' })
+  }
+  if (['CANCELLED', 'FAILED'].includes(order.status)) {
+    return reply.status(400).send({ success: false, message: `Cannot reprice a ${order.status.toLowerCase()} order.` })
+  }
+
+  const hasDistance = request.body?.distance_km !== undefined
+  const hasBaseFare = request.body?.base_fare !== undefined
+  if (!hasDistance && !hasBaseFare) {
+    return reply.status(400).send({ success: false, message: 'Provide distance_km, base_fare, or both.' })
+  }
+
+  const newDistanceKm = hasDistance ? Number(request.body.distance_km) : Number(order.distance_km)
+  const newBaseFare   = hasBaseFare ? Number(request.body.base_fare)   : Number(order.base_fare)
+
+  if (!Number.isFinite(newDistanceKm) || newDistanceKm <= 0 || newDistanceKm > 99999) {
+    return reply.status(400).send({ success: false, message: 'Distance must be greater than zero and below 99,999 km.' })
+  }
+  if (!Number.isFinite(newBaseFare) || newBaseFare < 0 || newBaseFare > 9999999) {
+    return reply.status(400).send({ success: false, message: 'Base fare must be zero or more.' })
+  }
+
+  const perKmRate = Number(order.per_km_rate)
+  const oldTotal  = Number(order.estimated_price)
+  // Swap out only the distance and base-fare components, leaving whatever else
+  // the original quote contained (weight, fees, cross-border uplift) in place.
+  const oldPricedPart = Number(order.distance_km) * perKmRate + Number(order.base_fare)
+  const newPricedPart = newDistanceKm * perKmRate + newBaseFare
+  const newTotal = Math.round((oldTotal - oldPricedPart + newPricedPart) * 100) / 100
+
+  if (newTotal < 0) {
+    return reply.status(400).send({ success: false, message: 'These values would make the order price negative.' })
+  }
+
+  await db.query(
+    `UPDATE orders
+        SET distance_km = ?, base_fare = ?, estimated_price = ?,
+            final_price = CASE WHEN final_price IS NULL THEN NULL ELSE ? END,
+            updated_by = ?, updated_at = NOW()
+      WHERE id = ?`,
+    [newDistanceKm, newBaseFare, newTotal, newTotal, admin.id, order.id]
+  )
+
+  const summary =
+    `Pricing adjusted: ${Number(order.distance_km).toFixed(2)} km → ${newDistanceKm.toFixed(2)} km, ` +
+    `base ${Number(order.base_fare).toFixed(2)} → ${newBaseFare.toFixed(2)} ETB, ` +
+    `total ${oldTotal.toFixed(2)} → ${newTotal.toFixed(2)} ETB. ${notes ?? ''}`.trim()
+
+  await db.query(
+    `INSERT INTO order_status_history (order_id, status, changed_by, notes) VALUES (?, ?, ?, ?)`,
+    [order.id, order.status, admin.id, summary]
+  )
+
+  const updated = await getOrderById(db, order.id)
+  return reply.send({
+    success: true,
+    order: updated,
+    message: `Updated to ${newDistanceKm.toFixed(2)} km · ${newTotal.toFixed(2)} ETB.`,
+  })
 }
 
 // ─── Driver Ratings (Admin) ───────────────────────────────────────────────────
@@ -4338,6 +4524,168 @@ export async function adminBankTransferDriverHandler(
     })
   } catch (err: any) {
     return reply.status(500).send({ success: false, message: err.message || 'Bank transfer failed' })
+  }
+}
+
+// ─── Admin Order Finance: Collect Shipper Payment & Complete ──────────────────
+
+/**
+ * POST /api/admin/orders/:id/collect-payment
+ *
+ * Shippers can place an order without enough wallet balance, so payment is
+ * collected here once the order is delivered. Either the wallet is debited, or
+ * the admin records the bank receipt the shipper sent them offline. Both paths
+ * settle the order and move it to COMPLETED.
+ */
+export async function adminCollectOrderPaymentHandler(
+  request: FastifyRequest<{
+    Params: { id: string }
+    Body: {
+      method: 'WALLET' | 'MANUAL'
+      amount?: number
+      payer_phone?: string
+      receipt_base64?: string
+      note?: string
+    }
+  }>,
+  reply: FastifyReply
+) {
+  const admin = (request as any).user
+  if (![1, 4, 5].includes(admin?.role_id)) return reply.status(403).send({ success: false, message: 'Forbidden' })
+
+  const db = request.server.db
+  const { id: orderId } = request.params
+  const { method, payer_phone, receipt_base64, note } = request.body
+
+  if (method !== 'WALLET' && method !== 'MANUAL') {
+    return reply.status(400).send({ success: false, message: 'method must be WALLET or MANUAL' })
+  }
+
+  const [orderRows] = await db.query<any[]>(
+    `SELECT id, shipper_id, driver_id, reference_code, status, payment_status, estimated_price, final_price
+       FROM orders WHERE id = ?`,
+    [orderId]
+  )
+  const order = orderRows[0]
+  if (!order) return reply.status(404).send({ success: false, message: 'Order not found' })
+  if (order.payment_status === 'SETTLED') {
+    return reply.status(409).send({ success: false, message: 'This order is already settled.' })
+  }
+  if (!['DELIVERED', 'COMPLETED'].includes(order.status)) {
+    return reply.status(400).send({ success: false, message: 'Payment can only be collected once the order is delivered.' })
+  }
+
+  const { calculateFinalOrderPrice, settleOrderPayment, collectOrderPaymentManually } =
+    await import('../services/payment.service.js')
+
+  const pricing = await calculateFinalOrderPrice(
+    db,
+    order.id,
+    Number(order.final_price ?? order.estimated_price),
+    order.driver_id ?? undefined
+  )
+
+  try {
+    if (method === 'WALLET') {
+      if (!order.shipper_id) {
+        return reply.status(400).send({
+          success: false,
+          message: 'This order has no registered shipper wallet. Record the payment manually instead.',
+        })
+      }
+      if (!order.driver_id) {
+        return reply.status(400).send({ success: false, message: 'Order has no assigned driver.' })
+      }
+
+      const { checkSufficientBalance } = await import('../services/wallet.service.js')
+      const hasBalance = await checkSufficientBalance(db, order.shipper_id, pricing.shipperCost)
+      if (!hasBalance) {
+        return reply.status(400).send({
+          success: false,
+          message: 'The shipper wallet does not have enough balance. Record the bank receipt manually instead.',
+        })
+      }
+
+      await settleOrderPayment(
+        db,
+        order.id,
+        order.shipper_id,
+        order.driver_id,
+        pricing.shipperCost,
+        pricing.driverEarning,
+        pricing.commission,
+        order.reference_code
+      )
+
+      await db.query(
+        `UPDATE orders
+            SET payment_collection_method = 'WALLET',
+                payment_collected_amount  = ?,
+                payment_collected_by      = ?,
+                payment_collected_at      = NOW(),
+                payment_collection_note   = ?
+          WHERE id = ?`,
+        [pricing.shipperCost, admin.id, note ?? null, order.id]
+      )
+    } else {
+      const amount = Number(request.body.amount ?? pricing.shipperCost)
+      if (!Number.isFinite(amount) || amount <= 0) {
+        return reply.status(400).send({ success: false, message: 'Enter a valid amount greater than zero.' })
+      }
+      if (amount > 999999999999.99) {
+        return reply.status(400).send({ success: false, message: 'The entered amount is too large.' })
+      }
+
+      let receiptUrl: string | undefined
+      if (receipt_base64) {
+        try {
+          receiptUrl = saveFile(receipt_base64, 'order-receipts', `collect_${orderId}`)
+        } catch {
+          return reply.status(400).send({ success: false, message: 'The receipt file could not be saved.' })
+        }
+      }
+
+      await collectOrderPaymentManually(
+        db,
+        order.id,
+        admin.id,
+        amount,
+        order.reference_code,
+        payer_phone?.trim() || undefined,
+        receiptUrl,
+        note?.trim() || undefined
+      )
+    }
+
+    // Payment collected — the order is now finished.
+    if (order.status !== 'COMPLETED') {
+      await updateOrderStatus(
+        db,
+        order.id,
+        'COMPLETED',
+        admin.id,
+        method === 'WALLET' ? 'Payment collected from wallet' : 'Offline payment receipt recorded'
+      )
+    }
+
+    // The invoice PDF is generated at delivery while the order is still unpaid,
+    // so drop it and rebuild it to show the settled status.
+    try {
+      const { generateInvoice } = await import('../services/invoice.service.js')
+      await db.query(`UPDATE orders SET invoice_url = NULL WHERE id = ?`, [order.id])
+      await generateInvoice(db, order.id)
+    } catch { /* an invoice refresh must never fail a collected payment */ }
+
+    const updated = await getOrderById(db, order.id)
+    return reply.send({
+      success: true,
+      order: updated,
+      message: method === 'WALLET'
+        ? `Wallet payment of ${pricing.shipperCost.toFixed(2)} ETB collected. Order completed.`
+        : 'Offline payment recorded. Order completed.',
+    })
+  } catch (err: any) {
+    return reply.status(500).send({ success: false, message: err?.message || 'Payment collection failed' })
   }
 }
 

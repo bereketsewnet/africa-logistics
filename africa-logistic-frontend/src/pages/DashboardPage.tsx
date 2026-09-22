@@ -1437,17 +1437,17 @@ export default function DashboardPage() {
                 <LuWallet size={16} /> {tr('wallet_tab')}
               </button>
               <button
-                onClick={() => setPaymentTab('transactions')}
+                onClick={() => setPaymentTab('add-funds')}
                 style={{
                   padding: '0.6rem 1rem', borderRadius: '8px', border: 'none',
-                  background: paymentTab === 'transactions' ? 'rgba(97, 148, 31,0.15)' : 'transparent',
-                  color: paymentTab === 'transactions' ? 'var(--clr-accent)' : 'var(--clr-muted)',
+                  background: paymentTab === 'add-funds' ? 'rgba(97, 148, 31,0.15)' : 'transparent',
+                  color: paymentTab === 'add-funds' ? 'var(--clr-accent)' : 'var(--clr-muted)',
                   fontWeight: 600, cursor: 'pointer', fontSize: '0.9rem',
                   fontFamily: 'inherit', transition: 'all 0.2s',
                   display: 'flex', alignItems: 'center', gap: '0.4rem', whiteSpace: 'nowrap'
                 }}
               >
-                <LuHistory size={16} /> {tr('history_tab')}
+                <LuPlus size={16} /> {tr('add_funds_tab')}
               </button>
               <button
                 onClick={() => setPaymentTab('invoices')}
@@ -1461,19 +1461,6 @@ export default function DashboardPage() {
                 }}
               >
                 <LuFileText size={16} /> {tr('invoices_tab')}
-              </button>
-              <button
-                onClick={() => setPaymentTab('add-funds')}
-                style={{
-                  padding: '0.6rem 1rem', borderRadius: '8px', border: 'none',
-                  background: paymentTab === 'add-funds' ? 'rgba(97, 148, 31,0.15)' : 'transparent',
-                  color: paymentTab === 'add-funds' ? 'var(--clr-accent)' : 'var(--clr-muted)',
-                  fontWeight: 600, cursor: 'pointer', fontSize: '0.9rem',
-                  fontFamily: 'inherit', transition: 'all 0.2s',
-                  display: 'flex', alignItems: 'center', gap: '0.4rem', whiteSpace: 'nowrap'
-                }}
-              >
-                <LuPlus size={16} /> {tr('add_funds_tab')}
               </button>
               {user?.role_id === 3 && (
                 <button
@@ -1499,6 +1486,19 @@ export default function DashboardPage() {
                   <LuLandmark size={16} /> {tr('payouts_tab')}
                 </button>
               )}
+              <button
+                onClick={() => setPaymentTab('transactions')}
+                style={{
+                  padding: '0.6rem 1rem', borderRadius: '8px', border: 'none',
+                  background: paymentTab === 'transactions' ? 'rgba(97, 148, 31,0.15)' : 'transparent',
+                  color: paymentTab === 'transactions' ? 'var(--clr-accent)' : 'var(--clr-muted)',
+                  fontWeight: 600, cursor: 'pointer', fontSize: '0.9rem',
+                  fontFamily: 'inherit', transition: 'all 0.2s',
+                  display: 'flex', alignItems: 'center', gap: '0.4rem', whiteSpace: 'nowrap'
+                }}
+              >
+                <LuHistory size={16} /> {tr('history_tab')}
+              </button>
             </div>
 
             {paymentTab === 'wallet' && <WalletDashboard />}

@@ -1,5 +1,5 @@
 import {
-  useState, useEffect, useCallback, useRef,
+  useState, useEffect, useCallback, useMemo, useRef,
   type FormEvent, type ChangeEvent,
 } from 'react'
 import { useAuth } from '../context/AuthContext'
@@ -2412,10 +2412,154 @@ function OverviewSection({
 
 // ─── Customer section (Shippers / Drivers) ───────────────────────────────────
 
-function CustomerSection({ allUsers, loading, onToggleActive, onRefresh }: {
+/**
+ * Permanent account deletion, shared by the Shipper, Driver and Staff screens.
+ *
+ * Deleting cannot be undone, so the dialog first asks the server exactly what
+ * would be removed and shows those real counts. Shippers and drivers own
+ * orders, so the admin also chooses whether those orders go with the account or
+ * stay as records with no owner.
+ */
+function UserDeleteDialog({ target, onClose, onDeleted }: {
+  target: UserRow
+  onClose: () => void
+  onDeleted: (message: string) => void
+}) {
+  const [impact, setImpact] = useState<any | null>(null)
+  const [loadingImpact, setLoadingImpact] = useState(true)
+  const [deleteOrders, setDeleteOrders] = useState(false)
+  const [confirmText, setConfirmText] = useState('')
+  const [deleting, setDeleting] = useState(false)
+  const [err, setErr] = useState('')
+
+  useEffect(() => {
+    let cancelled = false
+    setLoadingImpact(true)
+    adminOrderApi.getUserDeletionImpact(target.id)
+      .then(({ data }) => { if (!cancelled) setImpact(data.impact ?? null) })
+      .catch((e: any) => { if (!cancelled) setErr(e.response?.data?.message ?? 'Could not load account details.') })
+      .finally(() => { if (!cancelled) setLoadingImpact(false) })
+    return () => { cancelled = true }
+  }, [target.id])
+
+  const isCustomer = Boolean(impact?.is_customer_role)
+  const totalOrders = Number(impact?.orders_as_shipper ?? 0) + Number(impact?.orders_as_driver ?? 0)
+  const confirmed = confirmText.trim() === target.first_name
+  const blocked = Number(impact?.active_orders ?? 0) > 0
+
+  const rows: Array<{ label: string; value: string; warn?: boolean }> = impact ? [
+    { label: 'Orders as shipper',   value: String(impact.orders_as_shipper) },
+    { label: 'Orders as driver',    value: String(impact.orders_as_driver) },
+    { label: 'Orders in progress',  value: String(impact.active_orders), warn: impact.active_orders > 0 },
+    { label: 'Wallet balance',      value: `${Number(impact.wallet_balance).toFixed(2)} ETB`, warn: Math.abs(Number(impact.wallet_balance)) > 0.004 },
+    { label: 'Wallet transactions', value: String(impact.wallet_transactions), warn: impact.wallet_transactions > 0 },
+    { label: 'Deposit records',     value: String(impact.manual_payments) },
+    { label: 'Withdrawal requests', value: String(impact.withdrawal_requests) },
+    { label: 'Ratings',             value: String(impact.driver_ratings) },
+  ] : []
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 60, background: 'rgba(0,0,0,0.72)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }} onClick={() => { if (!deleting) onClose() }}>
+      <div className="glass" style={{ borderRadius: 18, padding: '1.5rem', maxWidth: 460, width: '100%', maxHeight: '90vh', overflowY: 'auto', position: 'relative', boxShadow: '0 24px 64px rgba(0,0,0,0.5)' }} onClick={e => e.stopPropagation()}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.85rem' }}>
+          <LuTriangleAlert size={18} color="#f87171" />
+          <h3 style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--clr-text)' }}>Delete this account permanently?</h3>
+        </div>
+        <p style={{ fontSize: '0.82rem', color: 'var(--clr-muted)', lineHeight: 1.55, marginBottom: '0.9rem' }}>
+          <strong style={{ color: 'var(--clr-text)' }}>{target.first_name} {target.last_name}</strong> ({target.role_name}) will be removed from the database. This cannot be undone.
+        </p>
+
+        {loadingImpact ? (
+          <p style={{ fontSize: '0.8rem', color: 'var(--clr-muted)', padding: '0.75rem 0' }}>Checking what this account holds…</p>
+        ) : impact && (
+          <div className="glass-inner" style={{ padding: '0.75rem 0.9rem', display: 'flex', flexDirection: 'column', gap: '0.3rem', marginBottom: '0.9rem' }}>
+            {rows.map(r => (
+              <div key={r.label} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.78rem' }}>
+                <span style={{ color: 'var(--clr-muted)' }}>{r.label}</span>
+                <strong style={{ color: r.warn ? 'var(--kpi-gold)' : 'var(--clr-text)', fontVariantNumeric: 'tabular-nums' }}>{r.value}</strong>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {blocked && (
+          <div className="alert alert-error" style={{ marginBottom: '0.75rem', fontSize: '0.8rem' }}>
+            <LuTriangleAlert size={13} /> This account has deliveries still in progress. Finish or cancel them first.
+          </div>
+        )}
+
+        {isCustomer && totalOrders > 0 && !blocked && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginBottom: '0.9rem' }}>
+            <p style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--clr-text)' }}>What about their {totalOrders} order(s)?</p>
+            {([
+              { value: false, label: 'Keep the orders', hint: 'Orders stay in your records and reports, with no owner shown.' },
+              { value: true,  label: 'Delete the orders too', hint: 'Orders, their history, messages and invoices are erased as well.' },
+            ]).map(opt => (
+              <button key={String(opt.value)} onClick={() => setDeleteOrders(opt.value)}
+                style={{ textAlign: 'left', padding: '0.6rem 0.7rem', borderRadius: 9, cursor: 'pointer', fontFamily: 'inherit',
+                  border: deleteOrders === opt.value ? '1px solid rgba(239,68,68,0.5)' : '1px solid rgba(255,255,255,0.12)',
+                  background: deleteOrders === opt.value ? 'rgba(239,68,68,0.1)' : 'rgba(255,255,255,0.04)' }}>
+                <span style={{ fontSize: '0.79rem', fontWeight: 700, color: deleteOrders === opt.value ? 'var(--clr-text)' : 'var(--clr-muted)', display: 'block' }}>{opt.label}</span>
+                <span style={{ fontSize: '0.69rem', color: 'var(--clr-muted)', lineHeight: 1.4 }}>{opt.hint}</span>
+              </button>
+            ))}
+          </div>
+        )}
+
+        {!isCustomer && !loadingImpact && (
+          <p style={{ fontSize: '0.76rem', color: 'var(--clr-muted)', lineHeight: 1.5, marginBottom: '0.9rem' }}>
+            Payments, payouts and reviews this staff member approved are kept — they will simply show no approver name. If the account holds a balance or any financial record, the delete is refused and you should suspend it instead.
+          </p>
+        )}
+
+        {err && <div className="alert alert-error" style={{ marginBottom: '0.75rem', fontSize: '0.8rem' }}><LuTriangleAlert size={13} /> {err}</div>}
+
+        <label style={{ fontSize: '0.73rem', fontWeight: 600, color: 'var(--clr-muted)', marginBottom: '0.3rem', display: 'block' }}>
+          Type <strong style={{ color: 'var(--clr-text)' }}>{target.first_name}</strong> to confirm
+        </label>
+        <input value={confirmText} onChange={e => setConfirmText(e.target.value)} autoFocus disabled={blocked}
+          style={{ width: '100%', padding: '0.6rem 0.8rem', borderRadius: 9, border: '1px solid rgba(255,255,255,0.12)', background: 'rgba(255,255,255,0.05)', color: 'var(--clr-text)', fontFamily: 'inherit', fontSize: '0.85rem', boxSizing: 'border-box', marginBottom: '1rem' }} />
+
+        <div style={{ display: 'flex', gap: '0.6rem' }}>
+          <button onClick={onClose} disabled={deleting}
+            style={{ flex: 1, padding: '0.6rem', borderRadius: 10, border: '1px solid rgba(255,255,255,0.14)', background: 'rgba(255,255,255,0.05)', color: 'var(--clr-text)', fontFamily: 'inherit', fontSize: '0.83rem', fontWeight: 700, cursor: 'pointer' }}>
+            Cancel
+          </button>
+          <button disabled={deleting || !confirmed || blocked || loadingImpact}
+            onClick={async () => {
+              setDeleting(true); setErr('')
+              try {
+                const { data } = await adminOrderApi.deleteUser(target.id, deleteOrders)
+                onDeleted(data?.message ?? 'Account deleted.')
+                onClose()
+              } catch (e: any) { setErr(e.response?.data?.message ?? 'Delete failed.') }
+              finally { setDeleting(false) }
+            }}
+            style={{ flex: 1.3, padding: '0.6rem', borderRadius: 10, border: 'none', background: 'linear-gradient(135deg,#ef4444,#b91c1c)', color: '#fff', fontFamily: 'inherit', fontSize: '0.83rem', fontWeight: 800, cursor: (deleting || !confirmed || blocked) ? 'not-allowed' : 'pointer', opacity: (deleting || !confirmed || blocked || loadingImpact) ? 0.55 : 1 }}>
+            {deleting ? 'Deleting…' : 'Delete permanently'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/** Small red Delete button shown on user rows for the super admin. */
+function DeleteUserButton({ onClick }: { onClick: () => void }) {
+  return (
+    <button onClick={onClick} title="Delete permanently"
+      style={{ padding: '0.28rem 0.55rem', borderRadius: 7, border: '1px solid rgba(239,68,68,0.45)', background: 'rgba(239,68,68,0.12)', color: '#f87171', fontFamily: 'inherit', fontSize: '0.7rem', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+      <LuTrash2 size={11} /> Delete
+    </button>
+  )
+}
+
+function CustomerSection({ allUsers, loading, onToggleActive, onRefresh, canDelete, currentUserId, onDeleted }: {
   allUsers: UserRow[]; loading: boolean
   onToggleActive: (u: UserRow) => void; onRefresh: () => void
+  canDelete: boolean; currentUserId?: string; onDeleted: (message: string) => void
 }) {
+  const [deleteTarget, setDeleteTarget] = useState<UserRow | null>(null)
   const { t: tr } = useLanguage()
   const [search, setSearch] = useState('')
   const [selected, setSelected] = useState<UserRow | null>(null)
@@ -2462,6 +2606,7 @@ function CustomerSection({ allUsers, loading, onToggleActive, onRefresh }: {
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.3rem', flexShrink: 0 }} onClick={e => e.stopPropagation()}>
                 <span style={{ fontSize: '0.68rem', color: 'var(--clr-muted)' }}>{new Date(u.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</span>
+                {canDelete && u.id !== currentUserId && <DeleteUserButton onClick={() => setDeleteTarget(u)} />}
                 <button onClick={() => handleToggle(u)} style={{ padding: '0.28rem 0.65rem', borderRadius: 7, border: '1px solid', borderColor: u.is_active ? 'rgba(239,68,68,0.35)' : 'rgba(74,222,128,0.35)', background: u.is_active ? 'rgba(239,68,68,0.08)' : 'rgba(74,222,128,0.08)', color: u.is_active ? '#fca5a5' : 'var(--kpi-green)', fontFamily: 'inherit', fontSize: '0.7rem', fontWeight: 600, cursor: 'pointer' }}>
                   {u.is_active ? tr('usr_suspend_btn') : tr('usr_activate_btn')}
                 </button>
@@ -2509,20 +2654,30 @@ function CustomerSection({ allUsers, loading, onToggleActive, onRefresh }: {
           </div>
         </div>
       )}
+
+      {deleteTarget && (
+        <UserDeleteDialog
+          target={deleteTarget}
+          onClose={() => setDeleteTarget(null)}
+          onDeleted={msg => { onDeleted(msg); setSelected(null); onRefresh() }}
+        />
+      )}
     </div>
   )
 }
 
 // ─── Staff management section ─────────────────────────────────────────────────
 
-function StaffManagementSection({ allUsers, loading, onToggleActive, onRefresh }: {
+function StaffManagementSection({ allUsers, loading, onToggleActive, onRefresh, canDelete, currentUserId, onDeleted }: {
   allUsers: UserRow[]; loading: boolean
   onToggleActive: (u: UserRow) => void; onRefresh: () => void
+  canDelete: boolean; currentUserId?: string; onDeleted: (message: string) => void
 }) {
   const { t: tr } = useLanguage()
   const [search, setSearch] = useState('')
   const [showCreate, setShowCreate] = useState(false)
   const [editTarget, setEditTarget] = useState<UserRow | null>(null)
+  const [deleteTarget, setDeleteTarget] = useState<UserRow | null>(null)
   const [formErr, setFormErr] = useState('')
   const [saving, setSaving] = useState(false)
   const [staffRoleOptions, setStaffRoleOptions] = useState<{ id: number; label: string }[]>([])
@@ -2625,12 +2780,22 @@ function StaffManagementSection({ allUsers, loading, onToggleActive, onRefresh }
                 <button onClick={() => onToggleActive(u)} style={{ padding: '0.28rem 0.65rem', borderRadius: 7, border: '1px solid', borderColor: u.is_active ? 'rgba(239,68,68,0.35)' : 'rgba(74,222,128,0.35)', background: u.is_active ? 'rgba(239,68,68,0.08)' : 'rgba(74,222,128,0.08)', color: u.is_active ? '#fca5a5' : 'var(--kpi-green)', fontFamily: 'inherit', fontSize: '0.7rem', fontWeight: 600, cursor: 'pointer' }}>
                   {u.is_active ? tr('stf_suspend_btn') : tr('stf_activate_btn')}
                 </button>
+                {/* Permanent removal is super-admin only and never offered for your own row. */}
+                {canDelete && u.id !== currentUserId && <DeleteUserButton onClick={() => setDeleteTarget(u)} />}
               </div>
             </div>
           ))}
         </div>
       )}
       <p style={{ fontSize: '0.73rem', color: 'var(--clr-muted)', textAlign: 'right' }}>{filtered.length} {tr('stf_count')}</p>
+
+      {deleteTarget && (
+        <UserDeleteDialog
+          target={deleteTarget}
+          onClose={() => setDeleteTarget(null)}
+          onDeleted={msg => { onDeleted(msg); onRefresh() }}
+        />
+      )}
 
       {/* Create staff modal */}
       {showCreate && (
@@ -3028,11 +3193,13 @@ interface DriverDetail {
   rating_summary: any | null
 }
 
-function AdminDriversSection({ allUsers, loading: usersLoading, onToggleActive, onRefresh, onViewOrders }: {
+function AdminDriversSection({ allUsers, loading: usersLoading, onToggleActive, onRefresh, onViewOrders, canDelete, onDeleted }: {
   allUsers: UserRow[]; loading: boolean
   onToggleActive: (u: UserRow) => void; onRefresh: () => void; onViewOrders: (driverId: string, statusGroup?: string) => void
+  canDelete: boolean; onDeleted: (message: string) => void
 }) {
   const { t: tr } = useLanguage()
+  const [deleteTarget, setDeleteTarget] = useState<UserRow | null>(null)
   const [search, setSearch] = useState('')
   const [selectedUser, setSelectedUser] = useState<UserRow | null>(null)
   const [detail, setDetail] = useState<DriverDetail | null>(null)
@@ -3126,6 +3293,11 @@ function AdminDriversSection({ allUsers, loading: usersLoading, onToggleActive, 
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', flexShrink: 0 }}>
                     <span style={{ width: 7, height: 7, borderRadius: '50%', background: c, boxShadow: `0 0 4px ${c}` }} />
                     <span style={{ fontSize: '0.7rem', fontWeight: 700, color: c }}>{stLabel[st!] ?? st}</span>
+                  </div>
+                )}
+                {canDelete && (
+                  <div onClick={e => e.stopPropagation()} style={{ flexShrink: 0 }}>
+                    <DeleteUserButton onClick={() => setDeleteTarget(u)} />
                   </div>
                 )}
                 <span style={{ color: 'var(--clr-muted)', fontSize: '0.75rem', flexShrink: 0, marginLeft: '0.25rem' }}>›</span>
@@ -3273,11 +3445,25 @@ function AdminDriversSection({ allUsers, loading: usersLoading, onToggleActive, 
                     style={{ width: '100%', padding: '0.6rem', borderRadius: 10, border: '1px solid', borderColor: selectedUser.is_active ? 'rgba(239,68,68,0.35)' : 'rgba(74,222,128,0.35)', background: selectedUser.is_active ? 'rgba(239,68,68,0.08)' : 'rgba(74,222,128,0.08)', color: selectedUser.is_active ? '#fca5a5' : 'var(--kpi-green)', fontFamily: 'inherit', fontSize: '0.85rem', fontWeight: 700, cursor: 'pointer' }}>
                     {selectedUser.is_active ? tr('drv_suspend_btn') : tr('drv_activate_btn')}
                   </button>
+                  {canDelete && (
+                    <button onClick={() => setDeleteTarget(selectedUser)}
+                      style={{ width: '100%', padding: '0.6rem', borderRadius: 10, border: '1px solid rgba(239,68,68,0.45)', background: 'rgba(239,68,68,0.12)', color: '#f87171', fontFamily: 'inherit', fontSize: '0.85rem', fontWeight: 800, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem' }}>
+                      <LuTrash2 size={14} /> Delete Permanently
+                    </button>
+                  )}
                 </div>
               </>
             ) : null}
           </div>
         </div>
+      )}
+
+      {deleteTarget && (
+        <UserDeleteDialog
+          target={deleteTarget}
+          onClose={() => setDeleteTarget(null)}
+          onDeleted={msg => { onDeleted(msg); setSelectedUser(null); setDetail(null); onRefresh() }}
+        />
       )}
     </div>
   )
@@ -4371,6 +4557,8 @@ function orderBadge(status: string) {
 }
 
 function AdminOrdersSection({ initialDriverFilter, initialStatusFilter }: { initialDriverFilter?: string; initialStatusFilter?: string } = {}) {
+  // Permanent order deletion is offered to the super admin only.
+  const { user } = useAuth()
   const { t: tr } = useLanguage()
   const [orders, setOrders] = useState<AdminOrder[]>([])
   const [stats, setStats] = useState<OrderStats | null>(null)
@@ -4421,6 +4609,37 @@ function AdminOrdersSection({ initialDriverFilter, initialStatusFilter }: { init
     notes: '',
   })
 
+  // Per-order distance / base-fare correction
+  const [pricingForm, setPricingForm] = useState({ distance_km: '', base_fare: '' })
+  const [pricingSaving, setPricingSaving] = useState(false)
+  const [pricingErr, setPricingErr] = useState('')
+
+  // Load the order's current figures whenever a different order is opened.
+  useEffect(() => {
+    if (!detailOrder) return
+    setPricingForm({
+      distance_km: detailOrder.distance_km != null ? String(Number(detailOrder.distance_km)) : '',
+      base_fare: detailOrder.base_fare != null ? String(Number(detailOrder.base_fare)) : '',
+    })
+    setPricingErr('')
+  }, [detailOrder?.id]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  /**
+   * Mirrors the server: only the distance and base-fare parts are swapped, so
+   * weight, fees and any cross-border uplift stay in the total.
+   */
+  const pricingPreview = useMemo(() => {
+    if (!detailOrder) return null
+    const km = parseFloat(pricingForm.distance_km)
+    const bf = parseFloat(pricingForm.base_fare)
+    if (!Number.isFinite(km) || km <= 0 || !Number.isFinite(bf) || bf < 0) return null
+    const perKm = Number(detailOrder.per_km_rate ?? 0)
+    const oldPart = Number(detailOrder.distance_km ?? 0) * perKm + Number(detailOrder.base_fare ?? 0)
+    const newPart = km * perKm + bf
+    const total = Number(detailOrder.estimated_price ?? 0) - oldPart + newPart
+    return total < 0 ? null : Math.round(total * 100) / 100
+  }, [detailOrder, pricingForm])
+
   // Order detail chat (admin ↔ shipper / admin ↔ driver)
   const [detailChatChannel, setDetailChatChannel] = useState<'shipper' | 'driver'>('shipper')
   const [detailMessages, setDetailMessages] = useState<ChatMessage[]>([])
@@ -4444,6 +4663,16 @@ function AdminOrdersSection({ initialDriverFilter, initialStatusFilter }: { init
   const [btReceiptPreview, setBtReceiptPreview] = useState('')
   const [btSaving, setBtSaving] = useState(false)
   const [btErr, setBtErr] = useState('')
+  // Collect the shipper's payment for a delivered order (wallet or offline receipt)
+  const [collectOpen, setCollectOpen] = useState(false)
+  const [collectMethod, setCollectMethod] = useState<'WALLET' | 'MANUAL'>('WALLET')
+  const [collectAmount, setCollectAmount] = useState('')
+  const [collectPhone, setCollectPhone] = useState('')
+  const [collectNote, setCollectNote] = useState('')
+  const [collectReceiptB64, setCollectReceiptB64] = useState('')
+  const [collectReceiptPreview, setCollectReceiptPreview] = useState('')
+  const [collectSaving, setCollectSaving] = useState(false)
+  const [collectErr, setCollectErr] = useState('')
 
   // Create Order on behalf state
   const [createOrderModal, setCreateOrderModal] = useState(false)
@@ -5072,6 +5301,53 @@ function AdminOrdersSection({ initialDriverFilter, initialStatusFilter }: { init
                       <div><p style={{ fontSize: '0.7rem', color: 'var(--clr-muted)' }}>{tr('aord_distance')}</p><p style={{ fontSize: '0.82rem', color: 'var(--clr-text)', fontWeight: 600 }}>{detailOrder.distance_km != null ? `${Number(detailOrder.distance_km).toFixed(1)} km` : '—'}</p></div>
                     </div>
                   </div>
+
+                  {/* Distance & base fare correction — the map route is only an
+                      estimate, so order management can fix it per order. */}
+                  {!['CANCELLED', 'FAILED'].includes(detailOrder.status) && detailOrder.payment_status !== 'SETTLED' && (
+                    <div className="glass-inner" style={{ padding: '0.75rem 1rem' }}>
+                      <p style={{ fontSize: '0.7rem', color: 'var(--clr-muted)', fontWeight: 600, marginBottom: '0.5rem' }}>Adjust Distance & Base Fare</p>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.45rem' }}>
+                        <div>
+                          <label style={{ fontSize: '0.68rem', color: 'var(--clr-muted)', display: 'block', marginBottom: '0.2rem' }}>Distance (km)</label>
+                          <input type="number" min="0.01" step="0.01" inputMode="decimal" value={pricingForm.distance_km}
+                            onChange={e => setPricingForm(f => ({ ...f, distance_km: e.target.value }))}
+                            style={{ width: '100%', padding: '0.5rem 0.65rem', borderRadius: 8, border: '1px solid rgba(255,255,255,0.12)', background: 'rgba(255,255,255,0.05)', color: 'var(--clr-text)', fontFamily: 'inherit', fontSize: '0.8rem', outline: 'none', boxSizing: 'border-box' }} />
+                        </div>
+                        <div>
+                          <label style={{ fontSize: '0.68rem', color: 'var(--clr-muted)', display: 'block', marginBottom: '0.2rem' }}>Base fare ({detailOrder.currency || 'ETB'})</label>
+                          <input type="number" min="0" step="0.01" inputMode="decimal" value={pricingForm.base_fare}
+                            onChange={e => setPricingForm(f => ({ ...f, base_fare: e.target.value }))}
+                            style={{ width: '100%', padding: '0.5rem 0.65rem', borderRadius: 8, border: '1px solid rgba(255,255,255,0.12)', background: 'rgba(255,255,255,0.05)', color: 'var(--clr-text)', fontFamily: 'inherit', fontSize: '0.8rem', outline: 'none', boxSizing: 'border-box' }} />
+                        </div>
+                      </div>
+                      <p style={{ fontSize: '0.71rem', color: 'var(--clr-muted)', marginTop: '0.45rem', lineHeight: 1.45 }}>
+                        Rate {Number(detailOrder.per_km_rate ?? 0)} {detailOrder.currency || 'ETB'}/km · new total{' '}
+                        <strong style={{ color: 'var(--clr-accent)' }}>{pricingPreview == null ? '—' : `${pricingPreview.toFixed(2)} ${detailOrder.currency || 'ETB'}`}</strong>
+                        {' '}(now {Number(detailOrder.estimated_price ?? 0).toFixed(2)})
+                      </p>
+                      {pricingErr && <div className="alert alert-error" style={{ marginTop: '0.5rem', fontSize: '0.78rem' }}><LuTriangleAlert size={12} /> {pricingErr}</div>}
+                      <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '0.5rem' }}>
+                        <button disabled={pricingSaving || pricingPreview == null} onClick={async () => {
+                          const km = parseFloat(pricingForm.distance_km)
+                          const bf = parseFloat(pricingForm.base_fare)
+                          if (!Number.isFinite(km) || km <= 0) { setPricingErr('Enter a distance greater than zero.'); return }
+                          if (!Number.isFinite(bf) || bf < 0) { setPricingErr('Enter a valid base fare.'); return }
+                          setPricingSaving(true); setPricingErr('')
+                          try {
+                            const { data } = await adminOrderApi.updateOrderPricing(detailOrder.id, { distance_km: km, base_fare: bf })
+                            showToast(data?.message ?? 'Pricing updated.')
+                            setDetailOrder(data.order ?? detailOrder)
+                            loadOrders(); loadStats()
+                          } catch (e: any) { setPricingErr(e.response?.data?.message ?? 'Could not update pricing.') }
+                          finally { setPricingSaving(false) }
+                        }}
+                          style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', padding: '0.45rem 0.9rem', borderRadius: 8, border: 'none', background: 'var(--clr-accent)', color: '#080b14', fontFamily: 'inherit', fontSize: '0.78rem', fontWeight: 700, cursor: (pricingSaving || pricingPreview == null) ? 'not-allowed' : 'pointer', opacity: (pricingSaving || pricingPreview == null) ? 0.6 : 1 }}>
+                          {pricingSaving ? tr('aord_saving') : 'Apply Pricing'}
+                        </button>
+                      </div>
+                    </div>
+                  )}
                   <div className="glass-inner" style={{ padding: '0.75rem 1rem' }}>
                     <p style={{ fontSize: '0.7rem', color: 'var(--clr-muted)', fontWeight: 600, marginBottom: '0.5rem' }}>{tr('aord_details_override')}</p>
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.45rem' }}>
@@ -5254,7 +5530,69 @@ function AdminOrdersSection({ initialDriverFilter, initialStatusFilter }: { init
                     {['PENDING', 'ASSIGNED'].includes(detailOrder.status) && (
                       <button onClick={() => { handleCancel(detailOrder); setDetailOrder(null) }} style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', padding: '0.45rem 0.9rem', borderRadius: 8, border: '1px solid rgba(248,113,113,0.3)', background: 'rgba(248,113,113,0.06)', color: '#f87171', fontFamily: 'inherit', fontSize: '0.8rem', fontWeight: 700, cursor: 'pointer' }}><LuBan size={13} /> {tr('aord_cancel_order')}</button>
                     )}
+                    {/* Only a cancelled order can be erased, and only by a super admin. */}
+                    {detailOrder.status === 'CANCELLED' && user?.role_id === 1 && (
+                      <button onClick={async () => {
+                        if (!window.confirm(`Permanently delete order ${detailOrder.reference_code}? This removes it for the shipper and for you, and cannot be undone.`)) return
+                        try {
+                          const { data } = await adminOrderApi.deleteOrder(detailOrder.id)
+                          showToast(data?.message ?? 'Order deleted.')
+                          setDetailOrder(null)
+                          loadOrders(); loadStats()
+                        } catch (e: any) { showToast(e.response?.data?.message ?? 'Delete failed.') }
+                      }} style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', padding: '0.45rem 0.9rem', borderRadius: 8, border: '1px solid rgba(239,68,68,0.45)', background: 'rgba(239,68,68,0.12)', color: '#f87171', fontFamily: 'inherit', fontSize: '0.8rem', fontWeight: 700, cursor: 'pointer' }}><LuTrash2 size={13} /> Delete Permanently</button>
+                    )}
                   </div>
+
+                  {/* Shipper Payment Collection — delivery no longer settles automatically */}
+                  {['DELIVERED', 'COMPLETED'].includes(detailOrder.status) && (
+                    <div className="glass-inner" style={{ padding: '0.85rem', display: 'flex', flexDirection: 'column', gap: '0.6rem', border: detailOrder.payment_status === 'SETTLED' ? '1px solid rgba(74,222,128,0.2)' : '1px solid rgba(251,191,36,0.3)', background: detailOrder.payment_status === 'SETTLED' ? 'rgba(74,222,128,0.04)' : 'rgba(251,191,36,0.05)' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.4rem' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                          <LuReceipt size={13} style={{ color: detailOrder.payment_status === 'SETTLED' ? 'var(--kpi-green)' : 'var(--kpi-gold)' }} />
+                          <span style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--clr-text)' }}>Shipper Payment</span>
+                          {detailOrder.payment_status === 'SETTLED' ? (
+                            <span style={{ fontSize: '0.65rem', fontWeight: 700, color: 'var(--kpi-green)', background: 'rgba(74,222,128,0.1)', border: '1px solid rgba(74,222,128,0.3)', borderRadius: 99, padding: '0.1rem 0.45rem' }}>
+                              {detailOrder.payment_collection_method === 'MANUAL' ? 'Paid — Bank Receipt' : detailOrder.payment_collection_method === 'WALLET' ? 'Paid — Wallet' : 'Settled'}
+                            </span>
+                          ) : (
+                            <span style={{ fontSize: '0.65rem', fontWeight: 700, color: 'var(--kpi-gold)', background: 'rgba(251,191,36,0.1)', border: '1px solid rgba(251,191,36,0.3)', borderRadius: 99, padding: '0.1rem 0.45rem' }}>Payment Due</span>
+                          )}
+                        </div>
+                        {detailOrder.payment_status !== 'SETTLED' && (
+                          <button onClick={() => {
+                            setCollectMethod('WALLET')
+                            setCollectAmount(String(detailOrder.final_price ?? detailOrder.estimated_price ?? ''))
+                            setCollectPhone(detailOrder.shipper_phone ?? detailOrder.guest_phone ?? '')
+                            setCollectNote(''); setCollectReceiptB64(''); setCollectReceiptPreview(''); setCollectErr('')
+                            setCollectOpen(true)
+                          }}
+                            style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', padding: '0.4rem 0.75rem', borderRadius: 8, border: 'none', background: 'linear-gradient(135deg,#fbbf24,#f59e0b)', color: '#1a1205', fontFamily: 'inherit', fontSize: '0.75rem', fontWeight: 800, cursor: 'pointer' }}>
+                            <LuReceipt size={12} /> Collect Payment & Complete
+                          </button>
+                        )}
+                      </div>
+                      {!!detailOrder.balance_warning_acknowledged && detailOrder.payment_status !== 'SETTLED' && (
+                        <p style={{ fontSize: '0.72rem', color: 'var(--kpi-gold)', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                          <LuTriangleAlert size={11} /> Placed with insufficient wallet balance — the shipper accepted the warning.
+                        </p>
+                      )}
+                      {detailOrder.payment_status === 'SETTLED' && detailOrder.payment_collected_at && (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem', fontSize: '0.73rem', color: 'var(--clr-muted)' }}>
+                          <span>
+                            {Number(detailOrder.payment_collected_amount ?? detailOrder.final_price ?? 0).toLocaleString()} {detailOrder.currency || 'ETB'} collected on {new Date(detailOrder.payment_collected_at).toLocaleString()}
+                          </span>
+                          {detailOrder.payment_payer_phone && <span>Payer phone: {detailOrder.payment_payer_phone}</span>}
+                          {detailOrder.payment_collection_note && <span>Note: {detailOrder.payment_collection_note}</span>}
+                          {detailOrder.payment_receipt_url && (
+                            <a href={getUploadUrl(detailOrder.payment_receipt_url) ?? '#'} target="_blank" rel="noreferrer" style={{ color: '#60a5fa', display: 'flex', alignItems: 'center', gap: '0.2rem' }}>
+                              <LuReceipt size={10} /> View receipt
+                            </a>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )}
 
                   {/* Driver Payout Section */}
                   {['DELIVERED', 'COMPLETED'].includes(detailOrder.status) && detailOrder.driver_id && (
@@ -5467,6 +5805,115 @@ function AdminOrdersSection({ initialDriverFilter, initialStatusFilter }: { init
       )}
 
       {/* Bank Transfer modal */}
+      {collectOpen && detailOrder && (
+        <div className="modal-backdrop" onClick={e => { if (e.target === e.currentTarget) setCollectOpen(false) }}>
+          <div className="glass modal-box" style={{ padding: '1.75rem', maxWidth: 480, maxHeight: '90vh', overflowY: 'auto' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.1rem' }}>
+              <h2 style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--clr-text)', display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+                <LuReceipt size={16} style={{ color: 'var(--kpi-gold)' }} /> Collect Payment
+              </h2>
+              <button onClick={() => setCollectOpen(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--clr-muted)' }}><LuX size={18} /></button>
+            </div>
+            <div style={{ fontSize: '0.78rem', color: 'var(--clr-muted)', marginBottom: '1rem' }}>
+              Order <strong style={{ color: 'var(--clr-text)' }}>{detailOrder.reference_code}</strong> · Amount due{' '}
+              <strong style={{ color: 'var(--clr-text)' }}>
+                {Number(detailOrder.final_price ?? detailOrder.estimated_price ?? 0).toLocaleString()} {detailOrder.currency || 'ETB'}
+              </strong>
+            </div>
+            {collectErr && <div className="alert alert-error" style={{ marginBottom: '0.75rem', fontSize: '0.8rem' }}><LuTriangleAlert size={13} /> {collectErr}</div>}
+
+            {/* Method picker */}
+            <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem' }}>
+              {([
+                { key: 'WALLET' as const, label: 'From Wallet', icon: LuWallet, hint: 'Deduct from the shipper balance' },
+                { key: 'MANUAL' as const, label: 'Bank Receipt', icon: LuLandmark, hint: 'Paid offline, record it here' },
+              ]).map(({ key, label, icon: MIcon, hint }) => (
+                <button key={key} onClick={() => { setCollectMethod(key); setCollectErr('') }}
+                  style={{ flex: 1, padding: '0.65rem 0.6rem', borderRadius: 10, cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left',
+                    border: collectMethod === key ? '1px solid rgba(251,191,36,0.55)' : '1px solid rgba(255,255,255,0.12)',
+                    background: collectMethod === key ? 'rgba(251,191,36,0.1)' : 'rgba(255,255,255,0.04)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', marginBottom: '0.2rem' }}>
+                    <MIcon size={13} style={{ color: collectMethod === key ? 'var(--kpi-gold)' : 'var(--clr-muted)' }} />
+                    <span style={{ fontSize: '0.8rem', fontWeight: 700, color: collectMethod === key ? 'var(--clr-text)' : 'var(--clr-muted)' }}>{label}</span>
+                  </div>
+                  <span style={{ fontSize: '0.68rem', color: 'var(--clr-muted)', lineHeight: 1.35, display: 'block' }}>{hint}</span>
+                </button>
+              ))}
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
+              {collectMethod === 'WALLET' ? (
+                <p style={{ fontSize: '0.78rem', color: 'var(--clr-muted)', lineHeight: 1.5 }}>
+                  The full order amount will be deducted from the shipper's wallet and credited to the company wallet. If their balance is too low, the server will refuse and you can record a bank receipt instead.
+                </p>
+              ) : (
+                <>
+                  <div>
+                    <label style={{ fontSize: '0.73rem', fontWeight: 600, color: 'var(--clr-muted)', marginBottom: '0.3rem', display: 'block' }}>Amount received ({detailOrder.currency || 'ETB'}) *</label>
+                    <input type="number" inputMode="decimal" min="0.01" step="0.01" value={collectAmount} onChange={e => setCollectAmount(e.target.value)}
+                      style={{ width: '100%', padding: '0.6rem 0.8rem', borderRadius: 9, border: '1px solid rgba(255,255,255,0.12)', background: 'rgba(255,255,255,0.05)', color: 'var(--clr-text)', fontFamily: 'inherit', fontSize: '0.85rem', boxSizing: 'border-box' }} />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: '0.73rem', fontWeight: 600, color: 'var(--clr-muted)', marginBottom: '0.3rem', display: 'block' }}>Payer phone number</label>
+                    <input value={collectPhone} onChange={e => setCollectPhone(e.target.value)} placeholder="Phone that sent the receipt"
+                      style={{ width: '100%', padding: '0.6rem 0.8rem', borderRadius: 9, border: '1px solid rgba(255,255,255,0.12)', background: 'rgba(255,255,255,0.05)', color: 'var(--clr-text)', fontFamily: 'inherit', fontSize: '0.85rem', boxSizing: 'border-box' }} />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: '0.73rem', fontWeight: 600, color: 'var(--clr-muted)', marginBottom: '0.3rem', display: 'block' }}>Bank receipt</label>
+                    <input type="file" accept="image/*,application/pdf" onChange={e => {
+                      const f = e.target.files?.[0]
+                      if (!f) return
+                      const reader = new FileReader()
+                      reader.onload = ev => {
+                        const result = ev.target?.result as string
+                        setCollectReceiptB64(result)
+                        setCollectReceiptPreview(f.type.startsWith('image/') ? result : '')
+                      }
+                      reader.readAsDataURL(f)
+                    }} style={{ width: '100%', padding: '0.5rem 0', fontSize: '0.8rem', color: 'var(--clr-muted)', fontFamily: 'inherit' }} />
+                    {collectReceiptPreview && (
+                      <img src={collectReceiptPreview} alt="Receipt preview" style={{ marginTop: '0.5rem', maxWidth: '100%', maxHeight: 180, borderRadius: 8, objectFit: 'contain', border: '1px solid rgba(255,255,255,0.1)' }} />
+                    )}
+                    {collectReceiptB64 && !collectReceiptPreview && (
+                      <div style={{ marginTop: '0.4rem', fontSize: '0.72rem', color: '#60a5fa', display: 'flex', alignItems: 'center', gap: '0.3rem' }}><LuReceipt size={12} /> File attached</div>
+                    )}
+                  </div>
+                </>
+              )}
+              <div>
+                <label style={{ fontSize: '0.73rem', fontWeight: 600, color: 'var(--clr-muted)', marginBottom: '0.3rem', display: 'block' }}>Note (optional)</label>
+                <input value={collectNote} onChange={e => setCollectNote(e.target.value)} placeholder="Reference, bank name, who confirmed it…"
+                  style={{ width: '100%', padding: '0.6rem 0.8rem', borderRadius: 9, border: '1px solid rgba(255,255,255,0.12)', background: 'rgba(255,255,255,0.05)', color: 'var(--clr-text)', fontFamily: 'inherit', fontSize: '0.85rem', boxSizing: 'border-box' }} />
+              </div>
+              <button disabled={collectSaving || (collectMethod === 'MANUAL' && !collectAmount)} onClick={async () => {
+                if (collectMethod === 'MANUAL') {
+                  const amount = parseFloat(collectAmount)
+                  if (!Number.isFinite(amount) || amount <= 0) { setCollectErr('Enter a valid amount'); return }
+                }
+                setCollectSaving(true); setCollectErr('')
+                try {
+                  const { data } = await adminOrderApi.collectOrderPayment(detailOrder.id, {
+                    method: collectMethod,
+                    amount: collectMethod === 'MANUAL' ? parseFloat(collectAmount) : undefined,
+                    payer_phone: collectMethod === 'MANUAL' ? (collectPhone.trim() || undefined) : undefined,
+                    receipt_base64: collectMethod === 'MANUAL' ? (collectReceiptB64 || undefined) : undefined,
+                    note: collectNote.trim() || undefined,
+                  })
+                  setCollectOpen(false)
+                  showToast(data?.message ?? 'Payment collected · Order completed')
+                  const { data: fresh } = await adminOrderApi.getOrder(detailOrder.id)
+                  setDetailOrder(fresh.order ?? fresh)
+                  loadOrders()
+                } catch (e: any) { setCollectErr(e.response?.data?.message ?? 'Payment collection failed') }
+                finally { setCollectSaving(false) }
+              }} style={{ padding: '0.65rem', borderRadius: 10, border: 'none', background: 'linear-gradient(135deg,#fbbf24,#f59e0b)', color: '#1a1205', fontFamily: 'inherit', fontSize: '0.85rem', fontWeight: 800, cursor: collectSaving ? 'not-allowed' : 'pointer', opacity: (collectSaving || (collectMethod === 'MANUAL' && !collectAmount)) ? 0.6 : 1 }}>
+                {collectSaving ? 'Recording…' : 'Confirm Payment & Complete Order'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {bankTransferOpen && detailOrder && (
         <div className="modal-backdrop" onClick={e => { if (e.target === e.currentTarget) setBankTransferOpen(false) }}>
           <div className="glass modal-box" style={{ padding: '1.75rem', maxWidth: 480, maxHeight: '90vh', overflowY: 'auto' }}>
@@ -7785,9 +8232,9 @@ export default function AdminDashboardPage() {
         {/* Section content */}
         <main style={{ flex: 1, padding: '1.25rem 1.1rem 2rem', maxWidth: 840, width: '100%', margin: '0 auto', boxSizing: 'border-box' }}>
           {section === 'overview' && <OverviewSection stats={stats} users={users} onNav={setSection} financeOnly={financeOnly} />}
-          {section === 'drivers' && <AdminDriversSection allUsers={drivers} loading={usersLoading} onToggleActive={handleToggleActive} onRefresh={loadUsers} onViewOrders={handleViewDriverOrders} />}
-          {section === 'shippers' && <CustomerSection allUsers={shippers} loading={usersLoading} onToggleActive={handleToggleActive} onRefresh={loadUsers} />}
-          {section === 'staff' && <StaffManagementSection allUsers={staffUsers} loading={usersLoading} onToggleActive={handleToggleActive} onRefresh={loadUsers} />}
+          {section === 'drivers' && <AdminDriversSection allUsers={drivers} loading={usersLoading} onToggleActive={handleToggleActive} onRefresh={loadUsers} onViewOrders={handleViewDriverOrders} canDelete={user?.role_id === 1} onDeleted={showToast} />}
+          {section === 'shippers' && <CustomerSection allUsers={shippers} loading={usersLoading} onToggleActive={handleToggleActive} onRefresh={loadUsers} canDelete={user?.role_id === 1} currentUserId={user?.id} onDeleted={showToast} />}
+          {section === 'staff' && <StaffManagementSection allUsers={staffUsers} loading={usersLoading} onToggleActive={handleToggleActive} onRefresh={loadUsers} canDelete={user?.role_id === 1} currentUserId={user?.id} onDeleted={showToast} />}
           {section === 'verify-drivers' && <DriverVerificationSection />}
           {section === 'vehicles' && <VehicleManagementSection />}
           {section === 'settings' && <AdminSettingsHub onNav={setSection} />}

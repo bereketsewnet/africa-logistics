@@ -80,15 +80,22 @@ export async function getRouteDistanceKm(
   const token = process.env.MAPBOX_TOKEN
   if (token) {
     try {
+      // Mapbox orders routes by travel TIME, so routes[0] is the fastest one —
+      // which on this network is regularly ~20% longer than the shortest road
+      // (Dire Dawa → Kality came back as 529 km instead of 438 km). Customers
+      // are charged per kilometre, so ask for the alternatives and bill the
+      // shortest drivable route rather than the quickest.
       const url =
         `https://api.mapbox.com/directions/v5/mapbox/driving` +
         `/${pickupLng},${pickupLat};${deliveryLng},${deliveryLat}` +
-        `?access_token=${encodeURIComponent(token)}&overview=false`
-      const res = await fetch(url, { signal: AbortSignal.timeout(5000) })
+        `?access_token=${encodeURIComponent(token)}&overview=false&alternatives=true`
+      const res = await fetch(url, { signal: AbortSignal.timeout(8000) })
       if (res.ok) {
         const data: any = await res.json()
-        const metres = data?.routes?.[0]?.distance
-        if (typeof metres === 'number' && metres > 0) return metres / 1000
+        const metres: number[] = (Array.isArray(data?.routes) ? data.routes : [])
+          .map((r: any) => r?.distance)
+          .filter((d: any): d is number => typeof d === 'number' && Number.isFinite(d) && d > 0)
+        if (metres.length > 0) return Math.min(...metres) / 1000
       }
     } catch {
       // fall through to Haversine

@@ -236,6 +236,60 @@ export async function settleOrderPayment(
 }
 
 /**
+ * Record an offline payment collected by an admin for a single order.
+ *
+ * Used when the shipper pays by bank transfer and sends the receipt straight to
+ * an admin instead of topping up their wallet. The shipper wallet is untouched;
+ * only the platform (admin) wallet is credited, so revenue reporting still sees
+ * the money exactly once.
+ */
+export async function collectOrderPaymentManually(
+  db: Pool,
+  orderId: string,
+  adminUserId: string,
+  amount: number,
+  referenceCode: string,
+  payerPhone?: string,
+  receiptUrl?: string,
+  note?: string
+): Promise<{ transactionId: string }> {
+  const txId = await addWalletTransaction(
+    db,
+    adminUserId,
+    'CREDIT',
+    amount,
+    `Offline order payment collected - ${referenceCode}`,
+    orderId,
+    referenceCode,
+    adminUserId,
+    {
+      type: 'order_payment_collection',
+      method: 'MANUAL',
+      payer_phone: payerPhone ?? null,
+      receipt_url: receiptUrl ?? null,
+      note: note ?? null,
+    }
+  )
+
+  await db.query(
+    `UPDATE orders
+        SET payment_status           = 'SETTLED',
+            final_price              = ?,
+            payment_collection_method = 'MANUAL',
+            payment_collected_amount  = ?,
+            payment_payer_phone       = ?,
+            payment_collected_by      = ?,
+            payment_collected_at      = NOW(),
+            payment_collection_note   = ?,
+            payment_receipt_url       = COALESCE(?, payment_receipt_url)
+      WHERE id = ?`,
+    [amount, amount, payerPhone ?? null, adminUserId, note ?? null, receiptUrl ?? null, orderId]
+  )
+
+  return { transactionId: txId }
+}
+
+/**
  * Admin pays driver from admin wallet (with optional commission cut).
  * Net = grossAmount - commission. Net credited to driver, deducted from admin.
  */

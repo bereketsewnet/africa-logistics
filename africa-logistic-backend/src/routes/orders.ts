@@ -18,6 +18,7 @@ import {
   getMessagesHandler,
   sendMessageHandler,
   cancelOrderHandler,
+  deleteMyOrderHandler,
   downloadInvoiceHandler,
   getUnreadCountsHandler,
   rateDriverHandler,
@@ -93,6 +94,9 @@ export default async function orderRoutes(fastify: FastifyInstance) {
 
   /** POST /api/orders/:id/cancel — cancel a PENDING/ASSIGNED order */
   fastify.post('/:id/cancel', cancelOrderHandler)
+
+  /** DELETE /api/orders/:id — shipper removes a cancelled order from their list */
+  fastify.delete('/:id', deleteMyOrderHandler)
 
   /**
    * GET /api/orders/:id/invoice — stream PDF invoice

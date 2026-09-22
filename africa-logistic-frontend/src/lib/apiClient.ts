@@ -109,6 +109,8 @@ export const orderApi = {
     delivery_country_id?: number
     hs_code?: string
     shipper_tin?: string
+    // Sent after the shipper confirms the low-wallet-balance warning.
+    acknowledge_insufficient_balance?: boolean
   }) => apiClient.post('/orders', data),
 
   listOrders: (params?: { status?: string; page?: number; limit?: number }) =>
@@ -131,6 +133,10 @@ export const orderApi = {
 
   cancelOrder: (id: string) =>
     apiClient.post(`/orders/${id}/cancel`),
+
+  /** Remove a cancelled order from the shipper's own list. */
+  deleteOrder: (id: string) =>
+    apiClient.delete(`/orders/${id}`),
 
   getInvoiceUrl: (id: string) =>
     `${BASE_URL}/orders/${id}/invoice`,
@@ -254,6 +260,29 @@ export const adminOrderApi = {
   cancelOrder: (id: string, notes?: string) =>
     apiClient.post(`/admin/orders/${id}/cancel`, { notes }),
 
+  /**
+   * Correct the distance and base fare on one order. Requires order
+   * management permission; the price is recalculated server-side.
+   */
+  updateOrderPricing: (id: string, data: { distance_km?: number; base_fare?: number; notes?: string }) =>
+    apiClient.patch(`/admin/orders/${id}/pricing`, data),
+
+  /** Permanently delete a cancelled order for everyone. Super admin only. */
+  deleteOrder: (id: string) =>
+    apiClient.delete(`/admin/orders/${id}`),
+
+  /** What deleting this account would remove — shown before confirming. */
+  getUserDeletionImpact: (id: string) =>
+    apiClient.get(`/admin/users/${id}/deletion-impact`),
+
+  /**
+   * Permanently delete an account. Super admin only.
+   * `deleteOrders` also erases the orders of a shipper/driver instead of
+   * keeping them as records with no owner.
+   */
+  deleteUser: (id: string, deleteOrders = false) =>
+    apiClient.delete(`/admin/users/${id}${deleteOrders ? '?delete_orders=1' : ''}`),
+
   listCargoTypes: () =>
     apiClient.get('/admin/cargo-types'),
 
@@ -376,6 +405,15 @@ export const adminOrderApi = {
 
   submitToEsw: (orderId: string) =>
     apiClient.post(`/admin/orders/${orderId}/esw/submit`, {}),
+
+  /** Collect the shipper's payment for a delivered order and complete it. */
+  collectOrderPayment: (orderId: string, data: {
+    method: 'WALLET' | 'MANUAL'
+    amount?: number
+    payer_phone?: string
+    receipt_base64?: string
+    note?: string
+  }) => apiClient.post(`/admin/orders/${orderId}/collect-payment`, data),
 
   payDriverWallet: (orderId: string, data: { gross_amount: number; commission_type: 'PERCENT' | 'FIXED' | 'NONE'; commission_value: number; note?: string }) =>
     apiClient.post(`/admin/orders/${orderId}/pay-driver`, data),

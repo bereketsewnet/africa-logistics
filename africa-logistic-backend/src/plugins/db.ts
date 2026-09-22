@@ -17,6 +17,13 @@ import mysql from 'mysql2/promise'
 import bcrypt from 'bcrypt'
 import { randomUUID } from 'crypto'
 
+/**
+ * Reserved user row that inherits the audit trail of hard-deleted staff so
+ * their approvals, payouts and messages survive the deletion. Never a real
+ * account: inactive, unusable phone, excluded from the admin user list.
+ */
+export const DELETED_STAFF_USER_ID = '00000000-0000-0000-0000-0000000000de'
+
 // We use fastify-plugin (fp) so the decoration is not scoped —
 // it's available everywhere in the app, not just in this plugin's scope.
 export default fp(async function dbPlugin(fastify: FastifyInstance) {
@@ -283,6 +290,16 @@ export default fp(async function dbPlugin(fastify: FastifyInstance) {
         await conn.query(`ALTER TABLE \`${table}\` ADD COLUMN \`${column}\` ${definition}`)
       }
     }
+    // MySQL 8.0 has no ADD INDEX IF NOT EXISTS either.
+    const addIndexIfMissing = async (table: string, indexName: string, definition: string) => {
+      const [rows] = await conn.query<any[]>(
+        `SELECT INDEX_NAME FROM information_schema.STATISTICS WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ? AND INDEX_NAME = ?`,
+        [dbName, table, indexName]
+      )
+      if ((rows as any[]).length === 0) {
+        await conn.query(`ALTER TABLE \`${table}\` ADD INDEX \`${indexName}\` ${definition}`)
+      }
+    }
     await addColIfMissing('pricing_rules', 'per_kg_rate',    'DECIMAL(10,4) DEFAULT 0.0000 AFTER per_km_rate')
     await addColIfMissing('pricing_rules', 'additional_fees','JSON NULL AFTER city_surcharge')
     await addColIfMissing('orders',        'order_image_1_url',    'VARCHAR(500) NULL')
@@ -320,6 +337,38 @@ export default fp(async function dbPlugin(fastify: FastifyInstance) {
     await addColIfMissing('orders',        'hs_code',               "VARCHAR(20) NULL")
     await addColIfMissing('orders',        'shipper_tin',           "VARCHAR(50) NULL")
     await addColIfMissing('pricing_rules', 'cross_border_multiplier',"DECIMAL(5,2) NOT NULL DEFAULT 1.00")
+    // ─── Admin-collected order payment ────────────────────────────────────────
+    // A shipper may now place an order without enough wallet balance after
+    // acknowledging a warning. Payment is collected later by an admin, either
+    // from the wallet or from an offline bank receipt sent to the admin phone.
+    await addColIfMissing('orders',        'balance_warning_acknowledged', "TINYINT(1) NOT NULL DEFAULT 0")
+    await addColIfMissing('orders',        'payment_collection_method',    "ENUM('WALLET','MANUAL') NULL")
+    await addColIfMissing('orders',        'payment_collected_amount',     "DECIMAL(14,2) NULL")
+    await addColIfMissing('orders',        'payment_payer_phone',          "VARCHAR(50) NULL")
+    await addColIfMissing('orders',        'payment_collected_by',         "CHAR(36) NULL")
+    await addColIfMissing('orders',        'payment_collected_at',         "TIMESTAMP NULL")
+    await addColIfMissing('orders',        'payment_collection_note',      "VARCHAR(500) NULL")
+    // Admins filter the order list by payment state to find what still needs
+    // collecting, so the lookup column needs its own index.
+    await addIndexIfMissing('orders', 'idx_orders_payment_status', '(payment_status)')
+    // ─── Shipper-side removal of cancelled orders ─────────────────────────────
+    // A shipper hides a cancelled order from their own list; the admin record is
+    // untouched. Only an admin hard-deletes the row for everyone.
+    await addColIfMissing('orders',        'hidden_by_shipper',     "TINYINT(1) NOT NULL DEFAULT 0")
+
+    // ─── Tombstone user for hard-deleted staff ────────────────────────────────
+    // Several audit columns (driver document reviews, order messages, charges,
+    // driver payouts) are NOT NULL and point at users, so hard-deleting a staff
+    // member would otherwise either fail or cascade their financial records away.
+    // Their rows are repointed here instead, which keeps every record intact and
+    // simply shows no real approver name. Inactive, so every role/notification
+    // query that filters on is_active = 1 already skips it.
+    await conn.query(
+      `INSERT IGNORE INTO users
+         (id, role_id, phone_number, first_name, last_name, is_active, is_phone_verified, is_email_verified)
+       VALUES (?, 4, '+000000000000', 'Deleted', 'Staff', 0, 0, 0)`,
+      [DELETED_STAFF_USER_ID]
+    )
 
     // ─── Create Triggers for Audit Logs ──────────────────────────────────────
     await conn.query(`DROP TRIGGER IF EXISTS trg_orders_update_audit;`)

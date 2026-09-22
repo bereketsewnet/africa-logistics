@@ -710,11 +710,14 @@ export async function submitManualPaymentHandler(
   const db = request.server.db
   const { amount, payment_method, bank_account_id, proof_image } = request.body
 
-  // Allowed preset amounts
-  const ALLOWED_AMOUNTS = [100, 200, 500, 1000, 2000, 5000, 10000, 20000, 50000]
-
-  if (!amount || !ALLOWED_AMOUNTS.includes(amount)) {
-    return reply.status(400).send({ message: `Amount must be one of: ${ALLOWED_AMOUNTS.join(', ')} ETB` })
+  // Users may deposit the exact amount shown on their bank transfer rather
+  // than choosing from a preset list. The upper bound matches DECIMAL(14,2).
+  const amountValue = Number(amount)
+  if (!Number.isFinite(amountValue) || amountValue <= 0) {
+    return reply.status(400).send({ success: false, message: 'Enter a valid amount greater than zero.' })
+  }
+  if (amountValue > 999999999999.99) {
+    return reply.status(400).send({ success: false, message: 'The entered amount is too large.' })
   }
 
   try {
@@ -753,7 +756,7 @@ export async function submitManualPaymentHandler(
       [
         recordId,
         wallet.id,
-        amount,
+        amountValue,
         selectedBank
           ? `Manual deposit via ${selectedBank.bank_name} (${selectedBank.account_number})`
           : `Manual deposit via ${payment_method!.trim()}`,

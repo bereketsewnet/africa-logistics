@@ -383,7 +383,10 @@ function PlaceOrderWizard({ cargoTypes, onDone, onClose }: WizardProps) {
     estimated_value:'',
   })
   const [quote, setQuote] = useState<Quote | null>(null)
-  const [placedOrder, setPlacedOrder] = useState<{ reference_code: string; pickup_otp: string; delivery_otp: string } | null>(null)
+  const [placedOrder, setPlacedOrder] = useState<{ reference_code: string; pickup_otp: string; delivery_otp: string; payment_pending?: boolean } | null>(null)
+  // Set when the server warns the wallet is short. The order is not blocked —
+  // the shipper confirms and payment is collected by an admin after delivery.
+  const [lowBalance, setLowBalance] = useState<{ current_balance: number; required_balance: number; shortfall: number } | null>(null)
   const [loading, setLoading] = useState(false)
   const [err, setErr] = useState('')
   const [img1, setImg1] = useState<string>('')  // base64
@@ -464,7 +467,7 @@ function PlaceOrderWizard({ cargoTypes, onDone, onClose }: WizardProps) {
     finally { setLoading(false) }
   }
 
-  const handlePlace = async () => {
+  const handlePlace = async (acknowledgeLowBalance = false) => {
     setErr(''); setLoading(true)
     if (!form.country_code || (form.pickup_country_code && form.pickup_country_code !== form.country_code) || (!isCrossBorder && form.delivery_country_code && form.delivery_country_code !== form.country_code)) {
       setLoading(false)
@@ -497,9 +500,28 @@ function PlaceOrderWizard({ cargoTypes, onDone, onClose }: WizardProps) {
         delivery_country_id:  isCrossBorder && cbDeliveryCountryId ? cbDeliveryCountryId : undefined,
         hs_code:              isCrossBorder && cbHsCode ? cbHsCode : undefined,
         shipper_tin:          isCrossBorder && cbShipperTin ? cbShipperTin : undefined,
+        acknowledge_insufficient_balance: acknowledgeLowBalance || undefined,
       })
-      setPlacedOrder({ reference_code: data.order.reference_code, pickup_otp: data.otps.pickup_otp, delivery_otp: data.otps.delivery_otp })
-    } catch (e: any) { setErr(e.response?.data?.message ?? tr('wiz_err_place')) }
+      setLowBalance(null)
+      setPlacedOrder({
+        reference_code: data.order.reference_code,
+        pickup_otp: data.otps.pickup_otp,
+        delivery_otp: data.otps.delivery_otp,
+        payment_pending: Boolean(data.payment_pending),
+      })
+    } catch (e: any) {
+      const res = e.response?.data
+      // A short wallet is a warning, not a rejection — ask for confirmation.
+      if (e.response?.status === 402 && res?.requires_confirmation) {
+        setLowBalance({
+          current_balance:  Number(res.current_balance ?? 0),
+          required_balance: Number(res.required_balance ?? 0),
+          shortfall:        Number(res.shortfall ?? 0),
+        })
+      } else {
+        setErr(res?.message ?? tr('wiz_err_place'))
+      }
+    }
     finally { setLoading(false) }
   }
 
@@ -513,6 +535,12 @@ function PlaceOrderWizard({ cargoTypes, onDone, onClose }: WizardProps) {
         <h3 style={{ fontSize:'1.05rem', fontWeight:800, color:'var(--clr-text)', marginBottom:'0.25rem' }}>{tr('wiz_order_placed')}</h3>
         <p style={{ fontSize:'0.8rem', color:'var(--clr-muted)' }}>{tr('wiz_reference')} <strong style={{ color:'var(--clr-accent)' }}>{placedOrder.reference_code}</strong></p>
       </div>
+      {placedOrder.payment_pending && (
+        <div style={{ width:'100%', borderRadius:12, border:'1px solid rgba(251,191,36,0.3)', background:'rgba(251,191,36,0.07)', padding:'0.8rem 1rem', display:'flex', alignItems:'flex-start', gap:'0.5rem', textAlign:'left' }}>
+          <LuTriangleAlert size={14} color="#fbbf24" style={{ flexShrink:0, marginTop:2 }}/>
+          <p style={{ fontSize:'0.76rem', color:'#fbbf24', lineHeight:1.5 }}>{tr('wiz_payment_pending_note')}</p>
+        </div>
+      )}
       <div style={{ width:'100%', borderRadius:12, border:'1px solid rgba(255,255,255,0.08)', background:'rgba(255,255,255,0.03)', padding:'1rem 1.25rem', display:'flex', flexDirection:'column', gap:'0.85rem' }}>
         <p style={{ fontSize:'0.78rem', color:'var(--clr-muted)', marginBottom:'0.25rem' }}>
           {tr('wiz_otp_instr')}
@@ -773,9 +801,51 @@ function PlaceOrderWizard({ cargoTypes, onDone, onClose }: WizardProps) {
             <button className="btn-outline" style={{ flex:1, display:'flex', alignItems:'center', gap:'0.4rem', justifyContent:'center' }} onClick={() => { setStep(1); setQuote(null); setErr('') }}>
               <LuChevronLeft size={14}/> {tr('wiz_edit')}
             </button>
-            <button className="btn-primary" style={{ flex:2 }} onClick={handlePlace} disabled={loading}>
+            <button className="btn-primary" style={{ flex:2 }} onClick={() => handlePlace()} disabled={loading}>
               {loading ? <span style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:'0.5rem' }}><Spinner/> {tr('wiz_placing')}</span> : tr('wiz_confirm_place')}
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Low wallet balance — warn, then let the shipper place the order anyway */}
+      {lowBalance && (
+        <div className="modal-backdrop" onClick={e => { if (e.target === e.currentTarget) setLowBalance(null) }}>
+          <div className="glass modal-box" style={{ padding:'1.5rem', maxWidth:420 }}>
+            <div style={{ display:'flex', alignItems:'center', gap:'0.5rem', marginBottom:'0.85rem' }}>
+              <LuTriangleAlert size={18} color="#fbbf24"/>
+              <h3 style={{ fontSize:'0.98rem', fontWeight:800, color:'var(--clr-text)' }}>{tr('wiz_low_balance_title')}</h3>
+            </div>
+            <p style={{ fontSize:'0.82rem', color:'var(--clr-muted)', lineHeight:1.55, marginBottom:'0.9rem' }}>
+              {tr('wiz_low_balance_body')}
+            </p>
+            <div className="glass-inner" style={{ padding:'0.75rem 0.9rem', display:'flex', flexDirection:'column', gap:'0.4rem', marginBottom:'0.9rem' }}>
+              {[
+                { label: tr('wiz_low_balance_price'),   value: lowBalance.required_balance, color: 'var(--clr-text)' },
+                { label: tr('wiz_low_balance_current'), value: lowBalance.current_balance,  color: 'var(--clr-text)' },
+                { label: tr('wiz_low_balance_short'),   value: lowBalance.shortfall,        color: '#fbbf24' },
+              ].map(row => (
+                <div key={row.label} style={{ display:'flex', justifyContent:'space-between', fontSize:'0.8rem' }}>
+                  <span style={{ color:'var(--clr-muted)' }}>{row.label}</span>
+                  <strong style={{ color:row.color, fontVariantNumeric:'tabular-nums' }}>
+                    {row.value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ETB
+                  </strong>
+                </div>
+              ))}
+            </div>
+            <p style={{ fontSize:'0.76rem', color:'#fbbf24', lineHeight:1.5, marginBottom:'1.1rem' }}>
+              {tr('wiz_low_balance_note')}
+            </p>
+            <div style={{ display:'flex', gap:'0.6rem' }}>
+              <button className="btn-outline" style={{ flex:1 }} onClick={() => setLowBalance(null)} disabled={loading}>
+                {tr('wiz_low_balance_cancel')}
+              </button>
+              <button className="btn-primary" style={{ flex:1.4 }} onClick={() => handlePlace(true)} disabled={loading}>
+                {loading
+                  ? <span style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:'0.5rem' }}><Spinner/> {tr('wiz_placing')}</span>
+                  : tr('wiz_low_balance_confirm')}
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -1012,6 +1082,7 @@ function OrderDetailModal({ order, onClose, onCancelled }: { order: Order; onClo
   const [msgText, setMsgText] = useState('')
   const [sending, setSending] = useState(false)
   const [cancelling, setCancelling] = useState(false)
+  const [removing, setRemoving] = useState(false)
   const [cancelErr, setCancelErr] = useState('')
   const [invoiceDling, setInvoiceDling] = useState(false)
   const [hasRated, setHasRated] = useState(false)
@@ -1137,6 +1208,17 @@ function OrderDetailModal({ order, onClose, onCancelled }: { order: Order; onClo
       onClose()
     } catch (e: any) { setCancelErr(e.response?.data?.message ?? tr('odm_cancel_fail')) }
     finally { setCancelling(false) }
+  }
+
+  const handleRemove = async () => {
+    if (!window.confirm(tr('odm_remove_confirm'))) return
+    setCancelErr(''); setRemoving(true)
+    try {
+      await orderApi.deleteOrder(order.id)
+      onCancelled()
+      onClose()
+    } catch (e: any) { setCancelErr(e.response?.data?.message ?? tr('odm_remove_fail')) }
+    finally { setRemoving(false) }
   }
 
   const canCancel = order.status === 'PENDING' || order.status === 'ASSIGNED'
@@ -1409,6 +1491,20 @@ function OrderDetailModal({ order, onClose, onCancelled }: { order: Order; onClo
                     style={{ width:'100%', padding:'0.65rem', borderRadius:10, border:'1px solid rgba(248,113,113,0.3)', background:'rgba(248,113,113,0.06)', color:'#f87171', fontFamily:'inherit', fontSize:'0.82rem', fontWeight:700, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:'0.4rem' }}>
                     {cancelling ? <><Spinner/> {tr('odm_cancelling')}</> : <><LuBan size={14}/> {tr('odm_cancel_order')}</>}
                   </button>
+                </div>
+              )}
+
+              {/* Remove a cancelled order from this shipper's own list */}
+              {order.status === 'CANCELLED' && (
+                <div>
+                  {cancelErr && <div className="alert alert-error" style={{ marginBottom:'0.5rem' }}><LuTriangleAlert size={13}/> {cancelErr}</div>}
+                  <button onClick={handleRemove} disabled={removing}
+                    style={{ width:'100%', padding:'0.65rem', borderRadius:10, border:'1px solid rgba(239,68,68,0.35)', background:'rgba(239,68,68,0.08)', color:'#f87171', fontFamily:'inherit', fontSize:'0.82rem', fontWeight:700, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:'0.4rem' }}>
+                    {removing ? <><Spinner/> {tr('odm_removing')}</> : <><LuTrash2 size={14}/> {tr('odm_remove_order')}</>}
+                  </button>
+                  <p style={{ fontSize:'0.72rem', color:'var(--clr-muted)', marginTop:'0.45rem', textAlign:'center', lineHeight:1.45 }}>
+                    {tr('odm_remove_note')}
+                  </p>
                 </div>
               )}
             </div>

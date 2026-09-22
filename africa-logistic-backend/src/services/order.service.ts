@@ -79,6 +79,15 @@ export interface OrderRow extends RowDataPacket {
   order_image_2_url: string | null
   invoice_url: string | null
   payment_status: 'UNPAID' | 'ESCROWED' | 'SETTLED'
+  balance_warning_acknowledged?: number
+  payment_collection_method?: 'WALLET' | 'MANUAL' | null
+  payment_collected_amount?: number | null
+  payment_payer_phone?: string | null
+  payment_collected_by?: string | null
+  payment_collected_at?: string | null
+  payment_collection_note?: string | null
+  payment_receipt_url?: string | null
+  hidden_by_shipper?: number
   is_cross_border: number
   pickup_country_id: number
   delivery_country_id: number
@@ -355,7 +364,9 @@ export async function listOrders(
   const params: any[] = []
 
   if (status)     { where.push('o.status = ?');             params.push(status) }
-  if (shipperId)  { where.push('o.shipper_id = ?');         params.push(shipperId) }
+  // A shipper never sees the cancelled orders they removed from their own list;
+  // admins and drivers still see every row.
+  if (shipperId)  { where.push('o.shipper_id = ?', 'o.hidden_by_shipper = 0'); params.push(shipperId) }
   if (driverId)   { where.push('o.driver_id = ?');          params.push(driverId) }
   if (search)     { where.push('(o.reference_code LIKE ? OR s.first_name LIKE ? OR s.last_name LIKE ?)'); params.push(`%${search}%`, `%${search}%`, `%${search}%`) }
   if (dateFrom)   { where.push('o.created_at >= ?');        params.push(dateFrom) }
@@ -446,14 +457,61 @@ export async function assignOrderToDriver(
 }
 
 export async function cancelOrder(db: Pool, orderId: string, cancelledBy: string): Promise<void> {
-  await db.query(
-    `UPDATE orders SET status = 'CANCELLED', updated_at = NOW(), updated_by = ? WHERE id = ? AND status IN ('PENDING','ASSIGNED')`,
+  // Remember who was holding this job before the assignment is cleared.
+  const [[assigned]] = await db.query<any[]>(
+    `SELECT driver_id FROM orders WHERE id = ? LIMIT 1`,
+    [orderId]
+  )
+
+  const [result] = await db.query<any>(
+    `UPDATE orders
+        SET status = 'CANCELLED', driver_id = NULL, vehicle_id = NULL,
+            updated_at = NOW(), updated_by = ?
+      WHERE id = ? AND status IN ('PENDING','ASSIGNED')`,
     [cancelledBy, orderId]
   )
   await db.query(
     `INSERT INTO order_status_history (order_id, status, changed_by, notes) VALUES (?, 'CANCELLED', ?, 'Order cancelled')`,
     [orderId, cancelledBy]
   )
+
+  // A cancelled job must hand the driver and their truck straight back to the
+  // dispatch pool — driver suggestions only ever list AVAILABLE drivers, so a
+  // driver left ON_JOB here would be unassignable for good.
+  if (result?.affectedRows > 0 && assigned?.driver_id) {
+    await releaseDriver(db, String(assigned.driver_id))
+  }
+}
+
+/**
+ * Remove a cancelled order from one shipper's own list. The row stays in the
+ * database so the admin record of what was ordered and cancelled is preserved.
+ */
+export async function hideOrderForShipper(db: Pool, orderId: string, shipperId: string): Promise<boolean> {
+  const [result] = await db.query<any>(
+    `UPDATE orders SET hidden_by_shipper = 1
+      WHERE id = ? AND shipper_id = ? AND status = 'CANCELLED'`,
+    [orderId, shipperId]
+  )
+  return result?.affectedRows > 0
+}
+
+/**
+ * Permanently remove a cancelled order and everything hanging off it.
+ *
+ * Status history, messages, charges, invoices, driver payouts and cross-border
+ * documents are removed by ON DELETE CASCADE. Driver ratings are NO ACTION, so
+ * they are cleared first or the delete would fail; wallet transactions keep
+ * their own rows with order_id set to NULL, so no money record is ever lost.
+ */
+export async function hardDeleteOrder(db: Pool, orderId: string): Promise<boolean> {
+  await db.query(`DELETE FROM driver_ratings WHERE order_id = ?`, [orderId])
+  await db.query(`DELETE FROM driver_locations WHERE order_id = ?`, [orderId])
+  const [result] = await db.query<any>(
+    `DELETE FROM orders WHERE id = ? AND status = 'CANCELLED'`,
+    [orderId]
+  )
+  return result?.affectedRows > 0
 }
 
 // ─── OTP Verification (Pickup / Delivery) ────────────────────────────────────

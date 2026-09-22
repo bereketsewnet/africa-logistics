@@ -3,6 +3,8 @@ import { redactContactFields } from '../utils/privacy.js'
 import {
   adminGetUsersHandler,
   adminToggleActiveHandler,
+  adminDeleteUserHandler,
+  adminUserDeletionImpactHandler,
   adminCreateStaffHandler,
   adminUpdateUserHandler,
   adminListDriversHandler,
@@ -26,6 +28,7 @@ import {
   adminUpdateOrderDetailsHandler,
   adminUpdateOrderNotesHandler,
   adminCancelOrderHandler,
+  adminDeleteOrderHandler,
   adminOrderStatsHandler,
   adminCreateOrderOnBehalfHandler,
   // ── Cargo Types ────────────────────────────────────────────────────────────
@@ -46,6 +49,7 @@ import {
   // ── Dispatch & Pricing ──────────────────────────────────────────────────────
   adminSuggestDriversHandler,
   adminUpdateOrderPriceHandler,
+  adminUpdateOrderPricingHandler,
   // ── Driver Ratings ─────────────────────────────────────────────────────────
   adminGetDriverRatingsHandler,
   adminDeleteRatingHandler,
@@ -110,6 +114,7 @@ import {
   adminLogisticsReportHandler,
   adminPayDriverWalletHandler,
   adminBankTransferDriverHandler,
+  adminCollectOrderPaymentHandler,
   adminGetOrderDriverPaymentsHandler,
 } from '../controllers/admin.controller.js'
 import {
@@ -175,6 +180,9 @@ export default async function adminRoutes(fastify: FastifyInstance) {
     // Covers GET /drivers, GET /drivers/:id, /drivers/:id/review-document, /drivers/:id/verify, etc. and DELETE /ratings/:id
     if (url.includes('/drivers') || url.includes('/ratings')) return 'drivers.verify'
     if (url.includes('/users') || url.includes('/staff')) return 'users.manage'
+    // Collecting an order payment moves money, so it is gated on the finance
+    // permission rather than the broader order-management one.
+    if (url.includes('/collect-payment')) return 'payments.approve'
     if (url.includes('/reports/finance')) return 'payments.approve'
     if (url.includes('/reports/orders')) return 'orders.manage'
     if (url.includes('/reports/drivers') || url.includes('/reports/logistics')) return 'dispatch.manage'
@@ -262,6 +270,12 @@ export default async function adminRoutes(fastify: FastifyInstance) {
 
   /** PATCH /api/admin/users/:id/toggle-active — suspend / activate a user */
   fastify.patch('/users/:id/toggle-active', adminToggleActiveHandler)
+
+  /** GET /api/admin/users/:id/deletion-impact — what a delete would remove */
+  fastify.get('/users/:id/deletion-impact', adminUserDeletionImpactHandler)
+
+  /** DELETE /api/admin/users/:id — permanently delete an account */
+  fastify.delete('/users/:id', adminDeleteUserHandler)
 
   // ─── Driver Verification ────────────────────────────────────────────────────
 
@@ -380,6 +394,9 @@ export default async function adminRoutes(fastify: FastifyInstance) {
   /** PATCH /api/admin/orders/:id/price — override final price */
   fastify.patch('/orders/:id/price', adminUpdateOrderPriceHandler)
 
+  /** PATCH /api/admin/orders/:id/pricing — correct distance and base fare */
+  fastify.patch('/orders/:id/pricing', adminUpdateOrderPricingHandler)
+
   /** GET /api/admin/orders/:id — single order details */
   fastify.get('/orders/:id', adminGetOrderHandler)
 
@@ -403,6 +420,12 @@ export default async function adminRoutes(fastify: FastifyInstance) {
 
   /** POST /api/admin/orders/:id/cancel — cancel an order */
   fastify.post('/orders/:id/cancel', adminCancelOrderHandler)
+
+  /** DELETE /api/admin/orders/:id — permanently delete a cancelled order */
+  fastify.delete('/orders/:id', adminDeleteOrderHandler)
+
+  /** POST /api/admin/orders/:id/collect-payment — collect shipper payment and complete */
+  fastify.post('/orders/:id/collect-payment', adminCollectOrderPaymentHandler)
 
   /** POST /api/admin/orders/:id/pay-driver — credit driver wallet with commission */
   fastify.post('/orders/:id/pay-driver', adminPayDriverWalletHandler)

@@ -606,21 +606,16 @@ export async function verifyDeliveryOtpHandler(
 
   // ─── PROCESS PAYMENT SETTLEMENT ─────────────────────────────────────────────
   try {
-    const { calculateFinalOrderPrice, settleOrderPayment } = await import('../services/payment.service.js')
+    const { calculateFinalOrderPrice } = await import('../services/payment.service.js')
     const { generateInvoiceNumber, saveFinancialInvoiceRecord, generateInvoice } = await import('../services/invoice.service.js')
     const { findUserById } = await import('../services/auth.service.js')
     const { sendPushToUser } = await import('../services/push.service.js')
     const { sendEmail } = await import('../services/email.service.js')
 
-    // Calculate final price including any approved charges/tips
-    // A driver is always required at delivery. A shipper is only required when
-    // wallet settlement is still pending (guest/offline receipt orders may not
-    // have one).
+    // Calculate final price including any approved charges/tips.
+    // A driver is always required at delivery.
     if (!order.driver_id) {
       throw new Error('Order missing driver assignment')
-    }
-    if (order.payment_status !== 'SETTLED' && !order.shipper_id) {
-      throw new Error('Unpaid order missing shipper assignment')
     }
 
     const pricing = await calculateFinalOrderPrice(
@@ -630,19 +625,18 @@ export async function verifyDeliveryOtpHandler(
       order.driver_id
     )
 
-    // Receipt-backed admin/staff orders are already settled outside the wallet.
-    // Only shipper-placed, still-unpaid orders should debit the shipper wallet.
+    // Delivery no longer moves money. An admin collects payment explicitly from
+    // the order detail screen — wallet debit or an offline bank receipt — and
+    // that step is what marks the order SETTLED and COMPLETED. Tell the admins
+    // there is money waiting to be collected.
     if (order.payment_status !== 'SETTLED') {
-      await settleOrderPayment(
+      const { notifyAdminsOfEvent } = await import('../services/push.service.js')
+      notifyAdminsOfEvent(
         request.server.db,
-        order.id,
-        order.shipper_id!,
-        order.driver_id,
-        pricing.shipperCost,
-        pricing.driverEarning,
-        pricing.commission,
-        order.reference_code
-      )
+        `Payment due: ${order.reference_code}`,
+        `Order ${order.reference_code} was delivered with ${pricing.shipperCost.toFixed(2)} ETB still unpaid. Collect the payment to complete it.`,
+        '/admin'
+      ).catch(() => {})
     }
 
     // Generate invoice number and save record
@@ -687,46 +681,54 @@ export async function verifyDeliveryOtpHandler(
           const shipperId = String(order.shipper_id)
           const driverId = String(order.driver_id)
 
+          // Delivery does not move money any more, so these notifications must
+          // announce the delivery and the amount due — never a settled payment.
+          const alreadyPaid = order.payment_status === 'SETTLED'
+
           await sendPushToUser(request.server.db, shipperId, {
-            title: 'Payment Completed',
-            body: `Order ${order.reference_code} payment settled. Invoice ready.`,
+            title: 'Delivery Completed',
+            body: alreadyPaid
+              ? `Order ${order.reference_code} delivered. Invoice ready.`
+              : `Order ${order.reference_code} delivered. ${pricing.shipperCost.toFixed(2)} ETB is due.`,
             url: `/orders/${order.id}/invoice`,
-            data: { order_id: order.id, type: 'payment_settled' }
+            data: { order_id: order.id, type: 'order_delivered' }
           }).catch(() => {})
 
           await sendPushToUser(request.server.db, driverId, {
-            title: 'Payment Received',
-            body: `Earned ${pricing.driverEarning.toFixed(2)} ETB from delivery ${order.reference_code}`,
+            title: 'Delivery Completed',
+            body: `Delivery ${order.reference_code} confirmed. ${pricing.driverEarning.toFixed(2)} ETB pending payout.`,
             url: `/jobs/${order.id}/invoice`,
-            data: { order_id: order.id, type: 'earnings_received' }
+            data: { order_id: order.id, type: 'earnings_pending' }
           }).catch(() => {})
 
           // Email notifications
           if (shipper[0]?.email) {
             sendEmail({
               to: shipper[0].email,
-              subject: `Payment Settled - Order ${order.reference_code}`,
-              text: `Your order payment has been successfully processed.\n\nAmount: ${pricing.shipperCost.toFixed(2)} ETB\nOrder: ${order.reference_code}\n\nDownload your invoice from the app.`
+              subject: `Delivery Completed - Order ${order.reference_code}`,
+              text: alreadyPaid
+                ? `Your order has been delivered.\n\nAmount: ${pricing.shipperCost.toFixed(2)} ETB\nOrder: ${order.reference_code}\n\nDownload your invoice from the app.`
+                : `Your order has been delivered.\n\nAmount due: ${pricing.shipperCost.toFixed(2)} ETB\nOrder: ${order.reference_code}\n\nOur team will contact you to collect this payment. You can pay from your wallet or by bank transfer.`
             }).catch(() => {})
           }
 
           if (driverUser[0]?.email) {
             sendEmail({
               to: driverUser[0].email,
-              subject: `Earnings Credited - Order ${order.reference_code}`,
-              text: `Your earnings have been credited to your wallet.\n\nAmount: ${pricing.driverEarning.toFixed(2)} ETB\nOrder: ${order.reference_code}\n\nView your invoice from the app.`
+              subject: `Delivery Recorded - Order ${order.reference_code}`,
+              text: `Your delivery has been confirmed and your earnings are pending payout.\n\nAmount: ${pricing.driverEarning.toFixed(2)} ETB\nOrder: ${order.reference_code}\n\nView your invoice from the app.`
             }).catch(() => {})
           }
         }
       })
       .catch(console.error)
   } catch (err: any) {
-    request.server.log.error('Payment settlement error:', err)
-    // Don't block the delivery confirmation if payment processing fails
+    request.server.log.error('Post-delivery invoicing error:', err)
+    // Don't block the delivery confirmation if invoicing fails
     // This should be retried asynchronously
   }
 
-  return reply.send({ success: true, message: 'Delivery confirmed. Job marked as DELIVERED. Payment settled.' })
+  return reply.send({ success: true, message: 'Delivery confirmed. Job marked as DELIVERED.' })
 }
 
 /** POST /api/driver/location — High-frequency GPS ping */

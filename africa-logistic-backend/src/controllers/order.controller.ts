@@ -87,6 +87,8 @@ interface PlaceOrderBody {
   delivery_country_id?: number
   hs_code?: string
   shipper_tin?: string
+  // Set by the client after the shipper confirms the low-balance warning.
+  acknowledge_insufficient_balance?: boolean
 }
 
 interface OrderParams { id: string }
@@ -261,18 +263,23 @@ export async function placeOrderHandler(
   const pickupOtp  = generateOtp()
   const deliveryOtp = generateOtp()
 
-  // ─── CHECK WALLET BALANCE ─────────────────────────────────────────────────────
+  // ─── WALLET BALANCE WARNING ───────────────────────────────────────────────────
+  // A low balance no longer blocks the order. The shipper is warned once and,
+  // if they confirm, the order is created UNPAID and an admin collects payment
+  // after delivery (wallet debit or an offline bank receipt).
   const { validateOrderPayment } = await import('../services/payment.service.js')
   const paymentValidation = await validateOrderPayment(request.server.db, user.id, quote.estimated_price)
+  const acknowledgedLowBalance = !paymentValidation.hasSufficientBalance
 
-  if (!paymentValidation.hasSufficientBalance) {
+  if (acknowledgedLowBalance && request.body.acknowledge_insufficient_balance !== true) {
     return reply.status(402).send({
       success: false,
-      message: `Insufficient wallet balance. You need ${paymentValidation.shortfall.toFixed(2)} ETB more.`,
+      requires_confirmation: true,
+      message: `Your wallet balance is ${paymentValidation.shortfall.toFixed(2)} ETB short of this order. You can still place it and settle the payment with our team.`,
       current_balance: paymentValidation.currentBalance,
       required_balance: quote.estimated_price,
       shortfall: paymentValidation.shortfall,
-      action: 'RECHARGE_WALLET',
+      action: 'CONFIRM_UNPAID_ORDER',
     })
   }
 
@@ -313,6 +320,15 @@ export async function placeOrderHandler(
     shipperTin:          shipper_tin ?? null,
   })
 
+  // Keep proof that the shipper saw and accepted the low-balance warning, so
+  // admins reviewing an unpaid order know it was placed deliberately.
+  if (acknowledgedLowBalance) {
+    await request.server.db.query(
+      `UPDATE orders SET balance_warning_acknowledged = 1 WHERE id = ?`,
+      [orderId]
+    )
+  }
+
   const order = await getOrderById(request.server.db, orderId)
 
   // Fire-and-forget: send OTP confirmation email to shipper
@@ -333,13 +349,16 @@ export async function placeOrderHandler(
   notifyAdminsOfEvent(
     request.server.db,
     `New Order Received: ${order!.reference_code}`,
-    `A new shipment request was created by ${user.first_name ?? 'a shipper'}.`,
+    acknowledgedLowBalance
+      ? `A new shipment request was created by ${user.first_name ?? 'a shipper'} with insufficient wallet balance. Payment must be collected on delivery.`
+      : `A new shipment request was created by ${user.first_name ?? 'a shipper'}.`,
     '/admin'
   ).catch(() => {})
 
   return reply.status(201).send({
     success: true,
     message: 'Order placed successfully.',
+    payment_pending: acknowledgedLowBalance,
     order,
     otps: {
       pickup_otp:   pickupOtp,
@@ -871,6 +890,36 @@ export async function cancelOrderHandler(
   wsManager.broadcast(order.id, 'STATUS_CHANGED', { status: 'CANCELLED' })
 
   return reply.send({ success: true, message: 'Order cancelled.' })
+}
+
+/**
+ * DELETE /api/orders/:id
+ * Removes a cancelled order from the shipper's own list. The row is kept so the
+ * admin still has the record; only an admin can delete it for everyone.
+ */
+export async function deleteMyOrderHandler(
+  request: FastifyRequest<{ Params: OrderParams }>,
+  reply:   FastifyReply
+) {
+  const user = request.user as any
+  if (user.role_id !== 2) {
+    return reply.status(403).send({ success: false, message: 'Shipper access only.' })
+  }
+
+  const order = await getOrderById(request.server.db, request.params.id)
+  if (!order) return reply.status(404).send({ success: false, message: 'Order not found.' })
+  if (order.shipper_id !== user.id) {
+    return reply.status(403).send({ success: false, message: 'Access denied.' })
+  }
+  if (order.status !== 'CANCELLED') {
+    return reply.status(400).send({ success: false, message: 'Only cancelled orders can be removed.' })
+  }
+
+  const { hideOrderForShipper } = await import('../services/order.service.js')
+  const removed = await hideOrderForShipper(request.server.db, order.id, user.id)
+  if (!removed) return reply.status(409).send({ success: false, message: 'Order could not be removed.' })
+
+  return reply.send({ success: true, message: 'Order removed from your list.' })
 }
 
 /** GET /api/orders/:id/invoice */

@@ -90,7 +90,8 @@ export default function ManualPaymentPage({ onSuccess }: ManualPaymentPageProps)
     e.preventDefault()
     setError('')
 
-    if (!amount || Number(amount) <= 0) {
+    const amountValue = Number(amount)
+    if (!amount || !Number.isFinite(amountValue) || amountValue <= 0) {
       setError('Please enter a valid amount')
       return
     }
@@ -109,7 +110,7 @@ export default function ManualPaymentPage({ onSuccess }: ManualPaymentPageProps)
 
     try {
       await apiClient.post('/profile/wallet/manual-payment', {
-        amount: Number(amount),
+        amount: amountValue,
         bank_account_id: selectedBank.id,
         payment_method: `${selectedBank.bank_name} (${selectedBank.account_number})`,
         proof_image: previewUrl || undefined,
@@ -176,28 +177,26 @@ export default function ManualPaymentPage({ onSuccess }: ManualPaymentPageProps)
           <label style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--clr-text)', display: 'block', marginBottom: '0.5rem' }}>
             Amount (ብር)
           </label>
-          <select
+          <input
+            type="number"
+            inputMode="decimal"
+            min="0.01"
+            step="0.01"
             value={amount}
             onChange={(e) => setAmount(e.target.value)}
+            placeholder="Enter any amount"
+            aria-describedby="manual-payment-amount-help"
             required
             style={{
               width: '100%', padding: '0.85rem 1rem', background: 'rgba(255,255,255,0.04)',
               border: '1px solid rgba(255,255,255,0.08)', borderRadius: '10px',
               color: 'var(--clr-text)', fontSize: '1rem', fontFamily: 'inherit',
-              outline: 'none', cursor: 'pointer'
+              outline: 'none'
             }}
-          >
-            <option value="">Select an amount</option>
-            <option value="100">100 ብር</option>
-            <option value="200">200 ብር</option>
-            <option value="500">500 ብር</option>
-            <option value="1000">1,000 ብር</option>
-            <option value="2000">2,000 ብር</option>
-            <option value="5000">5,000 ብር</option>
-            <option value="10000">10,000 ብር</option>
-            <option value="20000">20,000 ብር</option>
-            <option value="50000">50,000 ብር</option>
-          </select>
+          />
+          <p id="manual-payment-amount-help" style={{ margin: '0.4rem 0 0', fontSize: '0.75rem', color: 'var(--clr-muted)' }}>
+            Enter the exact amount transferred to the selected company bank account.
+          </p>
         </div>
 
         {/* Company bank accounts */}
