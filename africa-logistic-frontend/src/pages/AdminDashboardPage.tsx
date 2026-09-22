@@ -3675,6 +3675,11 @@ function DriverVerificationSection() {
                             <div style={{ flex: 1 }}>
                               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.3rem', flexWrap: 'wrap' }}>
                                 <span style={{ fontWeight: 600, fontSize: '0.82rem', color: 'var(--clr-text)', textTransform: 'capitalize' }}>{docKey.replace('_', ' ')}</span>
+                                {/* Only ID and licence gate verification; the
+                                    libre proves vehicle ownership. */}
+                                <span style={{ fontSize: '0.65rem', fontWeight: 700, borderRadius: 99, padding: '0.08rem 0.4rem', color: docKey === 'libre' ? 'var(--clr-muted)' : 'var(--clr-accent)', background: docKey === 'libre' ? 'rgba(255,255,255,0.06)' : 'rgba(97, 148, 31,0.12)', border: `1px solid ${docKey === 'libre' ? 'rgba(255,255,255,0.12)' : 'rgba(97, 148, 31,0.3)'}` }}>
+                                  {docKey === 'libre' ? 'Optional' : 'Required'}
+                                </span>
                                 <StatusBadge s={status} />
                               </div>
                               {url ? (

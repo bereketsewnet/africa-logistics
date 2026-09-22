@@ -208,7 +208,10 @@ export async function verifyDriver(
         SET is_verified = 1,
             national_id_status = 'APPROVED',
             license_status = 'APPROVED',
-            libre_status = 'APPROVED',
+            -- The libre is optional, so only approve one that actually exists
+            -- rather than claiming a document was checked that was never sent.
+            libre_status = CASE WHEN libre_url IS NOT NULL AND libre_url <> ''
+                                THEN 'APPROVED' ELSE libre_status END,
             verified_at = NOW(),
             verified_by_admin_id = ?,
             rejection_reason = NULL,

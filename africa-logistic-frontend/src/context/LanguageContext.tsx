@@ -390,6 +390,11 @@ export const translations: Record<Lang, Record<string, string>> = {
     // verification progress
     verification_progress: 'Verification Progress',
     verification_upload_start: 'Upload your verification documents to get started.',
+    verification_remaining: 'required document still needed.',
+    verification_all_required_done: 'All required documents uploaded. The Libre document is optional.',
+    doc_required_label: 'required docs',
+    doc_required_tag: 'Required',
+    doc_optional_tag: 'Optional',
     go_to_documents: 'Go to Documents →',
 
     // profile tab
@@ -2531,6 +2536,11 @@ export const translations: Record<Lang, Record<string, string>> = {
     "loading": "Fe'amaa jira...",
     "verification_progress": "Adeemsa Mirkaneessaa",
     "verification_upload_start": "Jalqabuuf sanadoota mirkaneessaa keessan olkaa'aa.",
+    "verification_remaining": "sanadni barbaachisaan hafeera.",
+    "verification_all_required_done": "Sanadoonni barbaachisan hundi olkaa'amaniiru. Sanadni Libre filannoodha.",
+    "doc_required_label": "sanadoota barbaachisoo",
+    "doc_required_tag": "Barbaachisaa",
+    "doc_optional_tag": "Filannoo",
     "go_to_documents": "Gara Documents →",
     "profile_information": "jedhutti deemaa Odeeffannoo Profaayilii",
     "user_id_label": "ID Fayyadamaa",
@@ -4525,6 +4535,11 @@ export const translations: Record<Lang, Record<string, string>> = {
     // verification progress
     verification_progress: 'የማረጋገጫ እድገት',
     verification_upload_start: 'ለመጀመር ማረጋገጫ ሰነዶችዎን ስቀሉ።',
+    verification_remaining: 'አስፈላጊ ሰነድ ይቀራል።',
+    verification_all_required_done: 'ሁሉም አስፈላጊ ሰነዶች ተጭነዋል። የሊብሬ ሰነድ አማራጭ ነው።',
+    doc_required_label: 'አስፈላጊ ሰነዶች',
+    doc_required_tag: 'አስፈላጊ',
+    doc_optional_tag: 'አማራጭ',
     go_to_documents: 'ወደ ሰነዶች ሂድ →',
 
     // profile tab

@@ -427,11 +427,16 @@ export async function adminVerifyDriverHandler(
   const profile = await getDriverProfile(db, request.params.id)
   if (!profile) return reply.status(404).send({ success: false, message: 'Driver profile not found.' })
 
-  // Ensure at least the required docs have been uploaded
-  if (!profile.national_id_url || !profile.license_url || !profile.libre_url) {
+  // Only identity and licence are required. The libre proves ownership of a
+  // vehicle, and plenty of drivers are hired to drive someone else's truck, so
+  // it must never block verifying the driver themselves.
+  const missing: string[] = []
+  if (!profile.national_id_url) missing.push('National ID')
+  if (!profile.license_url)     missing.push("Driver's License")
+  if (missing.length > 0) {
     return reply.status(400).send({
       success: false,
-      message: 'All three documents (National ID, License, Libre) must be uploaded before full verification.',
+      message: `${missing.join(' and ')} must be uploaded before verification. The Libre document is optional.`,
     })
   }
 

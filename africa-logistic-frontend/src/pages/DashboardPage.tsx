@@ -1070,21 +1070,28 @@ export default function DashboardPage() {
               {activeTab === 'profile' && (
                 <div className="glass step-enter" style={{ padding: '1.75rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
                   {user?.role_id === 3 && driverProfile && driverProfile.is_verified !== 1 && (() => {
-                    const completedDocs = (driverProfile.national_id_url ? 1 : 0) + (driverProfile.license_url ? 1 : 0) + (driverProfile.libre_url ? 1 : 0)
-                    const pct = Math.round((completedDocs / 3) * 100)
+                    // The libre proves vehicle ownership and is optional — a
+                    // driver without their own truck is still verifiable.
+                    const requiredDocs = 2
+                    const completedDocs = (driverProfile.national_id_url ? 1 : 0) + (driverProfile.license_url ? 1 : 0)
+                    const pct = Math.round((completedDocs / requiredDocs) * 100)
                     return (
                       <div className="glass-inner" style={{ padding: '1rem', display: 'flex', flexDirection: 'column', gap: '0.6rem', borderLeft: '3px solid var(--clr-accent)' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                           <p style={{ fontWeight: 700, fontSize: '0.875rem', color: 'var(--clr-text)', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
                             <LuUpload size={14} color="var(--clr-accent)" /> {tr('verification_progress')}
                           </p>
-                          <span style={{ fontSize: '0.75rem', color: 'var(--clr-muted)', fontWeight: 600 }}>{completedDocs}/3 docs</span>
+                          <span style={{ fontSize: '0.75rem', color: 'var(--clr-muted)', fontWeight: 600 }}>{completedDocs}/{requiredDocs} {tr('doc_required_label')}</span>
                         </div>
                         <div style={{ height: 5, borderRadius: 99, background: 'rgba(255,255,255,0.08)', overflow: 'hidden' }}>
                           <div style={{ height: '100%', width: `${pct}%`, borderRadius: 99, background: 'linear-gradient(90deg,var(--clr-accent2),var(--clr-accent))', transition: 'width 0.4s' }} />
                         </div>
                         <p style={{ fontSize: '0.78rem', color: 'var(--clr-muted)', lineHeight: 1.5 }}>
-                          {completedDocs === 0 ? tr('verification_upload_start') : `${completedDocs} of 3 documents uploaded — ${3 - completedDocs} remaining.`}
+                          {completedDocs === 0
+                            ? tr('verification_upload_start')
+                            : completedDocs < requiredDocs
+                              ? `${completedDocs} of ${requiredDocs} — ${requiredDocs - completedDocs} ${tr('verification_remaining')}`
+                              : tr('verification_all_required_done')}
                         </p>
                         <button onClick={() => setActiveTab('documents')} style={{ alignSelf: 'flex-start', padding: '0.32rem 0.8rem', borderRadius: 8, border: '1px solid rgba(97, 148, 31,0.25)', background: 'rgba(97, 148, 31,0.07)', color: 'var(--clr-accent)', fontFamily: 'inherit', fontSize: '0.78rem', fontWeight: 700, cursor: 'pointer' }}>
                           {tr('go_to_documents')}
@@ -1366,10 +1373,11 @@ export default function DashboardPage() {
                   ) : (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
                       {([
-                        { key: 'national_id', label: tr('doc_national_id'), urlKey: 'national_id_url', statusKey: 'national_id_status' },
-                        { key: 'license', label: tr('doc_license'), urlKey: 'license_url', statusKey: 'license_status' },
-                        { key: 'libre', label: tr('doc_libre'), urlKey: 'libre_url', statusKey: 'libre_status' },
-                      ] as { key: 'national_id' | 'license' | 'libre'; label: string; urlKey: string; statusKey: string }[]).map(doc => {
+                        { key: 'national_id', label: tr('doc_national_id'), urlKey: 'national_id_url', statusKey: 'national_id_status', optional: false },
+                        { key: 'license', label: tr('doc_license'), urlKey: 'license_url', statusKey: 'license_status', optional: false },
+                        // Vehicle ownership — not every driver owns a truck.
+                        { key: 'libre', label: tr('doc_libre'), urlKey: 'libre_url', statusKey: 'libre_status', optional: true },
+                      ] as { key: 'national_id' | 'license' | 'libre'; label: string; urlKey: string; statusKey: string; optional: boolean }[]).map(doc => {
                         const rawUrl = driverProfile?.[doc.urlKey] as string | null
                         const apiBase = (import.meta.env.VITE_API_BASE_URL as string ?? '').replace(/\/api$/, '')
                         const url = rawUrl ? (rawUrl.startsWith('http') ? rawUrl : `${apiBase}${rawUrl}`) : null
@@ -1379,7 +1387,12 @@ export default function DashboardPage() {
                         return (
                           <div key={doc.key} className="glass-inner" style={{ padding: '1rem', display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                              <p style={{ fontWeight: 600, fontSize: '0.875rem', color: 'var(--clr-text)' }}>{doc.label}</p>
+                              <p style={{ fontWeight: 600, fontSize: '0.875rem', color: 'var(--clr-text)', display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap' }}>
+                                {doc.label}
+                                <span style={{ fontSize: '0.68rem', fontWeight: 700, borderRadius: 99, padding: '0.1rem 0.45rem', color: doc.optional ? 'var(--clr-muted)' : 'var(--clr-accent)', background: doc.optional ? 'rgba(255,255,255,0.06)' : 'rgba(97, 148, 31,0.12)', border: `1px solid ${doc.optional ? 'rgba(255,255,255,0.12)' : 'rgba(97, 148, 31,0.3)'}` }}>
+                                  {doc.optional ? tr('doc_optional_tag') : tr('doc_required_tag')}
+                                </span>
+                              </p>
                               <span style={{ fontSize: '0.73rem', fontWeight: 700, color: statusColor, background: `${statusColor}18`, border: `1px solid ${statusColor}44`, borderRadius: 99, padding: '0.2rem 0.6rem' }}>
                                 {status}
                               </span>
