@@ -701,13 +701,14 @@ export async function adminCreateStaffHandler(
 
   const db = request.server.db
 
-  // Validate role_id is a valid staff role (not Shipper=2 or Driver=3)
+  // Validate role_id is a valid staff role. Shipper (2), Driver (3) and
+  // CarOwner (6) are customer accounts created from their own screens.
   const [[validRole]] = await db.query<any[]>(
-    'SELECT id, role_name FROM roles WHERE id = ? AND id NOT IN (2, 3) LIMIT 1',
+    'SELECT id, role_name FROM roles WHERE id = ? AND id NOT IN (2, 3, 6) LIMIT 1',
     [role_id]
   )
   if (!validRole) {
-    return reply.status(400).send({ message: 'Invalid role_id. Must be a valid staff role (not Shipper or Driver).' })
+    return reply.status(400).send({ message: 'Invalid role_id. Must be a staff role — shippers, drivers and car owners are created from their own pages.' })
   }
   // Only super-admin can create another admin
   if (role_id === 1 && caller.role_id !== 1) {
@@ -732,6 +733,64 @@ export async function adminCreateStaffHandler(
   )
 
   return reply.status(201).send({ success: true, message: 'Staff user created.', id })
+}
+
+/**
+ * POST /api/admin/users/car-owner
+ * Registers a Car Owner (role 6) on their behalf. Kept separate from staff
+ * creation so a customer account can never be made from the staff screen.
+ */
+export async function adminCreateCarOwnerHandler(
+  request: FastifyRequest<{
+    Body: { first_name: string; last_name?: string; phone_number: string; password: string; email?: string }
+  }>,
+  reply: FastifyReply
+) {
+  const caller = request.user as { id: string; role_id: number }
+  if ([2, 3].includes(caller.role_id)) return reply.status(403).send({ success: false, message: 'Admin access required.' })
+
+  const { first_name, last_name, phone_number, password, email } = request.body ?? {}
+
+  if (!first_name?.trim() || !phone_number?.trim() || !password?.trim()) {
+    return reply.status(400).send({ success: false, message: 'First name, phone number and password are required.' })
+  }
+  if (password.length < 8) {
+    return reply.status(400).send({ success: false, message: 'Password must be at least 8 characters.' })
+  }
+
+  const cleanEmail = email?.trim().toLowerCase() || null
+  if (cleanEmail && (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail) || cleanEmail.length > 160)) {
+    return reply.status(400).send({ success: false, message: 'Please provide a valid email address.' })
+  }
+
+  const db = request.server.db
+  const phone = phone_number.trim()
+
+  const [[existing]] = await db.query<any[]>('SELECT id FROM users WHERE phone_number = ? LIMIT 1', [phone])
+  if (existing) return reply.status(409).send({ success: false, message: 'Phone number already registered.' })
+
+  const id = uuidv4()
+  const password_hash = await bcrypt.hash(password, 12)
+
+  try {
+    await db.query(
+      `INSERT INTO users (id, role_id, first_name, last_name, phone_number, email, password_hash,
+         is_active, is_phone_verified, is_email_verified)
+       VALUES (?, 6, ?, ?, ?, ?, ?, 1, 1, 0)`,
+      [id, first_name.trim(), (last_name ?? '').trim(), phone, cleanEmail, password_hash]
+    )
+  } catch (err: any) {
+    if (err?.code === 'ER_DUP_ENTRY') {
+      return reply.status(409).send({ success: false, message: 'This phone number or email address is already registered.' })
+    }
+    throw err
+  }
+
+  return reply.status(201).send({
+    success: true,
+    message: `Car owner ${first_name.trim()} created.`,
+    id,
+  })
 }
 
 /**
@@ -2775,8 +2834,11 @@ export async function adminListStaffRolesHandler(
   reply: FastifyReply
 ) {
   const db = request.server.db
+  // Shipper (2), Driver (3) and CarOwner (6) are customer-facing accounts, not
+  // staff — they have their own admin screens and must never appear in the
+  // "Add Staff" role picker.
   const [rows] = await db.query<any[]>(
-    `SELECT id, role_name, description FROM roles WHERE id NOT IN (2,3) ORDER BY id ASC`
+    `SELECT id, role_name, description FROM roles WHERE id NOT IN (2,3,6) ORDER BY id ASC`
   )
   return reply.send({ success: true, roles: rows })
 }

@@ -6,6 +6,7 @@ import {
   adminDeleteUserHandler,
   adminUserDeletionImpactHandler,
   adminCreateStaffHandler,
+  adminCreateCarOwnerHandler,
   adminUpdateUserHandler,
   adminListDriversHandler,
   adminGetDriverHandler,
@@ -264,6 +265,9 @@ export default async function adminRoutes(fastify: FastifyInstance) {
 
   /** POST /api/admin/staff — create a new staff user (Admin/Cashier/Dispatcher) */
   fastify.post('/staff', adminCreateStaffHandler)
+
+  /** POST /api/admin/users/car-owner — register a Car Owner on their behalf */
+  fastify.post('/users/car-owner', adminCreateCarOwnerHandler)
 
   /** PUT /api/admin/users/:id — update user details */
   fastify.put('/users/:id', adminUpdateUserHandler)

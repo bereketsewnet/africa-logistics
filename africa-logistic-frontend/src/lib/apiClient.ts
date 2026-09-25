@@ -271,6 +271,12 @@ export const adminOrderApi = {
   deleteOrder: (id: string) =>
     apiClient.delete(`/admin/orders/${id}`),
 
+  /** Register a Car Owner (role 6) on their behalf. Needs users.manage. */
+  createCarOwner: (data: {
+    first_name: string; last_name?: string
+    phone_number: string; email?: string; password: string
+  }) => apiClient.post('/admin/users/car-owner', data),
+
   /** What deleting this account would remove — shown before confirming. */
   getUserDeletionImpact: (id: string) =>
     apiClient.get(`/admin/users/${id}/deletion-impact`),

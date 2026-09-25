@@ -186,7 +186,7 @@ interface Stats {
   total_users: number; total_admins: number; total_shippers: number
   total_drivers: number; active_users: number; new_today: number
 }
-type AdminSection = 'overview' | 'drivers' | 'shippers' | 'staff' | 'verify-drivers' | 'vehicles' | 'orders' | 'live-drivers' | 'guest-orders' | 'cargo-types' | 'pricing-rules' | 'profile' | 'payments' | 'wallet-adjustment' | 'notif-settings' | 'settings' | 'vehicle-types' | 'countries' | 'maintenance-mode' | 'phone-otp-settings' | 'role-management' | 'security-events' | 'cross-border' | 'reports' | 'contact-info' | 'ai-settings' | 'bank-information' | 'documentation' | 'car-owners'
+type AdminSection = 'overview' | 'drivers' | 'shippers' | 'staff' | 'verify-drivers' | 'vehicles' | 'orders' | 'live-drivers' | 'guest-orders' | 'cargo-types' | 'pricing-rules' | 'profile' | 'payments' | 'wallet-adjustment' | 'notif-settings' | 'settings' | 'vehicle-types' | 'countries' | 'maintenance-mode' | 'phone-otp-settings' | 'role-management' | 'security-events' | 'cross-border' | 'reports' | 'contact-info' | 'ai-settings' | 'bank-information' | 'documentation' | 'car-owners' | 'car-owner-users'
 type ProfileTab = 'profile' | 'security' | 'contact'
 
 interface DriverRow {
@@ -2661,6 +2661,189 @@ function CustomerSection({ allUsers, loading, onToggleActive, onRefresh, canDele
           onClose={() => setDeleteTarget(null)}
           onDeleted={msg => { onDeleted(msg); setSelected(null); onRefresh() }}
         />
+      )}
+    </div>
+  )
+}
+
+// ─── Car Owner accounts section ───────────────────────────────────────────────
+
+/**
+ * Car owners are customers who register vehicles, not staff. They used to fall
+ * through into the Staff Users screen because that list only excluded shippers
+ * and drivers; this gives them their own page with their own register button.
+ * Vehicle approval for these owners lives in AdminCarOwnersSection.
+ */
+function CarOwnerUsersSection({ allUsers, loading, onToggleActive, onRefresh, canDelete, onDeleted }: {
+  allUsers: UserRow[]; loading: boolean
+  onToggleActive: (u: UserRow) => void; onRefresh: () => void
+  canDelete: boolean; onDeleted: (message: string) => void
+}) {
+  const [search, setSearch] = useState('')
+  const [showCreate, setShowCreate] = useState(false)
+  const [editTarget, setEditTarget] = useState<UserRow | null>(null)
+  const [deleteTarget, setDeleteTarget] = useState<UserRow | null>(null)
+  const [formErr, setFormErr] = useState('')
+  const [saving, setSaving] = useState(false)
+
+  const [cFirst, setCFirst] = useState(''); const [cLast, setCLast] = useState('')
+  const [cPhone, setCPhone] = useState(''); const [cEmail, setCEmail] = useState('')
+  const [cPass, setCPass] = useState(''); const [showCPass, setShowCPass] = useState(false)
+
+  const [eFirst, setEFirst] = useState(''); const [eLast, setELast] = useState('')
+  const [eEmail, setEEmail] = useState(''); const [ePass, setEPass] = useState('')
+
+  const filtered = allUsers.filter(u => {
+    const q = search.toLowerCase().trim()
+    return !q || u.first_name.toLowerCase().includes(q) || (u.last_name ?? '').toLowerCase().includes(q)
+      || u.phone_number.includes(q) || (u.email ?? '').toLowerCase().includes(q)
+  })
+
+  const resetCreate = () => { setCFirst(''); setCLast(''); setCPhone(''); setCEmail(''); setCPass(''); setFormErr('') }
+
+  const handleCreate = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!cFirst.trim() || !cPhone.trim() || !cPass) { setFormErr('First name, phone number and password are required.'); return }
+    if (cPass.length < 8) { setFormErr('Password must be at least 8 characters.'); return }
+    setFormErr(''); setSaving(true)
+    try {
+      await adminOrderApi.createCarOwner({
+        first_name: cFirst.trim(), last_name: cLast.trim(),
+        phone_number: cPhone.trim(), email: cEmail.trim() || undefined, password: cPass,
+      })
+      resetCreate(); setShowCreate(false); onRefresh()
+      onDeleted('Car owner registered.')
+    } catch (err: any) { setFormErr(err.response?.data?.message ?? 'Could not register this car owner.') }
+    finally { setSaving(false) }
+  }
+
+  const handleEdit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!editTarget) return
+    if (!eFirst.trim()) { setFormErr('First name is required.'); return }
+    setFormErr(''); setSaving(true)
+    try {
+      await apiClient.put(`/admin/users/${editTarget.id}`, {
+        first_name: eFirst.trim(), last_name: eLast.trim(),
+        email: eEmail.trim() || null, role_id: editTarget.role_id,
+        new_password: ePass || undefined,
+      })
+      setEditTarget(null); onRefresh()
+    } catch (err: any) { setFormErr(err.response?.data?.message ?? 'Could not save changes.') }
+    finally { setSaving(false) }
+  }
+
+  const inputStyle: React.CSSProperties = { width: '100%', padding: '0.6rem 0.8rem', borderRadius: 10, border: '1px solid rgba(255,255,255,0.12)', background: 'rgba(255,255,255,0.05)', color: 'var(--clr-text)', fontFamily: 'inherit', fontSize: '0.85rem', boxSizing: 'border-box' }
+  const labelStyle: React.CSSProperties = { fontSize: '0.75rem', fontWeight: 600, color: 'var(--clr-muted)', marginBottom: '0.35rem', display: 'block' }
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+        <h2 style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--clr-text)', flex: 1 }}>Car Owners</h2>
+        <button onClick={onRefresh} style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', padding: '0.3rem 0.7rem', borderRadius: 8, border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.04)', color: 'var(--clr-muted)', fontFamily: 'inherit', fontSize: '0.72rem', fontWeight: 600, cursor: 'pointer' }}>
+          <LuRefreshCw size={12} /> Refresh
+        </button>
+        <button onClick={() => { resetCreate(); setShowCreate(true) }} style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', padding: '0.4rem 0.85rem', borderRadius: 9, border: 'none', background: 'var(--clr-accent)', color: '#080b14', fontFamily: 'inherit', fontSize: '0.78rem', fontWeight: 800, cursor: 'pointer' }}>
+          <LuPlus size={13} /> Add Car Owner
+        </button>
+      </div>
+
+      <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search name / phone / email" style={inputStyle} />
+
+      {loading ? (
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--clr-muted)', fontSize: '0.85rem', padding: '1rem 0' }}>
+          <span className="spinner" /> Loading…
+        </div>
+      ) : filtered.length === 0 ? (
+        <div className="glass-inner" style={{ padding: '2rem', textAlign: 'center', color: 'var(--clr-muted)', fontSize: '0.85rem' }}>
+          No car owners yet. Use <strong style={{ color: 'var(--clr-text)' }}>Add Car Owner</strong> to register one.
+        </div>
+      ) : (
+        <div className="glass" style={{ borderRadius: 14, overflow: 'hidden' }}>
+          {filtered.map((u, i) => (
+            <div key={u.id} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.85rem 1rem', borderBottom: i < filtered.length - 1 ? '1px solid rgba(255,255,255,0.05)' : 'none', flexWrap: 'wrap' }}>
+              <UserAvatar u={u} size={40} />
+              <div style={{ flex: 1, minWidth: 110 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', flexWrap: 'wrap' }}>
+                  <span style={{ fontWeight: 600, fontSize: '0.875rem', color: 'var(--clr-text)' }}>{u.first_name} {u.last_name}</span>
+                  <RoleBadge roleId={u.role_id} roleName={u.role_name} />
+                  {!u.is_active && <span className="badge badge-red" style={{ fontSize: '0.67rem' }}>Suspended</span>}
+                </div>
+                <p style={{ fontSize: '0.75rem', color: 'var(--clr-muted)', marginTop: '0.15rem' }}>{u.phone_number}</p>
+                {u.email && <p style={{ fontSize: '0.7rem', color: 'var(--clr-muted)' }}>{u.email}</p>}
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexShrink: 0 }}>
+                <button onClick={() => { setEFirst(u.first_name); setELast(u.last_name ?? ''); setEEmail(u.email ?? ''); setEPass(''); setFormErr(''); setEditTarget(u) }}
+                  style={{ padding: '0.28rem 0.55rem', borderRadius: 7, border: '1px solid rgba(255,255,255,0.12)', background: 'rgba(255,255,255,0.05)', color: 'var(--clr-muted)', fontFamily: 'inherit', fontSize: '0.7rem', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                  <LuPencil size={11} /> Edit
+                </button>
+                <button onClick={() => onToggleActive(u)} style={{ padding: '0.28rem 0.65rem', borderRadius: 7, border: '1px solid', borderColor: u.is_active ? 'rgba(239,68,68,0.35)' : 'rgba(74,222,128,0.35)', background: u.is_active ? 'rgba(239,68,68,0.08)' : 'rgba(74,222,128,0.08)', color: u.is_active ? '#fca5a5' : 'var(--kpi-green)', fontFamily: 'inherit', fontSize: '0.7rem', fontWeight: 600, cursor: 'pointer' }}>
+                  {u.is_active ? 'Suspend' : 'Activate'}
+                </button>
+                {canDelete && <DeleteUserButton onClick={() => setDeleteTarget(u)} />}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+      <p style={{ fontSize: '0.73rem', color: 'var(--clr-muted)', textAlign: 'right' }}>{filtered.length} car owner(s)</p>
+
+      {deleteTarget && (
+        <UserDeleteDialog target={deleteTarget} onClose={() => setDeleteTarget(null)}
+          onDeleted={msg => { onDeleted(msg); onRefresh() }} />
+      )}
+
+      {/* Register car owner */}
+      {showCreate && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 60, background: 'rgba(0,0,0,0.72)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }} onClick={() => setShowCreate(false)}>
+          <div className="glass" style={{ borderRadius: 18, padding: '1.5rem', maxWidth: 440, width: '100%', maxHeight: '90vh', overflowY: 'auto', position: 'relative', boxShadow: '0 24px 64px rgba(0,0,0,0.5)' }} onClick={e => e.stopPropagation()}>
+            <button onClick={() => setShowCreate(false)} style={{ position: 'absolute', top: '0.85rem', right: '0.85rem', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--clr-muted)' }}><LuX size={18} /></button>
+            <h3 style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--clr-text)', marginBottom: '1rem' }}>Register Car Owner</h3>
+            {formErr && <div className="alert alert-error" style={{ marginBottom: '0.75rem', fontSize: '0.8rem' }}><LuTriangleAlert size={13} /> {formErr}</div>}
+            <form onSubmit={handleCreate} style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.6rem' }}>
+                <div><label style={labelStyle}>First name *</label><input value={cFirst} onChange={e => setCFirst(e.target.value)} style={inputStyle} /></div>
+                <div><label style={labelStyle}>Last name</label><input value={cLast} onChange={e => setCLast(e.target.value)} style={inputStyle} /></div>
+              </div>
+              <div><label style={labelStyle}>Phone number *</label><input value={cPhone} onChange={e => setCPhone(e.target.value)} placeholder="+2519…" style={inputStyle} /></div>
+              <div><label style={labelStyle}>Email (optional)</label><input type="email" value={cEmail} onChange={e => setCEmail(e.target.value)} style={inputStyle} /></div>
+              <div>
+                <label style={labelStyle}>Password * (min 8 characters)</label>
+                <div style={{ position: 'relative' }}>
+                  <input type={showCPass ? 'text' : 'password'} value={cPass} onChange={e => setCPass(e.target.value)} style={{ ...inputStyle, paddingRight: '2.5rem' }} />
+                  <button type="button" onClick={() => setShowCPass(v => !v)} style={{ position: 'absolute', right: '0.6rem', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--clr-muted)' }}>
+                    {showCPass ? <LuEyeOff size={15} /> : <LuEye size={15} />}
+                  </button>
+                </div>
+              </div>
+              <button type="submit" disabled={saving} style={{ padding: '0.65rem', borderRadius: 10, border: 'none', background: 'var(--clr-accent)', color: '#080b14', fontFamily: 'inherit', fontSize: '0.85rem', fontWeight: 800, cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.6 : 1 }}>
+                {saving ? 'Saving…' : 'Register Car Owner'}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit car owner */}
+      {editTarget && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 60, background: 'rgba(0,0,0,0.72)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }} onClick={() => setEditTarget(null)}>
+          <div className="glass" style={{ borderRadius: 18, padding: '1.5rem', maxWidth: 440, width: '100%', maxHeight: '90vh', overflowY: 'auto', position: 'relative', boxShadow: '0 24px 64px rgba(0,0,0,0.5)' }} onClick={e => e.stopPropagation()}>
+            <button onClick={() => setEditTarget(null)} style={{ position: 'absolute', top: '0.85rem', right: '0.85rem', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--clr-muted)' }}><LuX size={18} /></button>
+            <h3 style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--clr-text)', marginBottom: '1rem' }}>Edit {editTarget.first_name}</h3>
+            {formErr && <div className="alert alert-error" style={{ marginBottom: '0.75rem', fontSize: '0.8rem' }}><LuTriangleAlert size={13} /> {formErr}</div>}
+            <form onSubmit={handleEdit} style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.6rem' }}>
+                <div><label style={labelStyle}>First name *</label><input value={eFirst} onChange={e => setEFirst(e.target.value)} style={inputStyle} /></div>
+                <div><label style={labelStyle}>Last name</label><input value={eLast} onChange={e => setELast(e.target.value)} style={inputStyle} /></div>
+              </div>
+              <div><label style={labelStyle}>Email</label><input type="email" value={eEmail} onChange={e => setEEmail(e.target.value)} style={inputStyle} /></div>
+              <div><label style={labelStyle}>New password (leave blank to keep)</label><input type="password" value={ePass} onChange={e => setEPass(e.target.value)} style={inputStyle} /></div>
+              <button type="submit" disabled={saving} style={{ padding: '0.65rem', borderRadius: 10, border: 'none', background: 'var(--clr-accent)', color: '#080b14', fontFamily: 'inherit', fontSize: '0.85rem', fontWeight: 800, cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.6 : 1 }}>
+                {saving ? 'Saving…' : 'Save Changes'}
+              </button>
+            </form>
+          </div>
+        </div>
       )}
     </div>
   )
@@ -8003,7 +8186,10 @@ export default function AdminDashboardPage() {
   const drivers = users.filter(u => u.role_id === 3)
   const shippers = users.filter(u => u.role_id === 2)
   // Include all non-shipper, non-driver roles (including custom roles with id > 5)
-  const staffUsers = users.filter(u => ![2, 3].includes(u.role_id))
+  // Shipper (2), Driver (3) and CarOwner (6) each have their own screen — the
+  // staff list is everything that is left.
+  const staffUsers = users.filter(u => ![2, 3, 6].includes(u.role_id))
+  const carOwnerUsers = users.filter(u => u.role_id === 6)
 
   const can = (perm: string) => user?.role_id === 1 || myPermissions.includes(perm)
   const chatUserName = `${user?.first_name ?? ''} ${user?.last_name ?? ''}`.trim() || user?.phone_number || 'User'
@@ -8032,6 +8218,7 @@ export default function AdminDashboardPage() {
     ...(can('drivers.verify') ? [{ id: 'drivers' as AdminSection, icon: <LuTruck size={16} />, label: tr('sb_drivers') }] : []),
     ...(can('drivers.verify') ? [{ id: 'verify-drivers' as AdminSection, icon: <LuBadgeCheck size={16} />, label: tr('sb_verify_drivers') }] : []),
     ...(can('users.manage') ? [{ id: 'shippers' as AdminSection, icon: <LuPackage size={16} />, label: tr('sb_shippers') }] : []),
+    ...(can('users.manage') ? [{ id: 'car-owner-users' as AdminSection, icon: <LuCar size={16} />, label: 'Car Owners' }] : []),
     ...(can('users.manage') ? [{ id: 'staff' as AdminSection, icon: <LuBriefcase size={16} />, label: tr('sb_staff') }] : []),
     ...(user?.role_id === 1 ? [{ id: 'cross-border' as AdminSection, icon: <LuGlobe size={16} />, label: tr('sb_cross_border') }] : []),
     ...(can('vehicles.manage') ? [{ id: 'vehicles' as AdminSection, icon: <LuCar size={16} />, label: tr('sb_vehicles') }] : []),
@@ -8075,6 +8262,7 @@ export default function AdminDashboardPage() {
     'documentation': { icon: <LuFileText size={16} />, label: 'Documentation' },
     'ai-settings': { icon: <LuLink size={16} />, label: tr('sb_st_ai') },
     'car-owners': { icon: <LuCar size={16} />, label: tr('sb_st_car_owners') },
+    'car-owner-users': { icon: <LuCar size={16} />, label: 'Car Owners' },
     'settings': { icon: <LuSettings size={16} />, label: tr('sb_st_settings') },
   } as Record<string, { icon: React.ReactNode; label: string }>)[section]
 
@@ -8154,6 +8342,7 @@ export default function AdminDashboardPage() {
               label: tr('sb_group_users'),
               items: [
                 ...(can('users.manage') ? [{ id: 'shippers' as AdminSection, icon: <LuPackage size={15} />, label: tr('sb_shippers') }] : []),
+                ...(can('users.manage') ? [{ id: 'car-owner-users' as AdminSection, icon: <LuCar size={15} />, label: 'Car Owners' }] : []),
                 ...(can('users.manage') ? [{ id: 'staff' as AdminSection, icon: <LuBriefcase size={15} />, label: tr('sb_staff') }] : []),
               ],
             },
@@ -8256,6 +8445,7 @@ export default function AdminDashboardPage() {
           {section === 'security-events' && <AdminSecurityEventsSection />}
           {section === 'cross-border' && <AdminCrossBorderSection />}
           {section === 'car-owners' && <AdminCarOwnersSection />}
+          {section === 'car-owner-users' && <CarOwnerUsersSection allUsers={carOwnerUsers} loading={usersLoading} onToggleActive={handleToggleActive} onRefresh={loadUsers} canDelete={user?.role_id === 1} onDeleted={showToast} />}
           {section === 'reports' && <AdminReportsSection allowedTabs={reportTabsForRole} />}
           {section === 'contact-info' && <AdminContactInfoSection />}
           {section === 'bank-information' && <AdminBankInformation />}
