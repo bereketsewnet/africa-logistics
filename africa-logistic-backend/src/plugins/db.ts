@@ -356,6 +356,24 @@ export default fp(async function dbPlugin(fastify: FastifyInstance) {
     // untouched. Only an admin hard-deletes the row for everyone.
     await addColIfMissing('orders',        'hidden_by_shipper',     "TINYINT(1) NOT NULL DEFAULT 0")
 
+    // ─── Car owner vehicle: operational state and documents ───────────────────
+    // Approval (`status`) is the admin's decision and read-only to the owner.
+    // `operational_status` is the owner's own day-to-day control — a truck can
+    // be approved but parked, in the workshop, or retired. The two are
+    // deliberately separate so neither overwrites the other.
+    await addColIfMissing('car_owner_vehicles', 'operational_status',
+      "ENUM('ACTIVE','INACTIVE','MAINTENANCE','OUT_OF_SERVICE') NOT NULL DEFAULT 'ACTIVE' AFTER status")
+    await addColIfMissing('car_owner_vehicles', 'operational_status_note',       "VARCHAR(500) NULL")
+    await addColIfMissing('car_owner_vehicles', 'operational_status_changed_at', "TIMESTAMP NULL")
+    // Gallery alongside the main photo, mirroring the platform fleet table.
+    await addColIfMissing('car_owner_vehicles', 'vehicle_images',   "JSON NULL AFTER vehicle_photo_url")
+    // Documents are optional to submit and optional to approve, so the status
+    // stays NULL until one is actually uploaded — that distinguishes "never
+    // sent" from "sent, awaiting review".
+    await addColIfMissing('car_owner_vehicles', 'libre_status',     "ENUM('PENDING','APPROVED','REJECTED') NULL")
+    await addIndexIfMissing('car_owner_vehicles', 'idx_cov_op_status',     '(operational_status)')
+    await addIndexIfMissing('car_owner_vehicles', 'idx_cov_owner_created', '(owner_id, created_at)')
+
     // ─── Tombstone user for hard-deleted staff ────────────────────────────────
     // Several audit columns (driver document reviews, order messages, charges,
     // driver payouts) are NOT NULL and point at users, so hard-deleting a staff

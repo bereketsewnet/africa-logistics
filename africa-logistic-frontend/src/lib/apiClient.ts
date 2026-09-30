@@ -548,9 +548,17 @@ export const carOwnerApi = {
     apiClient.get('/car-owner/vehicles'),
   getVehicle: (id: string) =>
     apiClient.get(`/car-owner/vehicles/${id}`),
+  /** Owner sets their own availability: active / inactive / maintenance / retired. */
+  setOperationalStatus: (
+    vehicleId: string,
+    operational_status: 'ACTIVE' | 'INACTIVE' | 'MAINTENANCE' | 'OUT_OF_SERVICE',
+    note?: string,
+  ) => apiClient.patch(`/car-owner/vehicles/${vehicleId}/operational-status`, { operational_status, note }),
+
   registerVehicle: (data: {
     plate_number: string; vehicle_type: string; model?: string;
     color?: string; year?: number; max_capacity_kg?: number; description?: string
+    vehicle_photo?: string; vehicle_images?: string[]; libre_file?: string
   }) => apiClient.post('/car-owner/vehicles', data),
   deleteVehicle: (id: string) =>
     apiClient.delete(`/car-owner/vehicles/${id}`),

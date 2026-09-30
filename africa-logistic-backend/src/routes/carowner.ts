@@ -2,6 +2,7 @@ import { FastifyInstance } from 'fastify'
 import {
   coListVehiclesHandler,
   coRegisterVehicleHandler,
+  coUpdateOperationalStatusHandler,
   coDeleteVehicleHandler,
   coGetVehicleHandler,
   coListEligibleDriversHandler,
@@ -40,10 +41,32 @@ export default async function carOwnerRoutes(fastify: FastifyInstance) {
             year:            { type: 'number' },
             max_capacity_kg: { type: 'number' },
             description:     { type: 'string', maxLength: 500 },
+            // Optional base64 uploads. Size and mime are enforced in the
+            // handler, which gives a readable message instead of a schema dump.
+            vehicle_photo:   { type: 'string' },
+            libre_file:      { type: 'string' },
+            vehicle_images:  { type: 'array', items: { type: 'string' }, maxItems: 5 },
           },
         },
       },
     }, coRegisterVehicleHandler)
+
+    // PATCH /api/car-owner/vehicles/:id/operational-status
+    co.patch('/api/car-owner/vehicles/:id/operational-status', {
+      schema: {
+        body: {
+          type: 'object',
+          required: ['operational_status'],
+          properties: {
+            operational_status: {
+              type: 'string',
+              enum: ['ACTIVE', 'INACTIVE', 'MAINTENANCE', 'OUT_OF_SERVICE'],
+            },
+            note: { type: 'string', maxLength: 500 },
+          },
+        },
+      },
+    }, coUpdateOperationalStatusHandler)
     // DELETE /api/car-owner/vehicles/:id
     co.delete('/api/car-owner/vehicles/:id', coDeleteVehicleHandler)
     // GET /api/car-owner/vehicles/:id/eligible-drivers — approved vehicle only

@@ -1,10 +1,38 @@
 import { FastifyRequest, FastifyReply } from 'fastify'
 import { v4 as uuidv4 } from 'uuid'
 import { RowDataPacket } from 'mysql2'
+import { assignDriverToVehicle } from '../services/vehicle-assignment.service.js'
+import { saveFile } from '../utils/uploads.js'
+
+// ─── Constants ────────────────────────────────────────────────────────────────
+
+/** Matches the platform fleet, so both kinds of vehicle behave the same. */
+const MAX_GALLERY_IMAGES = 5
+const VEHICLE_UPLOAD_DIR = 'car-owner-vehicles'
+
+const UPLOAD_LIMITS = {
+  maxBytes: 8 * 1024 * 1024,
+  allowedMimes: ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'application/pdf'],
+}
+
+export const OPERATIONAL_STATUSES = ['ACTIVE', 'INACTIVE', 'MAINTENANCE', 'OUT_OF_SERVICE'] as const
+
+const OPERATIONAL_LABELS: Record<string, string> = {
+  ACTIVE: 'active',
+  INACTIVE: 'inactive',
+  MAINTENANCE: 'in maintenance',
+  OUT_OF_SERVICE: 'out of service',
+}
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 interface RegisterCarBody {
+  /** base64 main photo */
+  vehicle_photo?: string
+  /** base64 gallery, capped at MAX_GALLERY_IMAGES */
+  vehicle_images?: string[]
+  /** base64 libre / ownership document */
+  libre_file?: string
   plate_number:    string
   vehicle_type:    string
   model?:          string
@@ -21,22 +49,6 @@ interface ReviewCarBody {
 
 interface AssignDriverBody {
   driver_id: string | null  // null to unassign
-}
-
-async function setDriverOfflineWhenUnassigned(db: any, driverId: string): Promise<void> {
-  const [usageRows] = await db.query(`
-    SELECT
-      (SELECT COUNT(*) FROM car_owner_vehicles WHERE assigned_driver_id = ?) AS owner_vehicle_count,
-      (SELECT COUNT(*) FROM vehicles WHERE driver_id = ? AND is_active = 1) AS platform_vehicle_count
-  `, [driverId, driverId])
-  const usage = (usageRows as any[])[0]
-  if (Number((usage as any)?.owner_vehicle_count ?? 0) === 0 && Number((usage as any)?.platform_vehicle_count ?? 0) === 0) {
-    await db.query(`
-      UPDATE driver_profiles
-         SET status = CASE WHEN status IN ('ON_JOB','SUSPENDED') THEN status ELSE 'OFFLINE' END
-       WHERE user_id = ?
-    `, [driverId])
-  }
 }
 
 // ─── Car Owner: list own vehicles ─────────────────────────────────────────────
@@ -70,20 +82,125 @@ export async function coRegisterVehicleHandler(
 ) {
   const db  = request.server.db
   const uid = (request as any).user.id
-  const { plate_number, vehicle_type, model, color, year, max_capacity_kg, description } = request.body
+  const {
+    plate_number, vehicle_type, model, color, year, max_capacity_kg, description,
+    vehicle_photo, vehicle_images, libre_file,
+  } = request.body
 
   if (!plate_number?.trim() || !vehicle_type?.trim()) {
     return reply.status(400).send({ success: false, message: 'plate_number and vehicle_type are required.' })
   }
 
+  const plate = plate_number.trim().toUpperCase()
+
+  // The plate is UNIQUE, so tell the owner plainly rather than letting the
+  // insert fail with a raw database error.
+  const [[clash]] = await db.query<RowDataPacket[]>(
+    `SELECT id FROM car_owner_vehicles WHERE plate_number = ? LIMIT 1`, [plate]
+  )
+  if (clash) {
+    return reply.status(409).send({ success: false, message: `A vehicle with plate ${plate} is already registered.` })
+  }
+
   const id = uuidv4()
+
+  // Every document is optional. A failed upload must never lose the vehicle the
+  // owner just filled in, so each is attempted independently.
+  let photoUrl: string | null = null
+  let libreUrl: string | null = null
+  let galleryUrls: string[] = []
+
+  try {
+    if (vehicle_photo) {
+      photoUrl = saveFile(vehicle_photo, VEHICLE_UPLOAD_DIR, `cov_${id}_photo`, UPLOAD_LIMITS)
+    }
+    if (libre_file) {
+      libreUrl = saveFile(libre_file, VEHICLE_UPLOAD_DIR, `cov_${id}_libre`, UPLOAD_LIMITS)
+    }
+    if (Array.isArray(vehicle_images)) {
+      galleryUrls = vehicle_images
+        .slice(0, MAX_GALLERY_IMAGES)
+        .map((img, i) => saveFile(img, VEHICLE_UPLOAD_DIR, `cov_${id}_img${i + 1}`, UPLOAD_LIMITS))
+    }
+  } catch (err: any) {
+    return reply.status(400).send({
+      success: false,
+      message: err?.message ?? 'One of the uploaded files could not be saved.',
+    })
+  }
+
   await db.query(`
     INSERT INTO car_owner_vehicles
-      (id, owner_id, plate_number, vehicle_type, model, color, year, max_capacity_kg, description, status)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'PENDING')
-  `, [id, uid, plate_number.trim().toUpperCase(), vehicle_type.trim(), model || null, color || null, year || null, max_capacity_kg || null, description || null])
+      (id, owner_id, plate_number, vehicle_type, model, color, year, max_capacity_kg, description,
+       vehicle_photo_url, vehicle_images, libre_url, libre_status, status, operational_status)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'PENDING', 'ACTIVE')
+  `, [
+    id, uid, plate, vehicle_type.trim(),
+    model || null, color || null, year || null, max_capacity_kg || null, description || null,
+    photoUrl,
+    galleryUrls.length ? JSON.stringify(galleryUrls) : null,
+    libreUrl,
+    // Only a document that exists can be awaiting review.
+    libreUrl ? 'PENDING' : null,
+  ])
 
   return reply.status(201).send({ success: true, message: 'Vehicle registered. Awaiting admin approval.', vehicle_id: id })
+}
+
+/**
+ * PATCH /api/car-owner/vehicles/:id/operational-status
+ *
+ * The owner's own control over whether a truck is working today. Independent of
+ * the admin approval status, which the owner can never change.
+ */
+export async function coUpdateOperationalStatusHandler(
+  request: FastifyRequest<{ Params: { id: string }; Body: { operational_status: string; note?: string } }>,
+  reply: FastifyReply
+) {
+  const db  = request.server.db
+  const uid = (request as any).user.id
+  const { operational_status, note } = request.body ?? ({} as any)
+
+  if (!OPERATIONAL_STATUSES.includes(operational_status as any)) {
+    return reply.status(400).send({
+      success: false,
+      message: `operational_status must be one of: ${OPERATIONAL_STATUSES.join(', ')}`,
+    })
+  }
+
+  const [[vehicle]] = await db.query<RowDataPacket[]>(
+    `SELECT id, status, assigned_driver_id FROM car_owner_vehicles WHERE id = ? AND owner_id = ? LIMIT 1`,
+    [request.params.id, uid]
+  )
+  if (!vehicle) return reply.status(404).send({ success: false, message: 'Vehicle not found.' })
+
+  // Taking a truck off the road while its driver is mid-delivery would strand
+  // the job, so that has to wait until the driver is free.
+  if (operational_status !== 'ACTIVE' && vehicle.assigned_driver_id) {
+    const [[driver]] = await db.query<RowDataPacket[]>(
+      `SELECT status FROM driver_profiles WHERE user_id = ? LIMIT 1`,
+      [vehicle.assigned_driver_id]
+    )
+    if (driver?.status === 'ON_JOB') {
+      return reply.status(409).send({
+        success: false,
+        message: 'The assigned driver is currently on a job. Wait until the delivery is finished.',
+      })
+    }
+  }
+
+  await db.query(
+    `UPDATE car_owner_vehicles
+        SET operational_status = ?, operational_status_note = ?, operational_status_changed_at = NOW()
+      WHERE id = ? AND owner_id = ?`,
+    [operational_status, note?.trim() || null, request.params.id, uid]
+  )
+
+  return reply.send({
+    success: true,
+    message: `Vehicle marked ${OPERATIONAL_LABELS[operational_status] ?? operational_status}.`,
+    operational_status,
+  })
 }
 
 // ─── Car Owner: delete own pending vehicle ────────────────────────────────────
@@ -187,95 +304,22 @@ export async function coAssignDriverHandler(
   request: FastifyRequest<{ Params: { id: string }; Body: AssignDriverBody }>,
   reply: FastifyReply
 ) {
-  const pool = request.server.db
   const ownerId = (request as any).user.id
-  const { id } = request.params
-  const driverId = request.body?.driver_id ?? null
-  const conn = await pool.getConnection()
 
   try {
-    await conn.beginTransaction()
-    const [[vehicle]] = await conn.query<RowDataPacket[]>(
-      `SELECT id, status, assigned_driver_id
-         FROM car_owner_vehicles
-        WHERE id = ? AND owner_id = ?
-        LIMIT 1 FOR UPDATE`,
-      [id, ownerId]
-    )
-    if (!vehicle) {
-      await conn.rollback()
-      return reply.status(404).send({ success: false, message: 'Vehicle not found.' })
-    }
-    if (vehicle.status !== 'APPROVED') {
-      await conn.rollback()
-      return reply.status(403).send({ success: false, message: 'Your vehicle must be approved by an admin before assigning a driver.' })
-    }
-
-    const previousDriverId = vehicle.assigned_driver_id as string | null
-    if (!driverId) {
-      await conn.query(`UPDATE car_owner_vehicles SET assigned_driver_id = NULL WHERE id = ?`, [id])
-      if (previousDriverId) await setDriverOfflineWhenUnassigned(conn, previousDriverId)
-      await conn.commit()
-      return reply.send({ success: true, message: 'Driver unassigned from your vehicle.' })
-    }
-
-    const [[driver]] = await conn.query<RowDataPacket[]>(`
-      SELECT u.id, u.first_name, u.last_name
-        FROM users u
-        JOIN driver_profiles dp ON dp.user_id = u.id
-       WHERE u.id = ?
-         AND u.role_id = 3
-         AND u.is_active = 1
-         AND dp.is_verified = 1
-         AND dp.status <> 'SUSPENDED'
-         AND dp.national_id_status = 'APPROVED'
-         AND dp.license_status = 'APPROVED'
-         AND dp.national_id_url IS NOT NULL
-         AND dp.license_url IS NOT NULL
-       LIMIT 1 FOR UPDATE
-    `, [driverId])
-    if (!driver) {
-      await conn.rollback()
-      return reply.status(400).send({ success: false, message: 'Select an active, verified driver with approved ID and license documents.' })
-    }
-
-    const [[platformAssignment]] = await conn.query<RowDataPacket[]>(
-      `SELECT id FROM vehicles WHERE driver_id = ? AND is_active = 1 LIMIT 1`,
-      [driverId]
-    )
-    const [[otherOwnerAssignment]] = await conn.query<RowDataPacket[]>(
-      `SELECT id FROM car_owner_vehicles WHERE assigned_driver_id = ? AND id <> ? LIMIT 1 FOR UPDATE`,
-      [driverId, id]
-    )
-    if (platformAssignment || otherOwnerAssignment) {
-      await conn.rollback()
-      return reply.status(409).send({ success: false, message: 'This driver has already been assigned to another vehicle.' })
-    }
-
-    if (previousDriverId === driverId) {
-      await conn.commit()
-      return reply.send({ success: true, message: 'This driver is already assigned to your vehicle.' })
-    }
-
-    await conn.query(`UPDATE car_owner_vehicles SET assigned_driver_id = ? WHERE id = ?`, [driverId, id])
-    await conn.query(`
-      UPDATE driver_profiles
-         SET status = CASE WHEN status = 'ON_JOB' THEN status ELSE 'AVAILABLE' END
-       WHERE user_id = ? AND is_verified = 1
-    `, [driverId])
-    if (previousDriverId) await setDriverOfflineWhenUnassigned(conn, previousDriverId)
-    await conn.commit()
-
-    return reply.send({
-      success: true,
-      message: `${driver.first_name} ${driver.last_name ?? ''}`.trim() + ' assigned to your vehicle.',
+    const result = await assignDriverToVehicle({
+      pool: request.server.db,
+      scope: 'INDIVIDUAL',
+      vehicleId: request.params.id,
+      driverId: request.body?.driver_id ?? null,
+      // Scoped to the caller so an owner can only ever touch their own vehicle.
+      ownerScope: { column: 'owner_id', value: ownerId },
     })
+    if (!result.ok) return reply.status(result.status).send({ success: false, message: result.message })
+    return reply.send({ success: true, message: result.message })
   } catch (error) {
-    await conn.rollback()
     request.server.log.error(error)
     return reply.status(500).send({ success: false, message: 'Failed to update the driver assignment.' })
-  } finally {
-    conn.release()
   }
 }
 
@@ -338,77 +382,20 @@ export async function adminAssignDriverToCarOwnerVehicleHandler(
   request: FastifyRequest<{ Params: { id: string }; Body: AssignDriverBody }>,
   reply: FastifyReply
 ) {
-  const db  = request.server.db
-  const { id } = request.params
-  const { driver_id } = request.body
-
-  const [vRows] = await db.query<RowDataPacket[]>(
-    `SELECT id, status FROM car_owner_vehicles WHERE id = ? LIMIT 1`, [id]
-  )
-  if (!(vRows as any[]).length) return reply.status(404).send({ success: false, message: 'Vehicle not found.' })
-  if ((vRows as any[])[0].status !== 'APPROVED') {
-    return reply.status(400).send({ success: false, message: 'Vehicle must be approved before assigning a driver.' })
+  try {
+    const result = await assignDriverToVehicle({
+      pool: request.server.db,
+      scope: 'INDIVIDUAL',
+      vehicleId: request.params.id,
+      driverId: request.body?.driver_id ?? null,
+      // No ownerScope: an admin may act on any owner's vehicle.
+    })
+    if (!result.ok) return reply.status(result.status).send({ success: false, message: result.message })
+    return reply.send({ success: true, message: result.message })
+  } catch (error) {
+    request.server.log.error(error)
+    return reply.status(500).send({ success: false, message: 'Failed to update the driver assignment.' })
   }
-
-  if (!driver_id) {
-    // Unassign
-    const [before] = await db.query<RowDataPacket[]>(
-      `SELECT assigned_driver_id FROM car_owner_vehicles WHERE id = ? LIMIT 1`, [id]
-    )
-    const prevDriver = (before as any[])[0]?.assigned_driver_id
-    await db.query(`UPDATE car_owner_vehicles SET assigned_driver_id = NULL WHERE id = ?`, [id])
-    if (prevDriver) {
-      // If driver has no other assigned vehicles, set OFFLINE
-      const [otherVeh] = await db.query<RowDataPacket[]>(
-        `SELECT COUNT(*) as cnt FROM car_owner_vehicles WHERE assigned_driver_id = ? AND id != ?`,
-        [prevDriver, id]
-      )
-      const [mainVeh] = await db.query<RowDataPacket[]>(
-        `SELECT COUNT(*) as cnt FROM vehicles WHERE driver_id = ?`, [prevDriver]
-      )
-      if ((otherVeh as any[])[0].cnt === 0 && (mainVeh as any[])[0].cnt === 0) {
-        await db.query(`UPDATE driver_profiles SET status = 'OFFLINE' WHERE user_id = ?`, [prevDriver])
-      }
-    }
-    return reply.send({ success: true, message: 'Driver unassigned.' })
-  }
-
-  // Validate driver exists with role 3
-  const [dRows] = await db.query<RowDataPacket[]>(
-    `SELECT u.id FROM users u
-     JOIN driver_profiles dp ON dp.user_id = u.id
-     WHERE u.id = ?
-       AND u.role_id = 3
-       AND u.is_active = 1
-       AND dp.is_verified = 1
-       AND dp.status <> 'SUSPENDED'
-       AND dp.national_id_status = 'APPROVED'
-       AND dp.license_status = 'APPROVED'
-     LIMIT 1`,
-    [driver_id]
-  )
-  if (!(dRows as any[]).length) {
-    return reply.status(400).send({ success: false, message: 'Driver not found or not a verified driver.' })
-  }
-
-  // Remove this driver from any other car_owner_vehicle first
-  await db.query(
-    `UPDATE car_owner_vehicles SET assigned_driver_id = NULL WHERE assigned_driver_id = ? AND id != ?`,
-    [driver_id, id]
-  )
-
-  await db.query(
-    `UPDATE car_owner_vehicles SET assigned_driver_id = ? WHERE id = ?`,
-    [driver_id, id]
-  )
-
-  // Set driver AVAILABLE if verified
-  await db.query(
-    `UPDATE driver_profiles SET status = 'AVAILABLE' WHERE user_id = ? AND is_verified = 1`,
-    [driver_id]
-  )
-
-  return reply.send({ success: true, message: 'Driver assigned to vehicle.' })
 }
 
 // ─── Admin: get list of verified drivers (for dropdown) ──────────────────────

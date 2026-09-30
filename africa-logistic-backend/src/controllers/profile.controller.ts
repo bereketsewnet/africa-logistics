@@ -10,8 +10,6 @@
  */
 
 import { FastifyRequest, FastifyReply } from 'fastify'
-import fs from 'fs'
-import path from 'path'
 import {
   getDriverProfile,
   ensureDriverProfile,
@@ -24,6 +22,7 @@ import {
   createVehicle,
 } from '../services/profile.service.js'
 import { findUserById } from '../services/auth.service.js'
+import { saveFile as saveUploadedFile } from '../utils/uploads.js'
 import {
   getPublicVapidKey,
   upsertPushSubscription,
@@ -84,35 +83,15 @@ interface PushUnsubscribeBody {
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-/** Save a base64 data string to disk under uploads/driver_docs/. Returns relative URL path. */
-function saveBase64File(
-  base64Data: string,
-  subDir: string,
-  baseName: string
-): string {
-  // Strip "data:<mime>;base64," prefix if present
-  const match = base64Data.match(/^data:([a-zA-Z0-9+/]+\/[a-zA-Z0-9+/]+);base64,(.+)$/)
-  const raw = match ? match[2] : base64Data
-  const mime = match ? match[1] : 'application/octet-stream'
-
-  // Determine file extension from mime type
-  const extMap: Record<string, string> = {
-    'image/jpeg': 'jpg',
-    'image/jpg': 'jpg',
-    'image/png': 'png',
-    'image/webp': 'webp',
-    'application/pdf': 'pdf',
-  }
-  const ext = extMap[mime] ?? 'bin'
-
-  const dir = path.join(process.cwd(), 'uploads', subDir)
-  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true })
-
-  const filename = `${baseName}_${Date.now()}.${ext}`
-  const fullPath = path.join(dir, filename)
-  fs.writeFileSync(fullPath, Buffer.from(raw, 'base64'))
-
-  return `/uploads/${subDir}/${filename}`
+/**
+ * Save a base64 upload. Keeps this controller's octet-stream fallback, since a
+ * driver document may be any file type the phone produced.
+ */
+function saveBase64File(base64Data: string, subDir: string, baseName: string): string {
+  return saveUploadedFile(base64Data, subDir, baseName, {
+    defaultMime: 'application/octet-stream',
+    defaultExt: 'bin',
+  })
 }
 
 // ─── Handlers ─────────────────────────────────────────────────────────────────

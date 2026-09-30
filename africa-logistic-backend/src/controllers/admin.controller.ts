@@ -84,21 +84,14 @@ import fs from 'fs'
 import path from 'path'
 import { getTwilioCredentials, getTwilioSettingsStatus, updateTwilioSettings } from '../services/twilio-settings.service.js'
 import { DELETED_STAFF_USER_ID } from '../plugins/db.js'
+import { saveFile as saveUploadedFile } from '../utils/uploads.js'
 
+/** Image-first defaults, matching what this controller has always written. */
 function saveFile(base64Data: string, subDir: string, baseName: string): string {
-  const match = base64Data.match(/^data:([a-zA-Z0-9+/]+\/[a-zA-Z0-9+/]+);base64,(.+)$/)
-  const raw = match ? match[2] : base64Data
-  const mime = match ? match[1] : 'image/jpeg'
-  const extMap: Record<string, string> = {
-    'image/jpeg': 'jpg', 'image/jpg': 'jpg', 'image/png': 'png',
-    'image/webp': 'webp', 'application/pdf': 'pdf',
-  }
-  const ext = extMap[mime] ?? 'jpg'
-  const dir = path.join(process.cwd(), 'uploads', subDir)
-  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true })
-  const filename = `${baseName}_${Date.now()}.${ext}`
-  fs.writeFileSync(path.join(dir, filename), Buffer.from(raw, 'base64'))
-  return `/uploads/${subDir}/${filename}`
+  return saveUploadedFile(base64Data, subDir, baseName, {
+    defaultMime: 'image/jpeg',
+    defaultExt: 'jpg',
+  })
 }
 
 function saveBankLogo(base64Data: string, accountId: string): string {
@@ -749,47 +742,21 @@ export async function adminCreateCarOwnerHandler(
   const caller = request.user as { id: string; role_id: number }
   if ([2, 3].includes(caller.role_id)) return reply.status(403).send({ success: false, message: 'Admin access required.' })
 
-  const { first_name, last_name, phone_number, password, email } = request.body ?? {}
+  const { createCustomerAccount, CUSTOMER_ROLE_IDS } = await import('../services/customer-account.service.js')
+  const result = await createCustomerAccount(
+    request.server.db,
+    CUSTOMER_ROLE_IDS.CAR_OWNER,
+    request.body ?? ({} as any)
+  )
 
-  if (!first_name?.trim() || !phone_number?.trim() || !password?.trim()) {
-    return reply.status(400).send({ success: false, message: 'First name, phone number and password are required.' })
-  }
-  if (password.length < 8) {
-    return reply.status(400).send({ success: false, message: 'Password must be at least 8 characters.' })
-  }
-
-  const cleanEmail = email?.trim().toLowerCase() || null
-  if (cleanEmail && (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail) || cleanEmail.length > 160)) {
-    return reply.status(400).send({ success: false, message: 'Please provide a valid email address.' })
-  }
-
-  const db = request.server.db
-  const phone = phone_number.trim()
-
-  const [[existing]] = await db.query<any[]>('SELECT id FROM users WHERE phone_number = ? LIMIT 1', [phone])
-  if (existing) return reply.status(409).send({ success: false, message: 'Phone number already registered.' })
-
-  const id = uuidv4()
-  const password_hash = await bcrypt.hash(password, 12)
-
-  try {
-    await db.query(
-      `INSERT INTO users (id, role_id, first_name, last_name, phone_number, email, password_hash,
-         is_active, is_phone_verified, is_email_verified)
-       VALUES (?, 6, ?, ?, ?, ?, ?, 1, 1, 0)`,
-      [id, first_name.trim(), (last_name ?? '').trim(), phone, cleanEmail, password_hash]
-    )
-  } catch (err: any) {
-    if (err?.code === 'ER_DUP_ENTRY') {
-      return reply.status(409).send({ success: false, message: 'This phone number or email address is already registered.' })
-    }
-    throw err
+  if (!result.ok) {
+    return reply.status(result.status).send({ success: false, message: result.message })
   }
 
   return reply.status(201).send({
     success: true,
-    message: `Car owner ${first_name.trim()} created.`,
-    id,
+    message: `Car owner ${result.firstName} created.`,
+    id: result.id,
   })
 }
 

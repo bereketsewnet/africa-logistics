@@ -2,98 +2,35 @@ import { useState, useEffect, type FormEvent } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { useNavigate } from 'react-router-dom'
 import { authApi, carOwnerApi, configApi } from '../lib/apiClient'
-import { useThemeLogo } from '../lib/useThemeLogo'
 import PhoneField from '../components/PhoneField'
 import { normalisePhone } from '../lib/normalisePhone'
 import LanguageToggle from '../components/LanguageToggle'
 import { useLanguage } from '../context/LanguageContext'
 import {
   LuCar, LuPlus, LuLogOut, LuUser, LuClipboardList, LuCheck,
-  LuTriangleAlert, LuRefreshCw, LuTrash2, LuX, LuClock,
-  LuSun, LuMoon, LuBadgeCheck, LuFileText, LuSearch, LuUserCheck, LuPhone,
+  LuTriangleAlert, LuTrash2, LuX, LuChevronLeft, LuChevronRight,
+  LuSun, LuMoon, LuBadgeCheck, LuSearch, LuUserCheck, LuPhone,
 } from 'react-icons/lu'
+import { absoluteUploadUrl } from '../lib/uploadUrl'
+import ApprovalBadge from '../components/fleet/ApprovalBadge'
+import DriverDocumentThumb from '../components/fleet/DriverDocumentThumb'
+import type { FleetVehicle, EligibleDriver } from '../components/fleet/types'
+import type { OperationalStatus } from '../components/fleet/types'
+import OperationalStatusControl from '../components/fleet/OperationalStatusControl'
+import DocumentUploadField from '../components/fleet/DocumentUploadField'
+import GalleryUploadField from '../components/fleet/GalleryUploadField'
 
-// ─── Types ────────────────────────────────────────────────────────────────────
-interface CarOwnerVehicle {
-  id: string
-  plate_number: string
-  vehicle_type: string
-  model: string | null
-  color: string | null
-  year: number | null
-  max_capacity_kg: number | null
-  description: string | null
-  status: 'PENDING' | 'APPROVED' | 'REJECTED'
-  admin_note: string | null
-  assigned_driver_id: string | null
-  assigned_driver_name: string | null
-  assigned_driver_phone: string | null
-  created_at: string
-}
+/** Which panel the sidebar is showing. */
+type CarOwnerView = 'vehicles' | 'add' | 'profile'
 
-interface EligibleDriver {
-  id: string
-  first_name: string
-  last_name: string | null
-  profile_photo_url: string | null
-  status: 'AVAILABLE' | 'ON_JOB' | 'OFFLINE'
-  rating: number | null
-  total_trips: number
-  national_id_url: string
-  license_url: string
-  national_id_status: 'APPROVED'
-  license_status: 'APPROVED'
-  is_currently_assigned: number
-}
-
-const API_UPLOAD_BASE = ((import.meta.env.VITE_API_BASE_URL as string | undefined) ?? '').replace(/\/api\/?$/, '')
-const absoluteUploadUrl = (url: string | null) => !url ? '' : url.startsWith('http') ? url : `${API_UPLOAD_BASE}${url.startsWith('/') ? '' : '/'}${url}`
-const isPdfDocument = (url: string) => url.toLowerCase().split('?')[0].endsWith('.pdf')
-
-// ─── Status badge ─────────────────────────────────────────────────────────────
-function StatusBadge({ status }: { status: CarOwnerVehicle['status'] }) {
-  const styles: Record<string, { background: string; color: string; label: string }> = {
-    PENDING:  { background: 'rgba(251,191,36,0.15)', color: '#fbbf24', label: 'Pending' },
-    APPROVED: { background: 'rgba(52,211,153,0.15)', color: '#34d399', label: 'Approved' },
-    REJECTED: { background: 'rgba(248,113,113,0.15)', color: '#f87171', label: 'Rejected' },
-  }
-  const s = styles[status] || styles.PENDING
-  return (
-    <span style={{
-      display: 'inline-flex', alignItems: 'center', gap: '0.35rem',
-      padding: '0.25rem 0.65rem', borderRadius: 999,
-      background: s.background, color: s.color, fontSize: '0.75rem', fontWeight: 700,
-    }}>
-      {status === 'APPROVED' && <LuCheck size={11}/>}
-      {status === 'PENDING' && <LuClock size={11}/>}
-      {status === 'REJECTED' && <LuX size={11}/>}
-      {s.label}
-    </span>
-  )
-}
-
-function DriverDocument({ label, url }: { label: string; url: string }) {
-  const fullUrl = absoluteUploadUrl(url)
-  return (
-    <a href={fullUrl} target="_blank" rel="noopener noreferrer" style={{ minWidth: 0, textDecoration: 'none', color: 'inherit' }}>
-      <div style={{ height: 92, borderRadius: 9, overflow: 'hidden', background: 'rgba(0,0,0,0.18)', border: '1px solid rgba(255,255,255,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        {isPdfDocument(url) ? (
-          <LuFileText size={28} style={{ color: 'var(--clr-accent)' }} />
-        ) : (
-          <img src={fullUrl} alt={`${label} document`} loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-        )}
-      </div>
-      <span style={{ display: 'block', marginTop: 5, fontSize: '0.68rem', color: 'var(--clr-muted)', textAlign: 'center' }}>{label} · View</span>
-    </a>
-  )
-}
+// The individual dashboard shows the same vehicle shape as the company fleet.
+type CarOwnerVehicle = FleetVehicle
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 export default function CarOwnerDashboard() {
   const { user, logout, updateUser } = useAuth()
   const navigate = useNavigate()
   const { t } = useLanguage()
-  const logoImg = useThemeLogo()
 
   const [vehicles, setVehicles] = useState<CarOwnerVehicle[]>([])
   const [loading, setLoading] = useState(true)
@@ -113,8 +50,34 @@ export default function CarOwnerDashboard() {
     document.documentElement.setAttribute('data-theme', t.toLowerCase())
   }
 
+  // ── Layout ───────────────────────────────────────────────────────────────
+  // Below this width the sidebar folds into scrollable pills at the top, so
+  // the portal stays usable on the phone a fleet manager actually carries.
+  // ── Dock expand/collapse ──────────────────────────────────────────────────
+  // Same key and default as the shipper/driver portal, so a user who works in
+  // both sees the same dock width rather than it flipping between portals.
+  const DOCK_KEY = 'dash_dock_v3'
+  const [dockExpanded, setDockExpanded] = useState(() => localStorage.getItem(DOCK_KEY) === 'true')
+  const toggleDock = () => {
+    const next = !dockExpanded
+    setDockExpanded(next)
+    localStorage.setItem(DOCK_KEY, String(next))
+  }
+
+  const [isNarrow, setIsNarrow] = useState(() => window.matchMedia('(max-width: 900px)').matches)
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 900px)')
+    const onChange = (e: MediaQueryListEvent) => setIsNarrow(e.matches)
+    mq.addEventListener('change', onChange)
+    return () => mq.removeEventListener('change', onChange)
+  }, [])
+
+  const [view, setView] = useState<CarOwnerView>('vehicles')
+
+  // operational status
+  const [statusSavingId, setStatusSavingId] = useState<string | null>(null)
+
   // register form
-  const [showForm, setShowForm] = useState(false)
   const [fPlate, setFPlate] = useState('')
   const [fType, setFType] = useState('')
   const [fModel, setFModel] = useState('')
@@ -122,6 +85,9 @@ export default function CarOwnerDashboard() {
   const [fYear, setFYear] = useState('')
   const [fCapacity, setFCapacity] = useState('')
   const [fDesc, setFDesc] = useState('')
+  const [fPhoto, setFPhoto] = useState('')
+  const [fGallery, setFGallery] = useState<string[]>([])
+  const [fLibre, setFLibre] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [formErr, setFormErr] = useState('')
   const [formOk, setFormOk] = useState(false)
@@ -186,15 +152,43 @@ export default function CarOwnerDashboard() {
         year: fYear ? parseInt(fYear) : undefined,
         max_capacity_kg: fCapacity ? parseFloat(fCapacity) : undefined,
         description: fDesc.trim() || undefined,
+        vehicle_photo: fPhoto || undefined,
+        vehicle_images: fGallery.length ? fGallery : undefined,
+        libre_file: fLibre || undefined,
       })
       setFormOk(true)
       setFPlate(''); setFModel(''); setFColor(''); setFYear(''); setFCapacity(''); setFDesc('')
+      setFPhoto(''); setFGallery([]); setFLibre('')
       await loadVehicles()
-      setTimeout(() => { setShowForm(false); setFormOk(false) }, 1500)
+      setTimeout(() => { setFormOk(false); setView('vehicles') }, 1500)
     } catch (e: any) {
       setFormErr(e.response?.data?.message || 'Failed to register vehicle.')
     } finally {
       setSubmitting(false)
+    }
+  }
+
+  /**
+   * The owner's own availability switch. Optimistic so a fleet manager flipping
+   * several vehicles is not waiting on a round-trip each time; rolled back and
+   * surfaced if the server refuses (e.g. the driver is mid-delivery).
+   */
+  async function handleOperationalStatus(vehicle: CarOwnerVehicle, next: OperationalStatus) {
+    const previous = vehicle.operational_status ?? 'ACTIVE'
+    if (previous === next) return
+
+    setStatusSavingId(vehicle.id)
+    setVehicles(list => list.map(v => v.id === vehicle.id ? { ...v, operational_status: next } : v))
+    try {
+      const { data } = await carOwnerApi.setOperationalStatus(vehicle.id, next)
+      setAssignmentMessage(data?.message ?? 'Vehicle status updated.')
+      setTimeout(() => setAssignmentMessage(''), 3500)
+    } catch (e: any) {
+      setVehicles(list => list.map(v => v.id === vehicle.id ? { ...v, operational_status: previous } : v))
+      setErr(e.response?.data?.message || 'Could not update the vehicle status.')
+      setTimeout(() => setErr(''), 5000)
+    } finally {
+      setStatusSavingId(null)
     }
   }
 
@@ -293,161 +287,78 @@ export default function CarOwnerDashboard() {
   )
   const selectedDriver = eligibleDrivers.find(driver => driver.id === selectedDriverId) ?? null
 
-  return (
-    <div className="aurora-bg">
-      <div className="aurora-orb aurora-orb-1" />
-      <div className="page-shell" style={{ alignItems: 'flex-start', paddingTop: '1.25rem', paddingBottom: '2rem' }}>
-        <div style={{ width: '100%', maxWidth: 760, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+  const NAV: { id: CarOwnerView; label: string; icon: React.ReactNode }[] = [
+    { id: 'vehicles', label: t('my_vehicles'),           icon: <LuClipboardList size={19} /> },
+    { id: 'add',      label: t('register_vehicle_btn'),  icon: <LuPlus size={19} /> },
+    { id: 'profile',  label: t('nav_account'),           icon: <LuUser size={19} /> },
+  ]
 
-          {/* ── Header card ─────────────────────────────────────────────── */}
-          <div className="glass" style={{ padding: '1.1rem 1.2rem' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.9rem', flexWrap: 'wrap' }}>
-              <img src={logoImg} alt="logo" style={{ width: 38, height: 38, objectFit: 'contain', borderRadius: 8 }} />
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <p style={{ fontWeight: 700, fontSize: '1rem', color: 'var(--clr-text)', margin: 0 }}>{fullName}</p>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.2rem', flexWrap: 'wrap' }}>
-                  <span style={{
-                    display: 'inline-flex', alignItems: 'center', gap: '0.3rem',
-                    padding: '0.2rem 0.55rem', borderRadius: 999,
-                    background: 'rgba(97, 148, 31,0.12)', color: 'var(--clr-accent)',
-                    fontSize: '0.72rem', fontWeight: 700,
-                  }}>
-                    <LuCar size={11}/> {t('car_owner_badge')}
-                  </span>
-                  <span style={{ fontSize: '0.78rem', color: 'var(--clr-muted)' }}>{user?.email || user?.phone_number}</span>
-                </div>
-              </div>
-              <div style={{ display: 'flex', gap: '0.5rem' }}>
-                <LanguageToggle compact />
-                <button
-                  onClick={() => handleCarTheme(carTheme === 'LIGHT' ? 'DARK' : 'LIGHT')}
-                  title={carTheme === 'LIGHT' ? 'Switch to dark mode' : 'Switch to light mode'}
-                  style={{ background: 'var(--adm-foot-btn-bg)', border: '1px solid var(--adm-foot-btn-brd)', borderRadius: 8, padding: '0.45rem 0.65rem', color: 'var(--clr-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
-                >
-                  {carTheme === 'LIGHT' ? <LuMoon size={15} /> : <LuSun size={15} />}
-                </button>
-                <button
-                  onClick={loadVehicles}
-                  style={{ background: 'var(--adm-foot-btn-bg)', border: '1px solid var(--adm-foot-btn-brd)', borderRadius: 8, padding: '0.45rem 0.65rem', color: 'var(--clr-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
-                  title="Refresh"
-                >
-                  <LuRefreshCw size={15} />
-                </button>
-                <button
-                  onClick={handleLogout}
-                  style={{ background: 'rgba(248,113,113,0.1)', border: '1px solid rgba(248,113,113,0.25)', borderRadius: 8, padding: '0.45rem 0.75rem', color: '#f87171', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.8rem', fontWeight: 600 }}
-                >
-                  <LuLogOut size={14}/> {t('sidebar_logout') || 'Logout'}
-                </button>
-              </div>
-            </div>
-          </div>
+  return (
+    <div className="aurora-bg" style={{ minHeight: '100vh' }}>
+      <div className="aurora-orb aurora-orb-1" />
+
+      {/* ── MOBILE BOTTOM DOCK ── */}
+      <div className="dash-dock-mobile">
+        {NAV.map(item => (
+          <button key={item.id} onClick={() => setView(item.id)} title={item.label}
+            className={`dock-btn${view === item.id ? ' dock-btn-active' : ''}`}>
+            <span className="dock-icon">{item.icon}</span>
+            <span className="dock-label">{item.label}</span>
+          </button>
+        ))}
+      </div>
+
+      {/* ── DESKTOP LEFT DOCK ── */}
+      <div className={`dash-dock-desktop${dockExpanded ? ' dock-expanded' : ''}`}>
+        <div className="dock-avatar">
+          {user?.profile_photo_url
+            ? <img src={absoluteUploadUrl(user.profile_photo_url)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            : <LuCar size={18} />}
+        </div>
+        <div className="dock-divider" />
+        {NAV.map(item => (
+          <button key={item.id} onClick={() => setView(item.id)} title={item.label}
+            className={`dock-btn${view === item.id ? ' dock-btn-active' : ''}`}
+            style={{ flexDirection: dockExpanded ? 'row' : 'column', justifyContent: dockExpanded ? 'flex-start' : 'center', padding: dockExpanded ? '0.6rem 0.85rem' : '0.65rem 0.5rem', gap: dockExpanded ? '0.65rem' : '0.2rem' }}>
+            <span className="dock-icon">{item.icon}</span>
+            {dockExpanded && <span className="dock-item-label">{item.label}</span>}
+          </button>
+        ))}
+        <div style={{ flex: 1 }} />
+        <div className="dock-divider" />
+        {/* Theme is car-owner specific, so it sits with the other dock controls. */}
+        <button onClick={() => handleCarTheme(carTheme === 'LIGHT' ? 'DARK' : 'LIGHT')}
+          className="dock-btn" title={carTheme === 'LIGHT' ? 'Switch to dark mode' : 'Switch to light mode'}
+          style={{ flexDirection: dockExpanded ? 'row' : 'column', justifyContent: dockExpanded ? 'flex-start' : 'center', padding: dockExpanded ? '0.6rem 0.85rem' : '0.65rem 0.5rem', gap: dockExpanded ? '0.65rem' : '0.2rem' }}>
+          <span className="dock-icon">{carTheme === 'LIGHT' ? <LuMoon size={18} /> : <LuSun size={18} />}</span>
+          {dockExpanded && <span className="dock-item-label">{carTheme === 'LIGHT' ? 'Dark mode' : 'Light mode'}</span>}
+        </button>
+        <div style={{ alignSelf: 'stretch', padding: '0.4rem 0.5rem', display: 'flex', justifyContent: 'center' }}>
+          <LanguageToggle compact={!dockExpanded} />
+        </div>
+        <button onClick={toggleDock} className="dock-btn dock-toggle-btn" title={dockExpanded ? 'Collapse' : 'Expand'}>
+          {dockExpanded ? <LuChevronLeft size={15} /> : <LuChevronRight size={15} />}
+        </button>
+        <button onClick={handleLogout} className="dock-btn" title={t('sign_out')}
+          style={{ flexDirection: 'column', gap: '0.2rem', padding: '0.65rem 0.5rem' }}>
+          <LuLogOut size={18} />
+          {dockExpanded && <span className="dock-item-label">{t('sign_out')}</span>}
+        </button>
+      </div>
+
+      {/* ── Main content area ── */}
+      <div className={`dash-main${dockExpanded ? ' dock-wide' : ''}`}>
+        <div className="page-shell" style={{ alignItems: 'flex-start' }}>
+          <div style={{ width: '100%', maxWidth: 980, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
 
           {assignmentMessage && (
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.55rem', color: '#34d399', fontSize: '0.84rem', background: 'rgba(52,211,153,0.1)', border: '1px solid rgba(52,211,153,0.22)', padding: '0.7rem 0.9rem', borderRadius: 10 }}>
               <LuCheck size={15} /> {assignmentMessage}
             </div>
           )}
-
-          <div className="glass" style={{ padding: '1rem 1.2rem' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.8rem', flexWrap: 'wrap' }}>
-              <div><p style={{ color: 'var(--clr-text)', fontWeight: 700, fontSize: '0.88rem', margin: 0, display: 'flex', alignItems: 'center', gap: '0.35rem' }}><LuPhone size={14} /> Phone number</p><p style={{ color: 'var(--clr-muted)', fontSize: '0.76rem', marginTop: '0.22rem' }}>{user?.phone_number}</p></div>
-              <button className="btn-outline" onClick={() => { setShowPhoneForm(open => !open); setPhoneError(''); setPhoneSuccess(''); setPhoneStep('input'); setPhoneOtp('') }} style={{ fontSize: '0.76rem', padding: '0.42rem 0.75rem' }}>{showPhoneForm ? 'Cancel' : 'Change phone'}</button>
-            </div>
-            {showPhoneForm && <div style={{ marginTop: '0.9rem', borderTop: '1px solid rgba(255,255,255,0.09)', paddingTop: '0.9rem' }}>
-              {phoneSuccess ? <div className="alert alert-success" style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}><LuCheck size={14} /> {phoneSuccess}</div> : phoneStep === 'input' ? <form onSubmit={requestPhoneChange} style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
-                {phoneError && <div className="alert alert-error"><LuTriangleAlert size={14} /> {phoneError}</div>}
-                <p style={{ color: 'var(--clr-muted)', fontSize: '0.76rem', lineHeight: 1.45 }}>SMS OTP is currently unavailable, so eligible accounts can update their phone number directly. If SMS OTP is enabled later, we will ask for the code here.</p>
-                <PhoneField id="car-owner-new-phone" value={newPhone} onChange={setNewPhone} />
-                <button className="btn-primary" type="submit" disabled={phoneLoading} style={{ alignSelf: 'flex-start', padding: '0.5rem 0.85rem' }}>{phoneLoading ? 'Updating…' : 'Update phone number'}</button>
-              </form> : <form onSubmit={verifyPhoneChange} style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
-                {phoneError && <div className="alert alert-error"><LuTriangleAlert size={14} /> {phoneError}</div>}
-                <p style={{ color: 'var(--clr-muted)', fontSize: '0.76rem' }}>Enter the 6-digit code sent to {normalisePhone(newPhone)}.</p>
-                <div className="input-wrap"><input id="car-owner-phone-otp" type="text" inputMode="numeric" placeholder=" " maxLength={6} value={phoneOtp} onChange={event => setPhoneOtp(event.target.value.replace(/\D/g, ''))} required /><label htmlFor="car-owner-phone-otp">6-digit OTP</label></div>
-                <div style={{ display: 'flex', gap: '0.5rem' }}><button type="button" className="btn-outline" onClick={() => setPhoneStep('input')}>Back</button><button className="btn-primary" type="submit" disabled={phoneLoading || phoneOtp.length < 6}>{phoneLoading ? 'Verifying…' : 'Verify & update'}</button></div>
-              </form>}
-            </div>}
-          </div>
-
-          {/* ── Register Vehicle Button / Form ───────────────────────────── */}
-          {!showForm ? (
-            <button
-              onClick={() => setShowForm(true)}
-              className="btn-primary"
-              style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', padding: '0.75rem' }}
-            >
-              <LuPlus size={16}/> {t('register_vehicle_btn')}
-            </button>
-          ) : (
-            <div className="glass" style={{ padding: '1.2rem' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-                <p style={{ fontWeight: 700, fontSize: '0.95rem', color: 'var(--clr-text)', margin: 0 }}>{t('register_new_vehicle')}</p>
-                <button onClick={() => { setShowForm(false); setFormErr('') }} style={{ background: 'none', border: 'none', color: 'var(--clr-muted)', cursor: 'pointer', padding: '0.2rem' }}><LuX size={16}/></button>
-              </div>
-              <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
-                  <div className="input-wrap">
-                    <input id="plate" type="text" placeholder=" " value={fPlate} onChange={e => setFPlate(e.target.value)} required />
-                    <label htmlFor="plate">{t('co_plate_number')}</label>
-                  </div>
-                  <div className="input-wrap">
-                    <select id="vtype" value={fType} onChange={e => setFType(e.target.value)} required
-                      style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 10, padding: '0.85rem 0.9rem 0.5rem', color: 'var(--clr-text)', fontSize: '0.875rem', width: '100%', outline: 'none', cursor: 'pointer' }}>
-                      {vehicleTypes.length === 0 && <option value="">Loading...</option>}
-                      {vehicleTypes.map(t => <option key={t} value={t}>{t}</option>)}
-                    </select>
-                    <label htmlFor="vtype" style={{ top: '0.45rem', fontSize: '0.7rem', pointerEvents: 'none', position: 'absolute', left: '0.9rem', color: 'var(--clr-muted)' }}>{t('vehicle_type')}</label>
-                  </div>
-                </div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
-                  <div className="input-wrap">
-                    <input id="model" type="text" placeholder=" " value={fModel} onChange={e => setFModel(e.target.value)} />
-                    <label htmlFor="model">{t('vehicle_model')}</label>
-                  </div>
-                  <div className="input-wrap">
-                    <input id="color" type="text" placeholder=" " value={fColor} onChange={e => setFColor(e.target.value)} />
-                    <label htmlFor="color">{t('vehicle_color')}</label>
-                  </div>
-                </div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
-                  <div className="input-wrap">
-                    <input id="year" type="number" placeholder=" " value={fYear} onChange={e => setFYear(e.target.value)} min={1980} max={new Date().getFullYear() + 1} />
-                    <label htmlFor="year">{t('vehicle_year')}</label>
-                  </div>
-                  <div className="input-wrap">
-                    <input id="capacity" type="number" placeholder=" " value={fCapacity} onChange={e => setFCapacity(e.target.value)} min={0} step={0.1} />
-                    <label htmlFor="capacity">{t('max_capacity_kg')}</label>
-                  </div>
-                </div>
-                <div className="input-wrap">
-                  <input id="desc" type="text" placeholder=" " value={fDesc} onChange={e => setFDesc(e.target.value)} />
-                  <label htmlFor="desc">{t('description')}</label>
-                </div>
-
-                {formErr && (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#f87171', fontSize: '0.82rem', background: 'rgba(248,113,113,0.1)', padding: '0.6rem 0.9rem', borderRadius: 8 }}>
-                    <LuTriangleAlert size={14}/> {formErr}
-                  </div>
-                )}
-                {formOk && (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#34d399', fontSize: '0.82rem', background: 'rgba(52,211,153,0.1)', padding: '0.6rem 0.9rem', borderRadius: 8 }}>
-                    <LuCheck size={14}/> Vehicle registered successfully!
-                  </div>
-                )}
-
-                <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.25rem' }}>
-                  <button type="button" onClick={() => { setShowForm(false); setFormErr('') }}
-                    style={{ flex: 1, padding: '0.75rem', borderRadius: 10, border: '1px solid var(--adm-foot-btn-brd)', background: 'var(--adm-foot-btn-bg)', color: 'var(--clr-muted)', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600, fontSize: '0.875rem' }}>
-                    {t('cancel')}
-                  </button>
-                  <button type="submit" className="btn-primary" disabled={submitting} style={{ flex: 2, padding: '0.75rem' }}>
-                    {submitting ? t('co_submitting') : t('submit_approval')}
-                  </button>
-                </div>
-              </form>
-            </div>
-          )}
-
+            {/* ── My Vehicles ──────────────────────────────────────────── */}
+            {view === 'vehicles' && (
+              <>
           {/* ── Vehicles List ─────────────────────────────────────────────── */}
           <div className="glass" style={{ padding: '1.1rem 1.2rem' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.9rem' }}>
@@ -481,9 +392,18 @@ export default function CarOwnerDashboard() {
                   <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem', flexWrap: 'wrap' }}>
                     <div style={{ flex: 1, minWidth: 160 }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '0.35rem' }}>
+                        {v.vehicle_photo_url && (
+                          <img src={absoluteUploadUrl(v.vehicle_photo_url)} alt={v.plate_number}
+                            style={{ width: 40, height: 30, borderRadius: 6, objectFit: 'cover', border: '1px solid rgba(255,255,255,0.1)' }} />
+                        )}
                         <span style={{ fontWeight: 700, fontSize: '0.95rem', color: 'var(--clr-text)' }}>{v.plate_number}</span>
                         <span style={{ fontSize: '0.78rem', color: 'var(--clr-muted)', background: 'var(--adm-tab-bg)', padding: '0.1rem 0.5rem', borderRadius: 6 }}>{v.vehicle_type}</span>
-                        <StatusBadge status={v.status} />
+                        <ApprovalBadge status={v.status} />
+                        <OperationalStatusControl
+                          vehicle={v}
+                          saving={statusSavingId === v.id}
+                          onChange={next => handleOperationalStatus(v, next)}
+                        />
                       </div>
                       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem 1.25rem' }}>
                         {v.model && <span style={{ fontSize: '0.8rem', color: 'var(--clr-muted)' }}><strong style={{ color: 'var(--clr-text)', fontWeight: 500 }}>Model:</strong> {v.model}</span>}
@@ -538,21 +458,152 @@ export default function CarOwnerDashboard() {
               ))}
             </div>
           </div>
+              </>
+            )}
 
-          {/* ── Info card ────────────────────────────────────────────────── */}
-          <div className="glass" style={{ padding: '0.9rem 1.1rem' }}>
-            <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem' }}>
-              <LuUser size={16} style={{ color: 'var(--clr-accent)', flexShrink: 0, marginTop: 2 }}/>
-              <div>
-                <p style={{ fontWeight: 600, fontSize: '0.88rem', color: 'var(--clr-text)', margin: '0 0 0.3rem' }}>{t('how_it_works')}</p>
-                <ol style={{ margin: 0, paddingLeft: '1.1rem', color: 'var(--clr-muted)', fontSize: '0.8rem', lineHeight: 1.7 }}>
-                  <li>Register your vehicle with plate number and type.</li>
-                  <li>Admin reviews and approves or rejects your vehicle.</li>
-                  <li>After approval, choose an available verified driver for your vehicle.</li>
-                  <li>Review the approved ID and driving-license documents, then confirm the assignment.</li>
-                </ol>
+            {/* ── Add Vehicle ──────────────────────────────────────────── */}
+            {view === 'add' && (
+              <>
+
+            <div className="glass" style={{ padding: '1.2rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                <p style={{ fontWeight: 700, fontSize: '0.95rem', color: 'var(--clr-text)', margin: 0 }}>{t('register_new_vehicle')}</p>
+                <button onClick={() => { setView('vehicles'); setFormErr('') }} style={{ background: 'none', border: 'none', color: 'var(--clr-muted)', cursor: 'pointer', padding: '0.2rem' }}><LuX size={16}/></button>
               </div>
+              <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                  <div className="input-wrap">
+                    <input id="plate" type="text" placeholder=" " value={fPlate} onChange={e => setFPlate(e.target.value)} required />
+                    <label htmlFor="plate">{t('co_plate_number')}</label>
+                  </div>
+                  <div className="input-wrap">
+                    <select id="vtype" value={fType} onChange={e => setFType(e.target.value)} required
+                      style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 10, padding: '0.85rem 0.9rem 0.5rem', color: 'var(--clr-text)', fontSize: '0.875rem', width: '100%', outline: 'none', cursor: 'pointer' }}>
+                      {vehicleTypes.length === 0 && <option value="">Loading...</option>}
+                      {vehicleTypes.map(t => <option key={t} value={t}>{t}</option>)}
+                    </select>
+                    <label htmlFor="vtype" style={{ top: '0.45rem', fontSize: '0.7rem', pointerEvents: 'none', position: 'absolute', left: '0.9rem', color: 'var(--clr-muted)' }}>{t('vehicle_type')}</label>
+                  </div>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                  <div className="input-wrap">
+                    <input id="model" type="text" placeholder=" " value={fModel} onChange={e => setFModel(e.target.value)} />
+                    <label htmlFor="model">{t('vehicle_model')}</label>
+                  </div>
+                  <div className="input-wrap">
+                    <input id="color" type="text" placeholder=" " value={fColor} onChange={e => setFColor(e.target.value)} />
+                    <label htmlFor="color">{t('vehicle_color')}</label>
+                  </div>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                  <div className="input-wrap">
+                    <input id="year" type="number" placeholder=" " value={fYear} onChange={e => setFYear(e.target.value)} min={1980} max={new Date().getFullYear() + 1} />
+                    <label htmlFor="year">{t('vehicle_year')}</label>
+                  </div>
+                  <div className="input-wrap">
+                    <input id="capacity" type="number" placeholder=" " value={fCapacity} onChange={e => setFCapacity(e.target.value)} min={0} step={0.1} />
+                    <label htmlFor="capacity">{t('max_capacity_kg')}</label>
+                  </div>
+                </div>
+                <div className="input-wrap">
+                  <input id="desc" type="text" placeholder=" " value={fDesc} onChange={e => setFDesc(e.target.value)} />
+                  <label htmlFor="desc">{t('description')}</label>
+                </div>
+
+                {/* Photos and documents — every one optional, same as the
+                    admin vehicle form. */}
+                <div style={{ borderTop: '1px solid rgba(255,255,255,0.09)', paddingTop: '0.9rem', display: 'flex', flexDirection: 'column', gap: '0.9rem' }}>
+                  <p style={{ margin: 0, fontSize: '0.8rem', fontWeight: 700, color: 'var(--clr-text)' }}>
+                    Photos &amp; documents
+                    <span style={{ marginLeft: '0.4rem', fontWeight: 500, color: 'var(--clr-muted)', fontSize: '0.72rem' }}>
+                      — all optional, you can add them later
+                    </span>
+                  </p>
+                  <DocumentUploadField
+                    label="Main Photo"
+                    hint="The photo shown on your vehicle card"
+                    accept="image/jpeg,image/png,image/webp"
+                    value={fPhoto}
+                    onChange={setFPhoto}
+                    disabled={submitting}
+                  />
+                  <GalleryUploadField value={fGallery} onChange={setFGallery} disabled={submitting} />
+                  <DocumentUploadField
+                    label="Libre Document"
+                    hint="Ownership book — image or PDF"
+                    value={fLibre}
+                    onChange={setFLibre}
+                    disabled={submitting}
+                  />
+                </div>
+
+                {formErr && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#f87171', fontSize: '0.82rem', background: 'rgba(248,113,113,0.1)', padding: '0.6rem 0.9rem', borderRadius: 8 }}>
+                    <LuTriangleAlert size={14}/> {formErr}
+                  </div>
+                )}
+                {formOk && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#34d399', fontSize: '0.82rem', background: 'rgba(52,211,153,0.1)', padding: '0.6rem 0.9rem', borderRadius: 8 }}>
+                    <LuCheck size={14}/> Vehicle registered successfully!
+                  </div>
+                )}
+
+                <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.25rem' }}>
+                  <button type="button" onClick={() => { setView('vehicles'); setFormErr('') }}
+                    style={{ flex: 1, padding: '0.75rem', borderRadius: 10, border: '1px solid var(--adm-foot-btn-brd)', background: 'var(--adm-foot-btn-bg)', color: 'var(--clr-muted)', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600, fontSize: '0.875rem' }}>
+                    {t('cancel')}
+                  </button>
+                  <button type="submit" className="btn-primary" disabled={submitting} style={{ flex: 2, padding: '0.75rem' }}>
+                    {submitting ? t('co_submitting') : t('submit_approval')}
+                  </button>
+                </div>
+              </form>
             </div>
+              </>
+            )}
+
+            {/* ── Profile ──────────────────────────────────────────────── */}
+            {view === 'profile' && (
+              <>
+                <div className="glass" style={{ padding: '1.1rem 1.2rem' }}>
+                  <p style={{ fontWeight: 700, fontSize: '0.95rem', color: 'var(--clr-text)', margin: '0 0 0.75rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                    <LuUser size={15} style={{ color: 'var(--clr-accent)' }} /> {t('prf_title') || 'Profile'}
+                  </p>
+                  <div style={{ display: 'grid', gridTemplateColumns: isNarrow ? '1fr' : '1fr 1fr', gap: '0.75rem' }}>
+                    {[
+                      ['Name', fullName],
+                      ['Phone', user?.phone_number ?? '—'],
+                      ['Email', user?.email || '—'],
+                      ['Account type', t('car_owner_badge')],
+                    ].map(([label, value]) => (
+                      <div key={String(label)} className="glass-inner" style={{ padding: '0.7rem 0.85rem' }}>
+                        <p style={{ margin: 0, fontSize: '0.7rem', color: 'var(--clr-muted)' }}>{label}</p>
+                        <p style={{ margin: '0.15rem 0 0', fontSize: '0.85rem', color: 'var(--clr-text)', fontWeight: 600 }}>{value}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+          <div className="glass" style={{ padding: '1rem 1.2rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.8rem', flexWrap: 'wrap' }}>
+              <div><p style={{ color: 'var(--clr-text)', fontWeight: 700, fontSize: '0.88rem', margin: 0, display: 'flex', alignItems: 'center', gap: '0.35rem' }}><LuPhone size={14} /> Phone number</p><p style={{ color: 'var(--clr-muted)', fontSize: '0.76rem', marginTop: '0.22rem' }}>{user?.phone_number}</p></div>
+              <button className="btn-outline" onClick={() => { setShowPhoneForm(open => !open); setPhoneError(''); setPhoneSuccess(''); setPhoneStep('input'); setPhoneOtp('') }} style={{ fontSize: '0.76rem', padding: '0.42rem 0.75rem' }}>{showPhoneForm ? 'Cancel' : 'Change phone'}</button>
+            </div>
+            {showPhoneForm && <div style={{ marginTop: '0.9rem', borderTop: '1px solid rgba(255,255,255,0.09)', paddingTop: '0.9rem' }}>
+              {phoneSuccess ? <div className="alert alert-success" style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}><LuCheck size={14} /> {phoneSuccess}</div> : phoneStep === 'input' ? <form onSubmit={requestPhoneChange} style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
+                {phoneError && <div className="alert alert-error"><LuTriangleAlert size={14} /> {phoneError}</div>}
+                <p style={{ color: 'var(--clr-muted)', fontSize: '0.76rem', lineHeight: 1.45 }}>SMS OTP is currently unavailable, so eligible accounts can update their phone number directly. If SMS OTP is enabled later, we will ask for the code here.</p>
+                <PhoneField id="car-owner-new-phone" value={newPhone} onChange={setNewPhone} />
+                <button className="btn-primary" type="submit" disabled={phoneLoading} style={{ alignSelf: 'flex-start', padding: '0.5rem 0.85rem' }}>{phoneLoading ? 'Updating…' : 'Update phone number'}</button>
+              </form> : <form onSubmit={verifyPhoneChange} style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
+                {phoneError && <div className="alert alert-error"><LuTriangleAlert size={14} /> {phoneError}</div>}
+                <p style={{ color: 'var(--clr-muted)', fontSize: '0.76rem' }}>Enter the 6-digit code sent to {normalisePhone(newPhone)}.</p>
+                <div className="input-wrap"><input id="car-owner-phone-otp" type="text" inputMode="numeric" placeholder=" " maxLength={6} value={phoneOtp} onChange={event => setPhoneOtp(event.target.value.replace(/\D/g, ''))} required /><label htmlFor="car-owner-phone-otp">6-digit OTP</label></div>
+                <div style={{ display: 'flex', gap: '0.5rem' }}><button type="button" className="btn-outline" onClick={() => setPhoneStep('input')}>Back</button><button className="btn-primary" type="submit" disabled={phoneLoading || phoneOtp.length < 6}>{phoneLoading ? 'Verifying…' : 'Verify & update'}</button></div>
+              </form>}
+            </div>}
+          </div>
+              </>
+            )}
           </div>
         </div>
       </div>
@@ -619,8 +670,8 @@ export default function CarOwnerDashboard() {
                       <LuBadgeCheck size={20} style={{ color: '#34d399', marginLeft: 'auto', flexShrink: 0 }} />
                     </div>
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2,minmax(0,1fr))', gap: '0.6rem' }}>
-                      <DriverDocument label="National ID" url={selectedDriver.national_id_url} />
-                      <DriverDocument label="Driving License" url={selectedDriver.license_url} />
+                      <DriverDocumentThumb label="National ID" url={selectedDriver.national_id_url} />
+                      <DriverDocumentThumb label="Driving License" url={selectedDriver.license_url} />
                     </div>
                   </div>
                 )}

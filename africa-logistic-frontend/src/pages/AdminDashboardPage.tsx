@@ -15,6 +15,7 @@ import AdminPaymentReview from '../components/AdminPaymentReview'
 import AdminWalletAdjustment from '../components/AdminWalletAdjustment'
 import AdminBankInformation from '../components/AdminBankInformation'
 import AdminDocumentationLibrary from '../components/AdminDocumentationLibrary'
+import { absoluteUploadUrl } from '../lib/uploadUrl'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import { useThemeLogo } from '../lib/useThemeLogo'
@@ -7633,20 +7634,28 @@ function AdminPricingRulesSection() {
 // ─── Admin Car Owners Section ─────────────────────────────────────────────────
 
 interface CarOwnerVehicleAdmin {
-  id: number
+  // CHAR(36) UUIDs in the database — these were previously typed `number`,
+  // which is why call sites wrapped every id in String().
+  id: string
   plate_number: string
   vehicle_type: string
   model: string | null
   color: string | null
   year: number | null
   max_capacity_kg: number | null
+  description: string | null
   status: 'PENDING' | 'APPROVED' | 'REJECTED'
+  operational_status: 'ACTIVE' | 'INACTIVE' | 'MAINTENANCE' | 'OUT_OF_SERVICE' | null
   admin_note: string | null
   owner_name: string
   owner_phone: string
   assigned_driver_name: string | null
   assigned_driver_phone: string | null
-  assigned_driver_id: number | null
+  assigned_driver_id: string | null
+  // Evidence the admin reviews before approving. All optional.
+  vehicle_photo_url: string | null
+  vehicle_images: string | string[] | null
+  libre_url: string | null
   created_at: string
 }
 
@@ -7698,7 +7707,7 @@ function AdminCarOwnersSection() {
     if (!reviewTarget) return
     setReviewSaving(true); setReviewErr('')
     try {
-      await adminCarOwnerApi.reviewVehicle(String(reviewTarget.id), { action: reviewAction, admin_note: reviewNote.trim() || undefined })
+      await adminCarOwnerApi.reviewVehicle(reviewTarget.id, { action: reviewAction, admin_note: reviewNote.trim() || undefined })
       showToast(reviewAction === 'APPROVED' ? tr('cov_toast_approved') : tr('cov_toast_rejected'))
       setReviewTarget(null); setReviewNote('')
       await load()
@@ -7710,7 +7719,7 @@ function AdminCarOwnersSection() {
     if (!assignTarget) return
     setAssignSaving(true); setAssignErr('')
     try {
-      await adminCarOwnerApi.assignDriver(String(assignTarget.id), assignDriverId || null)
+      await adminCarOwnerApi.assignDriver(assignTarget.id, assignDriverId || null)
       showToast(assignDriverId ? tr('cov_toast_assigned') : tr('cov_toast_removed'))
       setAssignTarget(null); setAssignDriverId('')
       await load()
@@ -7777,6 +7786,84 @@ function AdminCarOwnersSection() {
                   {v.admin_note && (
                     <div style={{ fontSize: '0.75rem', color: 'var(--clr-muted)', marginTop: '0.25rem', fontStyle: 'italic' }}>{tr('cov_note')} {v.admin_note}</div>
                   )}
+
+                  {/* ── Full detail for review ────────────────────────────
+                      Approving a vehicle means vouching for it, so everything
+                      the owner submitted is shown here rather than only the
+                      plate and model. Documents are optional, so their absence
+                      is stated plainly instead of the row silently vanishing. */}
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem 1rem', marginTop: '0.45rem' }}>
+                    {v.max_capacity_kg != null && (
+                      <span style={{ fontSize: '0.78rem', color: 'var(--clr-muted)' }}>
+                        Capacity <strong style={{ color: 'var(--clr-text)' }}>{Number(v.max_capacity_kg).toLocaleString()} kg</strong>
+                      </span>
+                    )}
+                    <span style={{ fontSize: '0.78rem', color: 'var(--clr-muted)' }}>
+                      Owner status{' '}
+                      <strong style={{ color: v.operational_status === 'ACTIVE' ? 'var(--kpi-green)' : 'var(--kpi-gold)' }}>
+                        {(v.operational_status ?? 'ACTIVE').replace(/_/g, ' ').toLowerCase()}
+                      </strong>
+                    </span>
+                    <span style={{ fontSize: '0.78rem', color: 'var(--clr-muted)' }}>
+                      Registered <strong style={{ color: 'var(--clr-text)' }}>{new Date(v.created_at).toLocaleDateString()}</strong>
+                    </span>
+                  </div>
+
+                  {v.description && (
+                    <p style={{ fontSize: '0.78rem', color: 'var(--clr-muted)', marginTop: '0.35rem', lineHeight: 1.45 }}>{v.description}</p>
+                  )}
+
+                  {(() => {
+                    // vehicle_images is a JSON column; MySQL may hand it back
+                    // already parsed or as a string depending on the driver.
+                    let gallery: string[] = []
+                    try {
+                      gallery = Array.isArray(v.vehicle_images)
+                        ? v.vehicle_images
+                        : v.vehicle_images ? JSON.parse(v.vehicle_images) : []
+                    } catch { gallery = [] }
+                    const hasAny = Boolean(v.vehicle_photo_url) || gallery.length > 0 || Boolean(v.libre_url)
+
+                    if (!hasAny) {
+                      return (
+                        <div style={{ marginTop: '0.5rem', fontSize: '0.74rem', color: 'var(--clr-muted)', fontStyle: 'italic' }}>
+                          No photos or documents were submitted — these are optional, so you can still approve.
+                        </div>
+                      )
+                    }
+
+                    const thumb: React.CSSProperties = {
+                      width: 88, height: 66, objectFit: 'cover', borderRadius: 8,
+                      border: '1px solid rgba(255,255,255,0.12)', cursor: 'pointer', background: 'rgba(0,0,0,0.2)',
+                    }
+
+                    return (
+                      <div style={{ marginTop: '0.55rem' }}>
+                        <p style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--clr-text)', marginBottom: '0.35rem' }}>
+                          Photos &amp; documents
+                        </p>
+                        <div style={{ display: 'flex', gap: '0.45rem', flexWrap: 'wrap', alignItems: 'flex-start' }}>
+                          {v.vehicle_photo_url && (
+                            <a href={absoluteUploadUrl(v.vehicle_photo_url) || '#'} target="_blank" rel="noreferrer" title="Main photo">
+                              <img src={absoluteUploadUrl(v.vehicle_photo_url)} alt="Main vehicle photo" loading="lazy" style={thumb} />
+                            </a>
+                          )}
+                          {gallery.map((img, i) => (
+                            <a key={i} href={absoluteUploadUrl(img) || '#'} target="_blank" rel="noreferrer" title={`Gallery ${i + 1}`}>
+                              <img src={absoluteUploadUrl(img)} alt={`Vehicle ${i + 1}`} loading="lazy" style={thumb} />
+                            </a>
+                          ))}
+                          {v.libre_url && (
+                            <a href={absoluteUploadUrl(v.libre_url) || '#'} target="_blank" rel="noreferrer"
+                              style={{ ...thumb, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '0.2rem', textDecoration: 'none', color: 'var(--clr-accent)' }}>
+                              <LuFileText size={20} />
+                              <span style={{ fontSize: '0.64rem', fontWeight: 700 }}>Libre</span>
+                            </a>
+                          )}
+                        </div>
+                      </div>
+                    )
+                  })()}
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', alignItems: 'flex-end' }}>
                   {v.status === 'PENDING' && (
@@ -7786,7 +7873,7 @@ function AdminCarOwnersSection() {
                     </button>
                   )}
                   {v.status === 'APPROVED' && (
-                    <button onClick={() => { setAssignTarget(v); setAssignDriverId(v.assigned_driver_id ? String(v.assigned_driver_id) : ''); setAssignErr('') }}
+                    <button onClick={() => { setAssignTarget(v); setAssignDriverId(v.assigned_driver_id ?? ''); setAssignErr('') }}
                       style={{ background: 'rgba(97, 148, 31,0.1)', border: '1px solid rgba(97, 148, 31,0.25)', borderRadius: 8, padding: '0.4rem 0.85rem', color: 'var(--clr-accent)', cursor: 'pointer', fontFamily: 'inherit', fontSize: '0.78rem', fontWeight: 600 }}>
                       {v.assigned_driver_id ? 'Change Driver' : 'Assign Driver'}
                     </button>
@@ -7794,7 +7881,7 @@ function AdminCarOwnersSection() {
                   {v.status === 'APPROVED' && v.assigned_driver_id && (
                     <button onClick={async () => {
                       if (!confirm(tr('cov_confirm_remove'))) return
-                      try { await adminCarOwnerApi.assignDriver(String(v.id), null); showToast(tr('cov_toast_removed')); load() } catch { }
+                      try { await adminCarOwnerApi.assignDriver(v.id, null); showToast(tr('cov_toast_removed')); load() } catch { }
                     }}
                       style={{ background: 'rgba(248,113,113,0.1)', border: '1px solid rgba(248,113,113,0.25)', borderRadius: 8, padding: '0.4rem 0.85rem', color: '#f87171', cursor: 'pointer', fontFamily: 'inherit', fontSize: '0.78rem', fontWeight: 600 }}>
                       {tr('cov_remove_driver')}
