@@ -439,11 +439,18 @@ export async function assignOrderToDriver(
   orderId: string,
   driverId: string,
   vehicleId: string | null,
-  adminId: string
+  adminId: string,
+  /**
+   * Which fleet `vehicleId` belongs to. Required alongside the id because the id
+   * on its own cannot be resolved — it may live in `vehicles`,
+   * `car_owner_vehicles` or `company_vehicles`. Callers get it from
+   * `resolveOrderVehicle`.
+   */
+  vehicleSource: 'FLEET' | 'CAR_OWNER' | 'COMPANY' | null = null
 ): Promise<void> {
   await db.query(
-    `UPDATE orders SET driver_id = ?, vehicle_id = ?, status = 'ASSIGNED', assigned_at = NOW(), updated_by = ? WHERE id = ?`,
-    [driverId, vehicleId, adminId, orderId]
+    `UPDATE orders SET driver_id = ?, vehicle_id = ?, vehicle_source = ?, status = 'ASSIGNED', assigned_at = NOW(), updated_by = ? WHERE id = ?`,
+    [driverId, vehicleId, vehicleId ? vehicleSource : null, adminId, orderId]
   )
   await db.query(
     `INSERT INTO order_status_history (order_id, status, changed_by, notes) VALUES (?, 'ASSIGNED', ?, 'Driver assigned by admin')`,
@@ -465,7 +472,7 @@ export async function cancelOrder(db: Pool, orderId: string, cancelledBy: string
 
   const [result] = await db.query<any>(
     `UPDATE orders
-        SET status = 'CANCELLED', driver_id = NULL, vehicle_id = NULL,
+        SET status = 'CANCELLED', driver_id = NULL, vehicle_id = NULL, vehicle_source = NULL,
             updated_at = NOW(), updated_by = ?
       WHERE id = ? AND status IN ('PENDING','ASSIGNED')`,
     [cancelledBy, orderId]
@@ -632,7 +639,22 @@ export async function getActiveDriversWithLocation(db: Pool): Promise<any[]> {
   return rows as any[]
 }
 
-/** Returns verified+available drivers sorted by Haversine distance to a pickup point */
+/**
+ * Verified, available drivers for a pickup point, nearest first.
+ *
+ * Two deliberate differences from how this used to work:
+ *
+ *  - It knows about all three fleets. It used to LEFT JOIN `vehicles` alone, so a
+ *    driver whose only truck was a car owner's or a company's appeared with no
+ *    plate and no vehicle type, and the admin UI then blanked the vehicle entirely.
+ *    Each fleet is gated on approved AND operationally active, because a truck in
+ *    maintenance is not a dispatch option.
+ *
+ *  - `driver_locations` is a LEFT JOIN, not an INNER JOIN. It used to be inner,
+ *    which silently hid every driver who had never sent a GPS fix — they could not
+ *    be suggested at all, no matter how available they were. They now appear, sorted
+ *    last, because "no location yet" is not the same as "not a candidate".
+ */
 export async function getSuggestedDriversForOrder(
   db: Pool,
   pickupLat: number,
@@ -643,25 +665,39 @@ export async function getSuggestedDriversForOrder(
        u.id AS user_id,
        u.first_name, u.last_name, u.phone_number, u.profile_photo_url,
        dp.status AS driver_status, dp.rating, dp.total_trips,
-       v.id AS vehicle_id, v.plate_number, v.vehicle_type,
+       COALESCE(fv.id, ov.id, cv.id)                      AS vehicle_id,
+       COALESCE(fv.plate_number, ov.plate_number, cv.plate_number) AS plate_number,
+       COALESCE(fv.vehicle_type, ov.vehicle_type, cv.vehicle_type) AS vehicle_type,
+       COALESCE(fv.max_capacity_kg, ov.max_capacity_kg, cv.max_capacity_kg) AS max_capacity_kg,
+       CASE
+         WHEN fv.id IS NOT NULL THEN 'FLEET'
+         WHEN ov.id IS NOT NULL THEN 'CAR_OWNER'
+         WHEN cv.id IS NOT NULL THEN 'COMPANY'
+         ELSE NULL
+       END AS vehicle_source,
+       comp.company_name,
        CAST(dl.lat AS DOUBLE) AS lat,
        CAST(dl.lng AS DOUBLE) AS lng,
        dl.recorded_at AS location_at,
-       (6371 * 2 * ASIN(SQRT(
+       CASE WHEN dl.driver_id IS NULL THEN 1 ELSE 0 END AS location_missing,
+       CASE WHEN dl.driver_id IS NULL THEN NULL ELSE (6371 * 2 * ASIN(SQRT(
          POW(SIN((RADIANS(CAST(dl.lat AS DOUBLE)) - RADIANS(?)) / 2), 2) +
          COS(RADIANS(?)) * COS(RADIANS(CAST(dl.lat AS DOUBLE))) *
          POW(SIN((RADIANS(CAST(dl.lng AS DOUBLE)) - RADIANS(?)) / 2), 2)
-       ))) AS distance_km
+       ))) END AS distance_km
      FROM users u
      JOIN driver_profiles dp ON dp.user_id = u.id AND dp.is_verified = 1 AND dp.status = 'AVAILABLE'
-     JOIN (
+     LEFT JOIN (
        SELECT dl_inner.*,
               ROW_NUMBER() OVER (PARTITION BY dl_inner.driver_id ORDER BY dl_inner.recorded_at DESC, dl_inner.id DESC) AS rn
        FROM driver_locations dl_inner
      ) dl ON dl.driver_id = u.id AND dl.rn = 1
-     LEFT JOIN vehicles v ON v.driver_id = u.id AND v.is_active = 1
+     LEFT JOIN vehicles           fv ON fv.driver_id          = u.id AND fv.is_active = 1 AND fv.is_approved = 1
+     LEFT JOIN car_owner_vehicles ov ON ov.assigned_driver_id = u.id AND ov.status = 'APPROVED' AND ov.operational_status = 'ACTIVE'
+     LEFT JOIN company_vehicles   cv ON cv.assigned_driver_id = u.id AND cv.status = 'APPROVED' AND cv.operational_status = 'ACTIVE'
+     LEFT JOIN car_owner_companies comp ON comp.id = cv.company_id
      WHERE u.role_id = 3 AND u.is_active = 1
-     ORDER BY distance_km ASC
+     ORDER BY location_missing ASC, distance_km ASC
      LIMIT 10`,
     [pickupLat, pickupLat, pickupLng]
   )
@@ -840,10 +876,18 @@ export async function getDriverOrders(
   return rows
 }
 
-/** Update driver profile status back to AVAILABLE once job completes */
+/**
+ * Hand a driver back to the dispatch pool once their job stops.
+ *
+ * Guarded rather than unconditional: a suspended driver must not be quietly
+ * un-suspended by finishing a delivery, and an unverified driver must not be
+ * promoted to AVAILABLE — availability is what dispatch suggestions select on.
+ */
 export async function releaseDriver(db: Pool, driverId: string): Promise<void> {
   await db.query(
-    `UPDATE driver_profiles SET status = 'AVAILABLE' WHERE user_id = ?`,
+    `UPDATE driver_profiles
+        SET status = 'AVAILABLE'
+      WHERE user_id = ? AND status <> 'SUSPENDED' AND is_verified = 1`,
     [driverId]
   )
 }

@@ -8,7 +8,7 @@
  *  - Theme preference updates
  */
 
-import { Pool, RowDataPacket, ResultSetHeader } from 'mysql2/promise'
+import { Pool, RowDataPacket, ResultSetHeader, PoolConnection } from 'mysql2/promise'
 import { v4 as uuidv4 } from 'uuid'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -101,7 +101,7 @@ export async function getDriverProfile(
 }
 
 /** Upsert driver profile row (created on first doc upload if not already there) */
-export async function ensureDriverProfile(db: Pool, userId: string): Promise<void> {
+export async function ensureDriverProfile(db: Pool | PoolConnection, userId: string): Promise<void> {
   await db.query(
     `INSERT INTO driver_profiles (user_id) VALUES (?) ON DUPLICATE KEY UPDATE user_id = user_id`,
     [userId]
@@ -148,8 +148,13 @@ export async function listDriversForAdmin(
 ): Promise<DriverProfileRow[]> {
   let whereClause = ''
   if (filter === 'pending') {
+    // "Has uploaded something" is the usual signal that a self-registered driver
+    // is ready to be looked at. A company-created driver is different: documents
+    // are optional for them, so one who uploaded nothing would never surface here
+    // and could never be verified — registered, then stuck forever.
     whereClause = `WHERE dp.is_verified = 0 AND (
       dp.national_id_url IS NOT NULL OR dp.license_url IS NOT NULL OR dp.libre_url IS NOT NULL
+      OR dp.created_by_company = 1
     ) AND dp.status != 'SUSPENDED'`
   } else if (filter === 'verified') {
     whereClause = `WHERE dp.is_verified = 1`
@@ -206,12 +211,16 @@ export async function verifyDriver(
   await db.query(
     `UPDATE driver_profiles
         SET is_verified = 1,
-            national_id_status = 'APPROVED',
-            license_status = 'APPROVED',
-            -- The libre is optional, so only approve one that actually exists
-            -- rather than claiming a document was checked that was never sent.
-            libre_status = CASE WHEN libre_url IS NOT NULL AND libre_url <> ''
-                                THEN 'APPROVED' ELSE libre_status END,
+            -- Approve only documents that were actually uploaded. Setting these
+            -- unconditionally recorded an 'APPROVED' National ID and Licence for a
+            -- driver who had submitted neither — a false audit trail, and the same
+            -- mistake the libre line below was already written to avoid.
+            national_id_status = CASE WHEN national_id_url IS NOT NULL AND national_id_url <> ''
+                                      THEN 'APPROVED' ELSE national_id_status END,
+            license_status     = CASE WHEN license_url IS NOT NULL AND license_url <> ''
+                                      THEN 'APPROVED' ELSE license_status END,
+            libre_status       = CASE WHEN libre_url IS NOT NULL AND libre_url <> ''
+                                      THEN 'APPROVED' ELSE libre_status END,
             verified_at = NOW(),
             verified_by_admin_id = ?,
             rejection_reason = NULL,
@@ -450,30 +459,37 @@ export async function updateVehicle(
   await db.query(`UPDATE vehicles SET ${fields.join(', ')} WHERE id = ?`, values)
 }
 
-/** Assign a vehicle to a driver. If driver is verified, set status AVAILABLE */
+/**
+ * Assign a platform fleet vehicle to a driver.
+ *
+ * Delegates to the shared assignment service. It used to hand-roll the update
+ * against the `vehicles` table alone, which meant it could not see that a driver
+ * already held a car-owner or company truck — it simply took them, with no
+ * transaction and no conflict check. That was the one remaining path in the
+ * system that could genuinely double-book a driver across two vehicles.
+ *
+ * Returns the service's result so callers can surface a real reason (409 when the
+ * driver is held elsewhere) instead of reporting a silent success.
+ */
 export async function assignVehicleToDriver(
   db: Pool,
   vehicleId: string,
   driverId: string
-): Promise<void> {
-  // Unassign from any previous driver
-  await db.query(
-    `UPDATE vehicles SET driver_id = NULL WHERE driver_id = ? AND id != ?`,
-    [driverId, vehicleId]
-  )
-  // Assign vehicle
-  await db.query(`UPDATE vehicles SET driver_id = ? WHERE id = ?`, [driverId, vehicleId])
-
-  // If driver is verified → set AVAILABLE
-  await db.query(
-    `UPDATE driver_profiles
-        SET status = 'AVAILABLE'
-      WHERE user_id = ? AND is_verified = 1`,
-    [driverId]
-  )
+): Promise<{ ok: boolean; status: number; message: string }> {
+  const { assignDriverToVehicle } = await import('./vehicle-assignment.service.js')
+  return assignDriverToVehicle({
+    pool: db,
+    scope: 'FLEET',
+    vehicleId,
+    driverId,
+    // Admins have always been able to crew a fleet vehicle before it is approved,
+    // including the approve-and-assign flow that assigns in the same breath.
+    // Requiring approval here would be a silent behaviour change, so it stays off.
+    requireApproved: false,
+  })
 }
 
-/** Unassign vehicle from driver → driver goes OFFLINE */
+/** Unassign a fleet vehicle from its driver. */
 export async function unassignVehicle(db: Pool, vehicleId: string): Promise<void> {
   // Get current driver before clearing
   const [rows] = await db.query<RowDataPacket[]>(
@@ -485,10 +501,11 @@ export async function unassignVehicle(db: Pool, vehicleId: string): Promise<void
   await db.query(`UPDATE vehicles SET driver_id = NULL WHERE id = ?`, [vehicleId])
 
   if (driverId) {
-    await db.query(
-      `UPDATE driver_profiles SET status = 'OFFLINE' WHERE user_id = ?`,
-      [driverId]
-    )
+    // Not an unconditional OFFLINE: this driver may still hold a car-owner or
+    // company truck, and may be mid-delivery. The shared helper only takes them
+    // offline once nothing is left, and never overrides ON_JOB or SUSPENDED.
+    const { setDriverOfflineWhenUnassigned } = await import('./vehicle-assignment.service.js')
+    await setDriverOfflineWhenUnassigned(db, String(driverId))
   }
 }
 

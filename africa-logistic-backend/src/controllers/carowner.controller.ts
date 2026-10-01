@@ -271,10 +271,11 @@ export async function coListEligibleDriversHandler(
       AND u.is_active = 1
       AND dp.is_verified = 1
       AND dp.status <> 'SUSPENDED'
-      AND dp.national_id_status = 'APPROVED'
-      AND dp.license_status = 'APPROVED'
-      AND dp.national_id_url IS NOT NULL
-      AND dp.license_url IS NOT NULL
+      -- Approved where present, mirroring findAssignableDriver: documents are
+      -- optional in this product, so demanding one here would hide drivers who
+      -- are perfectly assignable.
+      AND (dp.national_id_url IS NULL OR dp.national_id_status = 'APPROVED')
+      AND (dp.license_url     IS NULL OR dp.license_status     = 'APPROVED')
       AND NOT EXISTS (
         SELECT 1 FROM vehicles v
          WHERE v.driver_id = u.id AND v.is_active = 1
@@ -282,6 +283,12 @@ export async function coListEligibleDriversHandler(
       AND NOT EXISTS (
         SELECT 1 FROM car_owner_vehicles other
          WHERE other.assigned_driver_id = u.id AND other.id <> ?
+      )
+      -- Company trucks count too. Without this a driver already crewing one was
+      -- offered as free, and the owner only discovered the clash on submit.
+      AND NOT EXISTS (
+        SELECT 1 FROM company_vehicles cv
+         WHERE cv.assigned_driver_id = u.id
       )
     ORDER BY is_currently_assigned DESC, u.first_name ASC, u.last_name ASC
   `, [id, id])
@@ -411,7 +418,10 @@ export async function adminListDriversForCarAssignHandler(
       u.id, u.first_name, u.last_name, u.phone_number,
       dp.is_verified, dp.status,
       (SELECT v.plate_number FROM vehicles v WHERE v.driver_id = u.id LIMIT 1) AS main_vehicle_plate,
-      (SELECT cov.plate_number FROM car_owner_vehicles cov WHERE cov.assigned_driver_id = u.id LIMIT 1) AS owner_vehicle_plate
+      (SELECT cov.plate_number FROM car_owner_vehicles cov WHERE cov.assigned_driver_id = u.id LIMIT 1) AS owner_vehicle_plate,
+      -- Third table, so an admin can see a driver is already on a company truck
+      -- instead of the row looking free until the server refuses it.
+      (SELECT cv.plate_number FROM company_vehicles cv WHERE cv.assigned_driver_id = u.id LIMIT 1) AS company_vehicle_plate
     FROM users u
     JOIN driver_profiles dp ON dp.user_id = u.id
     WHERE u.role_id = 3 AND u.is_active = 1 AND dp.is_verified = 1 AND dp.status <> 'SUSPENDED'

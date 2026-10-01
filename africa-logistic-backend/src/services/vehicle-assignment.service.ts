@@ -15,7 +15,7 @@
 
 import { Pool, PoolConnection, RowDataPacket } from 'mysql2/promise'
 
-export type VehicleScope = 'FLEET' | 'INDIVIDUAL'
+export type VehicleScope = 'FLEET' | 'INDIVIDUAL' | 'COMPANY'
 
 interface ScopeConfig {
   /** Physical table. Whitelisted constant — never request input. */
@@ -24,6 +24,13 @@ interface ScopeConfig {
   driverColumn: string
   /** Extra predicate deciding whether a row still counts as holding the driver. */
   activePredicate: string
+  /**
+   * How this table says "approved". The three tables disagree: the platform
+   * fleet predates the review workflow and uses `is_approved`, while the two
+   * newer tables use `status = 'APPROVED'`. Naming the predicate per scope is
+   * what lets one assignment path serve all three.
+   */
+  approvedPredicate: string
   label: string
 }
 
@@ -33,6 +40,7 @@ export const VEHICLE_SCOPES: Record<VehicleScope, ScopeConfig> = {
     table: 'vehicles',
     driverColumn: 'driver_id',
     activePredicate: 'is_active = 1',
+    approvedPredicate: 'is_approved = 1',
     label: 'platform fleet vehicle',
   },
   // Individual car owner's vehicle.
@@ -40,7 +48,18 @@ export const VEHICLE_SCOPES: Record<VehicleScope, ScopeConfig> = {
     table: 'car_owner_vehicles',
     driverColumn: 'assigned_driver_id',
     activePredicate: '1 = 1',
+    approvedPredicate: "status = 'APPROVED'",
     label: 'car owner vehicle',
+  },
+  // Truck belonging to a transport company. Adding it here is what stops a
+  // driver being booked on a company truck and an individual's truck at once —
+  // every free-driver check iterates this map.
+  COMPANY: {
+    table: 'company_vehicles',
+    driverColumn: 'assigned_driver_id',
+    activePredicate: '1 = 1',
+    approvedPredicate: "status = 'APPROVED'",
+    label: 'company vehicle',
   },
 }
 
@@ -129,9 +148,16 @@ export async function setDriverAvailable(db: Db, driverId: string): Promise<void
 }
 
 /**
- * A driver may only be attached to a vehicle once they are active, verified,
- * not suspended, and their ID and licence are approved. The libre is
- * deliberately absent — it proves vehicle ownership, and a hired driver has none.
+ * A driver may only be attached to a vehicle once they are active, verified and
+ * not suspended. The libre is deliberately absent — it proves vehicle ownership,
+ * and a hired driver has none.
+ *
+ * Documents are checked "approved where present", not "must exist". Documents are
+ * optional throughout this product: an admin can create a driver without any, and
+ * demanding an APPROVED status here made such a driver permanently unassignable —
+ * registered successfully, then silently impossible to put in a truck. The real
+ * gate is `is_verified = 1`: a human admin verifying the driver is the check, and
+ * a document that WAS uploaded must still have passed review.
  */
 export async function findAssignableDriver(
   db: Db,
@@ -147,10 +173,10 @@ export async function findAssignableDriver(
         AND u.is_active = 1
         AND dp.is_verified = 1
         AND dp.status <> 'SUSPENDED'
-        AND dp.national_id_status = 'APPROVED'
-        AND dp.license_status = 'APPROVED'
-        AND dp.national_id_url IS NOT NULL
-        AND dp.license_url IS NOT NULL
+        AND dp.national_id_status <> 'REJECTED'
+        AND dp.license_status     <> 'REJECTED'
+        AND (dp.national_id_url IS NULL OR dp.national_id_url = '' OR dp.national_id_status = 'APPROVED')
+        AND (dp.license_url     IS NULL OR dp.license_url     = '' OR dp.license_status     = 'APPROVED')
       LIMIT 1${forUpdate ? ' FOR UPDATE' : ''}`,
     [driverId]
   )
@@ -195,7 +221,8 @@ export async function assignDriverToVehicle(params: {
     }
 
     const [[vehicle]] = await conn.query<RowDataPacket[]>(
-      `SELECT id, status, \`${cfg.driverColumn}\` AS current_driver_id
+      `SELECT id, (${cfg.approvedPredicate}) AS is_approved_flag,
+              \`${cfg.driverColumn}\` AS current_driver_id
          FROM \`${cfg.table}\`
         WHERE ${where.join(' AND ')}
         LIMIT 1 FOR UPDATE`,
@@ -205,7 +232,7 @@ export async function assignDriverToVehicle(params: {
       await conn.rollback()
       return { ok: false, status: 404, message: 'Vehicle not found.' }
     }
-    if (requireApproved && vehicle.status !== 'APPROVED') {
+    if (requireApproved && Number(vehicle.is_approved_flag) !== 1) {
       await conn.rollback()
       return { ok: false, status: 403, message: 'This vehicle must be approved before assigning a driver.' }
     }
@@ -229,7 +256,7 @@ export async function assignDriverToVehicle(params: {
       return {
         ok: false,
         status: 400,
-        message: 'Select an active, verified driver with approved ID and licence documents.',
+        message: 'Select an active, verified driver who is not suspended. Any document they did upload must be approved.',
       }
     }
 

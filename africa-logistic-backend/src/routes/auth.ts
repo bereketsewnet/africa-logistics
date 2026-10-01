@@ -34,7 +34,7 @@ import {
 export default async function authRoutes(fastify: FastifyInstance) {
 
   // ── POST /api/auth/register/request-otp ────────────────────────────────────
-  // Step 1: User submits their phone number → OTP sent via Twilio
+  // Step 1: User submits their phone number → OTP sent by SMS
   fastify.post('/api/auth/register/request-otp', {
     schema: {
       body: {

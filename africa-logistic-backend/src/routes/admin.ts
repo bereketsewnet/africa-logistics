@@ -1,5 +1,4 @@
 import { FastifyInstance } from 'fastify'
-import { redactContactFields } from '../utils/privacy.js'
 import {
   adminGetUsersHandler,
   adminToggleActiveHandler,
@@ -7,6 +6,10 @@ import {
   adminUserDeletionImpactHandler,
   adminCreateStaffHandler,
   adminCreateCarOwnerHandler,
+  adminCreateDriverHandler,
+  adminResendDriverCredentialsHandler,
+  adminDriversForDispatchHandler,
+  adminVehiclesForDispatchHandler,
   adminUpdateUserHandler,
   adminListDriversHandler,
   adminGetDriverHandler,
@@ -103,8 +106,9 @@ import {
   adminCreateBankAccountHandler,
   adminUpdateBankAccountHandler,
   adminDeleteBankAccountHandler,
-  adminGetTwilioSettingsHandler,
-  adminUpdateTwilioSettingsHandler,
+  adminGetSmsSettingsHandler,
+  adminUpdateSmsSettingsHandler,
+  adminTestSmsHandler,
   adminListDocumentationHandler,
   adminCreateDocumentationHandler,
   adminUpdateDocumentationHandler,
@@ -118,6 +122,34 @@ import {
   adminCollectOrderPaymentHandler,
   adminGetOrderDriverPaymentsHandler,
 } from '../controllers/admin.controller.js'
+import {
+  adminCreateCompanyHandler,
+  adminListCompaniesHandler,
+  adminGetCompanyHandler,
+  adminUpdateCompanyHandler,
+  adminReviewCompanyHandler,
+  adminResendCompanyCredentialsHandler,
+  adminCompanyDeletionImpactHandler,
+  adminDeleteCompanyHandler,
+  adminListCompanyVehiclesHandler,
+  adminCreateCompanyVehicleHandler,
+  adminReviewCompanyVehicleHandler,
+  adminCompanyVehicleOperationalStatusHandler,
+  adminAssignCompanyVehicleDriverHandler,
+  adminDeleteCompanyVehicleHandler,
+  adminCompanyOverviewHandler,
+  adminListCompanyDriversHandler,
+  adminCreateCompanyDriverHandler,
+  adminUpdateCompanyDriverHandler,
+  adminResendCompanyDriverCredentialsHandler,
+  adminRemoveCompanyDriverHandler,
+} from '../controllers/companyAdmin.controller.js'
+import {
+  adminListCarOwnerVehiclesHandler,
+  adminReviewCarOwnerVehicleHandler,
+  adminAssignDriverToCarOwnerVehicleHandler,
+  adminListDriversForCarAssignHandler,
+} from '../controllers/carowner.controller.js'
 import {
   adminListWithdrawalsHandler,
   adminApproveWithdrawalHandler,
@@ -158,7 +190,13 @@ export default async function adminRoutes(fastify: FastifyInstance) {
     }
   }
 
-  const resolvePermissionKey = (url: string, method: string): string | null => {
+  const resolvePermissionKey = (rawUrl: string, method: string): string | null => {
+    // Match on the path only. Every rule below is a substring test, so a query
+    // value such as '?search=/companies' would otherwise decide the permission
+    // for a completely unrelated endpoint — letting a role that holds the
+    // matched permission reach one it does not.
+    const url = rawUrl.split('?')[0]
+
     // Always allow this lightweight endpoint to build UI permissions.
     if (url.includes('/me/permissions')) return null
   // Security events is super-admin only — handler enforces it; no staff permission needed.
@@ -166,6 +204,22 @@ export default async function adminRoutes(fastify: FastifyInstance) {
   // Staff roles list is a helper for populating forms; any staff can call it.
   if (url.includes('/staff-roles')) return null
 
+    // Companies first, above every generic matcher. Two traps this avoids:
+    // '/companies/:id/vehicles' would be caught by the '/vehicles' rule below,
+    // and '/company-vehicles' matches NO rule at all (it is '-vehicles', not
+    // '/vehicles') so it would silently fall through to 'overview.view' and be
+    // readable by any staff role. The same holds for '/company-drivers', which
+    // likewise contains neither '/drivers' nor '/users'.
+    //
+    // Matching the '/company' prefix rather than listing each sibling is
+    // deliberate: a future '/company-anything' route is then protected the day
+    // it is added, instead of silently defaulting open until someone notices.
+    if (url.includes('/companies') || url.includes('/company-')) return 'companies.manage'
+    // Car-owner vehicle administration. Explicit, for the same reason as above:
+    // '/car-owner-vehicles' contains neither '/vehicles' nor '/users', so without a
+    // rule it falls through to the default 'overview.view' — which every staff role
+    // holds. That silent under-protection is the hazard, not a wrong label.
+    if (url.includes('/car-owner-vehicles') || url.includes('/drivers-for-car-assign')) return 'vehicles.manage'
     if (url.includes('/role-management') || url.includes('/roles')) return 'roles.manage'
     if (url.includes('/system-config') || url.includes('/countries') || url.includes('/vehicle-types') || url.includes('/bank-accounts') || url.includes('/documentation')) return 'settings.manage'
     if (url.includes('/notification-settings')) return 'notifications.manage'
@@ -198,6 +252,7 @@ export default async function adminRoutes(fastify: FastifyInstance) {
     'cargo.manage':   ['orders.manage', 'dispatch.manage'],
     'drivers.verify': ['orders.manage', 'dispatch.manage'],
     'wallet.manage':  ['payments.approve'],
+    'companies.manage': ['vehicles.manage'],
   }
 
   // RBAC middleware for staff users (dispatcher/cashier). Super admin bypasses.
@@ -250,13 +305,18 @@ export default async function adminRoutes(fastify: FastifyInstance) {
     }
   })
 
-  // PII masking: non-super-admin staff should not receive raw phone/email fields.
-  fastify.addHook('preSerialization', async (request, _reply, payload) => {
-    const user = request.user as { role_id: number }
-    if (user?.role_id === 1) return payload
-    if (!payload || typeof payload !== 'object') return payload
-    return redactContactFields(payload)
-  })
+  // Staff see contact details in full, by the owner's decision.
+  //
+  // A preSerialization hook used to null every *phone* / *email* field for anyone
+  // who was not super-admin. It was removed deliberately: dispatchers and cashiers
+  // have to telephone shippers, owners and drivers to do the job, and a masked
+  // number makes that impossible. Permissions — not redaction — are now the only
+  // control over who can reach this data, which is why the route-level permission
+  // rules above matter more than they did before.
+  //
+  // This is NOT the chat sanitiser. `sanitizeChatContent` still strips numbers from
+  // in-app messages so shippers and drivers cannot swap contacts and take the job
+  // off-platform; that protects the business, not staff privacy, and is untouched.
 
   // ─── User Management ────────────────────────────────────────────────────────
 
@@ -266,8 +326,136 @@ export default async function adminRoutes(fastify: FastifyInstance) {
   /** POST /api/admin/staff — create a new staff user (Admin/Cashier/Dispatcher) */
   fastify.post('/staff', adminCreateStaffHandler)
 
+  // ─── Car Owner Vehicles (admin side) ───────────────────────────────────────
+  // Moved here from routes/carowner.ts so they finally inherit the RBAC hook and
+  // the security-event logging. Gated on 'vehicles.manage'.
+
+  /** GET /api/admin/car-owner-vehicles */
+  fastify.get('/car-owner-vehicles', adminListCarOwnerVehiclesHandler)
+
+  /** PATCH /api/admin/car-owner-vehicles/:id/review */
+  fastify.patch('/car-owner-vehicles/:id/review', {
+    schema: {
+      body: {
+        type: 'object',
+        required: ['action'],
+        properties: {
+          action:     { type: 'string', enum: ['APPROVED', 'REJECTED'] },
+          admin_note: { type: 'string', maxLength: 500 },
+        },
+      },
+    },
+  }, adminReviewCarOwnerVehicleHandler)
+
+  /** PATCH /api/admin/car-owner-vehicles/:id/assign-driver */
+  fastify.patch('/car-owner-vehicles/:id/assign-driver', {
+    schema: {
+      body: {
+        type: 'object',
+        properties: { driver_id: { type: ['string', 'null'] } },
+      },
+    },
+  }, adminAssignDriverToCarOwnerVehicleHandler)
+
+  /** GET /api/admin/drivers-for-car-assign */
+  fastify.get('/drivers-for-car-assign', adminListDriversForCarAssignHandler)
+
+  // ─── Transport Companies ───────────────────────────────────────────────────
+  // Declared here, NOT in routes/carowner.ts: only routes inside this plugin
+  // get the RBAC permission check and the PII-redaction hook.
+
+  /** POST /api/admin/companies — create a company and its login */
+  fastify.post('/companies', adminCreateCompanyHandler)
+
+  /** GET /api/admin/companies — paginated, searchable */
+  fastify.get('/companies', adminListCompaniesHandler)
+
+  /** GET /api/admin/companies/:id/deletion-impact — what a delete would destroy */
+  fastify.get('/companies/:id/deletion-impact', adminCompanyDeletionImpactHandler)
+
+  /** GET /api/admin/companies/:id/overview — profile + fleet and roster counts */
+  fastify.get('/companies/:id/overview', adminCompanyOverviewHandler)
+
+  /** POST /api/admin/companies/:id/resend-credentials */
+  fastify.post('/companies/:id/resend-credentials', adminResendCompanyCredentialsHandler)
+
+  /** PATCH /api/admin/companies/:id/review — approve / reject / suspend */
+  fastify.patch('/companies/:id/review', adminReviewCompanyHandler)
+
+  /** GET /api/admin/companies/:id */
+  fastify.get('/companies/:id', adminGetCompanyHandler)
+
+  /** PATCH /api/admin/companies/:id */
+  fastify.patch('/companies/:id', adminUpdateCompanyHandler)
+
+  /** DELETE /api/admin/companies/:id — company + all its vehicles + its login */
+  fastify.delete('/companies/:id', adminDeleteCompanyHandler)
+
+  // ─── Company Vehicles ──────────────────────────────────────────────────────
+
+  /** GET /api/admin/company-vehicles — paginated, filter by company/status */
+  fastify.get('/company-vehicles', adminListCompanyVehiclesHandler)
+
+  /** POST /api/admin/company-vehicles — register a truck for a company */
+  fastify.post('/company-vehicles', adminCreateCompanyVehicleHandler)
+
+  /** PATCH /api/admin/company-vehicles/:id/review */
+  fastify.patch('/company-vehicles/:id/review', adminReviewCompanyVehicleHandler)
+
+  /** PATCH /api/admin/company-vehicles/:id/operational-status */
+  fastify.patch('/company-vehicles/:id/operational-status', adminCompanyVehicleOperationalStatusHandler)
+
+  /** PATCH /api/admin/company-vehicles/:id/assign-driver */
+  fastify.patch('/company-vehicles/:id/assign-driver', adminAssignCompanyVehicleDriverHandler)
+
+  /** DELETE /api/admin/company-vehicles/:id */
+  fastify.delete('/company-vehicles/:id', adminDeleteCompanyVehicleHandler)
+
+  // ─── Company Drivers ───────────────────────────────────────────────────────
+  // Company drivers are ordinary role-3 drivers carrying a company_id, so they
+  // stay dispatchable by every existing code path.
+
+  /**
+   * GET /api/admin/drivers-for-dispatch — assignable drivers + their current truck.
+   * Contains '/drivers', so resolvePermissionKey maps it to 'drivers.verify', which
+   * dispatchers and admins hold. Correct for a dispatch-side list.
+   */
+  fastify.get('/drivers-for-dispatch', adminDriversForDispatchHandler)
+
+  /**
+   * GET /api/admin/vehicles-for-dispatch — every dispatchable truck, all three fleets.
+   * Contains '/vehicles', so it resolves to 'vehicles.manage'.
+   */
+  fastify.get('/vehicles-for-dispatch', adminVehiclesForDispatchHandler)
+
+  /** GET /api/admin/company-drivers — the roster, filter by company */
+  fastify.get('/company-drivers', adminListCompanyDriversHandler)
+
+  /** POST /api/admin/company-drivers — register a driver onto a company roster */
+  fastify.post('/company-drivers', adminCreateCompanyDriverHandler)
+
+  /** POST /api/admin/company-drivers/:id/resend-credentials */
+  fastify.post('/company-drivers/:id/resend-credentials', adminResendCompanyDriverCredentialsHandler)
+
+  /** PATCH /api/admin/company-drivers/:id */
+  fastify.patch('/company-drivers/:id', adminUpdateCompanyDriverHandler)
+
+  /** DELETE /api/admin/company-drivers/:id — detach by default, ?mode=purge deletes */
+  fastify.delete('/company-drivers/:id', adminRemoveCompanyDriverHandler)
+
   /** POST /api/admin/users/car-owner — register a Car Owner on their behalf */
   fastify.post('/users/car-owner', adminCreateCarOwnerHandler)
+
+  /**
+   * POST /api/admin/users/driver — register a Driver on their behalf.
+   * Singular "driver" is deliberate: resolvePermissionKey matches '/drivers'
+   * (→ drivers.verify) before '/users' (→ users.manage), so a plural path would
+   * silently resolve to the wrong permission.
+   */
+  fastify.post('/users/driver', adminCreateDriverHandler)
+
+  /** POST /api/admin/users/driver/:id/resend-credentials — new password by SMS */
+  fastify.post('/users/driver/:id/resend-credentials', adminResendDriverCredentialsHandler)
 
   /** PUT /api/admin/users/:id — update user details */
   fastify.put('/users/:id', adminUpdateUserHandler)
@@ -570,8 +758,9 @@ export default async function adminRoutes(fastify: FastifyInstance) {
   fastify.put('/settings/contact',    adminUpdateContactInfoHandler)
   fastify.get('/settings/ai',         adminGetAiSettingsHandler)
   fastify.put('/settings/ai',         adminUpdateAiSettingsHandler)
-  fastify.get('/settings/twilio',     adminGetTwilioSettingsHandler)
-  fastify.put('/settings/twilio',     adminUpdateTwilioSettingsHandler)
+  fastify.get('/settings/sms',        adminGetSmsSettingsHandler)
+  fastify.put('/settings/sms',        adminUpdateSmsSettingsHandler)
+  fastify.post('/settings/sms/test',  adminTestSmsHandler)
   fastify.get('/bank-accounts',       adminListBankAccountsHandler)
   fastify.post('/bank-accounts',      adminCreateBankAccountHandler)
   fastify.put('/bank-accounts/:id',   adminUpdateBankAccountHandler)

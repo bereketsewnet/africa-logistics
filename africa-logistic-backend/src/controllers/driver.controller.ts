@@ -174,6 +174,12 @@ export async function getDriverReportHandler(
 
   const profile = profileRows[0] ?? {}
 
+  // The profile query joins the platform `vehicles` table only. Resolve the real
+  // truck across all three fleets so a driver on a car owner's or company's vehicle
+  // is not told they have none.
+  const { resolveDriverVehicle } = await import('../services/order-vehicle.service.js')
+  const ownVehicle = await resolveDriverVehicle(db, String(driver.id))
+
   const [summaryRows] = await db.query<any[]>(`
     SELECT
       COUNT(*)                                                                 AS total_jobs,
@@ -308,13 +314,18 @@ export async function getDriverReportHandler(
         average_rating: Number(profile.average_rating ?? 0),
         streak_days: Number(profile.streak_days ?? 0),
         last_trip_date: profile.last_trip_date ? String(profile.last_trip_date) : null,
-        vehicle: profile.plate_number ? {
-          plate_number: String(profile.plate_number),
-          vehicle_type: String(profile.vehicle_type ?? '—'),
-          max_capacity_kg: Number(profile.max_capacity_kg ?? 0),
+        // Resolved across all three fleets. The query above joins the platform
+        // `vehicles` table only, so a driver crewing a car owner's or a company's
+        // truck used to be told they had no vehicle at all.
+        vehicle: ownVehicle ? {
+          plate_number: ownVehicle.plate_number,
+          vehicle_type: ownVehicle.vehicle_type ?? '—',
+          max_capacity_kg: Number(ownVehicle.max_capacity_kg ?? 0),
           driver_submission_status: String(profile.driver_submission_status ?? 'APPROVED'),
-          is_approved: Boolean(profile.is_approved),
-          is_active: Boolean(profile.is_active),
+          is_approved: ownVehicle.source === 'FLEET' ? Boolean(profile.is_approved) : true,
+          is_active: ownVehicle.source === 'FLEET' ? Boolean(profile.is_active) : true,
+          source: ownVehicle.source,
+          company_name: ownVehicle.company_name ?? null,
         } : null,
       },
       summary: {

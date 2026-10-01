@@ -7,10 +7,6 @@ import {
   coGetVehicleHandler,
   coListEligibleDriversHandler,
   coAssignDriverHandler,
-  adminListCarOwnerVehiclesHandler,
-  adminReviewCarOwnerVehicleHandler,
-  adminAssignDriverToCarOwnerVehicleHandler,
-  adminListDriversForCarAssignHandler,
 } from '../controllers/carowner.controller.js'
 
 export default async function carOwnerRoutes(fastify: FastifyInstance) {
@@ -85,41 +81,9 @@ export default async function carOwnerRoutes(fastify: FastifyInstance) {
     }, coAssignDriverHandler)
   })
 
-  // ── Admin car-owner management routes ──────────────────────────────────────
-  fastify.register(async (adm) => {
-    adm.addHook('onRequest', fastify.authenticate)
-    adm.addHook('onRequest', async (req, reply) => {
-      const user = (req as any).user
-      if (![1, 4, 5].includes(user.role_id)) return reply.status(403).send({ success: false, message: 'Admin only.' })
-    })
-
-    // GET  /api/admin/car-owner-vehicles
-    adm.get('/api/admin/car-owner-vehicles', adminListCarOwnerVehiclesHandler)
-    // PATCH /api/admin/car-owner-vehicles/:id/review
-    adm.patch('/api/admin/car-owner-vehicles/:id/review', {
-      schema: {
-        body: {
-          type: 'object',
-          required: ['action'],
-          properties: {
-            action:     { type: 'string', enum: ['APPROVED', 'REJECTED'] },
-            admin_note: { type: 'string', maxLength: 500 },
-          },
-        },
-      },
-    }, adminReviewCarOwnerVehicleHandler)
-    // PATCH /api/admin/car-owner-vehicles/:id/assign-driver
-    adm.patch('/api/admin/car-owner-vehicles/:id/assign-driver', {
-      schema: {
-        body: {
-          type: 'object',
-          properties: {
-            driver_id: { type: ['string', 'null'] },
-          },
-        },
-      },
-    }, adminAssignDriverToCarOwnerVehicleHandler)
-    // GET  /api/admin/drivers-for-car-assign
-    adm.get('/api/admin/drivers-for-car-assign', adminListDriversForCarAssignHandler)
-  })
+  // The admin car-owner routes used to live here, in a sibling plugin to
+  // /api/admin. That meant they inherited neither the RBAC permission hook nor the
+  // PII hook, and were gated only by a hardcoded [1,4,5] role check — so any staff
+  // account could approve a vehicle or assign a driver. They now live in
+  // routes/admin.ts, which is what makes a permission mean anything.
 }

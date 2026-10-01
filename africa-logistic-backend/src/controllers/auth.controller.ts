@@ -61,7 +61,7 @@ function isValidE164Phone(value: unknown): value is string {
 
 /**
  * POST /api/auth/register/request-otp
- * Step 1 of registration: check phone doesn't exist, then send OTP via Twilio.
+ * Step 1 of registration: check phone doesn't exist, then send the OTP by SMS.
  */
 export async function requestOtpHandler(
   request: FastifyRequest<{ Body: RequestOtpBody }>,
@@ -105,7 +105,7 @@ export async function requestOtpHandler(
     })
   }
 
-  // Generate OTP and send it via Twilio SMS (or console.log in dev mode)
+  // Generate the OTP and send it through the SMS provider
   try {
     await generateAndSendOtp(phone_number, request.server.db)
   } catch (err: any) {
@@ -187,6 +187,23 @@ export async function verifyOtpHandler(
     if (err?.code === 'ER_DUP_ENTRY') return reply.status(409).send({ success: false, message: 'This phone number or email address is already registered.' })
     request.server.log.error({ err }, 'Failed to create registration account')
     return reply.status(500).send({ success: false, message: 'Unable to create the account. Please try again.' })
+  }
+
+  // A driver needs their profile row from the moment the account exists.
+  //
+  // It used to be created lazily, and only when they first uploaded a document, so a
+  // driver who registered and never uploaded had no row at all. Every admin driver
+  // list inner-joins driver_profiles, which meant those drivers were invisible in
+  // Verify Drivers under every filter — registered, but impossible to verify or
+  // dispatch. A failure here must not void a created account, so it is logged and
+  // swallowed; the upload path still upserts the same row.
+  if (role_id === 3) {
+    try {
+      const { ensureDriverProfile } = await import('../services/profile.service.js')
+      await ensureDriverProfile(request.server.db, userId)
+    } catch (err) {
+      request.server.log.error({ err, userId }, 'Could not create driver profile at registration')
+    }
   }
 
   // An email is optional. A failure to dispatch its verification message never
@@ -278,6 +295,9 @@ export async function loginHandler(
       role_name:    user.role_name,
       first_name:   user.first_name,
       last_name:    user.last_name,
+      // Drivers created by an admin get a texted password that works once.
+      // The client routes them straight to a change-password screen.
+      must_change_password: Number((user as any).must_change_password ?? 0) === 1,
     },
   })
 }
@@ -391,6 +411,33 @@ export async function meHandler(
 
   // Return profile without the password hash
   const { password_hash, ...profile } = user
+
+  // Role 6 is both individual car owners and transport companies. The company
+  // row is what tells them apart, and the frontend needs it to pick which portal
+  // to render. Enriched here rather than inside findUserById on purpose: that
+  // function feeds half a dozen other responses, so widening it would change
+  // payloads nothing asked to change.
+  if (Number(profile.role_id) === 6) {
+    try {
+      const { getCompanyForUser } = await import('../services/company-portal.service.js')
+      const company = await getCompanyForUser(request.server.db, userId)
+      return reply.send({
+        success: true,
+        user: {
+          ...profile,
+          company_id: company?.id ?? null,
+          company_name: company?.company_name ?? null,
+          company_status: company?.status ?? null,
+        },
+      })
+    } catch (err) {
+      // /auth/me is on the critical path for every car owner. A failure looking
+      // up the company must degrade to "individual" — which is the dashboard
+      // that has always worked — rather than locking them out of the app.
+      request.server.log.error({ err }, 'Company lookup failed in /auth/me; serving profile without it')
+    }
+  }
+
   return reply.send({ success: true, user: profile })
 }
 
@@ -668,6 +715,9 @@ export async function loginEmailHandler(
       role_name:    user.role_name,
       first_name:   user.first_name,
       last_name:    user.last_name,
+      // Drivers created by an admin get a texted password that works once.
+      // The client routes them straight to a change-password screen.
+      must_change_password: Number((user as any).must_change_password ?? 0) === 1,
     },
   })
 }

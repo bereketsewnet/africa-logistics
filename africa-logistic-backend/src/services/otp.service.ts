@@ -2,7 +2,7 @@
  * OTP Service (src/services/otp.service.ts)
  *
  * Manages One-Time Password (OTP) generation, storage, and verification,
- * then dispatches the OTP to the user's phone via Twilio SMS.
+ * then dispatches the OTP to the user's phone through the SMS provider.
  *
  * Storage Strategy:
  *   OTPs are stored in a server-side in-memory Map with a 10-minute TTL.
@@ -10,13 +10,14 @@
  *   Map with a Redis TTL key (e.g., SET otp:+251911... 123456 EX 600).
  */
 
-import twilio from 'twilio'
+import crypto from 'crypto'
+import { sendSms } from './sms.service.js'
 import type { Pool } from 'mysql2/promise'
-import { getTwilioCredentials } from './twilio-settings.service.js'
 
-// ─── Twilio Client ────────────────────────────────────────────────────────────
-// Lazily initialized so the server can start even without Twilio creds
-// (useful during local dev when you haven't set up Twilio yet).
+// ─── SMS dispatch ─────────────────────────────────────────────────────────────
+// Delivery goes through sms.service, which reads the provider credentials from
+// the database. An unconfigured provider fails the send with a readable message
+// rather than stopping the server from starting.
 
 // ─── In-Memory OTP Store ──────────────────────────────────────────────────────
 interface OtpRecord {
@@ -33,13 +34,14 @@ const OTP_TTL_MS = 10 * 60 * 1000 // 10 minutes
 
 /**
  * Generates a cryptographically random 6-digit OTP, saves it in memory
- * with a 10-minute expiry, and sends it via Twilio SMS.
+ * with a 10-minute expiry, and sends it by SMS.
  *
  * @param phoneNumber  The recipient's phone in E.164 format (+251911234567)
  */
 export async function generateAndSendOtp(phoneNumber: string, db: Pool): Promise<void> {
-  // Generate a random 6-digit number (100000–999999)
-  const otp = Math.floor(100000 + Math.random() * 900000).toString()
+  // Six digits from a cryptographic source. `Math.random()` is predictable and
+  // has no place generating a credential, even a short-lived one.
+  const otp = String(crypto.randomInt(100000, 1000000))
 
   // Store it with an expiry timestamp
   otpStore.set(phoneNumber, {
@@ -47,14 +49,18 @@ export async function generateAndSendOtp(phoneNumber: string, db: Pool): Promise
     expiresAt: Date.now() + OTP_TTL_MS,
   })
 
-  const credentials = await getTwilioCredentials(db)
-  if (!credentials) throw new Error('Twilio is not configured. Add the Account SID, Auth Token, and sender number in Admin Settings before enabling SMS OTP.')
-  const client = twilio(credentials.accountSid, credentials.authToken)
-  await client.messages.create({
-    body: `Your Afri Logistics verification code is: ${otp}. It expires in 10 minutes.`,
-    from: credentials.from,
-    to: phoneNumber,
-  })
+  const result = await sendSms(
+    db,
+    phoneNumber,
+    `Your Afri Logistics verification code is: ${otp}. It expires in 10 minutes.`,
+    'OTP'
+  )
+
+  if (!result.ok) {
+    // Drop the code rather than leave one stored that the user never received.
+    otpStore.delete(phoneNumber)
+    throw new Error(result.error ?? 'The verification code could not be sent.')
+  }
 }
 
 /**

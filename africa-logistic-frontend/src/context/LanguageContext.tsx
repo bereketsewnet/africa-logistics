@@ -23,6 +23,17 @@ export type Lang = 'en' | 'am' | 'om'
 // ─── Translation dictionary ───────────────────────────────────────────────────
 export const translations: Record<Lang, Record<string, string>> = {
   en: {
+    // ─── Company portal (cmp_*) ───────────────────────────────────────────
+    cmp_nav_overview: 'Overview',
+    cmp_nav_fleet: 'Fleet',
+    cmp_nav_drivers: 'Drivers',
+    cmp_nav_company: 'Company',
+    cmp_stat_vehicles: 'Vehicles',
+    cmp_stat_ready: 'Ready to dispatch',
+    cmp_stat_awaiting: 'Awaiting approval',
+    cmp_stat_crewed: 'With a driver',
+    cmp_stat_drivers: 'Drivers',
+    cmp_stat_unverified: 'Unverified',
     // new missing keys:
     car_owner_badge: 'Car Owner',
     my_vehicles: 'My Vehicles',
@@ -2171,6 +2182,17 @@ export const translations: Record<Lang, Record<string, string>> = {
     odm_cancel_fail: 'Cannot cancel this order.',
   },
   om: {
+    // ─── Company portal (cmp_*) ───────────────────────────────────────────
+    "cmp_nav_overview": "Gabaasa Waliigalaa",
+    "cmp_nav_fleet": "Konkolaattota",
+    "cmp_nav_drivers": "Konkolaachiftoota",
+    "cmp_nav_company": "Dhaabbata",
+    "cmp_stat_vehicles": "Konkolaattota",
+    "cmp_stat_ready": "Hojiif qophii",
+    "cmp_stat_awaiting": "Mirkaneeffannoo eeggachaa",
+    "cmp_stat_crewed": "Konkolaachisaa qaban",
+    "cmp_stat_drivers": "Konkolaachiftoota",
+    "cmp_stat_unverified": "Kan hin mirkanoofne",
     "hp_menu_home": "Fuula Duraa",
     "hp_menu_services": "Tajaajiloota",
     "hp_menu_about": "Waa'ee Keenya",
@@ -4177,6 +4199,17 @@ export const translations: Record<Lang, Record<string, string>> = {
   },
 
   am: {
+    // ─── Company portal (cmp_*) ───────────────────────────────────────────
+    cmp_nav_overview: 'ማጠቃለያ',
+    cmp_nav_fleet: 'ተሽከርካሪዎች',
+    cmp_nav_drivers: 'ሹፌሮች',
+    cmp_nav_company: 'ድርጅት',
+    cmp_stat_vehicles: 'ተሽከርካሪዎች',
+    cmp_stat_ready: 'ለሥራ ዝግጁ',
+    cmp_stat_awaiting: 'ማረጋገጫ በመጠባበቅ ላይ',
+    cmp_stat_crewed: 'ሹፌር ያላቸው',
+    cmp_stat_drivers: 'ሹፌሮች',
+    cmp_stat_unverified: 'ያልተረጋገጡ',
     // new missing keys:
     car_owner_badge: 'የመኪና ባለቤት',
     my_vehicles: 'የእኔ ተሽከርካሪዎች',

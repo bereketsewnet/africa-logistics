@@ -26,6 +26,27 @@ import {
 export default async function driverRoutes(fastify: FastifyInstance) {
   fastify.addHook('onRequest', fastify.authenticate)
 
+  /**
+   * A driver whose password was issued by an admin over SMS must set their own
+   * before working. Enforced here rather than only in the client: a flag the
+   * frontend merely respects is advisory, and this one protects a credential
+   * that travelled in plain text.
+   */
+  fastify.addHook('onRequest', async (request, reply) => {
+    const user = request.user as { id: string }
+    const [[row]] = await fastify.db.query<any[]>(
+      'SELECT must_change_password FROM users WHERE id = ? LIMIT 1',
+      [user.id]
+    )
+    if (Number(row?.must_change_password ?? 0) === 1) {
+      return reply.status(403).send({
+        success: false,
+        must_change_password: true,
+        message: 'Set your own password before continuing.',
+      })
+    }
+  })
+
   // ── GPS Location Ping ─────────────────────────────────────────────────────────
 
   /**

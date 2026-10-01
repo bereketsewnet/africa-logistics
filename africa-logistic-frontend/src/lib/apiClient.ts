@@ -373,10 +373,36 @@ export const adminOrderApi = {
   updateSystemConfig: (data: { maintenance_mode?: boolean; maintenance_message?: string; app_version?: string; phone_otp_enabled?: boolean }) =>
     apiClient.put('/admin/system-config', data),
 
-  getTwilioSettings: () =>
-    apiClient.get('/admin/settings/twilio'),
-  updateTwilioSettings: (data: { account_sid?: string; auth_token?: string; phone_number?: string }) =>
-    apiClient.put('/admin/settings/twilio', data),
+  getSmsSettings: () =>
+    apiClient.get('/admin/settings/sms'),
+
+  updateSmsSettings: (data: { api_key?: string; sender_id?: string; base_url?: string; is_enabled?: boolean }) =>
+    apiClient.put('/admin/settings/sms', data),
+
+  /** Send one real SMS to prove the provider setup. Costs one credit. */
+  testSms: (phone_number: string) =>
+    apiClient.post('/admin/settings/sms/test', { phone_number }),
+
+  /** Register a driver on their behalf. Documents optional; password is texted. */
+  createDriver: (data: {
+    first_name: string; last_name?: string; phone_number: string; email?: string
+    national_id?: string; license?: string; libre?: string
+  }) => apiClient.post('/admin/users/driver', data),
+
+  /**
+   * Assignable drivers, each carrying the truck they are currently on — resolved
+   * across the platform fleet, car owners and companies. Vehicle auto-fill reads
+   * this; the old platform-only list could never match a company truck.
+   */
+  driversForDispatch: (search?: string) =>
+    apiClient.get('/admin/drivers-for-dispatch', { params: search ? { search } : undefined }),
+
+  /** Every truck that may carry an order, all three fleets. Powers the override. */
+  vehiclesForDispatch: () => apiClient.get('/admin/vehicles-for-dispatch'),
+
+  /** Issue a fresh password and text it again. */
+  resendDriverCredentials: (id: string) =>
+    apiClient.post(`/admin/users/driver/${id}/resend-credentials`, {}),
 
   // ── RBAC Role Management (9.4) ───────────────────────────────────────────
   getMyPermissions: () =>
@@ -568,6 +594,64 @@ export const carOwnerApi = {
     apiClient.patch(`/car-owner/vehicles/${vehicleId}/assign-driver`, { driver_id: driverId }),
 }
 
+// ─── Company Portal API ───────────────────────────────────────────────────────
+// What a transport company does for itself. Everything is scoped server-side to
+// the company behind the session — no company id is ever sent from here, because
+// one that could be sent could be changed.
+export const companyApi = {
+  /** 403 with code INDIVIDUAL_CAR_OWNER means this login is not a company. */
+  profile: () => apiClient.get('/company/profile'),
+
+  /** Overview counts plus the specific rows needing attention, in one call. */
+  dashboard: () => apiClient.get('/company/dashboard'),
+
+  listVehicles: (params?: {
+    page?: number; limit?: number; search?: string
+    status?: string; operational_status?: string; assigned?: 'yes' | 'no'
+    sort?: string; direction?: 'ASC' | 'DESC'
+  }) => apiClient.get('/company/vehicles', { params }),
+
+  /** Created PENDING — usable for dispatch only once an admin approves it. */
+  createVehicle: (data: {
+    plate_number: string; vehicle_type: string; model?: string
+    color?: string; year?: number; max_capacity_kg?: number; description?: string
+    vehicle_photo?: string; vehicle_images?: string[]; libre_file?: string
+  }) => apiClient.post('/company/vehicles', data),
+
+  updateVehicle: (id: string, data: Record<string, any>) =>
+    apiClient.patch(`/company/vehicles/${id}`, data),
+
+  /** No approval step — the company knows when its own truck is off the road. */
+  setOperationalStatus: (
+    id: string,
+    operational_status: 'ACTIVE' | 'INACTIVE' | 'MAINTENANCE' | 'OUT_OF_SERVICE',
+    note?: string,
+  ) => apiClient.patch(`/company/vehicles/${id}/operational-status`, { operational_status, note }),
+
+  deleteVehicle: (id: string) => apiClient.delete(`/company/vehicles/${id}`),
+
+  listEligibleDrivers: (vehicleId: string) =>
+    apiClient.get(`/company/vehicles/${vehicleId}/eligible-drivers`),
+
+  assignDriver: (vehicleId: string, driverId: string | null) =>
+    apiClient.patch(`/company/vehicles/${vehicleId}/assign-driver`, { driver_id: driverId }),
+
+  listDrivers: (params?: { page?: number; limit?: number; search?: string; verified?: 'yes' | 'no' }) =>
+    apiClient.get('/company/drivers', { params }),
+
+  /** They can sign in at once, but cannot drive until an admin verifies them. */
+  createDriver: (data: {
+    first_name: string; last_name?: string; phone_number: string; email?: string
+    national_id?: string; license?: string; libre?: string
+  }) => apiClient.post('/company/drivers', data),
+
+  updateDriver: (id: string, data: { first_name?: string; last_name?: string; email?: string }) =>
+    apiClient.patch(`/company/drivers/${id}`, data),
+
+  /** Takes them off the roster; the person's account is kept. */
+  removeDriver: (id: string) => apiClient.delete(`/company/drivers/${id}`),
+}
+
 // ─── Admin Car Owner API ──────────────────────────────────────────────────────
 export const adminCarOwnerApi = {
   listVehicles: () =>
@@ -578,4 +662,90 @@ export const adminCarOwnerApi = {
     apiClient.patch(`/admin/car-owner-vehicles/${id}/assign-driver`, { driver_id }),
   listDriversForAssign: () =>
     apiClient.get('/admin/drivers-for-car-assign'),
+}
+
+// ─── Admin: Transport Companies ───────────────────────────────────────────────
+export const adminCompanyApi = {
+  list: (params?: { page?: number; limit?: number; search?: string; status?: string }) =>
+    apiClient.get('/admin/companies', { params }),
+
+  get: (id: string) => apiClient.get(`/admin/companies/${id}`),
+
+  /** Creates the company and its login together; the password is texted. */
+  create: (data: {
+    company_name: string; legal_name?: string; tin_number?: string
+    license_number?: string; city?: string; address_line?: string
+    first_name: string; last_name?: string; phone_number: string; email?: string
+  }) => apiClient.post('/admin/companies', data),
+
+  update: (id: string, data: Record<string, string>) =>
+    apiClient.patch(`/admin/companies/${id}`, data),
+
+  review: (id: string, data: { action: 'APPROVED' | 'REJECTED' | 'SUSPENDED'; admin_note?: string }) =>
+    apiClient.patch(`/admin/companies/${id}/review`, data),
+
+  resendCredentials: (id: string) =>
+    apiClient.post(`/admin/companies/${id}/resend-credentials`, {}),
+
+  /** What deleting this company would destroy — shown before confirming. */
+  deletionImpact: (id: string) =>
+    apiClient.get(`/admin/companies/${id}/deletion-impact`),
+
+  /** Deletes the company, every vehicle it owns, and its login. Irreversible. */
+  remove: (id: string) => apiClient.delete(`/admin/companies/${id}`),
+
+  /** Profile plus fleet and roster counts, for the company detail screen. */
+  overview: (id: string) => apiClient.get(`/admin/companies/${id}/overview`),
+}
+
+// ─── Admin: Company Drivers ───────────────────────────────────────────────────
+// A company driver is an ordinary role-3 driver carrying a company_id, which is
+// why they stay dispatchable everywhere else in the system.
+export const adminCompanyDriverApi = {
+  list: (params?: { page?: number; limit?: number; search?: string; company_id?: string; status?: string }) =>
+    apiClient.get('/admin/company-drivers', { params }),
+
+  /** Registered active and verified on the spot; the password is texted. */
+  create: (data: {
+    company_id: string
+    first_name: string; last_name?: string; phone_number: string; email?: string
+    national_id?: string; license?: string; libre?: string
+  }) => apiClient.post('/admin/company-drivers', data),
+
+  update: (id: string, data: { first_name?: string; last_name?: string; email?: string; company_id?: string }) =>
+    apiClient.patch(`/admin/company-drivers/${id}`, data),
+
+  resendCredentials: (id: string) =>
+    apiClient.post(`/admin/company-drivers/${id}/resend-credentials`, {}),
+
+  /** Takes them off the roster but keeps the account and its history. */
+  detach: (id: string) => apiClient.delete(`/admin/company-drivers/${id}`),
+
+  /** Deletes the person entirely. Super admin only. */
+  purge: (id: string) => apiClient.delete(`/admin/company-drivers/${id}`, { params: { mode: 'purge' } }),
+}
+
+// ─── Admin: Company Vehicles ──────────────────────────────────────────────────
+export const adminCompanyVehicleApi = {
+  list: (params?: {
+    page?: number; limit?: number; search?: string
+    company_id?: string; status?: string; operational_status?: string
+  }) => apiClient.get('/admin/company-vehicles', { params }),
+
+  create: (data: {
+    company_id: string; plate_number: string; vehicle_type: string
+    model?: string; color?: string; year?: number; max_capacity_kg?: number; description?: string
+    vehicle_photo?: string; vehicle_images?: string[]; libre_file?: string
+  }) => apiClient.post('/admin/company-vehicles', data),
+
+  review: (id: string, data: { action: 'APPROVED' | 'REJECTED'; admin_note?: string }) =>
+    apiClient.patch(`/admin/company-vehicles/${id}/review`, data),
+
+  setOperationalStatus: (id: string, operational_status: string, note?: string) =>
+    apiClient.patch(`/admin/company-vehicles/${id}/operational-status`, { operational_status, note }),
+
+  assignDriver: (id: string, driver_id: string | null) =>
+    apiClient.patch(`/admin/company-vehicles/${id}/assign-driver`, { driver_id }),
+
+  remove: (id: string) => apiClient.delete(`/admin/company-vehicles/${id}`),
 }

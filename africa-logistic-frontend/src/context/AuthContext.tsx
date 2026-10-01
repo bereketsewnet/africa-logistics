@@ -41,6 +41,15 @@ export interface AuthUser {
   is_email_verified?: number
   is_phone_verified?: number
   theme_preference?: 'LIGHT' | 'DARK' | 'SYSTEM'
+  /**
+   * Role 6 covers both individual car owners and transport companies. These are
+   * returned by /auth/me for role 6 only and are what tells the two apart, so
+   * the right portal can be rendered. Always null/undefined for an individual,
+   * which means a partial deploy falls back to the individual dashboard.
+   */
+  company_id?: string | null
+  company_name?: string | null
+  company_status?: string | null
 }
 
 interface AuthContextType {

@@ -1,19 +1,23 @@
-import { lazy, Suspense, useEffect, useState } from 'react'
+import { Suspense, useEffect, useState } from 'react'
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import ProtectedRoute       from './components/ProtectedRoute'
+import ErrorBoundary        from './components/ErrorBoundary'
 import { configApi } from './lib/apiClient'
+import { lazyWithReload } from './lib/lazyWithReload'
 
 // Keep the first download small: users only fetch the page they visit. Heavy
 // dashboard dependencies (maps, charts and PDF generation) are no longer part
 // of the public homepage/login startup bundle.
-const HomePage = lazy(() => import('./pages/HomePage'))
-const LoginPage = lazy(() => import('./pages/LoginPage'))
-const RegisterPage = lazy(() => import('./pages/RegisterPage'))
-const DashboardPage = lazy(() => import('./pages/DashboardPage'))
-const AdminDashboardPage = lazy(() => import('./pages/AdminDashboardPage'))
-const CarOwnerDashboard = lazy(() => import('./pages/CarOwnerDashboard'))
-const ForgotPasswordPage = lazy(() => import('./pages/ForgotPasswordPage'))
-const VerifyEmailPage = lazy(() => import('./pages/VerifyEmailPage'))
+const HomePage = lazyWithReload(() => import('./pages/HomePage'))
+const LoginPage = lazyWithReload(() => import('./pages/LoginPage'))
+const RegisterPage = lazyWithReload(() => import('./pages/RegisterPage'))
+const DashboardPage = lazyWithReload(() => import('./pages/DashboardPage'))
+const AdminDashboardPage = lazyWithReload(() => import('./pages/AdminDashboardPage'))
+// Role 6 is both individual car owners and transport companies; this entry
+// component picks the right portal. The route itself is unchanged.
+const CarPortalEntry = lazyWithReload(() => import('./pages/CarPortalEntry'))
+const ForgotPasswordPage = lazyWithReload(() => import('./pages/ForgotPasswordPage'))
+const VerifyEmailPage = lazyWithReload(() => import('./pages/VerifyEmailPage'))
 
 function RouteLoader() {
   return (
@@ -83,7 +87,8 @@ export default function App() {
   return (
     <BrowserRouter>
       <RouteSeoGuard />
-      <Suspense fallback={<RouteLoader />}>
+      <ErrorBoundary>
+        <Suspense fallback={<RouteLoader />}>
         <Routes>
           <Route path="/"                element={<HomePage />} />
           <Route path="/login"           element={<LoginPage />} />
@@ -110,13 +115,14 @@ export default function App() {
             path="/car-dashboard"
             element={
               <ProtectedRoute allowedRoles={[6]}>
-                <CarOwnerDashboard />
+                <CarPortalEntry />
               </ProtectedRoute>
             }
           />
           <Route path="*" element={<Navigate to="/login" replace />} />
         </Routes>
       </Suspense>
+      </ErrorBoundary>
     </BrowserRouter>
   )
 }

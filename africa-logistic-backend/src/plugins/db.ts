@@ -300,6 +300,19 @@ export default fp(async function dbPlugin(fastify: FastifyInstance) {
         await conn.query(`ALTER TABLE \`${table}\` ADD INDEX \`${indexName}\` ${definition}`)
       }
     }
+    // ...nor ADD CONSTRAINT IF NOT EXISTS. Re-adding an existing foreign key is
+    // an error, which on this boot path would stop the server starting.
+    const addForeignKeyIfMissing = async (table: string, name: string, definition: string) => {
+      const [rows] = await conn.query<any[]>(
+        `SELECT CONSTRAINT_NAME FROM information_schema.TABLE_CONSTRAINTS
+          WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ?
+            AND CONSTRAINT_TYPE = 'FOREIGN KEY' AND CONSTRAINT_NAME = ?`,
+        [dbName, table, name]
+      )
+      if ((rows as any[]).length === 0) {
+        await conn.query(`ALTER TABLE \`${table}\` ADD CONSTRAINT \`${name}\` ${definition}`)
+      }
+    }
     await addColIfMissing('pricing_rules', 'per_kg_rate',    'DECIMAL(10,4) DEFAULT 0.0000 AFTER per_km_rate')
     await addColIfMissing('pricing_rules', 'additional_fees','JSON NULL AFTER city_surcharge')
     await addColIfMissing('orders',        'order_image_1_url',    'VARCHAR(500) NULL')
@@ -356,6 +369,16 @@ export default fp(async function dbPlugin(fastify: FastifyInstance) {
     // untouched. Only an admin hard-deletes the row for everyone.
     await addColIfMissing('orders',        'hidden_by_shipper',     "TINYINT(1) NOT NULL DEFAULT 0")
 
+    // ─── Which fleet the order's vehicle came from ────────────────────────────
+    // orders.vehicle_id is a bare CHAR(36) that could point at `vehicles`,
+    // `car_owner_vehicles` or `company_vehicles`, so the id alone cannot be
+    // resolved back to a truck. This column records which.
+    //
+    // No foreign key, deliberately: a single column cannot reference one of three
+    // tables. NULL on historical rows honestly means "we never recorded it".
+    await addColIfMissing('orders', 'vehicle_source', "ENUM('FLEET','CAR_OWNER','COMPANY') NULL")
+    await addIndexIfMissing('orders', 'idx_orders_vehicle', '(vehicle_id)')
+
     // ─── Car owner vehicle: operational state and documents ───────────────────
     // Approval (`status`) is the admin's decision and read-only to the owner.
     // `operational_status` is the owner's own day-to-day control — a truck can
@@ -371,6 +394,11 @@ export default fp(async function dbPlugin(fastify: FastifyInstance) {
     // stays NULL until one is actually uploaded — that distinguishes "never
     // sent" from "sent, awaiting review".
     await addColIfMissing('car_owner_vehicles', 'libre_status',     "ENUM('PENDING','APPROVED','REJECTED') NULL")
+
+    // An admin-created driver gets a generated password by SMS. It works once,
+    // then they must set their own — so an old text message sitting in an inbox
+    // stops being a working credential.
+    await addColIfMissing('users', 'must_change_password', 'TINYINT(1) NOT NULL DEFAULT 0')
     await addIndexIfMissing('car_owner_vehicles', 'idx_cov_op_status',     '(operational_status)')
     await addIndexIfMissing('car_owner_vehicles', 'idx_cov_owner_created', '(owner_id, created_at)')
 
@@ -822,6 +850,9 @@ export default fp(async function dbPlugin(fastify: FastifyInstance) {
         ('withdrawal_commission_rate', '15')
     `)
     await conn.query(`
+      -- RETIRED. Twilio was replaced by SMS Ethiopia and no code reads this
+      -- table any more. It is kept only because dropping a table is
+      -- irreversible; it can be dropped once the new provider is proven.
       CREATE TABLE IF NOT EXISTS twilio_settings (
         id           TINYINT       NOT NULL PRIMARY KEY,
         account_sid  TEXT          NULL,
@@ -832,6 +863,68 @@ export default fp(async function dbPlugin(fastify: FastifyInstance) {
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     `)
     await conn.query('INSERT IGNORE INTO twilio_settings (id) VALUES (1)')
+
+    // ─── SMS provider settings (SMS Ethiopia) ────────────────────────────────
+    // Replaces Twilio. The API key is encrypted at rest and is scoped by the
+    // provider to a single campaign — it sends only through that campaign's
+    // sender ID and balance.
+    await conn.query(`
+      CREATE TABLE IF NOT EXISTS sms_settings (
+        id         TINYINT      NOT NULL PRIMARY KEY,
+        api_key    TEXT         NULL,
+        sender_id  VARCHAR(32)  NULL,
+        base_url   VARCHAR(255) NULL,
+        is_enabled TINYINT(1)   NOT NULL DEFAULT 0,
+        updated_by CHAR(36)     NULL,
+        updated_at TIMESTAMP    DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+    `)
+    await conn.query('INSERT IGNORE INTO sms_settings (id) VALUES (1)')
+
+    // Every message costs money and delivery can only be polled, never pushed,
+    // so there has to be a record of what was sent and what it cost.
+    await conn.query(`
+      CREATE TABLE IF NOT EXISTS sms_messages (
+        id                  CHAR(36)     NOT NULL PRIMARY KEY,
+        provider_message_id VARCHAR(64)  NULL,
+        recipient           VARCHAR(32)  NOT NULL,
+        purpose             VARCHAR(32)  NOT NULL,
+        segments            INT          NOT NULL DEFAULT 0,
+        status              VARCHAR(32)  NOT NULL,
+        error_code          VARCHAR(16)  NULL,
+        error_message       VARCHAR(500) NULL,
+        created_at          TIMESTAMP    DEFAULT CURRENT_TIMESTAMP,
+        INDEX idx_sms_created   (created_at),
+        INDEX idx_sms_recipient (recipient),
+        INDEX idx_sms_provider  (provider_message_id)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+    `)
+
+    // ─── Driver profiles ─────────────────────────────────────────────────────
+    // This table had no CREATE statement anywhere in the codebase — it existed
+    // only inside init/01_backup.sql, so a fresh deployment came up without it.
+    // Admin-created drivers depend on the row existing, so it is defined here.
+    await conn.query(`
+      CREATE TABLE IF NOT EXISTS driver_profiles (
+        user_id              CHAR(36) NOT NULL PRIMARY KEY,
+        national_id_url      VARCHAR(255) NULL,
+        license_url          VARCHAR(255) NULL,
+        libre_url            VARCHAR(255) NULL,
+        national_id_status   ENUM('PENDING','APPROVED','REJECTED') DEFAULT 'PENDING',
+        license_status       ENUM('PENDING','APPROVED','REJECTED') DEFAULT 'PENDING',
+        libre_status         ENUM('PENDING','APPROVED','REJECTED') DEFAULT 'PENDING',
+        rejection_reason     TEXT NULL,
+        verified_at          TIMESTAMP NULL,
+        rating               DECIMAL(3,2) NULL,
+        total_trips          INT DEFAULT 0,
+        is_verified          TINYINT(1) DEFAULT 0,
+        status               ENUM('AVAILABLE','ON_JOB','OFFLINE','SUSPENDED') DEFAULT 'OFFLINE',
+        verified_by_admin_id CHAR(36) NULL,
+        INDEX idx_dp_verified_by (verified_by_admin_id),
+        CONSTRAINT dp_fk_user     FOREIGN KEY (user_id)              REFERENCES users(id),
+        CONSTRAINT dp_fk_verifier FOREIGN KEY (verified_by_admin_id) REFERENCES users(id)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+    `)
 
     // ─── Withdrawal Requests ──────────────────────────────────────────────────
     await conn.query(`
@@ -900,7 +993,8 @@ export default fp(async function dbPlugin(fastify: FastifyInstance) {
         ('notifications.manage','Notification Controls',      'Manage global push/email notification settings'),
         ('settings.manage',     'System Settings',            'Manage countries, vehicle types and maintenance config'),
         ('users.manage',        'User Management',            'Manage users and staff accounts'),
-        ('roles.manage',        'Role Management',            'Manage role-permission assignments')
+        ('roles.manage',        'Role Management',            'Manage role-permission assignments'),
+        ('companies.manage',    'Transport Companies',        'Manage transport companies and their vehicles')
     `)
 
     // Default permissions for role 1 (super admin) — all permissions.
@@ -1008,6 +1102,127 @@ export default fp(async function dbPlugin(fastify: FastifyInstance) {
         CONSTRAINT cov_fk_admin  FOREIGN KEY (reviewed_by)        REFERENCES users(id) ON DELETE SET NULL
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     `)
+
+    // ─── Transport Companies ─────────────────────────────────────────────────
+    // Most car owners are companies running large fleets. A company is one
+    // role-6 login plus this profile row; a role-6 user with NO row here is an
+    // individual car owner, which is what keeps the existing owners working
+    // untouched. The UNIQUE on user_id is what enforces one login per company.
+    await conn.query(`
+      CREATE TABLE IF NOT EXISTS car_owner_companies (
+        id             CHAR(36)     NOT NULL PRIMARY KEY,
+        user_id        CHAR(36)     NOT NULL,
+        company_name   VARCHAR(160) NOT NULL,
+        legal_name     VARCHAR(160) NULL,
+        tin_number     VARCHAR(40)  NULL,
+        license_number VARCHAR(60)  NULL,
+        city           VARCHAR(120) NULL,
+        address_line   VARCHAR(255) NULL,
+        status         ENUM('PENDING','APPROVED','REJECTED','SUSPENDED') NOT NULL DEFAULT 'PENDING',
+        admin_note     TEXT         NULL,
+        reviewed_by    CHAR(36)     NULL,
+        reviewed_at    TIMESTAMP    NULL,
+        created_by     CHAR(36)     NULL,
+        created_at     TIMESTAMP    DEFAULT CURRENT_TIMESTAMP,
+        updated_at     TIMESTAMP    DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        UNIQUE KEY uq_coc_user (user_id),
+        INDEX idx_coc_status (status),
+        INDEX idx_coc_name (company_name),
+        CONSTRAINT coc_fk_user     FOREIGN KEY (user_id)     REFERENCES users(id) ON DELETE CASCADE,
+        CONSTRAINT coc_fk_reviewer FOREIGN KEY (reviewed_by) REFERENCES users(id) ON DELETE SET NULL,
+        CONSTRAINT coc_fk_creator  FOREIGN KEY (created_by)  REFERENCES users(id) ON DELETE SET NULL
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+    `)
+
+    // ─── Company Vehicles ────────────────────────────────────────────────────
+    // Same shape as car_owner_vehicles, but owned by a company rather than a
+    // person. Kept as its own table so a company fleet can grow to hundreds of
+    // trucks without entangling the individual-owner flow.
+    //
+    // Three independent axes, deliberately separate:
+    //   status             — the admin's approval decision
+    //   operational_status — the fleet's own day-to-day availability
+    //   on a job           — derived from the driver, never stored here
+    await conn.query(`
+      CREATE TABLE IF NOT EXISTS company_vehicles (
+        id                            CHAR(36)      NOT NULL PRIMARY KEY,
+        company_id                    CHAR(36)      NOT NULL,
+        plate_number                  VARCHAR(30)   NOT NULL UNIQUE,
+        vehicle_type                  VARCHAR(60)   NOT NULL,
+        model                         VARCHAR(100)  NULL,
+        color                         VARCHAR(60)   NULL,
+        year                          SMALLINT      NULL,
+        max_capacity_kg               DECIMAL(10,2) NULL,
+        description                   VARCHAR(500)  NULL,
+        vehicle_photo_url             VARCHAR(500)  NULL,
+        vehicle_images                JSON          NULL,
+        libre_url                     VARCHAR(500)  NULL,
+        libre_status                  ENUM('PENDING','APPROVED','REJECTED') NULL,
+        assigned_driver_id            CHAR(36)      NULL,
+        operational_status            ENUM('ACTIVE','INACTIVE','MAINTENANCE','OUT_OF_SERVICE') NOT NULL DEFAULT 'ACTIVE',
+        operational_status_note       VARCHAR(500)  NULL,
+        operational_status_changed_at TIMESTAMP     NULL,
+        status                        ENUM('PENDING','APPROVED','REJECTED') NOT NULL DEFAULT 'PENDING',
+        admin_note                    TEXT          NULL,
+        reviewed_by                   CHAR(36)      NULL,
+        reviewed_at                   TIMESTAMP     NULL,
+        created_at                    TIMESTAMP     DEFAULT CURRENT_TIMESTAMP,
+        updated_at                    TIMESTAMP     DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        INDEX idx_cv_company_created (company_id, created_at),
+        INDEX idx_cv_company_status  (company_id, status),
+        INDEX idx_cv_company_op      (company_id, operational_status),
+        INDEX idx_cv_driver          (assigned_driver_id),
+        INDEX idx_cv_type            (vehicle_type),
+        CONSTRAINT cv_fk_company FOREIGN KEY (company_id)         REFERENCES car_owner_companies(id) ON DELETE CASCADE,
+        CONSTRAINT cv_fk_driver  FOREIGN KEY (assigned_driver_id) REFERENCES users(id) ON DELETE SET NULL,
+        CONSTRAINT cv_fk_admin   FOREIGN KEY (reviewed_by)        REFERENCES users(id) ON DELETE SET NULL
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+    `)
+
+    // ─── Company drivers ─────────────────────────────────────────────────────
+    // A driver belongs to a company through their profile, not through a separate
+    // table: a company driver is an ordinary role-3 driver who happens to be on a
+    // company's roster, so every existing driver query keeps working untouched
+    // and NULL simply means "independent driver".
+    //
+    // ON DELETE SET NULL, not CASCADE: deleting a company must not delete the
+    // people. Their accounts, wallets and delivery history survive as independent
+    // drivers. These calls sit here, after car_owner_companies exists, because
+    // the foreign key target has to be in place first.
+    await addColIfMissing('driver_profiles', 'company_id', 'CHAR(36) NULL')
+    await addIndexIfMissing('driver_profiles', 'idx_dp_company', '(company_id)')
+    await addForeignKeyIfMissing(
+      'driver_profiles', 'dp_fk_company',
+      'FOREIGN KEY (company_id) REFERENCES car_owner_companies(id) ON DELETE SET NULL'
+    )
+
+    // ─── Who entered the record ──────────────────────────────────────────────
+    // An admin entering a vehicle or driver IS the approval, so those are created
+    // already approved. A company entering its own has to be reviewed first.
+    // Default 0 is correct for every existing row, all of which an admin created.
+    //
+    // On drivers this flag does real work beyond provenance: the admin "pending"
+    // driver queue only shows profiles that have at least one document uploaded,
+    // so without it a company-created driver who uploaded nothing would never
+    // appear for review and could never be verified.
+    await addColIfMissing('company_vehicles', 'created_by_company', 'TINYINT(1) NOT NULL DEFAULT 0')
+    await addColIfMissing('driver_profiles',  'created_by_company', 'TINYINT(1) NOT NULL DEFAULT 0')
+
+    // ─── Default theme ───────────────────────────────────────────────────────
+    // 'SYSTEM' means "follow the device", so anyone whose phone is in dark mode
+    // saw a dark app they never asked for. LIGHT is the brand default; SYSTEM
+    // stays available as a deliberate choice, it is just no longer what you get
+    // by not choosing. Setting only the DEFAULT is a metadata-only change — it
+    // does not rewrite the table or touch a single existing row.
+    const [[themeCol]] = await conn.query<any[]>(
+      `SELECT COLUMN_DEFAULT FROM information_schema.COLUMNS
+        WHERE TABLE_SCHEMA = ? AND TABLE_NAME = 'users' AND COLUMN_NAME = 'theme_preference'`,
+      [dbName]
+    )
+    if (themeCol && themeCol.COLUMN_DEFAULT !== 'LIGHT') {
+      await conn.query(`ALTER TABLE users ALTER COLUMN theme_preference SET DEFAULT 'LIGHT'`)
+      fastify.log.info('✅ users.theme_preference default set to LIGHT.')
+    }
 
     // ─── Order Driver Payments ───────────────────────────────────────────────
     await conn.query(`

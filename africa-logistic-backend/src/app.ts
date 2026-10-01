@@ -8,7 +8,7 @@ dotenv.config()
 
 // Never allow a production API to start with a guessed/default signing key.
 // JWT_SECRET signs every session; CONFIG_ENCRYPTION_KEY protects credentials
-// configured from the admin settings page (for example Twilio).
+// configured from the admin settings page (for example the SMS provider).
 const jwtSecret = process.env.JWT_SECRET
 if (!jwtSecret || jwtSecret.length < 32) {
   throw new Error('JWT_SECRET must be set to a strong value of at least 32 characters.')
@@ -127,6 +127,7 @@ import driverRoutes from './routes/driver.js'
 import wsRoutes from './routes/ws.js'
 import configRoutes from './routes/config.js'
 import carOwnerRoutes from './routes/carowner.js'
+import companyRoutes from './routes/company.js'
 import { eswWebhookHandler } from './controllers/admin.controller.js'
 
 app.register(healthRoutes)
@@ -138,6 +139,7 @@ app.register(driverRoutes,  { prefix: '/api/driver' })
 app.register(wsRoutes,      { prefix: '/api' })
 app.register(configRoutes,  { prefix: '/api/config' })
 app.register(carOwnerRoutes)
+app.register(companyRoutes,  { prefix: '/api/company' })
 
 // eSW webhook — public (secured by shared secret header)
 app.post('/api/esw/webhook', eswWebhookHandler)

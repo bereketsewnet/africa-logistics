@@ -230,7 +230,12 @@ export async function updateUserProfile(db: Pool, userId: string, data: { firstN
 }
 
 export async function updateUserPassword(db: Pool, userId: string, passwordHash: string) {
-  await db.query<ResultSetHeader>(`UPDATE users SET password_hash = ? WHERE id = ?`, [passwordHash, userId])
+  // Setting a password is what ends a forced change — an admin-issued password
+  // from an SMS is single-use by design.
+  await db.query<ResultSetHeader>(
+    `UPDATE users SET password_hash = ?, must_change_password = 0 WHERE id = ?`,
+    [passwordHash, userId]
+  )
 }
 
 export async function updateUserEmail(db: Pool, userId: string, email: string) {

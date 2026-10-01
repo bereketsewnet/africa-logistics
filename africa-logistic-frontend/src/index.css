@@ -7,6 +7,11 @@
 
 /* ── CSS Custom Properties ── */
 :root {
+  /* Surface for portalled dropdowns (SearchableSelect). They render on
+     document.body, outside any themed container, so the colour must come from a
+     variable rather than being inherited. */
+  --select-pop-bg: #0f172a;
+  --select-pop-hover: rgba(255, 255, 255, 0.06);
   --clr-bg: #080b14;
   --clr-surface: rgba(255, 255, 255, 0.04);
   --clr-border: rgba(255, 255, 255, 0.10);
@@ -1081,6 +1086,10 @@ body,
 
 /* Light theme values — applied when data-theme="light" is on <html> */
 [data-theme="light"] {
+  /* Surface for portalled dropdowns (SearchableSelect) — they sit on document.body,
+     outside any themed container, so the colour has to come from a variable. */
+  --select-pop-bg: #ffffff;
+  --select-pop-hover: rgba(15, 23, 42, 0.06);
   --clr-bg: #ffffff;
   --clr-surface: rgba(255, 255, 255, 0.85);
   --clr-border: rgba(0, 0, 0, 0.10);

@@ -54,11 +54,17 @@ export interface UserDeletionImpact {
   withdrawal_requests: number
   driver_ratings: number
   vehicles: number
+  car_owner_vehicles: number
+  company_vehicles: number
+  companies: number
 }
 
 /** Audit columns that accept NULL — the record survives with no approver. */
 const NULLABLE_REFERENCES: Array<{ table: string; column: string }> = [
+  { table: 'car_owner_companies',    column: 'reviewed_by' },
+  { table: 'car_owner_companies',    column: 'created_by' },
   { table: 'car_owner_vehicles',     column: 'reviewed_by' },
+  { table: 'company_vehicles',       column: 'reviewed_by' },
   { table: 'driver_profiles',        column: 'verified_by_admin_id' },
   { table: 'manual_payment_records', column: 'approved_by' },
   { table: 'order_charges',          column: 'approved_by' },
@@ -113,8 +119,13 @@ export async function getUserDeletionImpact(db: Pool, userId: string): Promise<U
           AND status IN (${inFlight}))                    AS active_orders,
        (SELECT COUNT(*) FROM driver_ratings WHERE driver_id = ? OR shipper_id = ?) AS driver_ratings,
        (SELECT COUNT(*) FROM withdrawal_requests WHERE user_id = ?) AS withdrawal_requests,
-       (SELECT COUNT(*) FROM vehicles WHERE driver_id = ?) AS vehicles`,
-    [userId, userId, userId, userId, ...IN_FLIGHT_STATUSES, userId, userId, userId, userId]
+       (SELECT COUNT(*) FROM vehicles WHERE driver_id = ?) AS vehicles,
+       (SELECT COUNT(*) FROM car_owner_vehicles WHERE owner_id = ? OR assigned_driver_id = ?) AS car_owner_vehicles,
+       (SELECT COUNT(*) FROM company_vehicles WHERE assigned_driver_id = ?
+          OR company_id IN (SELECT id FROM car_owner_companies WHERE user_id = ?)) AS company_vehicles,
+       (SELECT COUNT(*) FROM car_owner_companies WHERE user_id = ?) AS companies`,
+    [userId, userId, userId, userId, ...IN_FLIGHT_STATUSES, userId, userId, userId, userId,
+     userId, userId, userId, userId, userId]
   )
 
   const [[wallet]] = await db.query<any[]>(
@@ -149,6 +160,9 @@ export async function getUserDeletionImpact(db: Pool, userId: string): Promise<U
     withdrawal_requests: Number(counts.withdrawal_requests),
     driver_ratings: Number(counts.driver_ratings),
     vehicles: Number(counts.vehicles),
+    car_owner_vehicles: Number(counts.car_owner_vehicles),
+    company_vehicles: Number(counts.company_vehicles),
+    companies: Number(counts.companies),
   }
 }
 
@@ -352,11 +366,20 @@ async function purgeCustomerData(
   // Fleet vehicles are company assets — unassign rather than delete.
   await conn.query(`UPDATE vehicles SET driver_id = NULL WHERE driver_id = ?`, [userId])
   await conn.query(`UPDATE car_owner_vehicles SET assigned_driver_id = NULL WHERE assigned_driver_id = ?`, [userId])
+  await conn.query(`UPDATE company_vehicles SET assigned_driver_id = NULL WHERE assigned_driver_id = ?`, [userId])
 
   // A car owner's own vehicles would cascade on delete; remove them explicitly
   // so the outcome is visible here rather than a side effect.
   if (roleId === 6) {
     await conn.query(`DELETE FROM car_owner_vehicles WHERE owner_id = ?`, [userId])
+    // A company login owns a fleet through car_owner_companies. Order matters:
+    // vehicles reference the company, the company references the user.
+    await conn.query(
+      `DELETE FROM company_vehicles
+        WHERE company_id IN (SELECT id FROM car_owner_companies WHERE user_id = ?)`,
+      [userId]
+    )
+    await conn.query(`DELETE FROM car_owner_companies WHERE user_id = ?`, [userId])
   }
 
   await conn.query(`DELETE FROM withdrawal_requests WHERE user_id = ?`, [userId])

@@ -16,6 +16,13 @@ import AdminWalletAdjustment from '../components/AdminWalletAdjustment'
 import AdminBankInformation from '../components/AdminBankInformation'
 import AdminDocumentationLibrary from '../components/AdminDocumentationLibrary'
 import { absoluteUploadUrl } from '../lib/uploadUrl'
+import DocumentUploadField from '../components/fleet/DocumentUploadField'
+import AdminCompaniesSection from '../components/AdminCompaniesSection'
+import AdminCompanyVehiclesSection from '../components/AdminCompanyVehiclesSection'
+import AdminCompanyDriversSection from '../components/AdminCompanyDriversSection'
+import DriverPicker, { type DispatchDriver } from '../components/DriverPicker'
+import SearchableSelect, { type SelectOption } from '../components/SearchableSelect'
+import CredentialResultModal, { type CredentialResult } from '../components/CredentialResultModal'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import { useThemeLogo } from '../lib/useThemeLogo'
@@ -27,7 +34,7 @@ import {
   LuLock, LuContact, LuMenu, LuPin, LuPinOff,
   LuUsers, LuChartBar, LuX, LuStar, LuHistory,
   LuShieldCheck, LuPencil, LuPlus, LuFileText, LuRefreshCw,
-  LuCar, LuBadgeCheck, LuUserPlus, LuBriefcase, LuSearch,
+  LuCar, LuBadgeCheck, LuUserPlus, LuBriefcase, LuSearch, LuBuilding2,
   LuListOrdered, LuSettings, LuBox, LuBan,
   LuLeaf, LuFlame, LuThermometer, LuHeart, LuMonitor, LuArchive, LuGem, LuFish, LuImage,
   LuMapPin, LuMessageSquare, LuSend, LuNavigation, LuBell,
@@ -187,7 +194,7 @@ interface Stats {
   total_users: number; total_admins: number; total_shippers: number
   total_drivers: number; active_users: number; new_today: number
 }
-type AdminSection = 'overview' | 'drivers' | 'shippers' | 'staff' | 'verify-drivers' | 'vehicles' | 'orders' | 'live-drivers' | 'guest-orders' | 'cargo-types' | 'pricing-rules' | 'profile' | 'payments' | 'wallet-adjustment' | 'notif-settings' | 'settings' | 'vehicle-types' | 'countries' | 'maintenance-mode' | 'phone-otp-settings' | 'role-management' | 'security-events' | 'cross-border' | 'reports' | 'contact-info' | 'ai-settings' | 'bank-information' | 'documentation' | 'car-owners' | 'car-owner-users'
+type AdminSection = 'overview' | 'drivers' | 'shippers' | 'staff' | 'verify-drivers' | 'vehicles' | 'orders' | 'live-drivers' | 'guest-orders' | 'cargo-types' | 'pricing-rules' | 'profile' | 'payments' | 'wallet-adjustment' | 'notif-settings' | 'settings' | 'vehicle-types' | 'countries' | 'maintenance-mode' | 'phone-otp-settings' | 'role-management' | 'security-events' | 'cross-border' | 'reports' | 'contact-info' | 'ai-settings' | 'bank-information' | 'documentation' | 'car-owners' | 'car-owner-users' | 'companies' | 'company-vehicles' | 'company-drivers'
 type ProfileTab = 'profile' | 'security' | 'contact'
 
 interface DriverRow {
@@ -816,75 +823,168 @@ function AdminMaintenanceSection() {
 
 // ─── Admin Phone OTP Settings ────────────────────────────────────────────────
 
-function AdminPhoneOtpSettingsSection() {
-  const [enabled, setEnabled] = useState(false)
+/**
+ * SMS provider settings (SMS Ethiopia) — replaces the old Twilio screen.
+ *
+ * The API key is scoped by the provider to a single campaign: it sends only
+ * through that campaign's sender ID and draws down its balance. Swapping
+ * campaigns means pasting a new key here.
+ */
+function AdminSmsSettingsSection() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
-  const [savingTwilio, setSavingTwilio] = useState(false)
-  const [message, setMessage] = useState('')
-  const [accountSid, setAccountSid] = useState('')
-  const [authToken, setAuthToken] = useState('')
-  const [senderNumber, setSenderNumber] = useState('')
+  const [testing, setTesting] = useState(false)
+  const [message, setMessage] = useState<{ text: string; ok: boolean } | null>(null)
+
+  const [apiKey, setApiKey] = useState('')
+  const [senderId, setSenderId] = useState('')
+  const [baseUrl, setBaseUrl] = useState('')
+  const [isEnabled, setIsEnabled] = useState(false)
+  const [keySet, setKeySet] = useState(false)
   const [configured, setConfigured] = useState(false)
 
-  useEffect(() => {
-    Promise.all([apiClient.get('/admin/system-config'), apiClient.get('/admin/settings/twilio')])
-      .then(([configResponse, twilioResponse]) => {
-        setEnabled(Boolean(configResponse.data.config?.phone_otp_enabled))
-        const settings = twilioResponse.data.settings ?? {}
-        setAccountSid(settings.account_sid ?? '')
-        setSenderNumber(settings.phone_number ?? '')
-        setConfigured(Boolean(settings.configured))
-      })
-      .catch((error: any) => setMessage(error.response?.data?.message || 'Unable to load SMS OTP settings.'))
-      .finally(() => setLoading(false))
-  }, [])
+  const [otpEnabled, setOtpEnabled] = useState(false)
+  const [testPhone, setTestPhone] = useState('')
 
-  const saveTwilio = async () => {
-    setSavingTwilio(true); setMessage('')
+  const load = async () => {
+    setLoading(true)
     try {
-      const { data } = await apiClient.put('/admin/settings/twilio', { account_sid: accountSid.trim(), auth_token: authToken.trim(), phone_number: senderNumber.trim() })
-      const settings = data.settings ?? {}
-      setAccountSid(settings.account_sid ?? accountSid)
-      setAuthToken('')
-      setSenderNumber(settings.phone_number ?? senderNumber)
-      setConfigured(Boolean(settings.configured))
-      setMessage(settings.configured ? 'Twilio credentials saved securely. You can now enable SMS OTP.' : 'Twilio details saved. Add the missing Account SID, Auth Token, or sender number before enabling SMS OTP.')
-    } catch (error: any) { setMessage(error.response?.data?.message || 'Unable to save Twilio settings.') }
-    finally { setSavingTwilio(false) }
+      const [cfg, sms] = await Promise.all([
+        apiClient.get('/admin/system-config'),
+        adminOrderApi.getSmsSettings(),
+      ])
+      setOtpEnabled(Boolean(cfg.data.config?.phone_otp_enabled))
+      const s = sms.data.settings ?? {}
+      setSenderId(s.sender_id ?? '')
+      setBaseUrl(s.base_url ?? '')
+      setIsEnabled(Boolean(s.is_enabled))
+      setKeySet(Boolean(s.api_key_set))
+      setConfigured(Boolean(s.configured))
+      setApiKey('')
+    } catch {
+      setMessage({ text: 'Could not load the SMS settings.', ok: false })
+    } finally { setLoading(false) }
   }
+  useEffect(() => { load() }, [])
 
-  const save = async () => {
-    if (enabled && !configured) { setMessage('Save the Twilio Account SID, Auth Token, and sender phone number first.'); return }
-    setSaving(true); setMessage('')
+  const saveSms = async () => {
+    setSaving(true); setMessage(null)
     try {
-      await apiClient.put('/admin/system-config', { phone_otp_enabled: enabled })
-      setMessage(enabled ? 'SMS phone OTP has been enabled.' : 'SMS phone OTP has been disabled. Phone changes now skip SMS and are marked verified.')
-    } catch (error: any) {
-      setMessage(error.response?.data?.message || 'Unable to save the SMS OTP setting.')
+      const { data } = await adminOrderApi.updateSmsSettings({
+        // An empty box means "leave the stored key alone", not "erase it".
+        ...(apiKey.trim() ? { api_key: apiKey.trim() } : {}),
+        sender_id: senderId.trim(),
+        base_url: baseUrl.trim(),
+        is_enabled: isEnabled,
+      })
+      setMessage({ text: data.message ?? 'SMS settings saved.', ok: true })
+      setApiKey('')
+      await load()
+    } catch (e: any) {
+      setMessage({ text: e.response?.data?.message ?? 'Unable to save the SMS settings.', ok: false })
     } finally { setSaving(false) }
   }
 
-  return <div style={{ display: 'flex', flexDirection: 'column', gap: '1.15rem' }}>
-    <div><h2 style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--clr-text)', display: 'flex', alignItems: 'center', gap: '0.45rem' }}><LuSmartphone size={18} /> SMS Phone OTP</h2><p style={{ fontSize: '0.78rem', color: 'var(--clr-muted)', marginTop: '0.25rem' }}>Control SMS verification for self-registration and phone-number updates.</p></div>
-    {loading ? <LoadingSpinner /> : <>
-      <div className="glass-inner" style={{ padding: '1rem' }}>
-        <p style={{ fontWeight: 700, fontSize: '0.9rem', color: 'var(--clr-text)' }}>Twilio account configuration</p>
-        <p style={{ fontSize: '0.75rem', color: 'var(--clr-muted)', lineHeight: 1.5, marginTop: '0.3rem', marginBottom: '0.85rem' }}>Get the Account SID and Auth Token from <a href="https://console.twilio.com" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--clr-accent)' }}>Twilio Console</a>. They are encrypted before being stored and the token is never shown again.</p>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
-          <div className="input-wrap"><input id="twilio-sid" type="text" placeholder=" " value={accountSid} onChange={event => setAccountSid(event.target.value)} autoComplete="off" /><label htmlFor="twilio-sid">Twilio Account SID *</label></div>
-          <div className="input-wrap"><input id="twilio-token" type="password" placeholder=" " value={authToken} onChange={event => setAuthToken(event.target.value)} autoComplete="new-password" /><label htmlFor="twilio-token">Twilio Auth Token *</label></div>
-          <div className="input-wrap"><input id="twilio-sender" type="tel" placeholder=" " value={senderNumber} onChange={event => setSenderNumber(event.target.value)} autoComplete="off" /><label htmlFor="twilio-sender">Twilio sender phone number *</label></div>
-          <button onClick={saveTwilio} disabled={savingTwilio} className="btn-outline" style={{ alignSelf: 'flex-start', padding: '0.48rem 0.9rem' }}>{savingTwilio ? 'Saving credentials…' : 'Save Twilio Credentials'}</button>
+  const sendTest = async () => {
+    if (!testPhone.trim()) { setMessage({ text: 'Enter a phone number to test with.', ok: false }); return }
+    setTesting(true); setMessage(null)
+    try {
+      const { data } = await adminOrderApi.testSms(testPhone.trim())
+      setMessage({ text: data.message ?? 'Test SMS sent.', ok: true })
+    } catch (e: any) {
+      setMessage({ text: e.response?.data?.message ?? 'The test SMS failed.', ok: false })
+    } finally { setTesting(false) }
+  }
+
+  const saveOtp = async () => {
+    setSaving(true); setMessage(null)
+    try {
+      await apiClient.put('/admin/system-config', { phone_otp_enabled: otpEnabled })
+      setMessage({ text: 'SMS OTP setting saved.', ok: true })
+    } catch (e: any) {
+      setMessage({ text: e.response?.data?.message ?? 'Unable to save the OTP setting.', ok: false })
+    } finally { setSaving(false) }
+  }
+
+  if (loading) return <div style={{ color: 'var(--clr-muted)', fontSize: '0.85rem', padding: '1rem 0' }}>Loading…</div>
+
+  const label: React.CSSProperties = { fontSize: '0.78rem', fontWeight: 600, color: 'var(--clr-muted)', marginBottom: '0.3rem', display: 'block' }
+  const input: React.CSSProperties = { width: '100%', padding: '0.6rem 0.8rem', borderRadius: 9, border: '1px solid rgba(255,255,255,0.12)', background: 'rgba(255,255,255,0.05)', color: 'var(--clr-text)', fontFamily: 'inherit', fontSize: '0.85rem', boxSizing: 'border-box' }
+
+  return <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', maxWidth: 620 }}>
+    {message && <div className={message.ok ? 'alert alert-success' : 'alert alert-error'}>{message.text}</div>}
+
+    <div className="glass-inner" style={{ padding: '1rem', display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
+      <div>
+        <p style={{ fontWeight: 800, fontSize: '0.92rem', color: 'var(--clr-text)', margin: 0 }}>SMS Ethiopia</p>
+        <p style={{ fontSize: '0.76rem', color: 'var(--clr-muted)', marginTop: '0.25rem', lineHeight: 1.5 }}>
+          Every SMS the platform sends — verification codes, driver login details and rejection
+          notices — goes through this provider. The API key belongs to one campaign and spends
+          that campaign's balance.
+        </p>
+      </div>
+
+      <div>
+        <label style={label} htmlFor="sms-key">API key {keySet && <span style={{ color: 'var(--kpi-green)' }}>· saved</span>}</label>
+        <input id="sms-key" type="password" value={apiKey} onChange={e => setApiKey(e.target.value)}
+          placeholder={keySet ? 'Leave blank to keep the saved key' : 'Paste the key from smsethiopia.com'} style={input} />
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.6rem' }}>
+        <div>
+          <label style={label} htmlFor="sms-sender">Sender ID</label>
+          <input id="sms-sender" value={senderId} onChange={e => setSenderId(e.target.value)} placeholder="e.g. AfriLogistics" style={input} />
+        </div>
+        <div>
+          <label style={label} htmlFor="sms-base">API base URL</label>
+          <input id="sms-base" value={baseUrl} onChange={e => setBaseUrl(e.target.value)} placeholder="https://smsethiopia.com/api" style={input} />
         </div>
       </div>
-      <div className="glass-inner" style={{ padding: '1rem', border: `1px solid ${enabled ? 'rgba(251,191,36,0.25)' : 'rgba(148,163,184,0.18)'}`, background: enabled ? 'rgba(251,191,36,0.08)' : 'rgba(148,163,184,0.06)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}><div style={{ flex: 1 }}><p style={{ fontWeight: 700, fontSize: '0.9rem', color: enabled ? 'var(--kpi-gold)' : 'var(--clr-text)' }}>{enabled ? 'SMS OTP enabled' : configured ? 'SMS OTP ready to enable' : 'SMS OTP unavailable — configure Twilio first'}</p><p style={{ fontSize: '0.75rem', color: 'var(--clr-muted)', lineHeight: 1.5, marginTop: '0.25rem' }}>{enabled ? 'Registration and phone changes require a valid SMS code.' : configured ? 'Twilio is configured. Turn this on only after confirming your Twilio account can send messages.' : 'Enter the Twilio Account SID, Auth Token, and sender number above. OTP cannot be enabled until all are saved.'}</p></div><button onClick={() => setEnabled(value => !value)} disabled={!configured && !enabled} aria-label="Toggle SMS phone OTP" style={{ flexShrink: 0, width: 48, height: 26, borderRadius: 13, border: 'none', cursor: !configured && !enabled ? 'not-allowed' : 'pointer', opacity: !configured && !enabled ? 0.45 : 1, background: enabled ? 'var(--kpi-gold)' : 'rgba(255,255,255,0.12)', position: 'relative', transition: 'background 0.2s' }}><span style={{ position: 'absolute', top: 4, left: enabled ? 24 : 4, width: 18, height: 18, borderRadius: '50%', background: enabled ? '#000' : 'rgba(255,255,255,0.5)', transition: 'left 0.18s', boxShadow: '0 1px 3px rgba(0,0,0,0.4)' }} /></button></div>
+
+      <label style={{ display: 'flex', alignItems: 'center', gap: '0.55rem', fontSize: '0.84rem', color: 'var(--clr-text)', cursor: 'pointer' }}>
+        <input type="checkbox" checked={isEnabled} onChange={e => setIsEnabled(e.target.checked)} />
+        Sending enabled
+      </label>
+
+      <button onClick={saveSms} disabled={saving} className="btn-primary" style={{ alignSelf: 'flex-start', padding: '0.55rem 1.2rem' }}>
+        {saving ? 'Saving…' : 'Save SMS Settings'}
+      </button>
+    </div>
+
+    <div className="glass-inner" style={{ padding: '1rem', display: 'flex', flexDirection: 'column', gap: '0.7rem' }}>
+      <div>
+        <p style={{ fontWeight: 700, fontSize: '0.86rem', color: 'var(--clr-text)', margin: 0 }}>Send a test message</p>
+        <p style={{ fontSize: '0.74rem', color: 'var(--clr-muted)', marginTop: '0.2rem' }}>
+          Sends one real SMS and uses one credit. Worth doing before registering a driver who is waiting for their password.
+        </p>
       </div>
-      <div style={{ padding: '0.75rem 0.9rem', borderRadius: 10, background: 'rgba(59,130,246,0.07)', border: '1px solid rgba(59,130,246,0.18)', color: 'var(--clr-muted)', fontSize: '0.75rem', lineHeight: 1.5 }}>Staff phone numbers are never self-service editable. Keep this disabled until the SMS provider, sender ID, and billing are fully configured.</div>
-      {message && <div className={message.startsWith('Unable') ? 'alert alert-error' : 'alert alert-success'}>{message}</div>}
-      <button onClick={save} disabled={saving} className="btn-primary" style={{ alignSelf: 'flex-start', padding: '0.55rem 1.2rem' }}>{saving ? 'Saving…' : 'Save SMS OTP Setting'}</button>
-    </>}
+      <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+        <input value={testPhone} onChange={e => setTestPhone(e.target.value)} placeholder="09… or +2519…" style={{ ...input, flex: 1, minWidth: 180 }} />
+        <button onClick={sendTest} disabled={testing || !configured} className="btn-outline" style={{ padding: '0.55rem 1rem', whiteSpace: 'nowrap' }}>
+          {testing ? 'Sending…' : 'Send test SMS'}
+        </button>
+      </div>
+      {!configured && <p style={{ fontSize: '0.74rem', color: 'var(--kpi-gold)' }}>Save an API key and switch sending on first.</p>}
+    </div>
+
+    <div className="glass-inner" style={{ padding: '1rem', display: 'flex', flexDirection: 'column', gap: '0.7rem' }}>
+      <div>
+        <p style={{ fontWeight: 700, fontSize: '0.86rem', color: 'var(--clr-text)', margin: 0 }}>
+          {otpEnabled ? 'Phone OTP is on' : configured ? 'Phone OTP is off — ready to switch on' : 'Phone OTP unavailable — configure SMS first'}
+        </p>
+        <p style={{ fontSize: '0.74rem', color: 'var(--clr-muted)', marginTop: '0.2rem', lineHeight: 1.5 }}>
+          When on, registration, phone changes and password recovery each send a verification code.
+          Every code costs one SMS credit.
+        </p>
+      </div>
+      <label style={{ display: 'flex', alignItems: 'center', gap: '0.55rem', fontSize: '0.84rem', color: configured ? 'var(--clr-text)' : 'var(--clr-muted)', cursor: configured ? 'pointer' : 'not-allowed' }}>
+        <input type="checkbox" checked={otpEnabled} disabled={!configured} onChange={e => setOtpEnabled(e.target.checked)} />
+        Require an SMS code
+      </label>
+      <button onClick={saveOtp} disabled={saving || !configured} className="btn-primary" style={{ alignSelf: 'flex-start', padding: '0.55rem 1.2rem' }}>
+        {saving ? 'Saving…' : 'Save OTP Setting'}
+      </button>
+    </div>
   </div>
 }
 
@@ -1919,7 +2019,7 @@ function AdminSettingsHub({ onNav }: { onNav: (s: AdminSection) => void }) {
     { id: 'notif-settings', icon: <LuBell size={22} />, label: tr('sb_st_notif'), desc: tr('sh_desc_notif'), accent: 'rgba(250,204,21,0.10)' },
     { id: 'role-management', icon: <LuKey size={22} />, label: tr('sb_st_roles'), desc: tr('sh_desc_roles'), accent: 'rgba(14,165,233,0.10)' },
     { id: 'maintenance-mode', icon: <LuWrench size={22} />, label: tr('sb_st_maintenance'), desc: 'Activate maintenance kill-switch and manage app version string.', accent: 'rgba(239,68,68,0.10)' },
-    { id: 'phone-otp-settings', icon: <LuSmartphone size={22} />, label: 'SMS Phone OTP', desc: 'Enable or disable SMS verification for registrations and phone updates.', accent: 'rgba(251,191,36,0.10)' },
+    { id: 'phone-otp-settings', icon: <LuSmartphone size={22} />, label: 'SMS & Phone OTP', desc: 'SMS provider credentials, a test message, and SMS verification for registrations.', accent: 'rgba(251,191,36,0.10)' },
     { id: 'contact-info', icon: <LuPhone size={22} />, label: tr('sb_st_contact'), desc: tr('sh_desc_contact'), accent: 'rgba(16,185,129,0.10)' },
     { id: 'bank-information', icon: <LuLandmark size={22} />, label: tr('sb_st_bank'), desc: tr('sh_desc_bank'), accent: 'rgba(59,130,246,0.10)' },
     { id: 'documentation', icon: <LuFileText size={22} />, label: 'Documentation', desc: 'Manage public guides, video links, and supporting resources.', accent: 'rgba(20,184,166,0.10)' },
@@ -3434,15 +3534,136 @@ function AdminDriversSection({ allUsers, loading: usersLoading, onToggleActive, 
     } catch { toast(tr('drv_del_rating_fail')) }
   }
 
+  // ── Register a driver ─────────────────────────────────────────────────────
+  // An admin creating the account is the approval, so the driver comes out
+  // active and verified and every document is optional. The password is
+  // generated server-side and texted — it is never shown or chosen here.
+  const [showCreate, setShowCreate] = useState(false)
+  const [cFirst, setCFirst] = useState('')
+  const [cLast, setCLast] = useState('')
+  const [cPhone, setCPhone] = useState('')
+  const [cEmail, setCEmail] = useState('')
+  const [cNationalId, setCNationalId] = useState('')
+  const [cLicense, setCLicense] = useState('')
+  const [cLibre, setCLibre] = useState('')
+  // A toast disappears after three seconds, which is useless for a password someone
+  // has to read out or copy. When the SMS fails this is the only copy that exists.
+  const [credential, setCredential] = useState<CredentialResult | null>(null)
+  const [creating, setCreating] = useState(false)
+  const [createErr, setCreateErr] = useState('')
+
+  const resetCreate = () => {
+    setCFirst(''); setCLast(''); setCPhone(''); setCEmail('')
+    setCNationalId(''); setCLicense(''); setCLibre(''); setCreateErr('')
+  }
+
+  const handleCreateDriver = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!cFirst.trim() || !cPhone.trim()) { setCreateErr('First name and phone number are required.'); return }
+    setCreating(true); setCreateErr('')
+    try {
+      const { data } = await adminOrderApi.createDriver({
+        first_name: cFirst.trim(),
+        last_name: cLast.trim() || undefined,
+        phone_number: cPhone.trim(),
+        email: cEmail.trim() || undefined,
+        national_id: cNationalId || undefined,
+        license: cLicense || undefined,
+        libre: cLibre || undefined,
+      })
+      // The driver exists even when the SMS failed, so say which happened rather
+      // than implying everything worked — and when it failed, hand over the password.
+      setCredential({
+        name: `${cFirst.trim()} ${cLast.trim()}`.trim(),
+        phone_number: data.phone_number ?? cPhone.trim(),
+        password: data.password ?? null,
+        sms_sent: data.sms_sent,
+        message: data.message ?? 'Driver registered.',
+      })
+      resetCreate(); setShowCreate(false); onRefresh()
+    } catch (e: any) {
+      setCreateErr(e.response?.data?.message ?? 'Could not register this driver.')
+    } finally { setCreating(false) }
+  }
+
   const stColor: Record<string, string> = { AVAILABLE: 'var(--kpi-green)', ON_JOB: '#60a5fa', OFFLINE: '#94a3b8', SUSPENDED: '#fca5a5' }
   const stLabel: Record<string, string> = { AVAILABLE: tr('drv_st_available'), ON_JOB: tr('drv_st_on_job'), OFFLINE: tr('drv_st_offline'), SUSPENDED: tr('drv_st_suspended') }
+
+  /** Issue a fresh password. The endpoint existed but nothing in the UI called it. */
+  const handleResendDriverLogin = async (driverId: string, name: string, phone: string) => {
+    try {
+      const { data } = await adminOrderApi.resendDriverCredentials(driverId)
+      setCredential({
+        name, phone_number: data.phone_number ?? phone,
+        password: data.password ?? null,
+        sms_sent: data.sms_sent, message: data.message ?? 'New login details issued.',
+      })
+    } catch (e: any) {
+      toast(e.response?.data?.message ?? 'Could not reissue the login.')
+    }
+  }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
       {toastMsg && <div className="alert alert-success" style={{ marginBottom: '0.25rem' }}>{toastMsg}</div>}
+      {credential && <CredentialResultModal result={credential} onClose={() => setCredential(null)} />}
+
+      {/* ── Register a driver ─────────────────────────────────────────────── */}
+      {showCreate && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 60, background: 'rgba(0,0,0,0.72)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }} onClick={() => !creating && setShowCreate(false)}>
+          <div className="glass" style={{ borderRadius: 18, padding: '1.5rem', maxWidth: 480, width: '100%', maxHeight: '90vh', overflowY: 'auto', position: 'relative', boxShadow: '0 24px 64px rgba(0,0,0,0.5)' }} onClick={e => e.stopPropagation()}>
+            <button onClick={() => setShowCreate(false)} style={{ position: 'absolute', top: '0.85rem', right: '0.85rem', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--clr-muted)' }}><LuX size={18} /></button>
+            <h3 style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--clr-text)', marginBottom: '0.35rem' }}>Register Driver</h3>
+            <p style={{ fontSize: '0.76rem', color: 'var(--clr-muted)', marginBottom: '1rem', lineHeight: 1.5 }}>
+              The account is active and verified straight away. A password is generated and sent
+              to the driver by SMS, and they must change it when they first sign in.
+            </p>
+            {createErr && <div className="alert alert-error" style={{ marginBottom: '0.75rem', fontSize: '0.8rem' }}><LuTriangleAlert size={13} /> {createErr}</div>}
+
+            <form onSubmit={handleCreateDriver} style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.6rem' }}>
+                <div>
+                  <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--clr-muted)', marginBottom: '0.3rem', display: 'block' }}>First name *</label>
+                  <input value={cFirst} onChange={e => setCFirst(e.target.value)} style={{ width: '100%', padding: '0.6rem 0.8rem', borderRadius: 10, border: '1px solid rgba(255,255,255,0.12)', background: 'rgba(255,255,255,0.05)', color: 'var(--clr-text)', fontFamily: 'inherit', fontSize: '0.85rem', boxSizing: 'border-box' }} />
+                </div>
+                <div>
+                  <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--clr-muted)', marginBottom: '0.3rem', display: 'block' }}>Last name</label>
+                  <input value={cLast} onChange={e => setCLast(e.target.value)} style={{ width: '100%', padding: '0.6rem 0.8rem', borderRadius: 10, border: '1px solid rgba(255,255,255,0.12)', background: 'rgba(255,255,255,0.05)', color: 'var(--clr-text)', fontFamily: 'inherit', fontSize: '0.85rem', boxSizing: 'border-box' }} />
+                </div>
+              </div>
+              <div>
+                <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--clr-muted)', marginBottom: '0.3rem', display: 'block' }}>Phone number *</label>
+                <input value={cPhone} onChange={e => setCPhone(e.target.value)} placeholder="09… or +2519…" style={{ width: '100%', padding: '0.6rem 0.8rem', borderRadius: 10, border: '1px solid rgba(255,255,255,0.12)', background: 'rgba(255,255,255,0.05)', color: 'var(--clr-text)', fontFamily: 'inherit', fontSize: '0.85rem', boxSizing: 'border-box' }} />
+                <p style={{ fontSize: '0.7rem', color: 'var(--clr-muted)', marginTop: '0.25rem' }}>The login details are texted here.</p>
+              </div>
+              <div>
+                <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--clr-muted)', marginBottom: '0.3rem', display: 'block' }}>Email (optional)</label>
+                <input type="email" value={cEmail} onChange={e => setCEmail(e.target.value)} style={{ width: '100%', padding: '0.6rem 0.8rem', borderRadius: 10, border: '1px solid rgba(255,255,255,0.12)', background: 'rgba(255,255,255,0.05)', color: 'var(--clr-text)', fontFamily: 'inherit', fontSize: '0.85rem', boxSizing: 'border-box' }} />
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem', paddingTop: '0.4rem', borderTop: '1px solid rgba(255,255,255,0.09)' }}>
+                <p style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--clr-text)', margin: 0 }}>
+                  Documents<span style={{ fontWeight: 500, color: 'var(--clr-muted)' }}> — all optional, no approval needed</span>
+                </p>
+                <DocumentUploadField label="National ID" value={cNationalId} onChange={setCNationalId} disabled={creating} />
+                <DocumentUploadField label="Driving Licence" value={cLicense} onChange={setCLicense} disabled={creating} />
+                <DocumentUploadField label="Libre" hint="Only if the driver owns the vehicle" value={cLibre} onChange={setCLibre} disabled={creating} />
+              </div>
+
+              <button type="submit" disabled={creating} className="btn-primary" style={{ padding: '0.65rem', fontWeight: 800 }}>
+                {creating ? 'Registering…' : 'Register Driver & Send SMS'}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
 
       <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
         <h2 style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--clr-text)', flex: 1, display: 'flex', alignItems: 'center', gap: '0.45rem' }}><LuTruck size={17} /> {tr('drv_title')}</h2>
+        <button onClick={() => { resetCreate(); setShowCreate(true) }}
+          style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', padding: '0.4rem 0.85rem', borderRadius: 9, border: 'none', background: 'var(--clr-accent)', color: '#080b14', fontFamily: 'inherit', fontSize: '0.78rem', fontWeight: 800, cursor: 'pointer' }}>
+          <LuPlus size={13} /> Add Driver
+        </button>
         <button onClick={onRefresh} style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', padding: '0.3rem 0.7rem', borderRadius: 8, border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.04)', color: 'var(--clr-muted)', fontFamily: 'inherit', fontSize: '0.72rem', fontWeight: 600, cursor: 'pointer' }}>
           <LuRefreshCw size={12} /> {tr('drv_refresh')}
         </button>
@@ -3535,6 +3756,23 @@ function AdminDriversSection({ allUsers, loading: usersLoading, onToggleActive, 
                   <p style={{ color: r.clr ?? 'var(--clr-text)', fontWeight: 600 }}>{r.value}</p>
                 </div>
               ))}
+            </div>
+
+            {/* Reissue the login. The endpoint has always existed but nothing in the
+                UI called it, so a driver who lost their password could only be fixed
+                by deleting and recreating them. */}
+            <div style={{ marginBottom: '1.25rem' }}>
+              <button onClick={() => handleResendDriverLogin(
+                selectedUser.id,
+                `${selectedUser.first_name} ${selectedUser.last_name ?? ''}`.trim(),
+                selectedUser.phone_number,
+              )}
+                style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', padding: '0.45rem 0.85rem', borderRadius: 9, border: '1px solid rgba(96,165,250,0.35)', background: 'rgba(96,165,250,0.1)', color: '#60a5fa', fontFamily: 'inherit', fontSize: '0.78rem', fontWeight: 700, cursor: 'pointer' }}>
+                <LuSend size={13} /> Resend login
+              </button>
+              <p style={{ fontSize: '0.71rem', color: 'var(--clr-muted)', marginTop: '0.3rem' }}>
+                Issues a new password. If the SMS cannot be delivered it is shown on screen so you can pass it on.
+              </p>
             </div>
 
             {detailLoading ? <LoadingSpinner /> : detail ? (
@@ -4448,15 +4686,24 @@ function VehicleManagementSection() {
             <p style={{ fontSize: '0.8rem', color: 'var(--clr-muted)', marginBottom: '1rem' }}>{tr('veh_vehicle_label')} <strong style={{ color: 'var(--clr-text)' }}>{assignModal.plate_number}</strong></p>
             {driversLoading ? <LoadingSpinner /> : (
               <>
-                <div className="input-wrap" style={{ marginBottom: '0.75rem' }}>
-                  <select id="drv-sel" value={selectedDriver} onChange={e => setSelectedDriver(e.target.value)}
-                    style={{ background: 'transparent', border: 'none', color: 'var(--clr-text)', fontFamily: 'inherit', fontSize: '0.9rem', width: '100%', outline: 'none', paddingTop: '1.1rem' }}>
-                    <option value="" style={{ background: '#0f172a' }}>{tr('veh_unassign_opt')}</option>
-                    {allDrivers.map(d => (
-                      <option key={d.user_id} value={d.user_id} style={{ background: '#0f172a' }}>{d.first_name} {d.last_name} · {d.phone_number}</option>
-                    ))}
-                  </select>
-                  <label htmlFor="drv-sel" style={{ top: '0.35rem', fontSize: '0.7rem', color: 'var(--clr-accent)' }}>{tr('veh_driver_label')}</label>
+                {/* A plain label rather than the floating-label wrapper: that CSS
+                    positions itself over a bare <select>, and this control is a
+                    button plus a popover. */}
+                <div style={{ marginBottom: '0.75rem' }}>
+                  <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: 600, color: 'var(--clr-muted)', marginBottom: '0.3rem' }}>
+                    {tr('veh_driver_label')}
+                  </label>
+                  <SearchableSelect
+                    options={allDrivers.map(d => ({
+                      id: String(d.user_id),
+                      label: `${d.first_name} ${d.last_name ?? ''}`.trim(),
+                      sub: d.phone_number,
+                    }))}
+                    value={selectedDriver}
+                    onChange={setSelectedDriver}
+                    emptyLabel={tr('veh_unassign_opt')}
+                    placeholder="Search name or phone"
+                  />
                 </div>
                 <div style={{ display: 'flex', gap: '0.6rem' }}>
                   <button className="btn-outline" style={{ flex: 1 }} onClick={() => setAssignModal(null)}>{tr('veh_cancel')}</button>
@@ -4729,8 +4976,54 @@ interface OrderStats {
   total_orders: number
   total_revenue: string | number
 }
-interface AdminDriver { user_id: string; first_name: string; last_name: string; phone_number: string }
-interface AdminVehicle { id: string; plate_number: string; vehicle_type: string; driver_id?: string | null }
+/** A truck that may carry an order, from any of the three fleets. */
+interface DispatchVehicle {
+  id: string
+  plate_number: string
+  vehicle_type: string | null
+  max_capacity_kg: number | null
+  vehicle_source: 'FLEET' | 'CAR_OWNER' | 'COMPANY' | null
+  company_name: string | null
+  assigned_driver_id: string | null
+}
+
+const VEHICLE_SOURCE_LABEL: Record<string, string> = {
+  FLEET: 'Fleet', CAR_OWNER: 'Car owner', COMPANY: 'Company',
+}
+
+/** Options for a vehicle picker, labelled with the fleet each truck belongs to. */
+function vehicleOptions(vehicles: DispatchVehicle[]): SelectOption[] {
+  return vehicles.map(v => ({
+    id: String(v.id),
+    label: v.plate_number,
+    sub: [v.vehicle_type, v.vehicle_source === 'COMPANY' && v.company_name ? v.company_name : null]
+      .filter(Boolean).join(' · ') || null,
+    badge: VEHICLE_SOURCE_LABEL[v.vehicle_source ?? ''] ?? null,
+    badgeTone: 'muted',
+  }))
+}
+
+/**
+ * The note shown when the chosen truck is not the one the driver is attached to.
+ *
+ * Overriding is allowed on purpose — the vehicle on an order is a record of that one
+ * trip — but it should never happen silently, so the mismatch is stated.
+ */
+function vehicleOverrideNote(
+  driverId: string, vehicleId: string,
+  drivers: DispatchDriver[], vehicles: DispatchVehicle[]
+): string | null {
+  if (!driverId || !vehicleId) return null
+  const driver = drivers.find(d => String(d.id) === driverId)
+  if (!driver) return null
+  if (driver.vehicle_id && String(driver.vehicle_id) === vehicleId) return null
+  const chosen = vehicles.find(v => String(v.id) === vehicleId)
+  if (!chosen) return null
+  return driver.plate_number
+    ? `This driver is assigned to ${driver.plate_number}. ${chosen.plate_number} will be recorded for this trip only.`
+    : `${chosen.plate_number} will be recorded for this trip only — this driver has no vehicle of their own.`
+}
+
 
 const ORDER_STATUS_COLOR: Record<string, string> = {
   PENDING: 'var(--kpi-gold)', ASSIGNED: '#60a5fa', EN_ROUTE: 'var(--kpi-purple)',
@@ -4763,9 +5056,9 @@ function AdminOrdersSection({ initialDriverFilter, initialStatusFilter }: { init
 
   // Assign modal
   const [assignOrder, setAssignOrder] = useState<AdminOrder | null>(null)
-  const [drivers, setDrivers] = useState<AdminDriver[]>([])
+  const [drivers, setDrivers] = useState<DispatchDriver[]>([])
   const [suggestedDrivers, setSuggestedDrivers] = useState<any[]>([])
-  const [vehicles, setVehicles] = useState<AdminVehicle[]>([])
+  const [vehicles, setVehicles] = useState<DispatchVehicle[]>([])
   const [selDriver, setSelDriver] = useState('')
   const [selVehicle, setSelVehicle] = useState('')
   const [assigning, setAssigning] = useState(false)
@@ -4942,24 +5235,29 @@ function AdminOrdersSection({ initialDriverFilter, initialStatusFilter }: { init
   const openAssign = async (o: AdminOrder) => {
     setAssignOrder(o); setSelDriver(''); setSelVehicle(''); setSuggestedDrivers([])
     try {
+      // Dispatch-specific lists: drivers carry the truck they are actually on, and
+      // vehicles span all three fleets. The old pair ('/admin/drivers' plus the
+      // platform-only '/admin/vehicles') could not represent a company truck at all.
       const [dr, vh, sugg] = await Promise.all([
-        apiClient.get('/admin/drivers?filter=verified'),
-        apiClient.get('/admin/vehicles'),
+        adminOrderApi.driversForDispatch(),
+        adminOrderApi.vehiclesForDispatch(),
         apiClient.get(`/admin/orders/${o.id}/suggest-drivers`).catch(() => ({ data: { drivers: [] } })),
       ])
       setDrivers(dr.data.drivers ?? [])
-      setVehicles((vh.data.vehicles ?? []).filter((v: any) => v.is_active))
+      setVehicles(vh.data.vehicles ?? [])
       setSuggestedDrivers(sugg.data.drivers ?? [])
     } catch { showToast('Failed to load drivers/vehicles') }
   }
 
-  // Auto-fill vehicle when driver selection changes
+  // Auto-fill the vehicle from the chosen driver.
+  //
+  // Reads the driver's own resolved vehicle rather than searching the vehicle list
+  // for `driver_id`: that only ever matched the platform fleet, because the other two
+  // tables use `assigned_driver_id`. The admin can still change it afterwards.
   useEffect(() => {
-    if (selDriver && vehicles.length > 0) {
-      const match = vehicles.find((v: AdminVehicle) => v.driver_id === selDriver)
-      if (match) setSelVehicle(match.id)
-      else setSelVehicle('')
-    }
+    if (!selDriver) { setSelVehicle(''); return }
+    const driver = drivers.find((d: DispatchDriver) => String(d.id) === selDriver)
+    setSelVehicle(driver?.vehicle_id ? String(driver.vehicle_id) : '')
   }, [selDriver]) // eslint-disable-line
 
   const loadOrderPayments = async (orderId: string) => {
@@ -5153,12 +5451,14 @@ function AdminOrdersSection({ initialDriverFilter, initialStatusFilter }: { init
     } catch { setCoErr('Could not load customers, cargo types, or countries. Please retry.') }
 
     const [driverResult, vehicleResult] = await Promise.allSettled([
-      apiClient.get('/admin/drivers?filter=verified'),
-      apiClient.get('/admin/vehicles'),
+      // Dispatch lists: drivers carry their resolved truck, vehicles span all three
+      // fleets. The platform-only pair could not represent a company truck.
+      adminOrderApi.driversForDispatch(),
+      adminOrderApi.vehiclesForDispatch(),
     ])
     const nextDrivers = driverResult.status === 'fulfilled' ? (driverResult.value.data.drivers ?? []) : []
     const nextVehicles = vehicleResult.status === 'fulfilled'
-      ? (vehicleResult.value.data.vehicles ?? []).filter((v: any) => v.is_active)
+      ? (vehicleResult.value.data.vehicles ?? [])
       : []
     setDrivers(nextDrivers)
     setVehicles(nextVehicles)
@@ -5407,13 +5707,22 @@ function AdminOrdersSection({ initialDriverFilter, initialStatusFilter }: { init
                     {suggestedDrivers.map(d => (
                       <div key={d.user_id} onClick={() => setSelDriver(d.user_id)}
                         style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', padding: '0.55rem 0.75rem', borderRadius: 9, border: `1px solid ${selDriver === d.user_id ? 'var(--clr-accent)' : 'rgba(255,255,255,0.1)'}`, background: selDriver === d.user_id ? 'rgba(97, 148, 31,0.08)' : 'rgba(255,255,255,0.03)', cursor: 'pointer', transition: 'all 0.15s' }}>
-                        <div style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--kpi-green)', flexShrink: 0 }} />
+                        <div style={{ width: 8, height: 8, borderRadius: '50%', background: d.distance_km == null ? '#94a3b8' : 'var(--kpi-green)', flexShrink: 0 }} />
                         <div style={{ flex: 1 }}>
                           <p style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--clr-text)', margin: 0 }}>{d.first_name} {d.last_name}</p>
-                          <p style={{ fontSize: '0.7rem', color: 'var(--clr-muted)', margin: 0 }}>{d.phone_number}{d.vehicle_type ? ` · ${d.vehicle_type}` : ''}</p>
+                          {/* The payload already carried the plate and its fleet; the
+                              card used to show the vehicle type alone and discard the
+                              rest, which made a company truck indistinguishable from
+                              no truck at all. */}
+                          <p style={{ fontSize: '0.7rem', color: 'var(--clr-muted)', margin: 0 }}>
+                            {d.phone_number}
+                            {d.plate_number
+                              ? ` · ${d.plate_number}${d.company_name ? ` · ${d.company_name}` : d.vehicle_source ? ` · ${VEHICLE_SOURCE_LABEL[d.vehicle_source] ?? ''}` : ''}`
+                              : ' · no vehicle'}
+                          </p>
                         </div>
                         <span style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--clr-accent)', background: 'rgba(97, 148, 31,0.1)', borderRadius: 99, padding: '0.15rem 0.5rem', whiteSpace: 'nowrap' }}>
-                          {Number(d.distance_km).toFixed(1)} km
+                          {d.distance_km == null ? 'no GPS yet' : `${Number(d.distance_km).toFixed(1)} km`}
                         </span>
                       </div>
                     ))}
@@ -5424,17 +5733,19 @@ function AdminOrdersSection({ initialDriverFilter, initialStatusFilter }: { init
                 <label style={{ fontSize: '0.75rem', color: 'var(--clr-muted)', fontWeight: 600, display: 'block', marginBottom: '0.35rem' }}>
                   {suggestedDrivers.length > 0 ? tr('aord_any_driver') : tr('aord_driver_label')}
                 </label>
-                <select value={selDriver} onChange={e => setSelDriver(e.target.value)} style={{ width: '100%', padding: '0.6rem', borderRadius: 9, border: '1px solid rgba(255,255,255,0.15)', background: 'rgba(255,255,255,0.05)', color: 'var(--clr-text)', fontFamily: 'inherit', fontSize: '0.85rem', outline: 'none' }}>
-                  <option value="" style={{ background: '#0f172a' }}>— Select driver —</option>
-                  {drivers.map(d => <option key={d.user_id} value={d.user_id} style={{ background: '#0f172a' }}>{d.first_name} {d.last_name} · {d.phone_number}</option>)}
-                </select>
+                <DriverPicker drivers={drivers} value={selDriver} onChange={setSelDriver}
+                  emptyLabel="— Select driver —" />
               </div>
               <div>
                 <label style={{ fontSize: '0.75rem', color: 'var(--clr-muted)', fontWeight: 600, display: 'block', marginBottom: '0.35rem' }}>{tr('aord_vehicle_opt')}</label>
-                <select value={selVehicle} onChange={e => setSelVehicle(e.target.value)} style={{ width: '100%', padding: '0.6rem', borderRadius: 9, border: '1px solid rgba(255,255,255,0.15)', background: 'rgba(255,255,255,0.05)', color: 'var(--clr-text)', fontFamily: 'inherit', fontSize: '0.85rem', outline: 'none' }}>
-                  <option value="" style={{ background: '#0f172a' }}>— No vehicle —</option>
-                  {vehicles.map(v => <option key={v.id} value={v.id} style={{ background: '#0f172a' }}>{v.plate_number} · {v.vehicle_type}</option>)}
-                </select>
+                <SearchableSelect options={vehicleOptions(vehicles)} value={selVehicle}
+                  onChange={setSelVehicle} emptyLabel="— No vehicle —" placeholder="Search plate" />
+                {/* Overriding is allowed, but never silently. */}
+                {vehicleOverrideNote(selDriver, selVehicle, drivers, vehicles) && (
+                  <p style={{ fontSize: '0.73rem', color: 'var(--kpi-gold)', marginTop: '0.3rem', lineHeight: 1.45 }}>
+                    {vehicleOverrideNote(selDriver, selVehicle, drivers, vehicles)}
+                  </p>
+                )}
               </div>
             </div>
             <div style={{ display: 'flex', gap: '0.6rem', marginTop: '1.1rem' }}>
@@ -6330,25 +6641,29 @@ function AdminOrdersSection({ initialDriverFilter, initialStatusFilter }: { init
                 </div>
 
                 {/* Assign driver (optional) */}
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.65rem' }}>
+                {/* auto-fit, not a fixed 1fr 1fr: below ~500px the two fields drop
+                    onto separate rows rather than squeezing until the labels and
+                    plate numbers are clipped and the modal scrolls sideways. */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(230px, 1fr))', gap: '0.65rem' }}>
                   <div>
                     <label style={{ fontSize: '0.73rem', fontWeight: 600, color: 'var(--clr-muted)', marginBottom: '0.3rem', display: 'block' }}>{tr('aord_assign_drv_opt')}</label>
-                    <select value={coForm.driver_id} onChange={e => {
-                      const did = e.target.value
-                      const autoVehicle = vehicles.find((v: AdminVehicle) => v.driver_id === did)
-                      setCoForm(f => ({ ...f, driver_id: did, vehicle_id: autoVehicle?.id ?? '' }))
-                    }} style={{ width: '100%', padding: '0.6rem', borderRadius: 9, border: '1px solid rgba(255,255,255,0.12)', background: 'rgba(255,255,255,0.05)', color: 'var(--clr-text)', fontFamily: 'inherit', fontSize: '0.78rem', outline: 'none' }}>
-                      <option value="" style={{ background: '#0f172a' }}>— None —</option>
-                      {drivers.map(d => <option key={d.user_id} value={d.user_id} style={{ background: '#0f172a' }}>{d.first_name} {d.last_name}</option>)}
-                    </select>
+                    <DriverPicker drivers={drivers} value={coForm.driver_id}
+                      onChange={did => {
+                        // The driver's own resolved truck, from whichever fleet.
+                        const driver = drivers.find((d: DispatchDriver) => String(d.id) === did)
+                        setCoForm(f => ({ ...f, driver_id: did, vehicle_id: driver?.vehicle_id ? String(driver.vehicle_id) : '' }))
+                      }} emptyLabel="— None —" />
                   </div>
                   <div>
                     <label style={{ fontSize: '0.73rem', fontWeight: 600, color: 'var(--clr-muted)', marginBottom: '0.3rem', display: 'block' }}>{tr('aord_vehicle_auto')}</label>
-                    <select value={coForm.vehicle_id} onChange={e => setCoForm(f => ({ ...f, vehicle_id: e.target.value }))}
-                      style={{ width: '100%', padding: '0.6rem', borderRadius: 9, border: '1px solid rgba(255,255,255,0.12)', background: 'rgba(255,255,255,0.05)', color: 'var(--clr-text)', fontFamily: 'inherit', fontSize: '0.78rem', outline: 'none' }}>
-                      <option value="" style={{ background: '#0f172a' }}>— None —</option>
-                      {vehicles.map(v => <option key={v.id} value={v.id} style={{ background: '#0f172a' }}>{v.plate_number} · {v.vehicle_type}</option>)}
-                    </select>
+                    <SearchableSelect options={vehicleOptions(vehicles)} value={coForm.vehicle_id}
+                      onChange={id => setCoForm(f => ({ ...f, vehicle_id: id }))}
+                      emptyLabel="— None —" placeholder="Search plate" />
+                    {vehicleOverrideNote(coForm.driver_id, coForm.vehicle_id, drivers, vehicles) && (
+                      <p style={{ fontSize: '0.72rem', color: 'var(--kpi-gold)', marginTop: '0.3rem', lineHeight: 1.4 }}>
+                        {vehicleOverrideNote(coForm.driver_id, coForm.vehicle_id, drivers, vehicles)}
+                      </p>
+                    )}
                   </div>
                 </div>
 
@@ -6789,8 +7104,8 @@ function AdminGuestOrdersSection() {
 
   // ── Create guest order state ────────────────────────────────────────────────
   const [createModal, setCreateModal] = useState(false)
-  const [drivers, setDrivers] = useState<AdminDriver[]>([])
-  const [vehicles, setVehicles] = useState<AdminVehicle[]>([])
+  const [drivers, setDrivers] = useState<DispatchDriver[]>([])
+  const [vehicles, setVehicles] = useState<DispatchVehicle[]>([])
   const [cargoTypes, setCargoTypes] = useState<Array<{ id: number; name: string; icon: string | null; icon_url: string | null }>>([])
   const [countries, setCountries] = useState<Array<{ id: number; name: string; iso_code: string }>>([])
   const [gForm, setGForm] = useState({
@@ -6859,12 +7174,14 @@ function AdminGuestOrdersSection() {
     } catch { setGErr('Could not load cargo types or countries. Please retry.') }
 
     const [driverResult, vehicleResult] = await Promise.allSettled([
-      apiClient.get('/admin/drivers?filter=verified'),
-      apiClient.get('/admin/vehicles'),
+      // Dispatch lists: drivers carry their resolved truck, vehicles span all three
+      // fleets. The platform-only pair could not represent a company truck.
+      adminOrderApi.driversForDispatch(),
+      adminOrderApi.vehiclesForDispatch(),
     ])
     const nextDrivers = driverResult.status === 'fulfilled' ? (driverResult.value.data.drivers ?? []) : []
     const nextVehicles = vehicleResult.status === 'fulfilled'
-      ? (vehicleResult.value.data.vehicles ?? []).filter((v: any) => v.is_active)
+      ? (vehicleResult.value.data.vehicles ?? [])
       : []
     setDrivers(nextDrivers)
     setVehicles(nextVehicles)
@@ -7256,22 +7573,28 @@ function AdminGuestOrdersSection() {
                 </div>
 
                 {/* Assign driver (optional) */}
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.65rem' }}>
+                {/* auto-fit, not a fixed 1fr 1fr: below ~500px the two fields drop
+                    onto separate rows rather than squeezing until the labels and
+                    plate numbers are clipped and the modal scrolls sideways. */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(230px, 1fr))', gap: '0.65rem' }}>
                   <div>
                     <label style={{ fontSize: '0.73rem', fontWeight: 600, color: 'var(--clr-muted)', marginBottom: '0.3rem', display: 'block' }}>{tr('aord_assign_drv_opt')}</label>
-                    <select value={gForm.driver_id} onChange={e => { const did = e.target.value; const av = vehicles.find((v: AdminVehicle) => v.driver_id === did); setGForm(f => ({ ...f, driver_id: did, vehicle_id: av?.id ?? '' })) }}
-                      style={{ width: '100%', padding: '0.6rem', borderRadius: 9, border: '1px solid rgba(255,255,255,0.12)', background: 'rgba(255,255,255,0.05)', color: 'var(--clr-text)', fontFamily: 'inherit', fontSize: '0.78rem', outline: 'none' }}>
-                      <option value="" style={{ background: '#0f172a' }}>— None —</option>
-                      {drivers.map(d => <option key={d.user_id} value={d.user_id} style={{ background: '#0f172a' }}>{d.first_name} {d.last_name}</option>)}
-                    </select>
+                    <DriverPicker drivers={drivers} value={gForm.driver_id}
+                      onChange={did => {
+                        const driver = drivers.find((d: DispatchDriver) => String(d.id) === did)
+                        setGForm(f => ({ ...f, driver_id: did, vehicle_id: driver?.vehicle_id ? String(driver.vehicle_id) : '' }))
+                      }} emptyLabel="— None —" />
                   </div>
                   <div>
                     <label style={{ fontSize: '0.73rem', fontWeight: 600, color: 'var(--clr-muted)', marginBottom: '0.3rem', display: 'block' }}>{tr('aord_vehicle_opt')}</label>
-                    <select value={gForm.vehicle_id} onChange={e => setGForm(f => ({ ...f, vehicle_id: e.target.value }))}
-                      style={{ width: '100%', padding: '0.6rem', borderRadius: 9, border: '1px solid rgba(255,255,255,0.12)', background: 'rgba(255,255,255,0.05)', color: 'var(--clr-text)', fontFamily: 'inherit', fontSize: '0.78rem', outline: 'none' }}>
-                      <option value="" style={{ background: '#0f172a' }}>— None —</option>
-                      {vehicles.map(v => <option key={v.id} value={v.id} style={{ background: '#0f172a' }}>{v.plate_number} · {v.vehicle_type}</option>)}
-                    </select>
+                    <SearchableSelect options={vehicleOptions(vehicles)} value={gForm.vehicle_id}
+                      onChange={id => setGForm(f => ({ ...f, vehicle_id: id }))}
+                      emptyLabel="— None —" placeholder="Search plate" />
+                    {vehicleOverrideNote(gForm.driver_id, gForm.vehicle_id, drivers, vehicles) && (
+                      <p style={{ fontSize: '0.72rem', color: 'var(--kpi-gold)', marginTop: '0.3rem', lineHeight: 1.4 }}>
+                        {vehicleOverrideNote(gForm.driver_id, gForm.vehicle_id, drivers, vehicles)}
+                      </p>
+                    )}
                   </div>
                 </div>
 
@@ -7659,13 +7982,33 @@ interface CarOwnerVehicleAdmin {
   created_at: string
 }
 
+/**
+ * The shape /admin/drivers-for-car-assign actually returns.
+ *
+ * It used to declare `id: number` — the column is a CHAR(36) UUID, which is why call
+ * sites wrapped every value in `String(...)` — plus `has_assigned_car` and
+ * `assigned_plate`, neither of which was ever sent. The "(already has car …)" hint
+ * built on them was dead code that never rendered once. The real data is one plate
+ * column per fleet.
+ */
 interface DriverForAssign {
-  id: number
+  id: string
   first_name: string
   last_name: string | null
   phone_number: string
-  has_assigned_car: boolean
-  assigned_plate: string | null
+  is_verified?: number
+  status?: string | null
+  main_vehicle_plate: string | null
+  owner_vehicle_plate: string | null
+  company_vehicle_plate: string | null
+}
+
+/** Whichever truck this driver already holds, named with its fleet. */
+function existingPlate(d: DriverForAssign): string | null {
+  if (d.main_vehicle_plate) return `${d.main_vehicle_plate} (fleet)`
+  if (d.owner_vehicle_plate) return `${d.owner_vehicle_plate} (car owner)`
+  if (d.company_vehicle_plate) return `${d.company_vehicle_plate} (company)`
+  return null
 }
 
 function AdminCarOwnersSection() {
@@ -7931,15 +8274,25 @@ function AdminCarOwnersSection() {
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', zIndex: 9999, display: 'grid', placeItems: 'center', padding: '1rem' }}>
           <div className="glass" style={{ width: 'min(420px,100%)', padding: '1.5rem' }}>
             <p style={{ fontWeight: 700, fontSize: '1rem', color: 'var(--clr-text)', margin: '0 0 0.75rem' }}>{tr('cov_assign_title')} — {assignTarget.plate_number}</p>
-            <select value={assignDriverId} onChange={e => setAssignDriverId(e.target.value)}
-              style={{ width: '100%', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 10, padding: '0.75rem 0.9rem', color: 'var(--clr-text)', fontSize: '0.875rem', fontFamily: 'inherit', marginBottom: '0.85rem', outline: 'none', cursor: 'pointer' }}>
-              <option value="">{tr('cov_no_driver_opt')}</option>
-              {drivers.map(d => (
-                <option key={d.id} value={String(d.id)}>
-                  {d.first_name} {d.last_name || ''} · {d.phone_number}{d.has_assigned_car ? ` (${tr('cov_has_car')} ${d.assigned_plate})` : ''}
-                </option>
-              ))}
-            </select>
+            <SearchableSelect
+              options={drivers.map(d => {
+                const held = existingPlate(d)
+                return {
+                  id: String(d.id),
+                  label: `${d.first_name} ${d.last_name || ''}`.trim(),
+                  sub: held ? `${d.phone_number} · already on ${held}` : d.phone_number,
+                  // Shown before submitting. The server refuses a driver who already
+                  // holds a truck, and the admin used to discover that only from the
+                  // rejection.
+                  badge: held ? 'Assigned' : null,
+                  badgeTone: 'warn',
+                }
+              })}
+              value={assignDriverId}
+              onChange={setAssignDriverId}
+              emptyLabel={tr('cov_no_driver_opt')}
+              placeholder="Search name or phone"
+            />
             {assignErr && <div style={{ color: '#f87171', fontSize: '0.8rem', marginBottom: '0.75rem' }}>{assignErr}</div>}
             <div style={{ display: 'flex', gap: '0.75rem' }}>
               <button onClick={() => setAssignTarget(null)} style={{ flex: 1, padding: '0.65rem', borderRadius: 9, border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.04)', color: 'var(--clr-muted)', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600 }}>{tr('cov_cancel')}</button>
@@ -8192,6 +8545,9 @@ export default function AdminDashboardPage() {
   const [stats, setStats] = useState<Stats | null>(null)
   const [usersLoading, setUsersLoading] = useState(false)
   const [toastMsg, setToastMsg] = useState('')
+  // Set when jumping from a company row to its vehicles, so the vehicle list
+  // opens already filtered to that company.
+  const [companyFilter, setCompanyFilter] = useState<{ id: string; name: string } | null>(null)
   const [pendingCounts, setPendingCounts] = useState({ orders: 0, guestOrders: 0, payments: 0, withdrawals: 0 })
 
   useEffect(() => {
@@ -8276,7 +8632,8 @@ export default function AdminDashboardPage() {
   // Shipper (2), Driver (3) and CarOwner (6) each have their own screen — the
   // staff list is everything that is left.
   const staffUsers = users.filter(u => ![2, 3, 6].includes(u.role_id))
-  const carOwnerUsers = users.filter(u => u.role_id === 6)
+  // A company's login is also role 6; company_id is what tells the two apart.
+  const carOwnerUsers = users.filter(u => u.role_id === 6 && !(u as any).company_id)
 
   const can = (perm: string) => user?.role_id === 1 || myPermissions.includes(perm)
   const chatUserName = `${user?.first_name ?? ''} ${user?.last_name ?? ''}`.trim() || user?.phone_number || 'User'
@@ -8306,10 +8663,13 @@ export default function AdminDashboardPage() {
     ...(can('drivers.verify') ? [{ id: 'verify-drivers' as AdminSection, icon: <LuBadgeCheck size={16} />, label: tr('sb_verify_drivers') }] : []),
     ...(can('users.manage') ? [{ id: 'shippers' as AdminSection, icon: <LuPackage size={16} />, label: tr('sb_shippers') }] : []),
     ...(can('users.manage') ? [{ id: 'car-owner-users' as AdminSection, icon: <LuCar size={16} />, label: 'Car Owners' }] : []),
+    ...(can('companies.manage') ? [{ id: 'companies' as AdminSection, icon: <LuBuilding2 size={16} />, label: 'Companies' }] : []),
     ...(can('users.manage') ? [{ id: 'staff' as AdminSection, icon: <LuBriefcase size={16} />, label: tr('sb_staff') }] : []),
     ...(user?.role_id === 1 ? [{ id: 'cross-border' as AdminSection, icon: <LuGlobe size={16} />, label: tr('sb_cross_border') }] : []),
     ...(can('vehicles.manage') ? [{ id: 'vehicles' as AdminSection, icon: <LuCar size={16} />, label: tr('sb_vehicles') }] : []),
     ...(can('vehicles.manage') ? [{ id: 'car-owners' as AdminSection, icon: <LuCar size={16} />, label: tr('sb_car_owners') }] : []),
+    ...(can('companies.manage') ? [{ id: 'company-vehicles' as AdminSection, icon: <LuTruck size={16} />, label: 'Company Vehicles' }] : []),
+    ...(can('companies.manage') ? [{ id: 'company-drivers' as AdminSection, icon: <LuUsers size={16} />, label: 'Company Drivers' }] : []),
     ...(user?.role_id === 1 ? [{ id: 'security-events' as AdminSection, icon: <LuShieldCheck size={16} />, label: tr('sb_security') }] : []),
     ...(can('settings.manage') || can('notifications.manage') || can('roles.manage') || can('pricing.manage') || can('cargo.manage') ? [{ id: 'settings' as AdminSection, icon: <LuSettings size={16} />, label: tr('sb_settings') }] : []),
     { id: 'profile' as AdminSection, icon: <LuUser size={16} />, label: 'My Profile' },
@@ -8339,7 +8699,7 @@ export default function AdminDashboardPage() {
     'countries': { icon: <LuGlobe size={16} />, label: tr('sb_st_countries') },
     'notif-settings': { icon: <LuBell size={16} />, label: tr('sb_st_notif') },
     'maintenance-mode': { icon: <LuWrench size={16} />, label: tr('sb_st_maintenance') },
-    'phone-otp-settings': { icon: <LuSmartphone size={16} />, label: 'SMS Phone OTP' },
+    'phone-otp-settings': { icon: <LuSmartphone size={16} />, label: 'SMS & Phone OTP' },
     'role-management': { icon: <LuKey size={16} />, label: tr('sb_st_roles') },
     'security-events': { icon: <LuShieldCheck size={16} />, label: tr('sb_st_security') },
     'cross-border': { icon: <LuGlobe size={16} />, label: tr('sb_st_cross') },
@@ -8350,6 +8710,9 @@ export default function AdminDashboardPage() {
     'ai-settings': { icon: <LuLink size={16} />, label: tr('sb_st_ai') },
     'car-owners': { icon: <LuCar size={16} />, label: tr('sb_st_car_owners') },
     'car-owner-users': { icon: <LuCar size={16} />, label: 'Car Owners' },
+    'companies': { icon: <LuBuilding2 size={16} />, label: 'Transport Companies' },
+    'company-vehicles': { icon: <LuTruck size={16} />, label: 'Company Vehicles' },
+    'company-drivers': { icon: <LuUsers size={16} />, label: 'Company Drivers' },
     'settings': { icon: <LuSettings size={16} />, label: tr('sb_st_settings') },
   } as Record<string, { icon: React.ReactNode; label: string }>)[section]
 
@@ -8430,6 +8793,7 @@ export default function AdminDashboardPage() {
               items: [
                 ...(can('users.manage') ? [{ id: 'shippers' as AdminSection, icon: <LuPackage size={15} />, label: tr('sb_shippers') }] : []),
                 ...(can('users.manage') ? [{ id: 'car-owner-users' as AdminSection, icon: <LuCar size={15} />, label: 'Car Owners' }] : []),
+                ...(can('companies.manage') ? [{ id: 'companies' as AdminSection, icon: <LuBuilding2 size={15} />, label: 'Companies' }] : []),
                 ...(can('users.manage') ? [{ id: 'staff' as AdminSection, icon: <LuBriefcase size={15} />, label: tr('sb_staff') }] : []),
               ],
             },
@@ -8439,6 +8803,8 @@ export default function AdminDashboardPage() {
                 ...(user?.role_id === 1 ? [{ id: 'cross-border' as AdminSection, icon: <LuGlobe size={15} />, label: tr('sb_cross_border') }] : []),
                 ...(can('vehicles.manage') ? [{ id: 'vehicles' as AdminSection, icon: <LuCar size={15} />, label: tr('sb_vehicles') }] : []),
                 ...(can('vehicles.manage') ? [{ id: 'car-owners' as AdminSection, icon: <LuCar size={15} />, label: tr('sb_car_owners') }] : []),
+                ...(can('companies.manage') ? [{ id: 'company-vehicles' as AdminSection, icon: <LuTruck size={15} />, label: 'Company Vehicles' }] : []),
+                ...(can('companies.manage') ? [{ id: 'company-drivers' as AdminSection, icon: <LuUsers size={15} />, label: 'Company Drivers' }] : []),
               ],
             },
             {
@@ -8527,12 +8893,18 @@ export default function AdminDashboardPage() {
           {section === 'vehicle-types' && <AdminVehicleTypesSection />}
           {section === 'countries' && <AdminCountriesSection />}
           {section === 'maintenance-mode' && <AdminMaintenanceSection />}
-          {section === 'phone-otp-settings' && <AdminPhoneOtpSettingsSection />}
+          {section === 'phone-otp-settings' && <AdminSmsSettingsSection />}
           {section === 'role-management' && <AdminRoleManagementSection onPermissionsSaved={reloadPermissions} />}
           {section === 'security-events' && <AdminSecurityEventsSection />}
           {section === 'cross-border' && <AdminCrossBorderSection />}
           {section === 'car-owners' && <AdminCarOwnersSection />}
           {section === 'car-owner-users' && <CarOwnerUsersSection allUsers={carOwnerUsers} loading={usersLoading} onToggleActive={handleToggleActive} onRefresh={loadUsers} canDelete={user?.role_id === 1} onDeleted={showToast} />}
+          {section === 'companies' && <AdminCompaniesSection onToast={showToast} canDelete={user?.role_id === 1}
+            onViewVehicles={(id, name) => { setCompanyFilter({ id, name }); setSection('company-vehicles') }} />}
+          {section === 'company-vehicles' && <AdminCompanyVehiclesSection onToast={showToast}
+            initialCompanyId={companyFilter?.id} initialCompanyName={companyFilter?.name} />}
+          {section === 'company-drivers' && <AdminCompanyDriversSection onToast={showToast}
+            canPurge={user?.role_id === 1} />}
           {section === 'reports' && <AdminReportsSection allowedTabs={reportTabsForRole} />}
           {section === 'contact-info' && <AdminContactInfoSection />}
           {section === 'bank-information' && <AdminBankInformation />}

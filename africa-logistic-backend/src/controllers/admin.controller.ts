@@ -1,7 +1,7 @@
 import { FastifyRequest, FastifyReply } from 'fastify'
 import bcrypt from 'bcrypt'
+import nodeCrypto from 'crypto'
 import { v4 as uuidv4 } from 'uuid'
-import twilio from 'twilio'
 import {
   listDriversForAdmin,
   reviewDriverDocument,
@@ -63,18 +63,16 @@ interface AssignDriverBody {
 
 // ─── SMS Helper ───────────────────────────────────────────────────────────────
 
-async function sendRejectionSms(phone: string, message: string): Promise<void> {
-  const sid = process.env.TWILIO_ACCOUNT_SID
-  const token = process.env.TWILIO_AUTH_TOKEN
-  const from = process.env.TWILIO_PHONE_NUMBER
-  if (!sid || !token || !from || sid.startsWith('ACxxxxx')) {
-    console.log(`📱 [SMS stub] To ${phone}: ${message}`)
-    return
-  }
-  try {
-    await twilio(sid, token).messages.create({ body: message, from, to: phone })
-  } catch (err) {
-    console.error('Twilio SMS failed:', err)
+/**
+ * Rejection notices used to go through an env-only helper that logged to the
+ * console when unset and swallowed every error, so they were almost certainly
+ * never delivered. They now use the one real SMS path.
+ */
+async function sendRejectionSms(db: any, phone: string, message: string): Promise<void> {
+  const { sendSms } = await import('../services/sms.service.js')
+  const result = await sendSms(db, phone, message, 'REJECTION')
+  if (!result.ok) {
+    console.error(`SMS rejection notice to ${phone} failed: ${result.error}`)
   }
 }
 
@@ -82,7 +80,7 @@ async function sendRejectionSms(phone: string, message: string): Promise<void> {
 
 import fs from 'fs'
 import path from 'path'
-import { getTwilioCredentials, getTwilioSettingsStatus, updateTwilioSettings } from '../services/twilio-settings.service.js'
+import { getSmsCredentials, getSmsSettingsStatus, updateSmsSettings } from '../services/sms-settings.service.js'
 import { DELETED_STAFF_USER_ID } from '../plugins/db.js'
 import { saveFile as saveUploadedFile } from '../utils/uploads.js'
 
@@ -175,11 +173,15 @@ export async function adminGetUsersHandler(
       w.id        AS wallet_id,
       COALESCE(w.balance, 0) AS current_balance,
       COALESCE(w.total_earned, 0) AS total_earned,
-      COALESCE(w.total_spent, 0) AS total_spent
+      COALESCE(w.total_spent, 0) AS total_spent,
+      -- A company login is also role 6; this is what tells the two apart.
+      coc.id         AS company_id,
+      coc.company_name AS company_name
     FROM users u
     LEFT JOIN roles r ON r.id = u.role_id
     LEFT JOIN driver_profiles dp ON dp.user_id = u.id
     LEFT JOIN wallets w ON w.user_id = u.id
+    LEFT JOIN car_owner_companies coc ON coc.user_id = u.id
     WHERE u.id <> ?
     ORDER BY u.created_at DESC
   `, [DELETED_STAFF_USER_ID])
@@ -391,6 +393,7 @@ export async function adminReviewDocumentHandler(
     if (userRows[0]?.phone_number) {
       const docLabel: Record<string, string> = { national_id: 'National ID', license: "Driver's License", libre: 'Libre document' }
       await sendRejectionSms(
+        db,
         userRows[0].phone_number,
         `Afri Logistics: Your ${docLabel[document_type] ?? document_type} was rejected. Reason: ${reason}. Please re-upload via the app.`
       )
@@ -420,22 +423,27 @@ export async function adminVerifyDriverHandler(
   const profile = await getDriverProfile(db, request.params.id)
   if (!profile) return reply.status(404).send({ success: false, message: 'Driver profile not found.' })
 
-  // Only identity and licence are required. The libre proves ownership of a
-  // vehicle, and plenty of drivers are hired to drive someone else's truck, so
-  // it must never block verifying the driver themselves.
+  // Documents are optional throughout this product: an admin or a company can
+  // create a driver without any. Blocking verification on them left such a driver
+  // permanently stuck — unverifiable, and therefore undispatchable, with no way out
+  // except deleting and recreating them. The admin's judgement is the gate.
+  //
+  // Missing paperwork is reported rather than enforced, so verifying someone with
+  // nothing on file is a visible decision instead of a silent one.
   const missing: string[] = []
   if (!profile.national_id_url) missing.push('National ID')
-  if (!profile.license_url)     missing.push("Driver's License")
-  if (missing.length > 0) {
-    return reply.status(400).send({
-      success: false,
-      message: `${missing.join(' and ')} must be uploaded before verification. The Libre document is optional.`,
-    })
-  }
+  if (!profile.license_url)     missing.push("Driver's Licence")
 
   await verifyDriver(db, request.params.id, caller.id)
   const updated = await getDriverProfile(db, request.params.id)
-  return reply.send({ success: true, message: 'Driver fully verified.', driver_profile: updated })
+  return reply.send({
+    success: true,
+    missing_documents: missing,
+    message: missing.length > 0
+      ? `Driver verified. Note: no ${missing.join(' or ')} on file — only documents that were actually uploaded have been marked approved.`
+      : 'Driver fully verified.',
+    driver_profile: updated,
+  })
 }
 
 /**
@@ -466,6 +474,7 @@ export async function adminRejectDriverHandler(
   )
   if (userRows[0]?.phone_number) {
     await sendRejectionSms(
+      db,
       userRows[0].phone_number,
       `Afri Logistics: Your driver application has been rejected. Reason: ${reason}. Please contact support if you have questions.`
     )
@@ -658,7 +667,13 @@ export async function adminAssignDriverToVehicleHandler(
     return reply.status(400).send({ success: false, message: 'Driver must be verified before assigning a vehicle.' })
   }
 
-  await assignVehicleToDriver(db, request.params.id, driver_id)
+  // A driver already crewing a car-owner or company truck is refused here rather
+  // than quietly taken off it, which is what used to happen.
+  const assignment = await assignVehicleToDriver(db, request.params.id, driver_id)
+  if (!assignment.ok) {
+    return reply.status(assignment.status).send({ success: false, message: assignment.message })
+  }
+
   const updated = await getVehicleById(db, request.params.id)
   return reply.send({
     success: true,
@@ -761,6 +776,178 @@ export async function adminCreateCarOwnerHandler(
 }
 
 /**
+ * Generated login password.
+ *
+ * Read off a phone screen from an SMS, so the alphabet drops characters that
+ * are easily confused (0/O, 1/l/I). crypto.randomInt, never Math.random —
+ * this is a real credential even though it is short-lived.
+ */
+export function generateCredentialPassword(length = 10): string {
+  const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789'
+  let out = ''
+  for (let i = 0; i < length; i++) out += alphabet[nodeCrypto.randomInt(0, alphabet.length)]
+  return out
+}
+
+/**
+ * The welcome text. English only and deliberately terse: one Amharic character
+ * would drop the SMS capacity from 160 to 70 and turn one paid segment into
+ * three or four, per driver, every time.
+ */
+export function buildWelcomeSms(firstName: string, phone: string, password: string): string {
+  // The template is 144 characters before the name, so a long one would tip the
+  // message past 160 and double the cost of every driver registration.
+  const name = firstName.trim().slice(0, 12)
+  return `Afri Logistics: Welcome ${name}. Login at afri-logistics.com - phone ${phone}, password ${password}. Please change your password after you sign in.`
+}
+
+/**
+ * POST /api/admin/users/driver
+ *
+ * Registers a driver on their behalf. An admin creating the account IS the
+ * approval, so the driver is active and verified immediately and every document
+ * is optional. The generated password is texted to them and must be changed on
+ * first login.
+ */
+export async function adminCreateDriverHandler(
+  request: FastifyRequest<{
+    Body: {
+      first_name: string; last_name?: string; phone_number: string; email?: string
+      national_id?: string; license?: string; libre?: string
+    }
+  }>,
+  reply: FastifyReply
+) {
+  const caller = request.user as { id: string; role_id: number }
+  if ([2, 3].includes(caller.role_id)) return reply.status(403).send({ success: false, message: 'Admin access required.' })
+
+  const db = request.server.db
+  const body = request.body ?? ({} as any)
+  const password = generateCredentialPassword()
+
+  const { createCustomerAccount, CUSTOMER_ROLE_IDS } = await import('../services/customer-account.service.js')
+  const { ensureDriverProfile } = await import('../services/profile.service.js')
+
+  const conn = await db.getConnection()
+  let driverId = ''
+  try {
+    await conn.beginTransaction()
+
+    const created = await createCustomerAccount(conn, CUSTOMER_ROLE_IDS.DRIVER, {
+      first_name: body.first_name,
+      last_name: body.last_name,
+      phone_number: body.phone_number,
+      email: body.email,
+      password,
+    })
+    if (!created.ok) {
+      await conn.rollback()
+      return reply.status(created.status).send({ success: false, message: created.message })
+    }
+    driverId = created.id
+
+    await ensureDriverProfile(conn, driverId)
+
+    // Documents are optional. Only a document that was actually supplied may be
+    // marked approved — never claim to have checked one that was never sent.
+    const documents: Array<[keyof typeof body, string]> = [
+      ['national_id', 'national_id'],
+      ['license', 'license'],
+      ['libre', 'libre'],
+    ]
+    const sets: string[] = []
+    const values: unknown[] = []
+    for (const [field, column] of documents) {
+      const payload = body[field] as string | undefined
+      if (!payload) continue
+      const url = saveFile(payload, `driver_docs/${driverId}`, column)
+      sets.push(`${column}_url = ?`, `${column}_status = 'APPROVED'`)
+      values.push(url)
+    }
+
+    // Verified on the spot — there is no second approval step for an account an
+    // admin created themselves.
+    sets.push('is_verified = 1', "status = 'AVAILABLE'", 'verified_at = NOW()', 'verified_by_admin_id = ?')
+    values.push(caller.id)
+    await conn.query(`UPDATE driver_profiles SET ${sets.join(', ')} WHERE user_id = ?`, [...values, driverId])
+
+    await conn.query('UPDATE users SET must_change_password = 1 WHERE id = ?', [driverId])
+
+    await conn.commit()
+  } catch (err: any) {
+    await conn.rollback()
+    request.server.log.error({ err }, 'Admin driver creation failed')
+    return reply.status(500).send({ success: false, message: 'Could not create this driver.' })
+  } finally {
+    conn.release()
+  }
+
+  // Sent after the commit: a failed text must never undo a driver who exists.
+  const { sendSms } = await import('../services/sms.service.js')
+  const phone = body.phone_number.trim()
+  const sms = await sendSms(db, phone, buildWelcomeSms(body.first_name.trim(), phone, password), 'DRIVER_WELCOME')
+
+  return reply.status(201).send({
+    success: true,
+    id: driverId,
+    sms_sent: sms.ok,
+    // The password is returned ONLY when the text could not be delivered. Without
+    // it nobody holds the credential and the account is unusable; when the SMS did
+    // arrive there is no reason for it to travel back.
+    password: sms.ok ? undefined : password,
+    phone_number: phone,
+    message: sms.ok
+      ? `Driver ${body.first_name.trim()} created and login details sent by SMS.`
+      : `Driver ${body.first_name.trim()} created, but the SMS could not be delivered (${sms.error}) — give them the password below.`,
+  })
+}
+
+/**
+ * POST /api/admin/users/driver/:id/resend-credentials
+ * Issues a fresh password and texts it. Without this the only way to recover a
+ * lost password would be to delete and recreate the driver.
+ */
+export async function adminResendDriverCredentialsHandler(
+  request: FastifyRequest<{ Params: { id: string } }>,
+  reply: FastifyReply
+) {
+  const caller = request.user as { id: string; role_id: number }
+  if ([2, 3].includes(caller.role_id)) return reply.status(403).send({ success: false, message: 'Admin access required.' })
+
+  const db = request.server.db
+  const [[driver]] = await db.query<any[]>(
+    'SELECT id, first_name, phone_number FROM users WHERE id = ? AND role_id = 3 LIMIT 1',
+    [request.params.id]
+  )
+  if (!driver) return reply.status(404).send({ success: false, message: 'Driver not found.' })
+
+  const password = generateCredentialPassword()
+  const hash = await bcrypt.hash(password, 12)
+  await db.query('UPDATE users SET password_hash = ?, must_change_password = 1 WHERE id = ?', [hash, driver.id])
+
+  const { sendSms } = await import('../services/sms.service.js')
+  const sms = await sendSms(
+    db, driver.phone_number,
+    buildWelcomeSms(driver.first_name, driver.phone_number, password),
+    'DRIVER_WELCOME'
+  )
+
+  // 200, not 400. The password WAS reset — that is a success with a caveat, and a
+  // 4xx made every caller treat it as a failed request, so the old password had
+  // already stopped working while nobody was given the new one.
+  if (!sms.ok) {
+    return reply.send({
+      success: true,
+      sms_sent: false,
+      password,
+      phone_number: String(driver.phone_number),
+      message: `The password was reset, but the SMS could not be delivered (${sms.error}) — give them the password below.`,
+    })
+  }
+  return reply.send({ success: true, sms_sent: true, message: `New login details sent to ${driver.phone_number}.` })
+}
+
+/**
  * PUT /api/admin/users/:id
  * Update a user's display name, email or role.
  * Body: { first_name?, last_name?, email?, role_id? }
@@ -854,9 +1041,17 @@ export async function adminReviewVehicleSubmissionHandler(
     driverSubmissionStatus: action,
   } as any)
 
-  // If approved → assign vehicle to the submitting driver
+  // If approved → assign vehicle to the submitting driver. The approval itself
+  // stands even when the assignment is refused (the driver may already be crewing
+  // another truck), so report that rather than failing the whole review.
   if (action === 'APPROVED') {
-    await assignVehicleToDriver(db, request.params.id, vehicle.submitted_by_driver_id!)
+    const assignment = await assignVehicleToDriver(db, request.params.id, vehicle.submitted_by_driver_id!)
+    if (!assignment.ok) {
+      return reply.send({
+        success: true,
+        message: `Vehicle approved, but it was not assigned to the driver who submitted it: ${assignment.message}`,
+      })
+    }
   }
 
   return reply.send({ success: true, message: `Vehicle submission ${action.toLowerCase()}.` })
@@ -976,7 +1171,22 @@ export async function adminGetOrderHandler(
 ) {
   const order = await getOrderById(request.server.db, request.params.id)
   if (!order) return reply.status(404).send({ success: false, message: 'Order not found.' })
-  return reply.send({ success: true, order })
+
+  // Resolve the truck for display here and nowhere else. ORDER_SELECT is shared by
+  // 39 call sites including shipper- and driver-facing payloads, so widening it to
+  // carry vehicle fields would reshape responses nothing asked to change.
+  let vehicle: unknown = null
+  if (order.vehicle_id) {
+    const { validateOrderVehicle } = await import('../services/order-vehicle.service.js')
+    const found = await validateOrderVehicle(
+      request.server.db, String(order.vehicle_id), order.driver_id ? String(order.driver_id) : null
+    )
+    // Show it even when it would now be refused for a NEW assignment — this is the
+    // historical record of what carried the load, not a dispatch decision.
+    vehicle = found.vehicle ?? null
+  }
+
+  return reply.send({ success: true, order, vehicle })
 }
 
 /** PATCH /api/admin/orders/:id/assign — Assign driver to a pending order */
@@ -991,8 +1201,46 @@ export async function adminAssignOrderHandler(
   if (!order) return reply.status(404).send({ success: false, message: 'Order not found.' })
   if (!driver_id) return reply.status(400).send({ success: false, message: 'driver_id is required.' })
 
+  // An unverified driver must never end up carrying cargo. The suggestion list
+  // already filters on this, but a direct assignment went straight from the
+  // request body to the order — so the check only held on the happy path.
+  const [[candidate]] = await request.server.db.query<any[]>(
+    `SELECT dp.is_verified, dp.status FROM driver_profiles dp
+       JOIN users u ON u.id = dp.user_id
+      WHERE dp.user_id = ? AND u.role_id = 3 AND u.is_active = 1 LIMIT 1`,
+    [driver_id]
+  )
+  if (!candidate) {
+    return reply.status(404).send({ success: false, message: 'Driver not found or not active.' })
+  }
+  if (!candidate.is_verified) {
+    return reply.status(400).send({
+      success: false,
+      message: 'This driver has not been verified yet, so they cannot be given an order.',
+    })
+  }
+  if (candidate.status === 'SUSPENDED') {
+    return reply.status(400).send({ success: false, message: 'This driver is suspended.' })
+  }
+
+  // Decide which truck this order records. No vehicle supplied → whatever the
+  // driver is currently on, found across all three fleets. One supplied → it must
+  // be approved and operationally active, or the order is refused.
+  //
+  // A vehicle that is not the driver's own is allowed on purpose: the vehicle on an
+  // order is a snapshot of that trip. Nothing here writes back to the vehicle's own
+  // driver column.
+  const { resolveOrderVehicle } = await import('../services/order-vehicle.service.js')
+  const resolvedVehicle = await resolveOrderVehicle(request.server.db, driver_id, vehicle_id ?? null)
+  if (!resolvedVehicle.ok) {
+    return reply.status(409).send({ success: false, message: resolvedVehicle.reason })
+  }
+
   if (['PENDING', 'ASSIGNED'].includes(order.status)) {
-    await assignOrderToDriver(request.server.db, order.id, driver_id, vehicle_id ?? null, admin.id)
+    await assignOrderToDriver(
+      request.server.db, order.id, driver_id,
+      resolvedVehicle.vehicleId, admin.id, resolvedVehicle.source
+    )
     wsManager.broadcast(order.id, 'STATUS_CHANGED', { status: 'ASSIGNED', driver_id })
     notifyOrderStatus(request.server.db, order.id, 'ASSIGNED')
     await sendPushToUser(request.server.db, driver_id, {
@@ -1004,8 +1252,8 @@ export async function adminAssignOrderHandler(
   } else {
     const db = request.server.db
     await db.query(
-      `UPDATE orders SET driver_id = ?, vehicle_id = ?, assigned_at = IFNULL(assigned_at, NOW()), updated_by = ? WHERE id = ?`,
-      [driver_id, vehicle_id ?? null, admin.id, order.id]
+      `UPDATE orders SET driver_id = ?, vehicle_id = ?, vehicle_source = ?, assigned_at = IFNULL(assigned_at, NOW()), updated_by = ? WHERE id = ?`,
+      [driver_id, resolvedVehicle.vehicleId, resolvedVehicle.source, admin.id, order.id]
     )
     await db.query(
       `INSERT INTO order_status_history (order_id, status, changed_by, notes) VALUES (?, ?, ?, ?)`,
@@ -1023,7 +1271,122 @@ export async function adminAssignOrderHandler(
     }).catch(() => { })
   }
 
-  return reply.send({ success: true, message: 'Driver assigned successfully.' })
+  // Say so when the recorded truck is not the one the driver is attached to, so an
+  // override is visible rather than silent.
+  const vehicleNote = resolvedVehicle.vehicle
+    ? resolvedVehicle.belongsToDriver
+      ? ` Vehicle: ${resolvedVehicle.vehicle.plate_number}.`
+      : ` Vehicle ${resolvedVehicle.vehicle.plate_number} recorded for this trip, though it is not this driver's assigned vehicle.`
+    : ' No vehicle is recorded — this driver has no truck assigned.'
+
+  return reply.send({
+    success: true,
+    message: `Driver assigned successfully.${vehicleNote}`,
+    vehicle: resolvedVehicle.vehicle,
+  })
+}
+
+/**
+ * GET /api/admin/drivers-for-dispatch
+ *
+ * Every driver who can be given an order, each carrying the truck they are
+ * currently on — resolved across all three fleets in one query rather than one
+ * lookup per driver.
+ *
+ * This exists because vehicle auto-fill in the order modals used to search the
+ * platform fleet list for `driver_id`, which could never match a car owner's or a
+ * company's truck: wrong list, and wrong column name (`assigned_driver_id`). One
+ * endpoint means every modal auto-fills the same way.
+ */
+export async function adminDriversForDispatchHandler(
+  request: FastifyRequest<{ Querystring: { search?: string } }>,
+  reply: FastifyReply
+) {
+  const caller = request.user as { role_id: number }
+  if ([2, 3].includes(caller.role_id)) {
+    return reply.status(403).send({ success: false, message: 'Admin access required.' })
+  }
+
+  const filters = [
+    'u.role_id = 3',
+    'u.is_active = 1',
+    'dp.is_verified = 1',
+    "dp.status <> 'SUSPENDED'",
+  ]
+  const params: unknown[] = []
+  if (request.query.search?.trim()) {
+    filters.push('(u.first_name LIKE ? OR u.last_name LIKE ? OR u.phone_number LIKE ?)')
+    const like = `%${request.query.search.trim()}%`
+    params.push(like, like, like)
+  }
+
+  const [rows] = await request.server.db.query<any[]>(
+    `SELECT u.id, u.first_name, u.last_name, u.phone_number,
+            dp.status AS driver_status, dp.rating, dp.total_trips,
+            COALESCE(fv.id, ov.id, cv.id)                                       AS vehicle_id,
+            COALESCE(fv.plate_number, ov.plate_number, cv.plate_number)         AS plate_number,
+            COALESCE(fv.vehicle_type, ov.vehicle_type, cv.vehicle_type)         AS vehicle_type,
+            COALESCE(fv.max_capacity_kg, ov.max_capacity_kg, cv.max_capacity_kg) AS max_capacity_kg,
+            CASE
+              WHEN fv.id IS NOT NULL THEN 'FLEET'
+              WHEN ov.id IS NOT NULL THEN 'CAR_OWNER'
+              WHEN cv.id IS NOT NULL THEN 'COMPANY'
+              ELSE NULL
+            END AS vehicle_source,
+            comp.company_name
+       FROM users u
+       JOIN driver_profiles dp ON dp.user_id = u.id
+       LEFT JOIN vehicles           fv ON fv.driver_id          = u.id AND fv.is_active = 1 AND fv.is_approved = 1
+       LEFT JOIN car_owner_vehicles ov ON ov.assigned_driver_id = u.id AND ov.status = 'APPROVED' AND ov.operational_status = 'ACTIVE'
+       LEFT JOIN company_vehicles   cv ON cv.assigned_driver_id = u.id AND cv.status = 'APPROVED' AND cv.operational_status = 'ACTIVE'
+       LEFT JOIN car_owner_companies comp ON comp.id = cv.company_id
+      WHERE ${filters.join(' AND ')}
+      ORDER BY u.first_name, u.last_name`,
+    params
+  )
+
+  return reply.send({ success: true, drivers: rows })
+}
+
+/**
+ * GET /api/admin/vehicles-for-dispatch
+ *
+ * Every truck that may legally carry an order, from all three fleets: approved and
+ * operationally active. This is what makes the admin's vehicle override meaningful —
+ * the old picker listed the platform fleet only, so there was nothing to override to.
+ *
+ * A UNION rather than three round trips, and each branch carries its own source so
+ * the caller can store `orders.vehicle_source` alongside the id.
+ */
+export async function adminVehiclesForDispatchHandler(
+  request: FastifyRequest,
+  reply: FastifyReply
+) {
+  const caller = request.user as { role_id: number }
+  if ([2, 3].includes(caller.role_id)) {
+    return reply.status(403).send({ success: false, message: 'Admin access required.' })
+  }
+
+  const [rows] = await request.server.db.query<any[]>(
+    `SELECT v.id, v.plate_number, v.vehicle_type, v.max_capacity_kg,
+            'FLEET' AS vehicle_source, NULL AS company_name, v.driver_id AS assigned_driver_id
+       FROM vehicles v
+      WHERE v.is_active = 1 AND v.is_approved = 1
+     UNION ALL
+     SELECT v.id, v.plate_number, v.vehicle_type, v.max_capacity_kg,
+            'CAR_OWNER' AS vehicle_source, NULL AS company_name, v.assigned_driver_id
+       FROM car_owner_vehicles v
+      WHERE v.status = 'APPROVED' AND v.operational_status = 'ACTIVE'
+     UNION ALL
+     SELECT v.id, v.plate_number, v.vehicle_type, v.max_capacity_kg,
+            'COMPANY' AS vehicle_source, c.company_name, v.assigned_driver_id
+       FROM company_vehicles v
+       LEFT JOIN car_owner_companies c ON c.id = v.company_id
+      WHERE v.status = 'APPROVED' AND v.operational_status = 'ACTIVE'
+     ORDER BY plate_number`
+  )
+
+  return reply.send({ success: true, vehicles: rows })
 }
 
 /** PATCH /api/admin/orders/:id/status — Manual override order status */
@@ -1046,6 +1409,17 @@ export async function adminUpdateOrderStatusHandler(
   }
 
   await updateOrderStatus(request.server.db, order.id, status as any, admin.id, notes ?? 'Admin override')
+
+  // A job that has stopped must hand the driver back to the dispatch pool.
+  // updateOrderStatus only writes the order row, so overriding straight to a
+  // terminal status used to leave the driver ON_JOB for good — and driver
+  // suggestions only list AVAILABLE drivers, so they became unassignable. Only the
+  // dedicated /cancel endpoint released them.
+  if (['CANCELLED', 'FAILED', 'DELIVERED', 'COMPLETED'].includes(status) && order.driver_id) {
+    const { releaseDriver } = await import('../services/order.service.js')
+    await releaseDriver(request.server.db, String(order.driver_id))
+  }
+
   wsManager.broadcast(order.id, 'STATUS_CHANGED', { status })
   notifyOrderStatus(request.server.db, order.id, status as any)
 
@@ -1408,16 +1782,41 @@ export async function adminCreateOrderOnBehalfHandler(
     )
   }
 
-  // Optionally assign driver right away
+  // Optionally assign a driver right away.
+  //
+  // Goes through the same resolution the assign endpoint uses, so a vehicle is
+  // filled in from the driver when none was given and validated when one was. This
+  // path previously wrote `vehicle_id` straight through, which meant an order
+  // created with a driver but no vehicle recorded no truck at all even when the
+  // driver clearly had one.
+  let assignedVehicleNote = ''
   if (driver_id) {
-    await assignOrderToDriver(request.server.db, orderId, driver_id, vehicle_id ?? null, admin.id)
+    const { resolveOrderVehicle } = await import('../services/order-vehicle.service.js')
+    const resolved = await resolveOrderVehicle(request.server.db, driver_id, vehicle_id ?? null)
+    if (!resolved.ok) {
+      // The order itself is already created and valid; only the assignment failed.
+      // Say so rather than implying the whole thing was rejected.
+      const created = await getOrderById(request.server.db, orderId)
+      return reply.status(201).send({
+        success: true,
+        message: `Order created, but the driver was not assigned: ${resolved.reason}`,
+        order: created,
+        otps: { pickup_otp: pickupOtp, delivery_otp: deliveryOtp },
+      })
+    }
+    await assignOrderToDriver(
+      request.server.db, orderId, driver_id, resolved.vehicleId, admin.id, resolved.source
+    )
+    if (resolved.vehicle && !resolved.belongsToDriver) {
+      assignedVehicleNote = ` ${resolved.vehicle.plate_number} was recorded for this trip, though it is not this driver's assigned vehicle.`
+    }
   }
 
   const order = await getOrderById(request.server.db, orderId)
 
   return reply.status(201).send({
     success: true,
-    message: 'Order created successfully.',
+    message: `Order created successfully.${assignedVehicleNote}`,
     order,
     otps: { pickup_otp: pickupOtp, delivery_otp: deliveryOtp },
   })
@@ -2631,8 +3030,8 @@ export async function adminUpdateSystemConfigHandler(
 ) {
   const db = request.server.db
   const body = request.body ?? {}
-  if (body.phone_otp_enabled === true && !await getTwilioCredentials(db)) {
-    return reply.status(400).send({ success: false, message: 'Configure the Twilio Account SID, Auth Token, and sender phone number before enabling SMS OTP.' })
+  if (body.phone_otp_enabled === true && !await getSmsCredentials(db)) {
+    return reply.status(400).send({ success: false, message: 'Add the SMS Ethiopia API key in Admin → Settings → SMS before enabling SMS OTP.' })
   }
   for (const key of ALLOWED_CONFIG_KEYS) {
     if (body[key] === undefined) continue
@@ -2646,26 +3045,59 @@ export async function adminUpdateSystemConfigHandler(
   return reply.send({ success: true, message: 'Configuration updated.' })
 }
 
-/** GET /api/admin/settings/twilio — masked SMS provider settings, super-admin only. */
-export async function adminGetTwilioSettingsHandler(request: FastifyRequest, reply: FastifyReply) {
+/** GET /api/admin/settings/sms — masked SMS provider settings, super-admin only. */
+export async function adminGetSmsSettingsHandler(request: FastifyRequest, reply: FastifyReply) {
   if ((request.user as any).role_id !== 1) return reply.status(403).send({ success: false, message: 'Super-admin access required.' })
-  return reply.send({ success: true, settings: await getTwilioSettingsStatus(request.server.db) })
+  return reply.send({ success: true, settings: await getSmsSettingsStatus(request.server.db) })
 }
 
-/** PUT /api/admin/settings/twilio — securely save Twilio credentials, super-admin only. */
-export async function adminUpdateTwilioSettingsHandler(request: FastifyRequest, reply: FastifyReply) {
+/** PUT /api/admin/settings/sms — save SMS Ethiopia credentials, super-admin only. */
+export async function adminUpdateSmsSettingsHandler(request: FastifyRequest, reply: FastifyReply) {
   const caller = request.user as any
   if (caller.role_id !== 1) return reply.status(403).send({ success: false, message: 'Super-admin access required.' })
-  const body = (request.body ?? {}) as { account_sid?: string; auth_token?: string; phone_number?: string }
-  if (body.phone_number !== undefined && body.phone_number.trim() && !/^\+[1-9]\d{6,19}$/.test(body.phone_number.trim())) {
-    return reply.status(400).send({ success: false, message: 'Twilio sender number must use international format, for example +1234567890.' })
+
+  const body = (request.body ?? {}) as { api_key?: string; sender_id?: string; base_url?: string; is_enabled?: boolean }
+
+  if (body.base_url !== undefined && body.base_url.trim() && !/^https:\/\//.test(body.base_url.trim())) {
+    // The provider redirects plain HTTP, and most clients drop the POST body on
+    // redirect — so an http:// base URL fails in a way that is hard to diagnose.
+    return reply.status(400).send({ success: false, message: 'The SMS base URL must start with https://' })
   }
+
   try {
-    await updateTwilioSettings(request.server.db, body, caller.id)
-    return reply.send({ success: true, message: 'Twilio settings saved.', settings: await getTwilioSettingsStatus(request.server.db) })
+    await updateSmsSettings(request.server.db, body, caller.id)
+    return reply.send({ success: true, message: 'SMS settings saved.', settings: await getSmsSettingsStatus(request.server.db) })
   } catch (err: any) {
-    return reply.status(400).send({ success: false, message: err.message || 'Unable to save Twilio settings.' })
+    return reply.status(400).send({ success: false, message: err.message || 'Unable to save SMS settings.' })
   }
+}
+
+/**
+ * POST /api/admin/settings/sms/test — send one real SMS to prove the setup.
+ * Costs one credit; better than discovering it is broken when a driver is
+ * waiting for their password.
+ */
+export async function adminTestSmsHandler(
+  request: FastifyRequest<{ Body: { phone_number: string } }>,
+  reply: FastifyReply
+) {
+  const caller = request.user as any
+  if (caller.role_id !== 1) return reply.status(403).send({ success: false, message: 'Super-admin access required.' })
+
+  const phone = request.body?.phone_number?.trim()
+  if (!phone) return reply.status(400).send({ success: false, message: 'Enter a phone number to send the test to.' })
+
+  const { sendSms } = await import('../services/sms.service.js')
+  const result = await sendSms(request.server.db, phone, 'Afri Logistics: your SMS setup is working.', 'TEST')
+
+  if (!result.ok) {
+    return reply.status(400).send({ success: false, message: result.error, error_code: result.errorCode })
+  }
+  return reply.send({
+    success: true,
+    message: `Test SMS accepted by the provider (${result.segments ?? 1} segment).`,
+    message_id: result.id,
+  })
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -4700,6 +5132,13 @@ export async function adminCollectOrderPaymentHandler(
         admin.id,
         method === 'WALLET' ? 'Payment collected from wallet' : 'Offline payment receipt recorded'
       )
+      // Completing the job here never released the driver, so a driver whose last
+      // order was settled through this path stayed ON_JOB and could not be
+      // dispatched again.
+      if (order.driver_id) {
+        const { releaseDriver } = await import('../services/order.service.js')
+        await releaseDriver(db, String(order.driver_id))
+      }
     }
 
     // The invoice PDF is generated at delivery while the order is still unpaid,
