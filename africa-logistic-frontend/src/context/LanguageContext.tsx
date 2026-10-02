@@ -23,6 +23,12 @@ export type Lang = 'en' | 'am' | 'om'
 // ─── Translation dictionary ───────────────────────────────────────────────────
 export const translations: Record<Lang, Record<string, string>> = {
   en: {
+    // ─── Driver vehicle submission (shared form styling) ──────────────────
+    photos_documents: 'Photo & document',
+    all_optional: 'both optional',
+    vehicle_photo_label: 'Vehicle Photo',
+    libre_doc_label: 'Libre Document',
+    libre_doc_hint: 'Ownership book — image or PDF',
     // ─── Company portal (cmp_*) ───────────────────────────────────────────
     cmp_nav_overview: 'Overview',
     cmp_nav_fleet: 'Fleet',
@@ -2182,6 +2188,12 @@ export const translations: Record<Lang, Record<string, string>> = {
     odm_cancel_fail: 'Cannot cancel this order.',
   },
   om: {
+    // ─── Driver vehicle submission (shared form styling) ──────────────────
+    "photos_documents": "Suuraa fi Ragaa",
+    "all_optional": "lamaanuu filannoo",
+    "vehicle_photo_label": "Suuraa Konkolaataa",
+    "libre_doc_label": "Ragaa Libree",
+    "libre_doc_hint": "Kitaaba abbummaa — suuraa yookaan PDF",
     // ─── Company portal (cmp_*) ───────────────────────────────────────────
     "cmp_nav_overview": "Gabaasa Waliigalaa",
     "cmp_nav_fleet": "Konkolaattota",
@@ -4199,6 +4211,12 @@ export const translations: Record<Lang, Record<string, string>> = {
   },
 
   am: {
+    // ─── Driver vehicle submission (shared form styling) ──────────────────
+    photos_documents: 'ፎቶ እና ሰነድ',
+    all_optional: 'ሁለቱም አማራጭ',
+    vehicle_photo_label: 'የተሽከርካሪ ፎቶ',
+    libre_doc_label: 'የሊብሬ ሰነድ',
+    libre_doc_hint: 'የባለቤትነት ደብተር — ፎቶ ወይም PDF',
     // ─── Company portal (cmp_*) ───────────────────────────────────────────
     cmp_nav_overview: 'ማጠቃለያ',
     cmp_nav_fleet: 'ተሽከርካሪዎች',

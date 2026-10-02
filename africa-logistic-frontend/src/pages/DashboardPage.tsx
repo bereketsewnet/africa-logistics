@@ -14,6 +14,7 @@ import TransactionHistory from '../components/TransactionHistory'
 import InvoicesPage from '../components/InvoicesPage'
 import ManualPaymentPage from '../components/ManualPaymentPage'
 import LanguageToggle from '../components/LanguageToggle'
+import DocumentUploadField from '../components/fleet/DocumentUploadField'
 import { useLanguage } from '../context/LanguageContext'
 import {
   LuTruck, LuUser, LuShield, LuPackage, LuPhone, LuMail,
@@ -629,8 +630,6 @@ export default function DashboardPage() {
   const [vSubmitting, setVSubmitting] = useState(false)
   const [vFormError, setVFormError] = useState('')
   const [vehicleTypes, setVehicleTypes] = useState<Array<{ id: number; name: string }>>([])
-  const vPhotoRef = useRef<HTMLInputElement>(null)
-  const vLibreRef = useRef<HTMLInputElement>(null)
 
   const _apiBase = (import.meta.env.VITE_API_BASE_URL as string ?? '').replace(/\/api$/, '')
   const absUrl = (raw: string | null | undefined) => !raw ? null : raw.startsWith('http') ? raw : `${_apiBase}${raw}`
@@ -658,14 +657,18 @@ export default function DashboardPage() {
       .catch(() => { })
   }, []) // eslint-disable-line
 
-  const handleVFileSelect = (setter: (v: string) => void) => (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]; if (!file) return
-    if (file.size > 8 * 1024 * 1024) { setVFormError('Max 8 MB'); return }
-    const reader = new FileReader()
-    reader.onload = () => setter(reader.result as string)
-    reader.readAsDataURL(file)
-    e.target.value = ''
+  // Same field styling the car-owner, company and admin vehicle forms use, so a
+  // driver submitting a vehicle sees the form everyone else in the product sees.
+  const vInputStyle: React.CSSProperties = {
+    width: '100%', padding: '0.6rem 0.8rem', borderRadius: 10,
+    border: '1px solid rgba(255,255,255,0.12)', background: 'rgba(255,255,255,0.05)',
+    color: 'var(--clr-text)', fontFamily: 'inherit', fontSize: '0.85rem', boxSizing: 'border-box',
   }
+  const vLabelStyle: React.CSSProperties = {
+    fontSize: '0.75rem', fontWeight: 600, color: 'var(--clr-muted)',
+    marginBottom: '0.3rem', display: 'block',
+  }
+
 
   const handleVSubmit = async (e: React.FormEvent) => {
     e.preventDefault(); setVFormError('')
@@ -1689,36 +1692,53 @@ export default function DashboardPage() {
                     </div>
                     <form onSubmit={handleVSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                       {vFormError && <div className="alert alert-error"><LuTriangleAlert size={13} /> {vFormError}</div>}
-                      <div className="input-wrap">
-                        <input id="v-plate" type="text" placeholder=" " value={vForm.plate_number} onChange={e => setVForm(f => ({ ...f, plate_number: e.target.value }))} required />
-                        <label htmlFor="v-plate">{tr('plate_number')}</label>
+                      {/* Plate and type side by side, as in the car-owner and company
+                          vehicle forms, collapsing to one column on a narrow phone. */}
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: '0.6rem' }}>
+                        <div>
+                          <label htmlFor="v-plate" style={vLabelStyle}>{tr('plate_number')}</label>
+                          <input id="v-plate" type="text" value={vForm.plate_number}
+                            onChange={e => setVForm(f => ({ ...f, plate_number: e.target.value }))}
+                            required style={vInputStyle} />
+                        </div>
+                        <div>
+                          <label htmlFor="v-type" style={vLabelStyle}>{tr('vehicle_type_label')}</label>
+                          <select id="v-type" value={vForm.vehicle_type}
+                            onChange={e => setVForm(f => ({ ...f, vehicle_type: e.target.value }))}
+                            style={{ ...vInputStyle, cursor: 'pointer' }}>
+                            <option value="" style={{ background: '#0f172a' }}>{tr('select_vehicle_type')}</option>
+                            {vehicleTypes.map(vt => <option key={vt.id} value={vt.name} style={{ background: '#0f172a' }}>{vt.name}</option>)}
+                          </select>
+                        </div>
                       </div>
-                      <div className="input-wrap">
-                        <select id="v-type" value={vForm.vehicle_type} onChange={e => setVForm(f => ({ ...f, vehicle_type: e.target.value }))}
-                          style={{ background: 'transparent', border: 'none', color: 'var(--clr-text)', fontFamily: 'inherit', fontSize: '0.9rem', width: '100%', outline: 'none', paddingTop: '1.1rem' }}>
-                          <option value="" style={{ background: '#0f172a' }}>{tr('select_vehicle_type')}</option>
-                          {vehicleTypes.map(vt => <option key={vt.id} value={vt.name} style={{ background: '#0f172a' }}>{vt.name}</option>)}
-                        </select>
-                        <label htmlFor="v-type" style={{ top: '0.35rem', fontSize: '0.7rem', color: 'var(--clr-accent)' }}>{tr('vehicle_type_label')}</label>
+                      <div>
+                        <label htmlFor="v-cap" style={vLabelStyle}>{tr('max_capacity')}</label>
+                        <input id="v-cap" type="number" min="1" step="1" value={vForm.max_capacity_kg}
+                          onChange={e => setVForm(f => ({ ...f, max_capacity_kg: e.target.value }))}
+                          required style={vInputStyle} />
                       </div>
-                      <div className="input-wrap">
-                        <input id="v-cap" type="number" placeholder=" " min="1" step="1" value={vForm.max_capacity_kg} onChange={e => setVForm(f => ({ ...f, max_capacity_kg: e.target.value }))} required />
-                        <label htmlFor="v-cap">{tr('max_capacity')}</label>
+                      <div>
+                        <label htmlFor="v-desc" style={vLabelStyle}>{tr('description_optional')}</label>
+                        <input id="v-desc" type="text" value={vForm.description}
+                          onChange={e => setVForm(f => ({ ...f, description: e.target.value }))}
+                          style={vInputStyle} />
                       </div>
-                      <div className="input-wrap">
-                        <input id="v-desc" type="text" placeholder=" " value={vForm.description} onChange={e => setVForm(f => ({ ...f, description: e.target.value }))} />
-                        <label htmlFor="v-desc">{tr('description_optional')}</label>
+
+                      {/* The same upload control the other portals use. It previews the
+                          file, lets it be removed and enforces the size limit itself,
+                          instead of a bare link that only changed colour once chosen. */}
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem', paddingTop: '0.4rem', borderTop: '1px solid rgba(255,255,255,0.09)' }}>
+                        <p style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--clr-text)', margin: 0 }}>
+                          {tr('photos_documents')}
+                          <span style={{ fontWeight: 500, color: 'var(--clr-muted)' }}> — {tr('all_optional')}</span>
+                        </p>
+                        <DocumentUploadField label={tr('vehicle_photo_label')}
+                          accept="image/jpeg,image/png,image/webp"
+                          value={vPhoto} onChange={setVPhoto} disabled={vSubmitting} />
+                        <DocumentUploadField label={tr('libre_doc_label')}
+                          hint={tr('libre_doc_hint')}
+                          value={vLibre} onChange={setVLibre} disabled={vSubmitting} />
                       </div>
-                      {/* Photo */}
-                      <label htmlFor="v-photo" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.6rem', borderRadius: 10, border: '1px dashed rgba(255,255,255,0.18)', color: vPhoto ? 'var(--clr-accent)' : 'var(--clr-muted)', cursor: 'pointer', fontSize: '0.82rem', fontWeight: 600, background: 'rgba(255,255,255,0.02)' }}>
-                        <LuCamera size={14} /> {vPhoto ? tr('vehicle_photo_selected') : tr('vehicle_photo_optional')}
-                      </label>
-                      <input id="v-photo" ref={vPhotoRef} type="file" accept="image/jpeg,image/png,image/webp" style={{ display: 'none' }} onChange={handleVFileSelect(setVPhoto)} />
-                      {/* Libre */}
-                      <label htmlFor="v-libre" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.6rem', borderRadius: 10, border: '1px dashed rgba(255,255,255,0.18)', color: vLibre ? 'var(--clr-accent)' : 'var(--clr-muted)', cursor: 'pointer', fontSize: '0.82rem', fontWeight: 600, background: 'rgba(255,255,255,0.02)' }}>
-                        <LuFileText size={14} /> {vLibre ? tr('libre_doc_selected') : tr('libre_doc_optional')}
-                      </label>
-                      <input id="v-libre" ref={vLibreRef} type="file" accept="image/jpeg,image/png,image/webp,application/pdf" style={{ display: 'none' }} onChange={handleVFileSelect(setVLibre)} />
                       <div style={{ display: 'flex', gap: '0.6rem' }}>
                         <button type="button" className="btn-outline" style={{ flex: 1 }} onClick={() => { setShowVehicleForm(false); setVFormError(''); setVPhoto(''); setVLibre('') }}>{tr('btn_cancel')}</button>
                         <button type="submit" className="btn-primary" style={{ flex: 2 }} disabled={vSubmitting}>
