@@ -23,6 +23,8 @@ export type Lang = 'en' | 'am' | 'om'
 // ─── Translation dictionary ───────────────────────────────────────────────────
 export const translations: Record<Lang, Record<string, string>> = {
   en: {
+    docs_add_vehicle_title: 'Add your own vehicle',
+    docs_add_vehicle_sub: 'Brought your own truck? Submit it here for approval.',
     // ─── Driver vehicle submission (shared form styling) ──────────────────
     photos_documents: 'Photo & document',
     all_optional: 'both optional',
@@ -2188,6 +2190,8 @@ export const translations: Record<Lang, Record<string, string>> = {
     odm_cancel_fail: 'Cannot cancel this order.',
   },
   om: {
+    "docs_add_vehicle_title": "Konkolaataa kee galmeessi",
+    "docs_add_vehicle_sub": "Konkolaataa mataa keetii qabdaa? Asitti mirkaneeffannoof galchi.",
     // ─── Driver vehicle submission (shared form styling) ──────────────────
     "photos_documents": "Suuraa fi Ragaa",
     "all_optional": "lamaanuu filannoo",
@@ -4211,6 +4215,8 @@ export const translations: Record<Lang, Record<string, string>> = {
   },
 
   am: {
+    docs_add_vehicle_title: 'የራስዎን ተሽከርካሪ ያስገቡ',
+    docs_add_vehicle_sub: 'የራስዎ መኪና አለዎት? ለማረጋገጫ እዚህ ያስገቡ።',
     // ─── Driver vehicle submission (shared form styling) ──────────────────
     photos_documents: 'ፎቶ እና ሰነድ',
     all_optional: 'ሁለቱም አማራጭ',

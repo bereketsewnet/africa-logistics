@@ -63,10 +63,16 @@ interface DriverDocUploadBody {
 interface DriverVehicleSubmitBody {
   plate_number: string
   vehicle_type: string
-  max_capacity_kg: number
+  /** Optional — a driver may not know the truck's rated load. */
+  max_capacity_kg?: number | string | null
+  model?: string
   description?: string
   vehicle_photo?: string  // base64
   libre_file?: string     // base64 libre doc
+  /** The driver's own details, captured on the same sheet. */
+  full_name?: string
+  national_id_number?: string
+  license_number?: string
 }
 
 interface PushSubscribeBody {
@@ -471,10 +477,17 @@ export async function submitDriverVehicleHandler(
   const caller = request.user as { id: string; role_id: number }
   if (caller.role_id !== 3) return reply.status(403).send({ success: false, message: 'Driver role required.' })
 
-  const { plate_number, vehicle_type, max_capacity_kg, description, vehicle_photo, libre_file } = request.body
+  const {
+    plate_number, vehicle_type, max_capacity_kg, model, description, vehicle_photo, libre_file,
+    full_name, national_id_number, license_number,
+  } = request.body as any
 
-  if (!plate_number?.trim() || !vehicle_type?.trim() || max_capacity_kg === undefined) {
-    return reply.status(400).send({ message: 'plate_number, vehicle_type, and max_capacity_kg are required.' })
+  // Only the plate and the type are genuinely required. Everything else is
+  // optional: a driver registering at the roadside often does not have the rated
+  // load or the paperwork to hand, and refusing the whole submission over it just
+  // means the vehicle never gets recorded at all.
+  if (!plate_number?.trim() || !vehicle_type?.trim()) {
+    return reply.status(400).send({ message: 'plate_number and vehicle_type are required.' })
   }
 
   const db = request.server.db
@@ -488,16 +501,43 @@ export async function submitDriverVehicleHandler(
   if (vehicle_photo) photoUrl = saveBase64File(vehicle_photo, 'vehicles', `drv_${caller.id}_photo`)
   if (libre_file)   libreUrl = saveBase64File(libre_file, 'vehicles', `drv_${caller.id}_libre`)
 
+  const capacity = max_capacity_kg === undefined || max_capacity_kg === null || max_capacity_kg === ''
+    ? null
+    : Number(max_capacity_kg)
+
   const vehicleId = await createVehicle(db, {
     plateNumber:           plate_number.trim(),
     vehicleType:           vehicle_type.trim(),
-    maxCapacityKg:         max_capacity_kg,
+    maxCapacityKg:         Number.isFinite(capacity as number) ? capacity : null,
+    model:                 model?.trim() || null,
     isCompanyOwned:        false,
     vehiclePhotoUrl:       photoUrl,
     libreUrl,
     description:           description?.trim() ?? null,
     submittedByDriverId:   caller.id,
   })
+
+  // The same form carries the driver's own details, because a driver arriving with
+  // their own truck fills in one sheet, not two. Each piece is saved only when it
+  // was actually supplied, so a half-filled form never blanks what is already there.
+  const profileSets: string[] = []
+  const profileVals: unknown[] = []
+  if (national_id_number?.trim()) { profileSets.push('national_id_number = ?'); profileVals.push(national_id_number.trim()) }
+  if (license_number?.trim())     { profileSets.push('license_number = ?');     profileVals.push(license_number.trim()) }
+  if (profileSets.length > 0) {
+    const { ensureDriverProfile } = await import('../services/profile.service.js')
+    await ensureDriverProfile(db, caller.id)
+    await db.query(`UPDATE driver_profiles SET ${profileSets.join(', ')} WHERE user_id = ?`, [...profileVals, caller.id])
+  }
+
+  // The phone number is deliberately NOT writable here — it is the login, and
+  // changing it already has its own OTP-verified flow.
+  if (full_name?.trim()) {
+    const parts = full_name.trim().split(/\s+/)
+    const first = parts.shift() as string
+    const last = parts.join(' ') || null
+    await db.query('UPDATE users SET first_name = ?, last_name = ? WHERE id = ?', [first, last, caller.id])
+  }
 
   return reply.status(201).send({
     success: true,

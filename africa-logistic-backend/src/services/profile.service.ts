@@ -392,7 +392,9 @@ export async function createVehicle(
   data: {
     plateNumber: string
     vehicleType: string
-    maxCapacityKg: number
+    /** Optional: a driver may not know their truck's rated load. */
+    maxCapacityKg?: number | null
+    model?: string | null
     isCompanyOwned?: boolean
     vehiclePhotoUrl?: string | null
     vehicleImages?: string[]        // additional gallery images
@@ -406,13 +408,14 @@ export async function createVehicle(
   const isSubmission = !!data.submittedByDriverId
   await db.query<ResultSetHeader>(
     `INSERT INTO vehicles
-       (id, plate_number, vehicle_type, max_capacity_kg, is_company_owned, vehicle_photo_url, vehicle_images, libre_url, description, is_approved, submitted_by_driver_id, driver_submission_status)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       (id, plate_number, vehicle_type, max_capacity_kg, model, is_company_owned, vehicle_photo_url, vehicle_images, libre_url, description, is_approved, submitted_by_driver_id, driver_submission_status)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       id,
       data.plateNumber,
       data.vehicleType,
-      data.maxCapacityKg,
+      data.maxCapacityKg ?? null,
+      data.model ?? null,
       data.isCompanyOwned ? 1 : 0,
       data.vehiclePhotoUrl ?? null,
       data.vehicleImages ? JSON.stringify(data.vehicleImages) : null,

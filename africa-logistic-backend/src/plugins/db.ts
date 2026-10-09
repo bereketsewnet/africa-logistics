@@ -376,6 +376,30 @@ export default fp(async function dbPlugin(fastify: FastifyInstance) {
     //
     // No foreign key, deliberately: a single column cannot reference one of three
     // tables. NULL on historical rows honestly means "we never recorded it".
+    // ─── Driver self-submitted vehicle details ───────────────────────────────
+    // A driver who turns up with their own truck fills in one form covering both
+    // themselves and the vehicle. These are the fields that had nowhere to go.
+    //
+    // The document NUMBERS are separate from the uploaded files: a driver often
+    // knows their licence number before they have a photo of it to hand, and the
+    // admin needs the number to check it against the paper record.
+    await addColIfMissing('vehicles',        'model',              'VARCHAR(100) NULL')
+    await addColIfMissing('driver_profiles', 'national_id_number', 'VARCHAR(100) NULL')
+    await addColIfMissing('driver_profiles', 'license_number',     'VARCHAR(100) NULL')
+
+    // Capacity was NOT NULL with no default, so the form could not make it
+    // optional — a driver who does not know their truck's rated load had no way
+    // to submit at all. Widening NOT NULL to NULL never rejects an existing row.
+    const [[capCol]] = await conn.query<any[]>(
+      `SELECT IS_NULLABLE FROM information_schema.COLUMNS
+        WHERE TABLE_SCHEMA = ? AND TABLE_NAME = 'vehicles' AND COLUMN_NAME = 'max_capacity_kg'`,
+      [dbName]
+    )
+    if (capCol && capCol.IS_NULLABLE === 'NO') {
+      await conn.query(`ALTER TABLE vehicles MODIFY COLUMN max_capacity_kg DECIMAL(10,2) NULL`)
+      fastify.log.info('✅ vehicles.max_capacity_kg is now optional.')
+    }
+
     await addColIfMissing('orders', 'vehicle_source', "ENUM('FLEET','CAR_OWNER','COMPANY') NULL")
     await addIndexIfMissing('orders', 'idx_orders_vehicle', '(vehicle_id)')
 

@@ -14,7 +14,7 @@ import TransactionHistory from '../components/TransactionHistory'
 import InvoicesPage from '../components/InvoicesPage'
 import ManualPaymentPage from '../components/ManualPaymentPage'
 import LanguageToggle from '../components/LanguageToggle'
-import DocumentUploadField from '../components/fleet/DocumentUploadField'
+import DriverVehicleForm, { type DriverVehicleFormLabels } from '../components/DriverVehicleForm'
 import { useLanguage } from '../context/LanguageContext'
 import {
   LuTruck, LuUser, LuShield, LuPackage, LuPhone, LuMail,
@@ -22,7 +22,7 @@ import {
   LuEye, LuEyeOff, LuLogOut, LuCheck, LuSmartphone, LuArrowLeft,
   LuLock, LuContact, LuBell, LuSun, LuMoon, LuMonitor, LuFileText,
   LuUpload, LuRefreshCw, LuStar, LuWallet, LuMessageSquare,
-  LuLifeBuoy, LuClock, LuCar, LuX, LuChevronLeft, LuChevronRight,
+  LuLifeBuoy, LuClock, LuCar, LuX, LuChevronLeft, LuChevronRight, LuChevronDown,
   LuHistory, LuPlus, LuMapPin, LuChartColumnBig, LuLandmark, LuReceipt,
 } from 'react-icons/lu'
 
@@ -624,16 +624,13 @@ export default function DashboardPage() {
   const [vehicleLoading, setVehicleLoading] = useState(false)
   const [vehicleToast, setVehicleToast] = useState('')
   const [showVehicleForm, setShowVehicleForm] = useState(false)
-  const [vForm, setVForm] = useState({ plate_number: '', vehicle_type: '', max_capacity_kg: '', description: '' })
-  const [vPhoto, setVPhoto] = useState('')
-  const [vLibre, setVLibre] = useState('')
-  const [vSubmitting, setVSubmitting] = useState(false)
-  const [vFormError, setVFormError] = useState('')
+  // The same form also appears in the Docs tab, collapsed by default, so a driver
+  // who arrived with their own truck can finish everything on one screen.
+  const [showDocsVehicleForm, setShowDocsVehicleForm] = useState(false)
   const [vehicleTypes, setVehicleTypes] = useState<Array<{ id: number; name: string }>>([])
 
   const _apiBase = (import.meta.env.VITE_API_BASE_URL as string ?? '').replace(/\/api$/, '')
   const absUrl = (raw: string | null | undefined) => !raw ? null : raw.startsWith('http') ? raw : `${_apiBase}${raw}`
-  const vToast = (msg: string) => { setVehicleToast(msg); setTimeout(() => setVehicleToast(''), 3000) }
 
   const loadMyVehicles = () => {
     if (user?.role_id !== 3) return
@@ -646,54 +643,31 @@ export default function DashboardPage() {
   }, [activePage]) // eslint-disable-line
 
   useEffect(() => {
+    // The form defaults to the first type itself, so this only has to supply the list.
     configApi.getVehicleTypes()
-      .then(r => {
-        const types = r.data.vehicle_types ?? []
-        setVehicleTypes(types)
-        if (!vForm.vehicle_type && types[0]?.name) {
-          setVForm(f => ({ ...f, vehicle_type: types[0].name }))
-        }
-      })
+      .then(r => setVehicleTypes(r.data.vehicle_types ?? []))
       .catch(() => { })
-  }, []) // eslint-disable-line
+  }, [])
 
-  // Same field styling the car-owner, company and admin vehicle forms use, so a
-  // driver submitting a vehicle sees the form everyone else in the product sees.
-  const vInputStyle: React.CSSProperties = {
-    width: '100%', padding: '0.6rem 0.8rem', borderRadius: 10,
-    border: '1px solid rgba(255,255,255,0.12)', background: 'rgba(255,255,255,0.05)',
-    color: 'var(--clr-text)', fontFamily: 'inherit', fontSize: '0.85rem', boxSizing: 'border-box',
-  }
-  const vLabelStyle: React.CSSProperties = {
-    fontSize: '0.75rem', fontWeight: 600, color: 'var(--clr-muted)',
-    marginBottom: '0.3rem', display: 'block',
+  // Labels for the shared driver vehicle form, resolved once and handed to both
+  // places it appears so the two can never drift apart.
+  const vehicleFormLabels: DriverVehicleFormLabels = {
+    plate: tr('plate_number'),
+    vehicleType: tr('vehicle_type_label'),
+    selectType: tr('select_vehicle_type'),
+    capacity: tr('max_capacity'),
+    description: tr('description_optional'),
+    photoLabel: tr('vehicle_photo_label'),
+    libreLabel: tr('libre_doc_label'),
+    libreHint: tr('libre_doc_hint'),
+    docsHeading: tr('photos_documents'),
+    docsOptional: tr('all_optional'),
+    cancel: tr('btn_cancel'),
+    submit: tr('submit_for_review'),
+    submitting: tr('submitting'),
   }
 
 
-  const handleVSubmit = async (e: React.FormEvent) => {
-    e.preventDefault(); setVFormError('')
-    if (!vForm.plate_number.trim()) { setVFormError('Plate number required'); return }
-    const cap = parseFloat(vForm.max_capacity_kg)
-    if (isNaN(cap) || cap <= 0) { setVFormError('Enter valid capacity'); return }
-    setVSubmitting(true)
-    try {
-      const payload: Record<string, unknown> = {
-        plate_number: vForm.plate_number.trim(),
-        vehicle_type: vForm.vehicle_type,
-        max_capacity_kg: cap,
-        description: vForm.description.trim() || undefined,
-      }
-      if (vPhoto) payload.vehicle_photo = vPhoto
-      if (vLibre) payload.libre_file = vLibre
-      await apiClient.post('/profile/driver/vehicles', payload)
-      vToast('Vehicle submitted for review!')
-      setShowVehicleForm(false)
-      setVForm({ plate_number: '', vehicle_type: vehicleTypes[0]?.name ?? '', max_capacity_kg: '', description: '' })
-      setVPhoto(''); setVLibre('')
-      loadMyVehicles()
-    } catch (err: any) { setVFormError(err.response?.data?.message ?? 'Submission failed.') }
-    finally { setVSubmitting(false) }
-  }
 
   // ── Photo ──────────────────────────────────────────────────────────────────
   const photoInput = useRef<HTMLInputElement>(null)
@@ -1425,7 +1399,54 @@ export default function DashboardPage() {
                       })}
                     </div>
                   )}
+
+                {/* ── Add your own vehicle ──────────────────────────────────
+                    Collapsed until asked for, because most drivers are assigned a
+                    truck and never need it. The ones who turn up with their own
+                    can do their documents and their vehicle without leaving this
+                    screen. It is the same component as My Vehicle, not a copy. */}
+                <div className="glass-inner" style={{ padding: '0' , overflow: 'hidden' }}>
+                  <button type="button" onClick={() => setShowDocsVehicleForm(v => !v)}
+                    style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '0.6rem', padding: '0.9rem 1rem', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left' }}>
+                    <LuCar size={16} style={{ color: 'var(--clr-accent)', flexShrink: 0 }} />
+                    <span style={{ flex: 1, minWidth: 0 }}>
+                      <span style={{ display: 'block', fontSize: '0.87rem', fontWeight: 700, color: 'var(--clr-text)' }}>
+                        {tr('docs_add_vehicle_title')}
+                      </span>
+                      <span style={{ display: 'block', fontSize: '0.74rem', color: 'var(--clr-muted)', marginTop: '0.12rem' }}>
+                        {tr('docs_add_vehicle_sub')}
+                      </span>
+                    </span>
+                    <LuChevronDown size={16}
+                      style={{ color: 'var(--clr-muted)', flexShrink: 0, transform: showDocsVehicleForm ? 'rotate(180deg)' : undefined, transition: 'transform 0.18s' }} />
+                  </button>
+
+                  {showDocsVehicleForm && (
+                    <div style={{ padding: '0 1rem 1rem', borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+                      <div style={{ paddingTop: '0.9rem' }}>
+                        <DriverVehicleForm
+                          vehicleTypes={vehicleTypes}
+                          labels={vehicleFormLabels}
+                          idPrefix="docsveh"
+                          defaults={{
+                            full_name: `${user?.first_name ?? ''} ${user?.last_name ?? ''}`.trim(),
+                            phone_number: user?.phone_number,
+                            national_id_number: driverProfile?.national_id_number,
+                            license_number: driverProfile?.license_number,
+                          }}
+                          onSubmitted={msg => {
+                            setShowDocsVehicleForm(false)
+                            setDocsSuccess(msg)
+                            setTimeout(() => setDocsSuccess(''), 4000)
+                            loadMyVehicles()
+                          }}
+                          onCancel={() => setShowDocsVehicleForm(false)}
+                        />
+                      </div>
+                    </div>
+                  )}
                 </div>
+              </div>
               )}
 
 
@@ -1611,7 +1632,7 @@ export default function DashboardPage() {
                       <LuRefreshCw size={12} /> Refresh
                     </button>
                     {!showVehicleForm && (
-                      <button onClick={() => { setShowVehicleForm(true); setVFormError('') }}
+                      <button onClick={() => setShowVehicleForm(true)}
                         style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', padding: '0.3rem 0.75rem', borderRadius: 8, border: 'none', background: 'var(--clr-accent)', color: '#080b14', fontFamily: 'inherit', fontSize: '0.75rem', fontWeight: 700, cursor: 'pointer' }}>
                         + Submit Vehicle
                       </button>
@@ -1685,67 +1706,29 @@ export default function DashboardPage() {
                   <div style={{ marginTop: '1rem', borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: '1rem' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.85rem' }}>
                       <h3 style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--clr-text)' }}>{tr('submit_your_vehicle')}</h3>
-                      <button onClick={() => { setShowVehicleForm(false); setVFormError(''); setVPhoto(''); setVLibre('') }}
+                      <button onClick={() => setShowVehicleForm(false)}
                         style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--clr-muted)', padding: 0, display: 'flex', alignItems: 'center' }}>
                         <LuX size={16} />
                       </button>
                     </div>
-                    <form onSubmit={handleVSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                      {vFormError && <div className="alert alert-error"><LuTriangleAlert size={13} /> {vFormError}</div>}
-                      {/* Plate and type side by side, as in the car-owner and company
-                          vehicle forms, collapsing to one column on a narrow phone. */}
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: '0.6rem' }}>
-                        <div>
-                          <label htmlFor="v-plate" style={vLabelStyle}>{tr('plate_number')}</label>
-                          <input id="v-plate" type="text" value={vForm.plate_number}
-                            onChange={e => setVForm(f => ({ ...f, plate_number: e.target.value }))}
-                            required style={vInputStyle} />
-                        </div>
-                        <div>
-                          <label htmlFor="v-type" style={vLabelStyle}>{tr('vehicle_type_label')}</label>
-                          <select id="v-type" value={vForm.vehicle_type}
-                            onChange={e => setVForm(f => ({ ...f, vehicle_type: e.target.value }))}
-                            style={{ ...vInputStyle, cursor: 'pointer' }}>
-                            <option value="" style={{ background: '#0f172a' }}>{tr('select_vehicle_type')}</option>
-                            {vehicleTypes.map(vt => <option key={vt.id} value={vt.name} style={{ background: '#0f172a' }}>{vt.name}</option>)}
-                          </select>
-                        </div>
-                      </div>
-                      <div>
-                        <label htmlFor="v-cap" style={vLabelStyle}>{tr('max_capacity')}</label>
-                        <input id="v-cap" type="number" min="1" step="1" value={vForm.max_capacity_kg}
-                          onChange={e => setVForm(f => ({ ...f, max_capacity_kg: e.target.value }))}
-                          required style={vInputStyle} />
-                      </div>
-                      <div>
-                        <label htmlFor="v-desc" style={vLabelStyle}>{tr('description_optional')}</label>
-                        <input id="v-desc" type="text" value={vForm.description}
-                          onChange={e => setVForm(f => ({ ...f, description: e.target.value }))}
-                          style={vInputStyle} />
-                      </div>
-
-                      {/* The same upload control the other portals use. It previews the
-                          file, lets it be removed and enforces the size limit itself,
-                          instead of a bare link that only changed colour once chosen. */}
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem', paddingTop: '0.4rem', borderTop: '1px solid rgba(255,255,255,0.09)' }}>
-                        <p style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--clr-text)', margin: 0 }}>
-                          {tr('photos_documents')}
-                          <span style={{ fontWeight: 500, color: 'var(--clr-muted)' }}> — {tr('all_optional')}</span>
-                        </p>
-                        <DocumentUploadField label={tr('vehicle_photo_label')}
-                          accept="image/jpeg,image/png,image/webp"
-                          value={vPhoto} onChange={setVPhoto} disabled={vSubmitting} />
-                        <DocumentUploadField label={tr('libre_doc_label')}
-                          hint={tr('libre_doc_hint')}
-                          value={vLibre} onChange={setVLibre} disabled={vSubmitting} />
-                      </div>
-                      <div style={{ display: 'flex', gap: '0.6rem' }}>
-                        <button type="button" className="btn-outline" style={{ flex: 1 }} onClick={() => { setShowVehicleForm(false); setVFormError(''); setVPhoto(''); setVLibre('') }}>{tr('btn_cancel')}</button>
-                        <button type="submit" className="btn-primary" style={{ flex: 2 }} disabled={vSubmitting}>
-                          {vSubmitting ? <Spinner text={tr('submitting')} /> : tr('submit_for_review')}
-                        </button>
-                      </div>
-                    </form>
+                    <DriverVehicleForm
+                      vehicleTypes={vehicleTypes}
+                      labels={vehicleFormLabels}
+                      idPrefix="myveh"
+                      defaults={{
+                        full_name: `${user?.first_name ?? ''} ${user?.last_name ?? ''}`.trim(),
+                        phone_number: user?.phone_number,
+                        national_id_number: driverProfile?.national_id_number,
+                        license_number: driverProfile?.license_number,
+                      }}
+                      onSubmitted={msg => {
+                        setShowVehicleForm(false)
+                        setVehicleToast(msg)
+                        setTimeout(() => setVehicleToast(''), 4000)
+                        loadMyVehicles()
+                      }}
+                      onCancel={() => setShowVehicleForm(false)}
+                    />
                   </div>
                 )}
 
