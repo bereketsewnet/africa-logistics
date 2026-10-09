@@ -41,9 +41,26 @@ export interface CustomerAccountSuccess {
   ok: true
   id: string
   firstName: string
+  /** Canonical E.164 value written to users.phone_number. */
+  phoneNumber: string
 }
 
 const MIN_PASSWORD_LENGTH = 8
+
+/**
+ * Convert the Ethiopian spellings accepted by the UI to the one value used for
+ * login and uniqueness checks. Keeping this at the account-creation boundary
+ * also protects older clients that still submit 09xxxxxxxx.
+ */
+export function normaliseCustomerPhone(raw: string | null | undefined): string | null {
+  if (!raw) return null
+  const value = String(raw).trim().replace(/[\s\-().]/g, '')
+  if (/^\+251\d{9}$/.test(value)) return value
+  if (/^251\d{9}$/.test(value)) return `+${value}`
+  if (/^0\d{9}$/.test(value)) return `+251${value.slice(1)}`
+  if (/^\d{9}$/.test(value)) return `+251${value}`
+  return null
+}
 
 /**
  * Validate and create a customer login.
@@ -58,11 +75,19 @@ export async function createCustomerAccount(
 ): Promise<CustomerAccountRefusal | CustomerAccountSuccess> {
   const firstName = input.first_name?.trim() ?? ''
   const lastName = (input.last_name ?? '').trim()
-  const phone = input.phone_number?.trim() ?? ''
+  const rawPhone = input.phone_number?.trim() ?? ''
+  const phone = normaliseCustomerPhone(rawPhone)
   const password = input.password ?? ''
 
-  if (!firstName || !phone || !password.trim()) {
+  if (!firstName || !rawPhone || !password.trim()) {
     return { ok: false, status: 400, message: 'First name, phone number and password are required.' }
+  }
+  if (!phone) {
+    return {
+      ok: false,
+      status: 400,
+      message: 'Enter a valid Ethiopian phone number, for example 0911234567 or +251911234567.',
+    }
   }
   if (password.length < MIN_PASSWORD_LENGTH) {
     return { ok: false, status: 400, message: `Password must be at least ${MIN_PASSWORD_LENGTH} characters.` }
@@ -101,5 +126,5 @@ export async function createCustomerAccount(
     throw err
   }
 
-  return { ok: true, id, firstName }
+  return { ok: true, id, firstName, phoneNumber: phone }
 }

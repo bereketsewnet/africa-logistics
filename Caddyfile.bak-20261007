@@ -1,0 +1,167 @@
+# ─── Afri Logistics — Frontend ──────────────────────────────────────────────
+# Canonical frontend domain
+afri-logistics.com {
+    # Compress at the public edge. The reverse proxy otherwise normalizes the
+    # upstream response and was sending multi-megabyte JS files uncompressed.
+    encode zstd gzip
+
+    header {
+        -Server
+        X-Content-Type-Options nosniff
+        Referrer-Policy strict-origin-when-cross-origin
+        Permissions-Policy "camera=(), microphone=(), geolocation=(self)"
+        Strict-Transport-Security "max-age=31536000; includeSubDomains"
+    }
+
+    handle_path /uploads/* {
+        root * /srv/uploads
+        file_server
+    }
+    reverse_proxy africa_frontend:80
+}
+
+# ─── Afri Logistics — Backend API ───────────────────────────────────────────
+# /uploads/* is served as static files from the shared Docker volume.
+# All other paths are proxied to the Fastify backend.
+backend.afri-logistics.com {
+    header {
+        -Server
+        X-Content-Type-Options nosniff
+        Referrer-Policy no-referrer
+        Strict-Transport-Security "max-age=31536000; includeSubDomains"
+    }
+    handle_path /uploads/* {
+        root * /srv/uploads
+        file_server
+    }
+    handle {
+        reverse_proxy africa_backend:3000
+    }
+}
+
+# ─── TV Remote ─────────────────────────────────────────────────────────────
+remote.bernos.systems {
+    reverse_proxy 172.17.0.1:6622
+}
+
+# ─── ALEF DELTA ERP ─────────────────────────────────────────────────────────
+erp-api.alefdelta.com {
+    encode zstd gzip
+    reverse_proxy alef_erp_backend:80
+}
+
+erp-staff.alefdelta.com {
+    encode zstd gzip
+    reverse_proxy alef_erp_staff:80
+}
+
+erp-member.alefdelta.com {
+    encode zstd gzip
+    reverse_proxy alef_erp_member_portal:80
+}
+
+# ─── ALEF DELTA SACCO ─────────────────────────────────────────────────────────────────────
+sacco-api.alefdelta.com {
+    encode zstd gzip
+    reverse_proxy alefdelta_api:4000
+}
+
+sacco-mp.alefdelta.com {
+    encode zstd gzip
+    reverse_proxy alefdelta_member_portal:80
+}
+
+corebank.alefdelta.com {
+    encode zstd gzip
+    reverse_proxy alefdelta_frontend:80
+}
+
+sacco-registration.alefdelta.com {
+    redir https://sacco-mp.alefdelta.com/auth/register permanent
+}
+
+# ─── Dineos AI Agent ────────────────────────────────────────────────────────
+dineos-agent.lula.com.et {
+    encode zstd gzip
+    request_body {
+        max_size 20MB
+    }
+
+    redir /miniapp /miniapp/ 308
+
+    handle_path /miniapp/* {
+        reverse_proxy dineos_miniapp:80
+    }
+
+    handle {
+        reverse_proxy dineos_api:8765
+    }
+}
+
+# ─── The Oracle AI Platform ─────────────────────────────────────────────────
+theoracle.lula.com.et {
+    encode zstd gzip
+
+    request_body {
+        max_size 25MB
+    }
+
+    header {
+        X-Content-Type-Options nosniff
+        Referrer-Policy strict-origin-when-cross-origin
+        -Server
+    }
+
+    @oracle_api path /api/* /docs* /redoc* /openapi.json
+    handle @oracle_api {
+        reverse_proxy oracle_backend:8000
+    }
+
+    handle {
+        reverse_proxy oracle_frontend:80
+    }
+}
+
+# ─── Jarvis Scheduling Assistant ────────────────────────────────────────────
+# Upstream is the `jarvis_app` container (project: /PRODUCTION PROJECTS/JARVIS),
+# which joins this network as `edge` in its docker-compose.yml.
+jarvis.lula.com.et {
+    encode zstd gzip
+
+    request_body {
+        # Telegram voice notes (SRS 3.2.1) arrive as file downloads, but keep
+        # headroom for multipart uploads during the Phase 4 voice flow.
+        max_size 25MB
+    }
+
+    header {
+        -Server
+        X-Content-Type-Options nosniff
+        Referrer-Policy strict-origin-when-cross-origin
+        Strict-Transport-Security "max-age=31536000; includeSubDomains"
+    }
+
+    reverse_proxy jarvis_app:8000
+}
+
+# ─── Jarvis — Staging ───────────────────────────────────────────────────────
+# A complete second Jarvis with its own bot, database and Google redirect URI.
+# Phase 4 writes to real Google Calendars, so booking code is exercised here
+# before production ever sees it.
+jarvis-staging.lula.com.et {
+    encode zstd gzip
+
+    request_body {
+        max_size 25MB
+    }
+
+    header {
+        -Server
+        X-Content-Type-Options nosniff
+        Referrer-Policy strict-origin-when-cross-origin
+        # Kept out of search results: staging is for us, not for the world.
+        X-Robots-Tag "noindex, nofollow"
+    }
+
+    reverse_proxy jarvis_staging_app:8000
+}

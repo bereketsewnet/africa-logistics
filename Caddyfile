@@ -165,3 +165,31 @@ jarvis-staging.lula.com.et {
 
     reverse_proxy jarvis_staging_app:8000
 }
+
+# ─── BernOS editor licences (Nathan, 2026-10-07) ─────────────────────────────
+# One small JSON file per client site. A client editor asks this address whether it may publish.
+# Files: caddy_data volume, folder bernos-editor/ (host: /var/lib/docker/volumes/africalogistics_caddy_data/_data/bernos-editor/).
+# Switch a client off: set "active": false in its file. No reload needed.
+editor.bernos.systems {
+    header {
+        -Server
+        X-Content-Type-Options nosniff
+        X-Robots-Tag "noindex, nofollow"
+        Cache-Control "no-store"
+    }
+    redir /admin /admin/ 308
+    handle_path /admin/* {
+        basic_auth {
+            nathan $2a$14$g6GOOIHXwlQ1KoU7HxaiS.KNWadT.p6Fc1zXI2vRBWyMwIJ00qSui
+        }
+        reverse_proxy bernos_editor_admin:8080
+    }
+    @json path_regexp ^/[a-z0-9-]+\.json$
+    handle @json {
+        root * /data/bernos-editor
+        file_server
+    }
+    handle {
+        respond 404
+    }
+}

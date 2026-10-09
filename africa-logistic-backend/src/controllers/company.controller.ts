@@ -555,6 +555,7 @@ export async function companyCreateDriverHandler(
   const password = generateCredentialPassword()
   const conn = await db.getConnection()
   let driverId = ''
+  let driverPhone = ''
 
   try {
     await conn.beginTransaction()
@@ -571,6 +572,7 @@ export async function companyCreateDriverHandler(
       return reply.status(created.status).send({ success: false, message: created.message })
     }
     driverId = created.id
+    driverPhone = created.phoneNumber
 
     await ensureDriverProfile(conn, driverId)
 
@@ -604,7 +606,7 @@ export async function companyCreateDriverHandler(
 
   // After commit: a failed text must never undo a driver who already exists.
   const { sendSms } = await import('../services/sms.service.js')
-  const phone = body.phone_number.trim()
+  const phone = driverPhone
   const sms = await sendSms(db, phone, buildWelcomeSms(body.first_name.trim(), phone, password), 'DRIVER_WELCOME')
 
   return reply.status(201).send({

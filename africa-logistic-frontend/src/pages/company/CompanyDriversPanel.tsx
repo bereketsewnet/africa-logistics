@@ -7,6 +7,8 @@ import { companyApi } from '../../lib/apiClient'
 import { absoluteUploadUrl } from '../../lib/uploadUrl'
 import DocumentUploadField from '../../components/fleet/DocumentUploadField'
 import CredentialResultModal, { type CredentialResult } from '../../components/CredentialResultModal'
+import PhoneField from '../../components/PhoneField'
+import { normalisePhone } from '../../lib/normalisePhone'
 
 interface CompanyDriver {
   id: string
@@ -106,12 +108,16 @@ export default function CompanyDriversPanel({ onToast, readOnly }: {
     if (!f.first_name.trim() || !f.phone_number.trim()) {
       setFormErr('First name and phone number are required.'); return
     }
+    const phone = normalisePhone(f.phone_number)
+    if (!/^\+251\d{9}$/.test(phone)) {
+      setFormErr('Enter a valid Ethiopian phone number, for example 0911234567 or +251911234567.'); return
+    }
     setSaving(true); setFormErr('')
     try {
       const { data } = await companyApi.createDriver({
         first_name: f.first_name.trim(),
         last_name: f.last_name.trim() || undefined,
-        phone_number: f.phone_number.trim(),
+        phone_number: phone,
         email: f.email.trim() || undefined,
         national_id: fNationalId || undefined,
         license: fLicense || undefined,
@@ -119,7 +125,7 @@ export default function CompanyDriversPanel({ onToast, readOnly }: {
       })
       setCredential({
         name: `${f.first_name.trim()} ${f.last_name.trim()}`.trim(),
-        phone_number: data.phone_number ?? f.phone_number.trim(),
+        phone_number: data.phone_number ?? phone,
         password: data.password ?? null,
         sms_sent: data.sms_sent,
         message: data.message ?? 'Driver added.',
@@ -320,7 +326,10 @@ export default function CompanyDriversPanel({ onToast, readOnly }: {
                 <div><label style={labelStyle}>First name *</label><input value={f.first_name} onChange={e => setF({ ...f, first_name: e.target.value })} style={inputStyle} /></div>
                 <div><label style={labelStyle}>Last name</label><input value={f.last_name} onChange={e => setF({ ...f, last_name: e.target.value })} style={inputStyle} /></div>
               </div>
-              <div><label style={labelStyle}>Phone number *</label><input value={f.phone_number} onChange={e => setF({ ...f, phone_number: e.target.value })} placeholder="09… or +2519…" style={inputStyle} /></div>
+              <div>
+                <label style={labelStyle}>Phone number *</label>
+                <PhoneField id="company-driver-phone" value={f.phone_number} onChange={phone_number => setF({ ...f, phone_number })} />
+              </div>
               <div><label style={labelStyle}>Email (optional)</label><input type="email" value={f.email} onChange={e => setF({ ...f, email: e.target.value })} style={inputStyle} /></div>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem', paddingTop: '0.4rem', borderTop: '1px solid rgba(255,255,255,0.09)' }}>
