@@ -180,12 +180,26 @@ editor.bernos.systems {
     redir /admin /admin/ 308
     handle_path /admin/* {
         basic_auth {
-            nathan $2a$14$g6GOOIHXwlQ1KoU7HxaiS.KNWadT.p6Fc1zXI2vRBWyMwIJ00qSui
+            nathan $2a$14$Xg5ulpIvbqU66JY8tthET.eVufwqZMy.6I0odmyAcjI3hZjhi55qa
         }
         reverse_proxy bernos_editor_admin:8080
     }
     @json path_regexp ^/[a-z0-9-]+\.json$
     handle @json {
+        root * /data/bernos-editor
+        file_server
+    }
+    @igapp path /ig/connect /ig/callback /ig/disconnect
+    handle @igapp {
+        rewrite /ig/connect /ig-connect.php?{query}
+        rewrite /ig/callback /ig-callback.php?{query}
+        rewrite /ig/disconnect /ig-disconnect.php?{query}
+        reverse_proxy bernos_editor_admin:8080
+    }
+    @igfile path_regexp ^/ig/([a-z0-9-]+\.json|m/[a-z0-9-]+/[0-9_]+\.jpg)$
+    handle @igfile {
+        header Access-Control-Allow-Origin "*"
+        header Cache-Control "public, max-age=300"
         root * /data/bernos-editor
         file_server
     }

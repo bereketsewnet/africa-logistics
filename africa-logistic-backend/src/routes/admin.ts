@@ -143,6 +143,8 @@ import {
   adminUpdateCompanyDriverHandler,
   adminResendCompanyDriverCredentialsHandler,
   adminRemoveCompanyDriverHandler,
+  adminBulkReviewCompanyVehiclesHandler,
+  adminBulkVerifyCompanyDriversHandler,
 } from '../controllers/companyAdmin.controller.js'
 import {
   adminListCarOwnerVehiclesHandler,
@@ -150,6 +152,13 @@ import {
   adminAssignDriverToCarOwnerVehicleHandler,
   adminListDriversForCarAssignHandler,
 } from '../controllers/carowner.controller.js'
+import {
+  adminImportTemplateHandler,
+  adminImportPreviewHandler,
+  adminImportCommitHandler,
+  adminImportSendSmsHandler,
+  adminImportCredentialsHandler,
+} from '../controllers/companyImport.controller.js'
 import {
   adminListWithdrawalsHandler,
   adminApproveWithdrawalHandler,
@@ -370,6 +379,27 @@ export default async function adminRoutes(fastify: FastifyInstance) {
   /** GET /api/admin/companies — paginated, searchable */
   fastify.get('/companies', adminListCompaniesHandler)
 
+  // ─── Bulk import ───────────────────────────────────────────────────────────
+  // All resolve to 'companies.manage' through the '/companies' rule above.
+  //
+  // The template route is registered BEFORE '/companies/:id' so that the literal
+  // segment 'import' is not swallowed as an :id.
+
+  /** GET /api/admin/companies/import/template — branded ZIP of sample sheets */
+  fastify.get('/companies/import/template', adminImportTemplateHandler)
+
+  /** POST /api/admin/companies/:id/import/preview — parse and judge, write nothing */
+  fastify.post('/companies/:id/import/preview', adminImportPreviewHandler)
+
+  /** POST /api/admin/companies/:id/import/commit — write one chunk of rows */
+  fastify.post('/companies/:id/import/commit', adminImportCommitHandler)
+
+  /** POST /api/admin/companies/:id/import/send-sms — text one chunk of drivers */
+  fastify.post('/companies/:id/import/send-sms', adminImportSendSmsHandler)
+
+  /** POST /api/admin/companies/:id/import/credentials — credentials spreadsheet */
+  fastify.post('/companies/:id/import/credentials', adminImportCredentialsHandler)
+
   /** GET /api/admin/companies/:id/deletion-impact — what a delete would destroy */
   fastify.get('/companies/:id/deletion-impact', adminCompanyDeletionImpactHandler)
 
@@ -398,6 +428,9 @@ export default async function adminRoutes(fastify: FastifyInstance) {
 
   /** POST /api/admin/company-vehicles — register a truck for a company */
   fastify.post('/company-vehicles', adminCreateCompanyVehicleHandler)
+
+  /** PATCH /api/admin/company-vehicles/bulk/review — approve or reject many */
+  fastify.patch('/company-vehicles/bulk/review', adminBulkReviewCompanyVehiclesHandler)
 
   /** PATCH /api/admin/company-vehicles/:id/review */
   fastify.patch('/company-vehicles/:id/review', adminReviewCompanyVehicleHandler)
@@ -436,6 +469,9 @@ export default async function adminRoutes(fastify: FastifyInstance) {
 
   /** POST /api/admin/company-drivers/:id/resend-credentials */
   fastify.post('/company-drivers/:id/resend-credentials', adminResendCompanyDriverCredentialsHandler)
+
+  /** PATCH /api/admin/company-drivers/bulk/verify — verify many at once */
+  fastify.patch('/company-drivers/bulk/verify', adminBulkVerifyCompanyDriversHandler)
 
   /** PATCH /api/admin/company-drivers/:id */
   fastify.patch('/company-drivers/:id', adminUpdateCompanyDriverHandler)

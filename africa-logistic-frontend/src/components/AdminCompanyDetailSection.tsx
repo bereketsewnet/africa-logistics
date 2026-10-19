@@ -1,11 +1,13 @@
 import { useState, useEffect, useCallback } from 'react'
 import {
   LuArrowLeft, LuBuilding2, LuTruck, LuUsers, LuTriangleAlert,
-  LuSend, LuPencil, LuTrash2, LuIdCard,
+  LuSend, LuPencil, LuTrash2, LuIdCard, LuFileSpreadsheet,
 } from 'react-icons/lu'
 import { adminCompanyApi } from '../lib/apiClient'
 import AdminCompanyVehiclesSection from './AdminCompanyVehiclesSection'
 import AdminCompanyDriversSection from './AdminCompanyDriversSection'
+import CompanyImportModal from './CompanyImportModal'
+import { adminCompanyImportApi } from '../lib/apiClient'
 
 type CompanyStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'SUSPENDED'
 
@@ -56,6 +58,10 @@ export default function AdminCompanyDetailSection({
   const [loading, setLoading] = useState(true)
   const [err, setErr] = useState('')
   const [tab, setTab] = useState<Tab>('vehicles')
+  const [importOpen, setImportOpen] = useState(false)
+  // A bulk import creates rows behind whichever panel is open. Bumping this
+  // remounts it so the new vehicles and drivers are actually on screen.
+  const [panelKey, setPanelKey] = useState(0)
 
   const load = useCallback(async () => {
     setLoading(true); setErr('')
@@ -141,6 +147,10 @@ export default function AdminCompanyDetailSection({
                 style={{ padding: '0.3rem 0.6rem', borderRadius: 7, border: '1px solid rgba(255,255,255,0.12)', background: 'rgba(255,255,255,0.05)', color: 'var(--clr-muted)', fontFamily: 'inherit', fontSize: '0.74rem', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
                 <LuPencil size={11} /> Edit
               </button>
+              <button onClick={() => setImportOpen(true)} title="Add many vehicles and drivers from a spreadsheet"
+                style={{ padding: '0.3rem 0.6rem', borderRadius: 7, border: '1px solid rgba(96,165,250,0.3)', background: 'rgba(96,165,250,0.08)', color: '#60a5fa', fontFamily: 'inherit', fontSize: '0.74rem', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                <LuFileSpreadsheet size={11} /> Import from Excel
+              </button>
             </div>
             <div style={{ display: 'flex', gap: '0.35rem' }}>
               <button onClick={async () => {
@@ -195,16 +205,34 @@ export default function AdminCompanyDetailSection({
           this company so nothing can be filed against the wrong one. */}
       {tab === 'vehicles' ? (
         <AdminCompanyVehiclesSection
+          key={panelKey}
           onToast={handleToast}
           lockedCompanyId={companyId}
           lockedCompanyName={company?.company_name ?? companyName}
         />
       ) : (
         <AdminCompanyDriversSection
+          key={panelKey}
           onToast={handleToast}
           lockedCompanyId={companyId}
           lockedCompanyName={company?.company_name ?? companyName}
           canPurge={canDelete}
+        />
+      )}
+
+      {importOpen && (
+        <CompanyImportModal
+          companyName={company?.company_name ?? companyName}
+          variant="admin"
+          api={{
+            template: () => adminCompanyImportApi.template(),
+            preview: file => adminCompanyImportApi.preview(companyId, file),
+            commit: rows => adminCompanyImportApi.commit(companyId, rows),
+            credentials: rows => adminCompanyImportApi.credentials(companyId, rows),
+            sendSms: ids => adminCompanyImportApi.sendSms(companyId, ids),
+          }}
+          onClose={() => setImportOpen(false)}
+          onImported={() => { setPanelKey(k => k + 1); load() }}
         />
       )}
     </div>

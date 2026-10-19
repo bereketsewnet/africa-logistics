@@ -880,3 +880,150 @@ export async function adminCompanyOverviewHandler(
 
   return reply.send({ success: true, company, stats })
 }
+
+// ─── Bulk approval ────────────────────────────────────────────────────────────
+//
+// A company bulk-importing its fleet submits hundreds of rows at once, all
+// pending. Reviewing those one modal at a time is not review, it is data entry,
+// and an admin faced with 400 clicks will either stop looking or stop approving.
+//
+// Two shapes, deliberately distinct:
+//   - `ids`         — approve exactly these, the ones ticked on screen.
+//   - `all_pending` — approve everything this company currently has waiting,
+//                     which is the real post-import action. It must be asked for
+//                     explicitly, because its scope is whatever happens to be
+//                     pending at the moment it runs, not what was on screen.
+
+/** Enough for one 1,000-row import in two calls; a bound on an accidental loop. */
+const MAX_BULK_IDS = 500
+
+interface BulkBody {
+  ids?: string[]
+  company_id?: string
+  all_pending?: boolean
+  action?: 'APPROVED' | 'REJECTED'
+  admin_note?: string
+}
+
+function readBulkTarget(body: BulkBody): { ok: true; ids: string[] } | { ok: true; allPending: string } | { ok: false; message: string } {
+  const ids = Array.isArray(body?.ids) ? body.ids.filter(x => typeof x === 'string' && x) : []
+  if (ids.length > 0) {
+    if (ids.length > MAX_BULK_IDS) {
+      return { ok: false, message: `Send at most ${MAX_BULK_IDS} at a time.` }
+    }
+    return { ok: true, ids: [...new Set(ids)] }
+  }
+  if (body?.all_pending && body?.company_id) {
+    return { ok: true, allPending: body.company_id }
+  }
+  return { ok: false, message: 'Give either a list of ids, or company_id with all_pending.' }
+}
+
+/**
+ * PATCH /api/admin/company-vehicles/bulk/review
+ *
+ * Registered above `/:id/review`; Fastify prefers the static segment, so `bulk`
+ * is never read as an id.
+ */
+export async function adminBulkReviewCompanyVehiclesHandler(
+  request: FastifyRequest<{ Body: BulkBody }>,
+  reply: FastifyReply
+) {
+  if (denyCustomers(request, reply)) return
+  const caller = request.user as { id: string }
+  const body = request.body ?? {}
+  const action = body.action
+
+  if (!['APPROVED', 'REJECTED'].includes(action as string)) {
+    return reply.status(400).send({ success: false, message: 'action must be APPROVED or REJECTED.' })
+  }
+  if (action === 'REJECTED' && !body.admin_note?.trim()) {
+    // Rejecting in bulk without saying why leaves a company with a screen full
+    // of refusals and nothing to act on.
+    return reply.status(400).send({ success: false, message: 'A note is required when rejecting.' })
+  }
+
+  const target = readBulkTarget(body)
+  if (!target.ok) return reply.status(400).send({ success: false, message: target.message })
+
+  // Only approve a libre that was actually uploaded — the same rule the
+  // single-vehicle review applies.
+  const set = `SET status = ?, admin_note = ?, reviewed_by = ?, reviewed_at = NOW(),
+                   libre_status = CASE WHEN ? = 'APPROVED' AND libre_url IS NOT NULL AND libre_url <> ''
+                                       THEN 'APPROVED' ELSE libre_status END`
+  const head = [action, body.admin_note?.trim() || null, caller.id, action]
+
+  let affected = 0
+  if ('ids' in target) {
+    const placeholders = target.ids.map(() => '?').join(',')
+    const [res] = await request.server.db.query<any>(
+      `UPDATE company_vehicles ${set} WHERE id IN (${placeholders})`,
+      [...head, ...target.ids]
+    )
+    affected = res?.affectedRows ?? 0
+  } else {
+    const [res] = await request.server.db.query<any>(
+      `UPDATE company_vehicles ${set} WHERE company_id = ? AND status = 'PENDING'`,
+      [...head, target.allPending]
+    )
+    affected = res?.affectedRows ?? 0
+  }
+
+  return reply.send({
+    success: true,
+    affected,
+    message: affected === 0
+      ? 'Nothing to review — those vehicles were already decided.'
+      : `${affected} vehicle${affected === 1 ? '' : 's'} ${action!.toLowerCase()}.`,
+  })
+}
+
+/**
+ * PATCH /api/admin/company-drivers/bulk/verify
+ *
+ * Verifying is the only bulk action offered for drivers. Bulk REJECTION is
+ * deliberately absent: a rejection carries a reason that is specific to the
+ * person, and one reason pasted across 400 drivers is not a reason.
+ */
+export async function adminBulkVerifyCompanyDriversHandler(
+  request: FastifyRequest<{ Body: BulkBody }>,
+  reply: FastifyReply
+) {
+  if (denyCustomers(request, reply)) return
+  const caller = request.user as { id: string }
+  const db = request.server.db
+  const body = request.body ?? {}
+
+  let ids: string[]
+  if (Array.isArray(body.ids) && body.ids.length > 0) {
+    if (body.ids.length > MAX_BULK_IDS) {
+      return reply.status(400).send({ success: false, message: `Send at most ${MAX_BULK_IDS} at a time.` })
+    }
+    ids = [...new Set(body.ids.filter(x => typeof x === 'string' && x))]
+  } else if (body.all_pending && body.company_id) {
+    const [rows] = await db.query<RowDataPacket[]>(
+      `SELECT user_id FROM driver_profiles WHERE company_id = ? AND is_verified = 0 LIMIT ?`,
+      [body.company_id, MAX_BULK_IDS]
+    )
+    ids = rows.map(r => String(r.user_id))
+  } else {
+    return reply.status(400).send({ success: false, message: 'Give either a list of ids, or company_id with all_pending.' })
+  }
+
+  if (ids.length === 0) {
+    return reply.send({ success: true, affected: 0, message: 'No unverified drivers to verify.' })
+  }
+
+  const { verifyDriversBulk } = await import('../services/profile.service.js')
+  // Scoped to drivers who are on a company roster. This endpoint resolves to
+  // `companies.manage`, and without that scope it would be a path from managing
+  // companies to verifying any driver on the platform.
+  const affected = await verifyDriversBulk(db, ids, caller.id, true)
+
+  return reply.send({
+    success: true,
+    affected,
+    message: `${affected} driver${affected === 1 ? '' : 's'} verified.`
+      + (affected < ids.length ? ` ${ids.length - affected} were skipped — not on a company roster, or already verified.` : ''),
+  })
+}

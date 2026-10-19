@@ -4,6 +4,7 @@ import { MapContainer, TileLayer, Marker, Popup, useMapEvents } from 'react-leaf
 import 'leaflet/dist/leaflet.css'
 import L from 'leaflet'
 import { orderApi, configApi } from '../lib/apiClient'
+import { downloadFile } from '../lib/downloadFile'
 import {
   LuPackage, LuPlus, LuRefreshCw, LuSearch, LuX,
   LuCircleCheck, LuTriangleAlert, LuTruck, LuMapPin,
@@ -1290,11 +1291,7 @@ function OrderDetailModal({ order, onClose, onCancelled }: { order: Order; onClo
       })
       if (!res.ok) throw new Error('Download failed')
       const blob = await res.blob()
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url; a.download = `${order.reference_code}.pdf`
-      document.body.appendChild(a); a.click()
-      document.body.removeChild(a); URL.revokeObjectURL(url)
+      downloadFile(blob, `${order.reference_code}.pdf`, 'application/pdf')
     } catch { /* ignore */ }
     finally { setInvoiceDling(false) }
   }

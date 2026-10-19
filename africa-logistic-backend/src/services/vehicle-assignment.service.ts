@@ -232,14 +232,16 @@ export async function assignDriverToVehicle(params: {
       await conn.rollback()
       return { ok: false, status: 404, message: 'Vehicle not found.' }
     }
-    if (requireApproved && Number(vehicle.is_approved_flag) !== 1) {
-      await conn.rollback()
-      return { ok: false, status: 403, message: 'This vehicle must be approved before assigning a driver.' }
-    }
-
     const previousDriverId = (vehicle.current_driver_id as string | null) ?? null
 
     // ── Unassign ──────────────────────────────────────────────────────────────
+    // Checked BEFORE the approval gate, deliberately. Approval governs whether a
+    // driver may be PUT on a truck, not whether one may be taken off: removing a
+    // claim is never the unsafe direction. Gating both left a real trap once bulk
+    // import arrived — an import records a truck and its driver together while the
+    // truck is still pending, so a company that imported one wrong pairing could
+    // not correct it until an admin had approved the very row they were trying to
+    // fix.
     if (!driverId) {
       await conn.query(
         `UPDATE \`${cfg.table}\` SET \`${cfg.driverColumn}\` = NULL WHERE id = ?`,
@@ -248,6 +250,11 @@ export async function assignDriverToVehicle(params: {
       if (previousDriverId) await setDriverOfflineWhenUnassigned(conn, previousDriverId)
       await conn.commit()
       return { ok: true, status: 200, message: 'Driver unassigned from this vehicle.' }
+    }
+
+    if (requireApproved && Number(vehicle.is_approved_flag) !== 1) {
+      await conn.rollback()
+      return { ok: false, status: 403, message: 'This vehicle must be approved before assigning a driver.' }
     }
 
     const driver = await findAssignableDriver(conn, driverId, true)

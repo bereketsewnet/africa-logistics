@@ -203,13 +203,14 @@ export async function reviewDriverDocument(
 }
 
 /** Admin: fully verify a driver (all docs approved → set badge + AVAILABLE) */
-export async function verifyDriver(
-  db: Pool,
-  driverId: string,
-  adminId: string
-): Promise<void> {
-  await db.query(
-    `UPDATE driver_profiles
+/**
+ * What verifying a driver actually sets.
+ *
+ * Shared by the single-driver and bulk paths rather than written twice: the
+ * document rules below are subtle enough that two copies would drift, and the
+ * drift would show up as a false audit trail rather than as an error.
+ */
+const VERIFY_DRIVER_SET = `
         SET is_verified = 1,
             -- Approve only documents that were actually uploaded. Setting these
             -- unconditionally recorded an 'APPROVED' National ID and Licence for a
@@ -224,10 +225,47 @@ export async function verifyDriver(
             verified_at = NOW(),
             verified_by_admin_id = ?,
             rejection_reason = NULL,
-            status = 'AVAILABLE'
-      WHERE user_id = ?`,
+            status = 'AVAILABLE'`
+
+export async function verifyDriver(
+  db: Pool,
+  driverId: string,
+  adminId: string
+): Promise<void> {
+  await db.query(
+    `UPDATE driver_profiles ${VERIFY_DRIVER_SET} WHERE user_id = ?`,
     [adminId, driverId]
   )
+}
+
+/**
+ * Verify many drivers in one statement.
+ *
+ * Built for the bulk-approval screens, where a company import can land hundreds
+ * of drivers at once. One UPDATE rather than one per driver, because the pool
+ * has ten connections and shares them with live traffic.
+ *
+ * `scopeCompanyOnly` restricts the statement to drivers who are on some
+ * company's roster. The bulk endpoint resolves to `companies.manage`, so without
+ * that restriction it would be a route from managing companies to verifying any
+ * driver on the platform. Returns how many rows actually changed, which is what
+ * the caller reports — ids that fell outside the scope are simply not counted.
+ */
+export async function verifyDriversBulk(
+  db: Pool,
+  driverIds: string[],
+  adminId: string,
+  scopeCompanyOnly = true
+): Promise<number> {
+  if (driverIds.length === 0) return 0
+  const placeholders = driverIds.map(() => '?').join(',')
+  const [res] = await db.query<any>(
+    `UPDATE driver_profiles ${VERIFY_DRIVER_SET}
+      WHERE user_id IN (${placeholders})
+        ${scopeCompanyOnly ? 'AND company_id IS NOT NULL' : ''}`,
+    [adminId, ...driverIds]
+  )
+  return res?.affectedRows ?? 0
 }
 
 /** Admin: reject a driver with a reason */

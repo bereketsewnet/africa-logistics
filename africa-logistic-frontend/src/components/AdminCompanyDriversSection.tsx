@@ -1,9 +1,9 @@
 import { useState, useEffect, useCallback } from 'react'
 import {
   LuUsers, LuPlus, LuX, LuTriangleAlert, LuRefreshCw, LuSearch,
-  LuSend, LuUserMinus, LuTrash2, LuPencil, LuTruck, LuBadgeCheck,
+  LuSend, LuUserMinus, LuTrash2, LuPencil, LuTruck, LuBadgeCheck, LuCheck,
 } from 'react-icons/lu'
-import { adminCompanyDriverApi, adminCompanyApi } from '../lib/apiClient'
+import { adminCompanyDriverApi, adminCompanyApi, adminCompanyBulkApi } from '../lib/apiClient'
 import { absoluteUploadUrl } from '../lib/uploadUrl'
 import DocumentUploadField from './fleet/DocumentUploadField'
 import CredentialResultModal, { type CredentialResult } from './CredentialResultModal'
@@ -83,6 +83,12 @@ export default function AdminCompanyDriversSection({
   const [saving, setSaving] = useState(false)
   const [formErr, setFormErr] = useState('')
   const [credential, setCredential] = useState<CredentialResult | null>(null)
+  // Bulk verify. Only unverified drivers are selectable — there is nothing to do
+  // to a verified one, and there is deliberately no bulk REJECT: a rejection
+  // carries a reason specific to the person, and one reason pasted across
+  // hundreds of drivers is not a reason.
+  const [picked, setPicked] = useState<Set<string>>(new Set())
+  const [bulkBusy, setBulkBusy] = useState(false)
 
   // create — the same fields as the normal admin driver registration
   const [fCompany, setFCompany] = useState(lockedCompanyId ?? '')
@@ -108,6 +114,9 @@ export default function AdminCompanyDriversSection({
       setErr(e.response?.data?.message ?? 'Could not load company drivers.')
     } finally { setLoading(false) }
   }, [page, search, companyFilter, lockedCompanyId])
+
+  // Ticks never survive a page or filter change: those rows have left the screen.
+  useEffect(() => { setPicked(new Set()) }, [page, search, companyFilter])
 
   // Debounced so typing in the search box does not fire a request per keystroke.
   useEffect(() => {
@@ -194,6 +203,24 @@ export default function AdminCompanyDriversSection({
     </a>
   ) : null
 
+  const unverifiedOnPage = drivers.filter(d => !d.is_verified)
+
+  const runBulkVerify = async (allPending = false) => {
+    setBulkBusy(true); setErr('')
+    try {
+      const { data } = await adminCompanyBulkApi.verifyDrivers(
+        allPending
+          ? { all_pending: true, company_id: lockedCompanyId ?? companyFilter }
+          : { ids: [...picked] }
+      )
+      onToast(data.message ?? `${data.affected} verified.`)
+      setPicked(new Set())
+      load()
+    } catch (e: any) {
+      setErr(e.response?.data?.message ?? 'Could not verify all of them.')
+    } finally { setBulkBusy(false) }
+  }
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
       {credential && <CredentialResultModal result={credential} onClose={() => setCredential(null)} />}
@@ -242,6 +269,42 @@ export default function AdminCompanyDriversSection({
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.7rem' }}>
+          {unverifiedOnPage.length > 0 && (
+            <div className="glass-inner" style={{ padding: '0.7rem 0.9rem', border: '1px solid rgba(251,191,36,0.3)', display: 'flex', flexDirection: 'column', gap: '0.55rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.78rem', fontWeight: 700, color: 'var(--clr-text)', cursor: 'pointer' }}>
+                  <input type="checkbox"
+                    checked={picked.size > 0 && unverifiedOnPage.every(d => picked.has(d.id))}
+                    onChange={e => setPicked(e.target.checked ? new Set(unverifiedOnPage.map(d => d.id)) : new Set())}
+                    style={{ width: 15, height: 15, accentColor: 'var(--clr-accent)', cursor: 'pointer' }} />
+                  Select the {unverifiedOnPage.length} unverified on this page
+                </label>
+                <span style={{ flex: 1 }} />
+                {picked.size > 0 && (
+                  <button onClick={() => runBulkVerify()} disabled={bulkBusy}
+                    style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', padding: '0.4rem 0.8rem', borderRadius: 8, border: 'none', background: 'var(--clr-accent)', color: '#080b14', fontFamily: 'inherit', fontSize: '0.78rem', fontWeight: 800, cursor: bulkBusy ? 'not-allowed' : 'pointer', opacity: bulkBusy ? 0.6 : 1 }}>
+                    <LuCheck size={13} /> Verify {picked.size}
+                  </button>
+                )}
+              </div>
+
+              <div style={{ fontSize: '0.74rem', color: 'var(--clr-muted)', lineHeight: 1.45 }}>
+                Verifying marks a driver ready to be assigned. Documents are optional —
+                only ones actually uploaded are marked approved.
+              </div>
+
+              {locked && (
+                <div style={{ fontSize: '0.75rem', color: 'var(--clr-muted)', display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                  After a bulk import there may be more unverified than fit on this page.
+                  <button onClick={() => runBulkVerify(true)} disabled={bulkBusy}
+                    style={{ padding: '0.25rem 0.6rem', borderRadius: 7, border: '1px solid rgba(97,148,31,0.45)', background: 'rgba(97,148,31,0.12)', color: 'var(--clr-accent)', fontFamily: 'inherit', fontSize: '0.74rem', fontWeight: 700, cursor: bulkBusy ? 'not-allowed' : 'pointer', opacity: bulkBusy ? 0.6 : 1 }}>
+                    Verify every unverified driver for this company
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+
           {drivers.map(d => {
             const docs = [
               docLink('National ID', d.national_id_url),
@@ -252,6 +315,16 @@ export default function AdminCompanyDriversSection({
             return (
               <div key={d.id} className="glass-inner" style={{ padding: '0.9rem 1rem' }}>
                 <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem', flexWrap: 'wrap' }}>
+                  {!d.is_verified && (
+                    <input type="checkbox" aria-label={`Select ${d.first_name} ${d.last_name ?? ''}`}
+                      checked={picked.has(d.id)}
+                      onChange={e => setPicked(prev => {
+                        const next = new Set(prev)
+                        if (e.target.checked) next.add(d.id); else next.delete(d.id)
+                        return next
+                      })}
+                      style={{ width: 15, height: 15, marginTop: 4, accentColor: 'var(--clr-accent)', cursor: 'pointer', flexShrink: 0 }} />
+                  )}
                   <div style={{ flex: 1, minWidth: 200 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '0.3rem' }}>
                       <span style={{ fontWeight: 700, fontSize: '0.95rem', color: 'var(--clr-text)' }}>

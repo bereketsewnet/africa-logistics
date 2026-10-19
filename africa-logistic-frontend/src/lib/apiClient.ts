@@ -749,3 +749,73 @@ export const adminCompanyVehicleApi = {
 
   remove: (id: string) => apiClient.delete(`/admin/company-vehicles/${id}`),
 }
+
+// ─── Admin: Company bulk import ───────────────────────────────────────────────
+/**
+ * Bulk Excel import of a company's fleet and crews.
+ *
+ * `template` and `credentials` return real files, so both ask axios for a blob
+ * rather than letting it try to parse a spreadsheet as JSON. `commit` and
+ * `sendSms` are called repeatedly with small chunks — the caller draws the
+ * progress — because hashing 400 passwords or sending 400 texts in one request
+ * would outlast any sensible timeout.
+ */
+export const adminCompanyImportApi = {
+  /** The branded ZIP: instructions plus three sample sheets. */
+  template: () =>
+    apiClient.get('/admin/companies/import/template', { responseType: 'blob' }),
+
+  /** Parses and judges the workbook. Writes nothing. `file` is a data URI. */
+  preview: (companyId: string, file: string) =>
+    apiClient.post(`/admin/companies/${companyId}/import/preview`, { file }),
+
+  /** Writes one chunk of rows the preview already normalised (max 50). */
+  commit: (companyId: string, rows: unknown[]) =>
+    apiClient.post(`/admin/companies/${companyId}/import/commit`, { rows }),
+
+  /** Texts one chunk of drivers (max 10); each password is rotated as it sends. */
+  sendSms: (companyId: string, driver_ids: string[]) =>
+    apiClient.post(`/admin/companies/${companyId}/import/send-sms`, { driver_ids }),
+
+  /** Builds the credentials spreadsheet from the passwords the caller holds. */
+  credentials: (companyId: string, rows: unknown[]) =>
+    apiClient.post(`/admin/companies/${companyId}/import/credentials`, { rows },
+      { responseType: 'blob' }),
+}
+
+// ─── Company portal: bulk import ──────────────────────────────────────────────
+/**
+ * The company importing its own fleet. No company id in any path — the server
+ * reads which company is calling from the session — and no send-sms, because
+ * texting a whole roster spends Afri Logistics' SMS credits.
+ */
+export const companyImportApi = {
+  template: () => apiClient.get('/company/import/template', { responseType: 'blob' }),
+
+  preview: (file: string) => apiClient.post('/company/import/preview', { file }),
+
+  /** One chunk of rows; everything lands PENDING for admin review. */
+  commit: (rows: unknown[]) => apiClient.post('/company/import/commit', { rows }),
+
+  credentials: (rows: unknown[]) =>
+    apiClient.post('/company/import/credentials', { rows }, { responseType: 'blob' }),
+}
+
+// ─── Admin: bulk approval ─────────────────────────────────────────────────────
+/**
+ * Approving a company's bulk import one modal at a time is data entry, not
+ * review. Either pass the ids ticked on screen, or `all_pending` with a
+ * company_id to clear whatever that company currently has waiting.
+ */
+export const adminCompanyBulkApi = {
+  reviewVehicles: (data: {
+    action: 'APPROVED' | 'REJECTED'
+    admin_note?: string
+    ids?: string[]
+    company_id?: string
+    all_pending?: boolean
+  }) => apiClient.patch('/admin/company-vehicles/bulk/review', data),
+
+  verifyDrivers: (data: { ids?: string[]; company_id?: string; all_pending?: boolean }) =>
+    apiClient.patch('/admin/company-drivers/bulk/verify', data),
+}

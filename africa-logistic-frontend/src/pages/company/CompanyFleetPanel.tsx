@@ -1,9 +1,10 @@
 import { useState, useEffect, useCallback } from 'react'
 import {
   LuTruck, LuPlus, LuX, LuTriangleAlert, LuRefreshCw, LuSearch,
-  LuTrash2, LuUserCheck, LuFileText, LuPencil, LuCheck,
+  LuTrash2, LuUserCheck, LuFileText, LuPencil, LuCheck, LuFileSpreadsheet,
 } from 'react-icons/lu'
-import { companyApi } from '../../lib/apiClient'
+import { companyApi, companyImportApi } from '../../lib/apiClient'
+import CompanyImportModal from '../../components/CompanyImportModal'
 import { absoluteUploadUrl } from '../../lib/uploadUrl'
 import ApprovalBadge from '../../components/fleet/ApprovalBadge'
 import OperationalStatusControl from '../../components/fleet/OperationalStatusControl'
@@ -81,6 +82,7 @@ export default function CompanyFleetPanel({ onToast, readOnly }: {
   const [selectedDriverId, setSelectedDriverId] = useState('')
   const [driverSearch, setDriverSearch] = useState('')
   const [saving, setSaving] = useState(false)
+  const [importOpen, setImportOpen] = useState(false)
   const [formErr, setFormErr] = useState('')
   const [statusSavingId, setStatusSavingId] = useState<string | null>(null)
 
@@ -234,7 +236,23 @@ export default function CompanyFleetPanel({ onToast, readOnly }: {
             <LuPlus size={13} /> Add Vehicle
           </button>
         )}
+        {!readOnly && (
+          <button onClick={() => setImportOpen(true)} title="Add many vehicles and drivers from a spreadsheet"
+            style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', padding: '0.4rem 0.85rem', borderRadius: 9, border: '1px solid rgba(96,165,250,0.35)', background: 'rgba(96,165,250,0.1)', color: '#60a5fa', fontFamily: 'inherit', fontSize: '0.78rem', fontWeight: 700, cursor: 'pointer' }}>
+            <LuFileSpreadsheet size={13} /> Import from Excel
+          </button>
+        )}
       </div>
+
+      {importOpen && (
+        <CompanyImportModal
+          companyName="your fleet"
+          variant="company"
+          api={companyImportApi}
+          onClose={() => setImportOpen(false)}
+          onImported={load}
+        />
+      )}
 
       {/* Filters */}
       <div className="glass" style={{ padding: '0.75rem 1rem', display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center' }}>

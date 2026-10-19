@@ -1,9 +1,9 @@
 import { useState, useEffect, useCallback } from 'react'
 import {
   LuTruck, LuPlus, LuX, LuTriangleAlert, LuRefreshCw, LuSearch,
-  LuTrash2, LuUserCheck, LuFileText,
+  LuTrash2, LuUserCheck, LuFileText, LuCheck,
 } from 'react-icons/lu'
-import { adminCompanyVehicleApi, adminCompanyApi, adminCarOwnerApi } from '../lib/apiClient'
+import { adminCompanyVehicleApi, adminCompanyApi, adminCarOwnerApi, adminCompanyBulkApi } from '../lib/apiClient'
 import { absoluteUploadUrl } from '../lib/uploadUrl'
 import ApprovalBadge from './fleet/ApprovalBadge'
 import OperationalStatusControl from './fleet/OperationalStatusControl'
@@ -98,6 +98,12 @@ export default function AdminCompanyVehiclesSection({
   const [saving, setSaving] = useState(false)
   const [formErr, setFormErr] = useState('')
   const [statusSavingId, setStatusSavingId] = useState<string | null>(null)
+  // Bulk review. Only PENDING vehicles are selectable: approving an approved
+  // truck is a no-op, and bulk-rejecting approved ones is a destructive action
+  // nobody's workflow needs.
+  const [picked, setPicked] = useState<Set<string>>(new Set())
+  const [bulkBusy, setBulkBusy] = useState(false)
+  const [bulkNote, setBulkNote] = useState('')
 
   // create
   const [fCompany, setFCompany] = useState(lockedCompanyId ?? initialCompanyId ?? '')
@@ -130,6 +136,10 @@ export default function AdminCompanyVehiclesSection({
       setErr(e.response?.data?.message ?? 'Could not load company vehicles.')
     } finally { setLoading(false) }
   }, [page, search, companyFilter, statusFilter, opFilter, lockedCompanyId])
+
+  // Never carry ticks across a page or filter change — the rows they referred to
+  // are no longer on screen, and acting on unseen rows is how bulk goes wrong.
+  useEffect(() => { setPicked(new Set()) }, [page, search, companyFilter, statusFilter, opFilter])
 
   useEffect(() => {
     const t = setTimeout(load, 300)
@@ -232,6 +242,36 @@ export default function AdminCompanyVehiclesSection({
     ? (companies.find(c => c.id === companyFilter)?.company_name ?? initialCompanyName ?? '')
     : ''
 
+  const pendingOnPage = vehicles.filter(v => v.status === 'PENDING')
+
+  /**
+   * `allPending` ignores the ticks and clears everything this company has
+   * waiting, including rows on other pages. Offered only when the screen is
+   * locked to one company, because that is the only time its scope is
+   * something the admin can actually see and reason about.
+   */
+  const runBulkReview = async (action: 'APPROVED' | 'REJECTED', allPending = false) => {
+    if (action === 'REJECTED' && !bulkNote.trim()) {
+      setErr('Add a note before rejecting — the company needs to know why.')
+      return
+    }
+    setBulkBusy(true); setErr('')
+    try {
+      const { data } = await adminCompanyBulkApi.reviewVehicles({
+        action,
+        admin_note: bulkNote.trim() || undefined,
+        ...(allPending
+          ? { all_pending: true, company_id: lockedCompanyId ?? companyFilter }
+          : { ids: [...picked] }),
+      })
+      onToast(data.message ?? `${data.affected} updated.`)
+      setPicked(new Set()); setBulkNote('')
+      load()
+    } catch (e: any) {
+      setErr(e.response?.data?.message ?? 'Could not apply that to all of them.')
+    } finally { setBulkBusy(false) }
+  }
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
       {/* Toolbar */}
@@ -298,6 +338,50 @@ export default function AdminCompanyVehiclesSection({
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.7rem' }}>
+          {pendingOnPage.length > 0 && (
+            <div className="glass-inner" style={{ padding: '0.7rem 0.9rem', border: '1px solid rgba(251,191,36,0.3)', display: 'flex', flexDirection: 'column', gap: '0.55rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.78rem', fontWeight: 700, color: 'var(--clr-text)', cursor: 'pointer' }}>
+                  <input type="checkbox"
+                    checked={picked.size > 0 && pendingOnPage.every(v => picked.has(v.id))}
+                    onChange={e => setPicked(e.target.checked ? new Set(pendingOnPage.map(v => v.id)) : new Set())}
+                    style={{ width: 15, height: 15, accentColor: 'var(--clr-accent)', cursor: 'pointer' }} />
+                  Select the {pendingOnPage.length} pending on this page
+                </label>
+                <span style={{ flex: 1 }} />
+                {picked.size > 0 && (
+                  <span style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--clr-accent)' }}>{picked.size} selected</span>
+                )}
+              </div>
+
+              {picked.size > 0 && (
+                <div style={{ display: 'flex', gap: '0.45rem', flexWrap: 'wrap', alignItems: 'center' }}>
+                  <input value={bulkNote} onChange={e => setBulkNote(e.target.value)}
+                    placeholder="Note (required to reject)"
+                    style={{ flex: 1, minWidth: 180, padding: '0.4rem 0.6rem', borderRadius: 8, border: '1px solid rgba(255,255,255,0.12)', background: 'rgba(255,255,255,0.04)', color: 'var(--clr-text)', fontFamily: 'inherit', fontSize: '0.78rem' }} />
+                  <button onClick={() => runBulkReview('APPROVED')} disabled={bulkBusy}
+                    style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', padding: '0.4rem 0.8rem', borderRadius: 8, border: 'none', background: 'var(--clr-accent)', color: '#080b14', fontFamily: 'inherit', fontSize: '0.78rem', fontWeight: 800, cursor: bulkBusy ? 'not-allowed' : 'pointer', opacity: bulkBusy ? 0.6 : 1 }}>
+                    <LuCheck size={13} /> Approve {picked.size}
+                  </button>
+                  <button onClick={() => runBulkReview('REJECTED')} disabled={bulkBusy}
+                    style={{ padding: '0.4rem 0.8rem', borderRadius: 8, border: '1px solid rgba(239,68,68,0.45)', background: 'rgba(239,68,68,0.12)', color: '#f87171', fontFamily: 'inherit', fontSize: '0.78rem', fontWeight: 700, cursor: bulkBusy ? 'not-allowed' : 'pointer', opacity: bulkBusy ? 0.6 : 1 }}>
+                    Reject {picked.size}
+                  </button>
+                </div>
+              )}
+
+              {locked && (
+                <div style={{ fontSize: '0.75rem', color: 'var(--clr-muted)', display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                  After a bulk import there may be more pending than fit on this page.
+                  <button onClick={() => runBulkReview('APPROVED', true)} disabled={bulkBusy}
+                    style={{ padding: '0.25rem 0.6rem', borderRadius: 7, border: '1px solid rgba(97,148,31,0.45)', background: 'rgba(97,148,31,0.12)', color: 'var(--clr-accent)', fontFamily: 'inherit', fontSize: '0.74rem', fontWeight: 700, cursor: bulkBusy ? 'not-allowed' : 'pointer', opacity: bulkBusy ? 0.6 : 1 }}>
+                    Approve every pending vehicle for this company
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+
           {vehicles.map(v => {
             let gallery: string[] = []
             try {
@@ -309,6 +393,16 @@ export default function AdminCompanyVehiclesSection({
             return (
               <div key={v.id} className="glass-inner" style={{ padding: '0.9rem 1rem' }}>
                 <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem', flexWrap: 'wrap' }}>
+                  {v.status === 'PENDING' && (
+                    <input type="checkbox" aria-label={`Select ${v.plate_number}`}
+                      checked={picked.has(v.id)}
+                      onChange={e => setPicked(prev => {
+                        const next = new Set(prev)
+                        if (e.target.checked) next.add(v.id); else next.delete(v.id)
+                        return next
+                      })}
+                      style={{ width: 15, height: 15, marginTop: 4, accentColor: 'var(--clr-accent)', cursor: 'pointer', flexShrink: 0 }} />
+                  )}
                   <div style={{ flex: 1, minWidth: 200 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '0.35rem' }}>
                       <span style={{ fontWeight: 700, fontSize: '0.95rem', color: 'var(--clr-text)' }}>{v.plate_number}</span>

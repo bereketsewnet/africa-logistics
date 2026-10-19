@@ -28,6 +28,12 @@ import {
   companyUpdateDriverHandler,
   companyRemoveDriverHandler,
 } from '../controllers/company.controller.js'
+import {
+  companyImportTemplateHandler,
+  companyImportPreviewHandler,
+  companyImportCommitHandler,
+  companyImportCredentialsHandler,
+} from '../controllers/companyPortalImport.controller.js'
 import { getCompanyForUser } from '../services/company-portal.service.js'
 
 export default async function companyRoutes(fastify: FastifyInstance) {
@@ -125,4 +131,22 @@ export default async function companyRoutes(fastify: FastifyInstance) {
 
   /** DELETE /api/company/drivers/:id — detach from the roster, never delete */
   fastify.delete('/drivers/:id', companyRemoveDriverHandler)
+
+  // ─── Bulk import ───────────────────────────────────────────────────────────
+  // No `:id` anywhere: the company is read from the session, so there is nothing
+  // here for a caller to point at another company's fleet. Deliberately NO
+  // send-sms route — texting a whole roster spends Afri Logistics' SMS credits,
+  // so that stays an admin action.
+
+  /** GET /api/company/import/template — the ZIP, worded for a company */
+  fastify.get('/import/template', companyImportTemplateHandler)
+
+  /** POST /api/company/import/preview — parse and judge, write nothing */
+  fastify.post('/import/preview', companyImportPreviewHandler)
+
+  /** POST /api/company/import/commit — write one chunk, PENDING and unverified */
+  fastify.post('/import/commit', companyImportCommitHandler)
+
+  /** POST /api/company/import/credentials — the passwords spreadsheet */
+  fastify.post('/import/credentials', companyImportCredentialsHandler)
 }
