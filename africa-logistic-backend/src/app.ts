@@ -68,7 +68,9 @@ app.decorate('authenticate', async function (request: any, reply: any) {
 // Prevent stale API payloads in browsers/proxies (critical for live driver job lists).
 app.addHook('onSend', async (request, reply) => {
   const url = request.url || ''
-  if (url.startsWith('/api/')) {
+  // Download-manager friendly attachments must remain cacheable. In particular,
+  // Android WebView delegates their direct HTTPS URL to the native downloader.
+  if (url.startsWith('/api/') && url !== '/api/downloads/company-import-templates.zip') {
     reply.header('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0')
     reply.header('Pragma', 'no-cache')
     reply.header('Expires', '0')
@@ -128,6 +130,7 @@ import wsRoutes from './routes/ws.js'
 import configRoutes from './routes/config.js'
 import carOwnerRoutes from './routes/carowner.js'
 import companyRoutes from './routes/company.js'
+import publicDownloadRoutes from './routes/publicDownloads.js'
 import { eswWebhookHandler } from './controllers/admin.controller.js'
 
 app.register(healthRoutes)
@@ -140,6 +143,7 @@ app.register(wsRoutes,      { prefix: '/api' })
 app.register(configRoutes,  { prefix: '/api/config' })
 app.register(carOwnerRoutes)
 app.register(companyRoutes,  { prefix: '/api/company' })
+app.register(publicDownloadRoutes)
 
 // eSW webhook — public (secured by shared secret header)
 app.post('/api/esw/webhook', eswWebhookHandler)

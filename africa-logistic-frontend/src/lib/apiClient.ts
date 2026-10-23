@@ -17,6 +17,11 @@ import axios from 'axios'
 // In development: http://187.124.46.190:3000/api
 // Change VITE_API_BASE_URL in .env to update for any environment.
 const BASE_URL = import.meta.env.VITE_API_BASE_URL as string
+/**
+ * A direct attachment URL for native WebViews. It intentionally does not use
+ * axios/blob: Android's download manager needs a normal HTTPS response.
+ */
+export const COMPANY_IMPORT_TEMPLATE_DOWNLOAD_URL = `${BASE_URL.replace(/\/$/, '')}/downloads/company-import-templates.zip`
 
 if (!BASE_URL) {
   console.error('⚠️  VITE_API_BASE_URL is not set in your .env file!')
@@ -754,16 +759,15 @@ export const adminCompanyVehicleApi = {
 /**
  * Bulk Excel import of a company's fleet and crews.
  *
- * `template` and `credentials` return real files, so both ask axios for a blob
- * rather than letting it try to parse a spreadsheet as JSON. `commit` and
- * `sendSms` are called repeatedly with small chunks — the caller draws the
- * progress — because hashing 400 passwords or sending 400 texts in one request
- * would outlast any sensible timeout.
+ * The template is a direct HTTPS attachment so Android WebView can hand it to
+ * its download manager. Credentials remain an authenticated blob response.
+ * `commit` and `sendSms` are called repeatedly with small chunks — the caller
+ * draws the progress — because hashing 400 passwords or sending 400 texts in
+ * one request would outlast any sensible timeout.
  */
 export const adminCompanyImportApi = {
-  /** The branded ZIP: instructions plus three sample sheets. */
-  template: () =>
-    apiClient.get('/admin/companies/import/template', { responseType: 'blob' }),
+  /** A normal HTTPS attachment, compatible with Android WebView downloads. */
+  templateDownloadUrl: COMPANY_IMPORT_TEMPLATE_DOWNLOAD_URL,
 
   /** Parses and judges the workbook. Writes nothing. `file` is a data URI. */
   preview: (companyId: string, file: string) =>
@@ -790,7 +794,8 @@ export const adminCompanyImportApi = {
  * texting a whole roster spends Afri Logistics' SMS credits.
  */
 export const companyImportApi = {
-  template: () => apiClient.get('/company/import/template', { responseType: 'blob' }),
+  /** A normal HTTPS attachment, compatible with Android WebView downloads. */
+  templateDownloadUrl: COMPANY_IMPORT_TEMPLATE_DOWNLOAD_URL,
 
   preview: (file: string) => apiClient.post('/company/import/preview', { file }),
 

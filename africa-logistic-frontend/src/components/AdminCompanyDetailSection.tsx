@@ -225,7 +225,7 @@ export default function AdminCompanyDetailSection({
           companyName={company?.company_name ?? companyName}
           variant="admin"
           api={{
-            template: () => adminCompanyImportApi.template(),
+            templateDownloadUrl: adminCompanyImportApi.templateDownloadUrl,
             preview: file => adminCompanyImportApi.preview(companyId, file),
             commit: rows => adminCompanyImportApi.commit(companyId, rows),
             credentials: rows => adminCompanyImportApi.credentials(companyId, rows),

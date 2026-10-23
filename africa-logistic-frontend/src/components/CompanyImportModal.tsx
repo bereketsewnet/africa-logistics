@@ -26,7 +26,8 @@ import { downloadFile } from '../lib/downloadFile'
  * the admin side keeps its `:id` out of here.
  */
 export interface ImportApi {
-  template: () => Promise<{ data: BlobPart }>
+  /** Direct HTTPS attachment URL; required for Android WebView downloads. */
+  templateDownloadUrl: string
   preview: (file: string) => Promise<{ data: any }>
   commit: (rows: unknown[]) => Promise<{ data: any }>
   credentials: (rows: unknown[]) => Promise<{ data: BlobPart }>
@@ -90,14 +91,18 @@ export default function CompanyImportModal({
   const [copied, setCopied] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
 
-  const handleTemplate = async () => {
+  const handleTemplate = () => {
     setErr('')
-    try {
-      const { data } = await api.template()
-      downloadFile(data, 'afri-logistics-import-templates.zip', 'application/zip')
-    } catch {
-      setErr('Could not download the template pack.')
-    }
+    // Do not fetch this into a blob first. Android WebView and in-app browsers
+    // cannot reliably save blob: URLs; they can save a real HTTPS attachment.
+    const link = document.createElement('a')
+    link.href = api.templateDownloadUrl
+    link.download = 'afri-logistics-import-templates.zip'
+    link.rel = 'noopener'
+    link.style.display = 'none'
+    document.body.appendChild(link)
+    link.click()
+    window.setTimeout(() => link.remove(), 1_000)
   }
 
   const handleFile = async (file: File) => {

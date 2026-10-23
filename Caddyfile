@@ -207,3 +207,17 @@ editor.bernos.systems {
         respond 404
     }
 }
+
+# Bellwork website (BellWork repo: site/, services/site/router.php; docs/server.md). Container bellwork_site.
+bellwork.studio {
+    encode gzip
+    header {
+        -Server
+        X-Content-Type-Options nosniff
+        Referrer-Policy strict-origin-when-cross-origin
+    }
+    reverse_proxy bellwork_site:8080
+}
+www.bellwork.studio {
+    redir https://bellwork.studio{uri} 308
+}
