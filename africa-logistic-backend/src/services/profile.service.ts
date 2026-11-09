@@ -320,20 +320,25 @@ export async function upsertNotificationPrefs(
     telegram_enabled?: number
     order_updates?: number
     promotions?: number
+    sms_order_alerts?: number
+    sms_otp_codes?: number
   }
 ): Promise<void> {
   // Build insert with defaults, update on duplicate
   await db.query(
     `INSERT INTO notification_preferences
-       (user_id, sms_enabled, email_enabled, browser_enabled, telegram_enabled, order_updates, promotions)
-     VALUES (?, ?, ?, ?, ?, ?, ?)
+       (user_id, sms_enabled, email_enabled, browser_enabled, telegram_enabled, order_updates, promotions,
+        sms_order_alerts, sms_otp_codes)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
      ON DUPLICATE KEY UPDATE
        sms_enabled      = VALUES(sms_enabled),
        email_enabled    = VALUES(email_enabled),
        browser_enabled  = VALUES(browser_enabled),
        telegram_enabled = VALUES(telegram_enabled),
        order_updates    = VALUES(order_updates),
-       promotions       = VALUES(promotions)`,
+       promotions       = VALUES(promotions),
+       sms_order_alerts = VALUES(sms_order_alerts),
+       sms_otp_codes    = VALUES(sms_otp_codes)`,
     [
       userId,
       prefs.sms_enabled     ?? 1,
@@ -342,6 +347,8 @@ export async function upsertNotificationPrefs(
       prefs.telegram_enabled ?? 1,
       prefs.order_updates   ?? 1,
       prefs.promotions      ?? 0,
+      prefs.sms_order_alerts ?? 1,
+      prefs.sms_otp_codes    ?? 1,
     ]
   )
 }

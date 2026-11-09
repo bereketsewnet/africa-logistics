@@ -22,7 +22,7 @@ import type { Pool } from 'mysql2/promise'
 import { randomUUID } from 'crypto'
 import { getSmsCredentials } from './sms-settings.service.js'
 
-export type SmsPurpose = 'OTP' | 'DRIVER_WELCOME' | 'REJECTION' | 'TEST' | 'OTHER'
+export type SmsPurpose = 'OTP' | 'DRIVER_WELCOME' | 'REJECTION' | 'TEST' | 'CAMPAIGN' | 'OTHER'
 
 export interface SmsResult {
   ok: boolean
@@ -109,14 +109,16 @@ async function recordMessage(db: Pool, row: {
   status: string
   errorCode?: string | null
   errorMessage?: string | null
+  /** Set only for an admin-composed campaign; null for every automatic message. */
+  campaignId?: string | null
 }) {
   try {
     await db.query(
       `INSERT INTO sms_messages
-         (id, provider_message_id, recipient, purpose, segments, status, error_code, error_message)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+         (id, provider_message_id, recipient, purpose, segments, status, error_code, error_message, campaign_id)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [randomUUID(), row.providerId, row.recipient, row.purpose, row.segments,
-       row.status, row.errorCode ?? null, row.errorMessage ?? null]
+       row.status, row.errorCode ?? null, row.errorMessage ?? null, row.campaignId ?? null]
     )
   } catch {
     // Logging a message must never break the thing that sent it.
@@ -133,19 +135,21 @@ export async function sendSms(
   db: Pool,
   to: string,
   text: string,
-  purpose: SmsPurpose = 'OTHER'
+  purpose: SmsPurpose = 'OTHER',
+  /** Links this send to an admin-composed campaign, for per-recipient results. */
+  campaignId?: string | null
 ): Promise<SmsResult> {
   const msisdn = normaliseMsisdn(to)
   if (!msisdn) {
     const error = `"${to}" is not a valid Ethiopian mobile number.`
-    await recordMessage(db, { providerId: null, recipient: String(to ?? ''), purpose, segments: 0, status: 'INVALID_NUMBER', errorMessage: error })
+    await recordMessage(db, { campaignId, providerId: null, recipient: String(to ?? ''), purpose, segments: 0, status: 'INVALID_NUMBER', errorMessage: error })
     return { ok: false, error, retryable: false }
   }
 
   const credentials = await getSmsCredentials(db)
   if (!credentials) {
     const error = 'SMS is not configured. Add the SMS Ethiopia API key in Admin → Settings → SMS.'
-    await recordMessage(db, { providerId: null, recipient: msisdn, purpose, segments: 0, status: 'NOT_CONFIGURED', errorMessage: error })
+    await recordMessage(db, { campaignId, providerId: null, recipient: msisdn, purpose, segments: 0, status: 'NOT_CONFIGURED', errorMessage: error })
     return { ok: false, error, retryable: false }
   }
 
@@ -169,7 +173,7 @@ export async function sendSms(
       try { payload = raw ? JSON.parse(raw) : {} } catch { payload = raw }
 
       if (response.ok && payload?.sent) {
-        await recordMessage(db, {
+        await recordMessage(db, { campaignId,
           providerId: payload.id ? String(payload.id) : null,
           recipient: msisdn, purpose,
           segments: Number(payload.segments ?? segments),
@@ -204,7 +208,7 @@ export async function sendSms(
 
       if (retryable && attempt === 0) continue
 
-      await recordMessage(db, {
+      await recordMessage(db, { campaignId,
         providerId: null, recipient: msisdn, purpose, segments: 0,
         status: 'FAILED', errorCode: code ?? String(response.status), errorMessage: String(error),
       })
@@ -215,7 +219,7 @@ export async function sendSms(
       const error = timedOut
         ? 'The SMS provider did not respond in time.'
         : `Could not reach the SMS provider: ${err?.message ?? 'network error'}`
-      await recordMessage(db, {
+      await recordMessage(db, { campaignId,
         providerId: null, recipient: msisdn, purpose, segments: 0,
         status: 'FAILED', errorMessage: error,
       })

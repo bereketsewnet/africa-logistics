@@ -147,6 +147,15 @@ import {
   adminBulkVerifyCompanyDriversHandler,
 } from '../controllers/companyAdmin.controller.js'
 import {
+  adminSmsGroupsHandler,
+  adminSmsSearchRecipientsHandler,
+  adminSmsRecentNumbersHandler,
+  adminSmsRecentMessagesHandler,
+  adminSmsPrepareHandler,
+  adminSmsSendHandler,
+  adminSmsHistoryHandler,
+} from '../controllers/smsCampaign.controller.js'
+import {
   adminListCarOwnerVehiclesHandler,
   adminReviewCarOwnerVehicleHandler,
   adminAssignDriverToCarOwnerVehicleHandler,
@@ -223,6 +232,12 @@ export default async function adminRoutes(fastify: FastifyInstance) {
     // Matching the '/company' prefix rather than listing each sibling is
     // deliberate: a future '/company-anything' route is then protected the day
     // it is added, instead of silently defaulting open until someone notices.
+    // Above the generic rules on purpose: without it '/sms/*' falls through to
+    // the default permission, which every staff role holds. Scoped to
+    // '/admin/sms/' rather than '/sms' so it does not also swallow
+    // '/admin/settings/sms' and '/admin/settings/sms/test', which are the
+    // provider credentials and stay super-admin only.
+    if (url.includes('/admin/sms/')) return 'sms.send'
     if (url.includes('/companies') || url.includes('/company-')) return 'companies.manage'
     // Car-owner vehicle administration. Explicit, for the same reason as above:
     // '/car-owner-vehicles' contains neither '/vehicles' nor '/users', so without a
@@ -384,6 +399,31 @@ export default async function adminRoutes(fastify: FastifyInstance) {
   //
   // The template route is registered BEFORE '/companies/:id' so that the literal
   // segment 'import' is not swallowed as an :id.
+
+  // ─── SMS ───────────────────────────────────────────────────────────────────
+  // All resolve to 'sms.send'. Sending costs real money, so the permission is
+  // granted to super admin only until it is handed out in Role Management.
+
+  /** GET /api/admin/sms/groups — audiences that can be picked in one click */
+  fastify.get('/sms/groups', adminSmsGroupsHandler)
+
+  /** GET /api/admin/sms/recipients?search= — find a registered person */
+  fastify.get('/sms/recipients', adminSmsSearchRecipientsHandler)
+
+  /** GET /api/admin/sms/recent-numbers — numbers written to recently */
+  fastify.get('/sms/recent-numbers', adminSmsRecentNumbersHandler)
+
+  /** GET /api/admin/sms/recent-messages — past campaigns, to reuse */
+  fastify.get('/sms/recent-messages', adminSmsRecentMessagesHandler)
+
+  /** POST /api/admin/sms/prepare — resolve, de-duplicate and price. Sends nothing. */
+  fastify.post('/sms/prepare', adminSmsPrepareHandler)
+
+  /** POST /api/admin/sms/send — send one chunk of an admin-composed campaign */
+  fastify.post('/sms/send', adminSmsSendHandler)
+
+  /** GET /api/admin/sms/history — every message the platform has sent */
+  fastify.get('/sms/history', adminSmsHistoryHandler)
 
   /** GET /api/admin/companies/import/template — branded ZIP of sample sheets */
   fastify.get('/companies/import/template', adminImportTemplateHandler)

@@ -75,6 +75,8 @@ interface PlaceOrderBody {
   delivery_address?: string
   estimated_weight_kg?: number
   vehicle_type: string
+  /** How many trucks the load needs; defaults to 1. */
+  vehicles_required?: number
   special_instructions?: string
   order_image_1?: string  // base64
   order_image_2?: string  // base64
@@ -303,6 +305,7 @@ export async function placeOrderHandler(
     deliveryAddress:     deliveryAddr,
     estimatedWeightKg:   estimated_weight_kg ?? null,
     vehicleTypeRequired: vehicle_type,
+    vehiclesRequired:    request.body.vehicles_required,
     specialInstructions: special_instructions ?? null,
     distanceKm:          quote.distance_km,
     baseFare:            quote.base_fare,
@@ -344,6 +347,13 @@ export async function placeOrderHandler(
       estimatedPrice: `${Number(order!.estimated_price).toFixed(2)} ETB`,
     }).catch(() => { /* never block the response */ })
   }).catch(() => { /* never block the response */ })
+
+  // The same two codes by SMS, beside the email above. Fire-and-forget for the
+  // same reason: a text that fails must never undo an order that succeeded.
+  import('../services/order-sms.service.js')
+    .then(({ sendOrderOtpSms }) =>
+      sendOrderOtpSms(request.server.db, user.id, order!.reference_code, pickupOtp, deliveryOtp))
+    .catch(() => { /* never block the response */ })
 
   // Return OTPs to the shipper in plain text so they can give them to driver at pickup/delivery
   notifyAdminsOfEvent(

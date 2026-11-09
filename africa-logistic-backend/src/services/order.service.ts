@@ -183,6 +183,8 @@ export interface CreateOrderData {
   guestName?: string | null
   guestPhone?: string | null
   guestEmail?: string | null
+  /** How many trucks this load needs. Defaults to 1. */
+  vehiclesRequired?: number
 }
 
 // ─── OTP Utilities ────────────────────────────────────────────────────────────
@@ -299,8 +301,8 @@ export async function createOrder(db: Pool, data: CreateOrderData): Promise<stri
         cargo_image_url, payment_receipt_url,
         is_guest_order, guest_name, guest_phone, guest_email,
         is_cross_border, pickup_country_id, delivery_country_id,
-        hs_code, shipper_tin
-      ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+        hs_code, shipper_tin, vehicles_required
+      ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
     [
       id, refCode, data.shipperId ?? null, data.cargoTypeId,
       data.pickupLat, data.pickupLng, data.pickupAddress,
@@ -316,6 +318,8 @@ export async function createOrder(db: Pool, data: CreateOrderData): Promise<stri
       data.deliveryCountryId ?? 1,
       data.hsCode ?? null,
       data.shipperTin ?? null,
+      // One truck unless the shipper said otherwise; quoted in the confirmation SMS.
+      data.vehiclesRequired && data.vehiclesRequired > 0 ? data.vehiclesRequired : 1,
     ]
   )
 
@@ -461,6 +465,15 @@ export async function assignOrderToDriver(
     `UPDATE driver_profiles SET status = 'ON_JOB' WHERE user_id = ?`,
     [driverId]
   )
+
+  // The load is now confirmed and ready to run, so tell the shipper by SMS.
+  // Fire-and-forget: a failed text must never undo a completed assignment.
+  import('./order-sms.service.js')
+    .then(async ({ factsForOrder, sendOrderConfirmationSms }) => {
+      const facts = await factsForOrder(db, orderId)
+      if (facts) await sendOrderConfirmationSms(db, facts.shipper_id, facts)
+    })
+    .catch(() => { /* notification only */ })
 }
 
 export async function cancelOrder(db: Pool, orderId: string, cancelledBy: string): Promise<void> {

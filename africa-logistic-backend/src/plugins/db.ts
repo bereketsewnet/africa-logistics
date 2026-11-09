@@ -331,6 +331,22 @@ export default fp(async function dbPlugin(fastify: FastifyInstance) {
     // for verification. Older production databases only had the hash columns.
     await addColIfMissing('orders',        'pickup_otp',            'VARCHAR(6) NULL AFTER pickup_otp_hash')
     await addColIfMissing('orders',        'delivery_otp',          'VARCHAR(6) NULL AFTER delivery_otp_hash')
+
+    // How many trucks this load needs. One order has always meant one vehicle,
+    // so every existing row is correctly 1 — but a shipper advertising a
+    // ten-truck job needs to say so, and the confirmation SMS quotes it.
+    await addColIfMissing('orders', 'vehicles_required', 'INT NOT NULL DEFAULT 1')
+
+    // SMS duplicates of notifications that already go out by email. Both
+    // default ON, as asked; a recipient can switch either off from their
+    // profile without losing the email.
+    // `upsertNotificationPrefs` has always written to this column, but nothing
+    // ever created it — so EVERY save of notification preferences failed with
+    // "Unknown column 'telegram_enabled'", which is why the table is empty
+    // despite the toggle being on screen.
+    await addColIfMissing('notification_preferences', 'telegram_enabled', 'TINYINT(1) NOT NULL DEFAULT 1')
+    await addColIfMissing('notification_preferences', 'sms_order_alerts', 'TINYINT(1) NOT NULL DEFAULT 1')
+    await addColIfMissing('notification_preferences', 'sms_otp_codes',    'TINYINT(1) NOT NULL DEFAULT 1')
     // The fleet workflow grew after the original vehicles table was deployed.
     // Keep this migration idempotent so an empty/older database returns []
     // instead of failing every order form with an unknown-column SQL error.
@@ -924,6 +940,35 @@ export default fp(async function dbPlugin(fastify: FastifyInstance) {
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
     `)
 
+    // A campaign is a message an admin composed and sent from the SMS screen.
+    //
+    // The body lives HERE and deliberately not on `sms_messages`, which logs
+    // every send in the system — welcome texts and OTPs included. Those carry
+    // passwords and one-time codes, and writing them to a table in plain text
+    // would turn the log into a credential store. A campaign body is only what
+    // an admin typed, so it is safe to keep and safe to offer back for reuse.
+    await conn.query(`
+      CREATE TABLE IF NOT EXISTS sms_campaigns (
+        id              CHAR(36)    NOT NULL PRIMARY KEY,
+        body            TEXT        NOT NULL,
+        segments        INT         NOT NULL DEFAULT 1,
+        is_unicode      TINYINT(1)  NOT NULL DEFAULT 0,
+        recipient_count INT         NOT NULL DEFAULT 0,
+        sent_count      INT         NOT NULL DEFAULT 0,
+        failed_count    INT         NOT NULL DEFAULT 0,
+        created_by      CHAR(36)    NULL,
+        created_at      TIMESTAMP   DEFAULT CURRENT_TIMESTAMP,
+        INDEX idx_sms_campaign_created (created_at),
+        CONSTRAINT fk_sms_campaign_author FOREIGN KEY (created_by)
+          REFERENCES users(id) ON DELETE SET NULL
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+    `)
+
+    // Ties each logged send back to the campaign it belonged to, so a campaign
+    // can show per-recipient delivery. NULL for every automatic message.
+    await addColIfMissing('sms_messages', 'campaign_id', 'CHAR(36) NULL')
+    await addIndexIfMissing('sms_messages', 'idx_sms_campaign', '(campaign_id)')
+
     // ─── Driver profiles ─────────────────────────────────────────────────────
     // This table had no CREATE statement anywhere in the codebase — it existed
     // only inside init/01_backup.sql, so a fresh deployment came up without it.
@@ -1018,7 +1063,8 @@ export default fp(async function dbPlugin(fastify: FastifyInstance) {
         ('settings.manage',     'System Settings',            'Manage countries, vehicle types and maintenance config'),
         ('users.manage',        'User Management',            'Manage users and staff accounts'),
         ('roles.manage',        'Role Management',            'Manage role-permission assignments'),
-        ('companies.manage',    'Transport Companies',        'Manage transport companies and their vehicles')
+        ('companies.manage',    'Transport Companies',        'Manage transport companies and their vehicles'),
+        ('sms.send',            'Send SMS',                   'Compose and send SMS to customers, staff and any phone number')
     `)
 
     // Default permissions for role 1 (super admin) — all permissions.

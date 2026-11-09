@@ -824,3 +824,40 @@ export const adminCompanyBulkApi = {
   verifyDrivers: (data: { ids?: string[]; company_id?: string; all_pending?: boolean }) =>
     apiClient.patch('/admin/company-drivers/bulk/verify', data),
 }
+
+// ─── Admin: SMS ───────────────────────────────────────────────────────────────
+/**
+ * Compose and send SMS to anyone. `prepare` resolves groups to real numbers,
+ * removes duplicates and prices the campaign without sending — the screen shows
+ * that before anything is spent. `send` then takes small chunks, because the
+ * provider has no bulk endpoint and one long request would time out.
+ */
+export const adminSmsApi = {
+  /** Audiences that can be picked in one click, with their live sizes. */
+  groups: () => apiClient.get('/admin/sms/groups'),
+
+  searchRecipients: (search: string) =>
+    apiClient.get('/admin/sms/recipients', { params: { search } }),
+
+  recentNumbers: () => apiClient.get('/admin/sms/recent-numbers'),
+
+  /** Past campaigns, body included, so one can be reused or edited. */
+  recentMessages: () => apiClient.get('/admin/sms/recent-messages'),
+
+  /** Resolve, de-duplicate and price. Sends nothing. */
+  prepare: (data: {
+    message: string
+    numbers?: string[]
+    groups?: Array<{ group: string; company_id?: string }>
+  }) => apiClient.post('/admin/sms/prepare', data),
+
+  /** One chunk (max 20). Pass the campaign_id back on every chunk after the first. */
+  send: (data: {
+    message: string
+    recipients: Array<{ phone: string; name?: string | null }>
+    campaign_id?: string
+  }) => apiClient.post('/admin/sms/send', data),
+
+  history: (params?: { page?: number; limit?: number; purpose?: string }) =>
+    apiClient.get('/admin/sms/history', { params }),
+}

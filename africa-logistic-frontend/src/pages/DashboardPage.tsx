@@ -539,13 +539,18 @@ export default function DashboardPage() {
   }
 
   // ── Notification preferences ────────────────────────────────────────────────
-  const [notifPrefs, setNotifPrefs] = useState({ sms_enabled: 1, email_enabled: 1, browser_enabled: 1, telegram_enabled: 1, order_updates: 1, promotions: 0 })
+  const [notifPrefs, setNotifPrefs] = useState({ sms_enabled: 1, email_enabled: 1, browser_enabled: 1, telegram_enabled: 1, order_updates: 1, promotions: 0, sms_order_alerts: 1, sms_otp_codes: 1 })
   const [notifLoading, setNotifLoading] = useState(false)
   const [notifMsg, setNotifMsg] = useState('')
 
   useEffect(() => {
     apiClient.get('/profile/notifications').then(r => {
-      if (r.data.preferences) setNotifPrefs(r.data.preferences)
+      if (r.data.preferences) setNotifPrefs({
+        ...r.data.preferences,
+        // Absent on an older server response: both default on, as designed.
+        sms_order_alerts: r.data.preferences.sms_order_alerts ?? 1,
+        sms_otp_codes:    r.data.preferences.sms_otp_codes ?? 1,
+      })
     }).catch(() => { })
   }, [])
 
@@ -557,6 +562,7 @@ export default function DashboardPage() {
         sms_enabled: !!next.sms_enabled, email_enabled: !!next.email_enabled,
         browser_enabled: !!next.browser_enabled, telegram_enabled: !!next.telegram_enabled,
         order_updates: !!next.order_updates, promotions: !!next.promotions,
+        sms_order_alerts: !!next.sms_order_alerts, sms_otp_codes: !!next.sms_otp_codes,
       })
       setNotifMsg('Preferences saved.')
       setTimeout(() => setNotifMsg(''), 2500)
@@ -1255,6 +1261,8 @@ export default function DashboardPage() {
                         { key: 'browser_enabled', icon: <LuBell size={15} />, label: tr('notif_browser_label'), sub: tr('notif_browser_sub') },
                         { key: 'telegram_enabled', icon: <LuMessageSquare size={15} />, label: tr('notif_telegram_label'), sub: tr('notif_telegram_sub') },
                         { key: 'order_updates', icon: <LuTruck size={15} />, label: tr('notif_orders_label'), sub: tr('notif_orders_sub') },
+                        { key: 'sms_order_alerts', icon: <LuTruck size={15} />, label: tr('notif_sms_order_label'), sub: tr('notif_sms_order_sub') },
+                        { key: 'sms_otp_codes', icon: <LuSmartphone size={15} />, label: tr('notif_sms_otp_label'), sub: tr('notif_sms_otp_sub') },
                         { key: 'promotions', icon: <LuStar size={15} />, label: tr('notif_promo_label'), sub: tr('notif_promo_sub') },
                       ] as { key: keyof typeof notifPrefs; icon: React.ReactNode; label: string; sub: string }[]).map(({ key, icon, label, sub }, i, arr) => (
                         <div key={key} style={{ display: 'flex', alignItems: 'center', gap: '0.85rem', padding: '0.9rem 0', borderBottom: i < arr.length - 1 ? '1px solid rgba(255,255,255,0.05)' : 'none' }}>

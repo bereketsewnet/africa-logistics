@@ -49,6 +49,10 @@ interface UpdateNotificationPrefsBody {
   telegram_enabled?: boolean
   order_updates?: boolean
   promotions?: boolean
+  /** SMS copy of the order-confirmation message. */
+  sms_order_alerts?: boolean
+  /** SMS copy of the pickup and delivery codes. */
+  sms_otp_codes?: boolean
 }
 
 interface DriverDocUploadBody {
@@ -136,6 +140,9 @@ export async function getProfileHandler(
       email_enabled: 1,
       browser_enabled: 1,
       order_updates: 1,
+      telegram_enabled: 1,
+      sms_order_alerts: 1,
+      sms_otp_codes: 1,
       promotions: 0,
     },
   })
@@ -259,6 +266,9 @@ export async function getNotificationPrefsHandler(
       email_enabled: 1,
       browser_enabled: 1,
       order_updates: 1,
+      telegram_enabled: 1,
+      sms_order_alerts: 1,
+      sms_otp_codes: 1,
       promotions: 0,
     },
   })
@@ -282,6 +292,8 @@ export async function updateNotificationPrefsHandler(
     telegram_enabled: body.telegram_enabled !== undefined ? (body.telegram_enabled ? 1 : 0) : undefined,
     order_updates:    body.order_updates    !== undefined ? (body.order_updates ? 1 : 0)    : undefined,
     promotions:       body.promotions       !== undefined ? (body.promotions ? 1 : 0)       : undefined,
+    sms_order_alerts: body.sms_order_alerts !== undefined ? (body.sms_order_alerts ? 1 : 0) : undefined,
+    sms_otp_codes:    body.sms_otp_codes    !== undefined ? (body.sms_otp_codes ? 1 : 0)    : undefined,
   })
 
   const updated = await getNotificationPrefs(request.server.db, caller.id)

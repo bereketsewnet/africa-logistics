@@ -18,6 +18,7 @@ import AdminDocumentationLibrary from '../components/AdminDocumentationLibrary'
 import { absoluteUploadUrl } from '../lib/uploadUrl'
 import DocumentUploadField from '../components/fleet/DocumentUploadField'
 import AdminCompaniesSection from '../components/AdminCompaniesSection'
+import AdminSmsSection from '../components/AdminSmsSection'
 import AdminCompanyVehiclesSection from '../components/AdminCompanyVehiclesSection'
 import AdminCompanyDriversSection from '../components/AdminCompanyDriversSection'
 import DriverPicker, { type DispatchDriver } from '../components/DriverPicker'
@@ -194,7 +195,7 @@ interface Stats {
   total_users: number; total_admins: number; total_shippers: number
   total_drivers: number; active_users: number; new_today: number
 }
-type AdminSection = 'overview' | 'drivers' | 'shippers' | 'staff' | 'verify-drivers' | 'vehicles' | 'orders' | 'live-drivers' | 'guest-orders' | 'cargo-types' | 'pricing-rules' | 'profile' | 'payments' | 'wallet-adjustment' | 'notif-settings' | 'settings' | 'vehicle-types' | 'countries' | 'maintenance-mode' | 'phone-otp-settings' | 'role-management' | 'security-events' | 'cross-border' | 'reports' | 'contact-info' | 'ai-settings' | 'bank-information' | 'documentation' | 'car-owners' | 'car-owner-users' | 'companies' | 'company-vehicles' | 'company-drivers'
+type AdminSection = 'overview' | 'drivers' | 'shippers' | 'staff' | 'verify-drivers' | 'vehicles' | 'orders' | 'live-drivers' | 'guest-orders' | 'cargo-types' | 'pricing-rules' | 'profile' | 'payments' | 'wallet-adjustment' | 'notif-settings' | 'settings' | 'vehicle-types' | 'countries' | 'maintenance-mode' | 'phone-otp-settings' | 'role-management' | 'security-events' | 'cross-border' | 'reports' | 'contact-info' | 'ai-settings' | 'bank-information' | 'documentation' | 'car-owners' | 'car-owner-users' | 'companies' | 'company-vehicles' | 'company-drivers' | 'sms'
 type ProfileTab = 'profile' | 'security' | 'contact'
 
 interface DriverRow {
@@ -8672,6 +8673,7 @@ export default function AdminDashboardPage() {
     ...(can('companies.manage') ? [{ id: 'company-drivers' as AdminSection, icon: <LuUsers size={16} />, label: 'Company Drivers' }] : []),
     ...(user?.role_id === 1 ? [{ id: 'security-events' as AdminSection, icon: <LuShieldCheck size={16} />, label: tr('sb_security') }] : []),
     ...(can('settings.manage') || can('notifications.manage') || can('roles.manage') || can('pricing.manage') || can('cargo.manage') ? [{ id: 'settings' as AdminSection, icon: <LuSettings size={16} />, label: tr('sb_settings') }] : []),
+    ...(can('sms.send') ? [{ id: 'sms' as AdminSection, icon: <LuMessageSquare size={16} />, label: 'SMS' }] : []),
     { id: 'profile' as AdminSection, icon: <LuUser size={16} />, label: 'My Profile' },
   ]
 
@@ -8811,6 +8813,7 @@ export default function AdminDashboardPage() {
               label: tr('sb_group_system'),
               items: [
                 ...(user?.role_id === 1 ? [{ id: 'security-events' as AdminSection, icon: <LuShieldCheck size={15} />, label: tr('sb_security') }] : []),
+                ...(can('sms.send') ? [{ id: 'sms' as AdminSection, icon: <LuMessageSquare size={15} />, label: 'SMS' }] : []),
                 ...(can('settings.manage') || can('notifications.manage') || can('roles.manage') || can('pricing.manage') || can('cargo.manage') ? [{ id: 'settings' as AdminSection, icon: <LuSettings size={15} />, label: tr('sb_settings') }] : []),
                 { id: 'profile' as AdminSection, icon: <LuUser size={15} />, label: tr('sb_profile') },
               ],
@@ -8905,6 +8908,7 @@ export default function AdminDashboardPage() {
             initialCompanyId={companyFilter?.id} initialCompanyName={companyFilter?.name} />}
           {section === 'company-drivers' && <AdminCompanyDriversSection onToast={showToast}
             canPurge={user?.role_id === 1} />}
+          {section === 'sms' && <AdminSmsSection onToast={showToast} />}
           {section === 'reports' && <AdminReportsSection allowedTabs={reportTabsForRole} />}
           {section === 'contact-info' && <AdminContactInfoSection />}
           {section === 'bank-information' && <AdminBankInformation />}
