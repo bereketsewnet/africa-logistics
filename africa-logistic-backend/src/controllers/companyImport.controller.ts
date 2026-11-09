@@ -206,7 +206,7 @@ export function buildBulkWelcomeSms(password: string, supportPhone: string | nul
   const help = supportPhone ? ` Help: ${supportPhone}` : ''
   return `Welcome to Afri Logistics! Your one-time login password is ${password}. `
     + 'You must change this password immediately upon first login. '
-    + `Afri Logistics will never ask you to share this code. Login: afri-logistics.com${help}`
+    + `Afri Logistics will never ask you to share this code. Login: afri-logistics.com/login${help}`
 }
 
 /**

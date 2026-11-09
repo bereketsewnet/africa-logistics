@@ -798,7 +798,7 @@ export function buildWelcomeSms(firstName: string, phone: string, password: stri
   // The template is 144 characters before the name, so a long one would tip the
   // message past 160 and double the cost of every driver registration.
   const name = firstName.trim().slice(0, 12)
-  return `Afri Logistics: Welcome ${name}. Login at afri-logistics.com - phone ${phone}, password ${password}. Please change your password after you sign in.`
+  return `Afri Logistics: Welcome ${name}. Login at afri-logistics.com/login - phone ${phone}, password ${password}. Please change your password after you sign in.`
 }
 
 /**
